@@ -31,8 +31,8 @@ h1,h2,h3{font-family:var(--fh);letter-spacing:-.015em;margin:0;}
 button{font-family:var(--fb);cursor:pointer;}
 input,textarea,select{font-family:var(--fb);color:var(--ink);}
 textarea{resize:vertical;}
+a{color:var(--brand2);}
 
-/* header */
 .head{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;
   padding:14px clamp(14px,2vw,22px);margin-bottom:16px;background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);}
 .brandrow{display:flex;align-items:center;gap:13px;}
@@ -41,19 +41,19 @@ textarea{resize:vertical;}
 .brand-name{font-family:var(--fh);font-weight:800;font-size:clamp(20px,2.6vw,26px);line-height:1;}
 .brand-name b{color:var(--brand);}
 .brand-sub{font-size:12px;color:var(--sub);margin-top:4px;}
+.acct{display:flex;align-items:center;gap:10px;}
 .statusdot{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:999px;font-weight:600;font-size:12px;}
 .statusdot i{width:7px;height:7px;border-radius:50%;}
 .st-ok{background:var(--gsoft);color:var(--green2);} .st-ok i{background:var(--green);box-shadow:0 0 0 3px rgba(95,122,78,.18);}
 .st-warn{background:var(--tsoft);color:var(--terra2);} .st-warn i{background:var(--terra);box-shadow:0 0 0 3px rgba(200,112,61,.18);}
+.st-blue{background:var(--bluesoft);color:var(--blue);} .st-blue i{background:var(--blue);box-shadow:0 0 0 3px rgba(58,107,138,.18);}
 
-/* nav */
 .nav{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;}
-.nav button{padding:9px 15px;border-radius:12px;border:1px solid transparent;background:transparent;color:var(--sub);font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:7px;}
+.nav button{padding:9px 14px;border-radius:12px;border:1px solid transparent;background:transparent;color:var(--sub);font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:7px;}
 .nav button:hover{background:var(--chip);color:var(--ink);}
 .nav button.on{background:var(--card);color:var(--brand);border-color:var(--line);box-shadow:var(--shadow);}
 .nav .em{font-size:15px;}
 
-/* panels */
 .panel{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);}
 .pad{padding:clamp(16px,2vw,24px);}
 .ph{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
@@ -62,7 +62,6 @@ textarea{resize:vertical;}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
 @media(max-width:820px){.grid2,.grid3{grid-template-columns:1fr;}}
 
-/* controls */
 label.fld{display:block;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--mute);margin:0 0 6px;}
 .inp,textarea.inp,select.inp{width:100%;padding:11px 13px;border-radius:12px;border:1px solid var(--line);background:var(--inp);font-size:14px;outline:none;}
 .inp:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--bsoft);}
@@ -75,6 +74,8 @@ textarea.inp{line-height:1.5;}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:var(--chip);font-size:12px;font-weight:600;color:var(--sub);border:1px solid var(--line2);}
 .chip.pick{cursor:pointer;} .chip.pick.on{background:var(--bsoft);color:var(--brand2);border-color:#F0CFC9;}
 .tag{font-family:var(--fm);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute2);}
+.badge{font-family:var(--fm);font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;padding:3px 7px;border-radius:7px;background:var(--chip);color:var(--sub2);border:1px solid var(--line2);}
+.badge.login{background:var(--bluesoft);color:var(--blue);border-color:#C9DCE7;}
 
 .kpi{background:var(--card2);border:1px solid var(--line2);border-radius:16px;padding:15px 16px;}
 .kpi .k{font-family:var(--fm);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute2);margin-bottom:7px;}
@@ -85,7 +86,6 @@ textarea.inp{line-height:1.5;}
 .empty{text-align:center;padding:34px 18px;color:var(--mute);}
 .empty .big{font-size:30px;margin-bottom:8px;}
 
-/* chat */
 .chat{display:flex;flex-direction:column;gap:12px;max-height:52vh;overflow:auto;padding:4px;}
 .msg{max-width:88%;padding:12px 15px;border-radius:16px;font-size:14.5px;line-height:1.55;white-space:pre-wrap;}
 .msg.ai{align-self:flex-start;background:var(--card2);border:1px solid var(--line2);border-bottom-left-radius:5px;}
@@ -116,11 +116,20 @@ textarea.inp{line-height:1.5;}
 .note{font-size:12px;color:var(--sub);line-height:1.5;}
 .warnbox{background:var(--tsoft);border:1px solid #E7C9A8;border-radius:13px;padding:12px 14px;font-size:12.5px;color:var(--terra2);line-height:1.5;}
 .okbox{background:var(--gsoft);border:1px solid #C9D8B6;border-radius:13px;padding:12px 14px;font-size:12.5px;color:var(--green2);line-height:1.5;}
+.bluebox{background:var(--bluesoft);border:1px solid #C9DCE7;border-radius:13px;padding:12px 14px;font-size:12.5px;color:var(--blue);line-height:1.5;}
 .foot{text-align:center;font-size:11.5px;color:var(--mute2);margin:22px 0 8px;line-height:1.6;}
-a{color:var(--brand2);}
 .seg{display:inline-flex;background:var(--seg);border-radius:11px;padding:3px;gap:3px;}
 .seg button{border:none;background:transparent;padding:7px 13px;border-radius:9px;font-weight:600;font-size:12.5px;color:var(--sub);}
 .seg button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow);}
+
+.statdot{width:9px;height:9px;border-radius:50%;flex:none;}
+.sd-ok{background:var(--green);} .sd-changed{background:var(--terra);} .sd-attn{background:var(--brand);} .sd-none{background:#CFC4B2;}
+
+.overlay{position:fixed;inset:0;background:rgba(60,45,25,.34);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:50;padding:18px;}
+.modal{background:var(--card);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadowL);width:100%;max-width:430px;padding:24px;}
+.codebox{font-family:var(--fm);font-size:11.5px;line-height:1.5;background:#2A2320;color:#F3ECDC;border-radius:13px;padding:14px;white-space:pre-wrap;max-height:240px;overflow:auto;}
+.linkurl{font-size:11.5px;color:var(--blue);word-break:break-all;text-decoration:none;}
+.linkurl:hover{text-decoration:underline;}
 </style>
 </head>
 <body>
@@ -128,76 +137,77 @@ a{color:var(--brand2);}
 
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script>
-  // Use the classic JSX runtime (React.createElement) — the automatic runtime emits
-  // `import {jsx} from "react/jsx-runtime"`, which fails without a bundler/module loader.
+  // Classic JSX runtime (React.createElement) — the automatic runtime emits an ES import that fails without a bundler.
   Babel.registerPreset('react-classic', { presets: [[Babel.availablePresets['react'], { runtime: 'classic' }]] });
 </script>
 <script type="text/babel" data-presets="react-classic">
 const {useState,useEffect,useRef,useMemo} = React;
 
 /* ============================ persistence ============================ */
-const DB_KEY = 'mighty_v1';
+const DB_KEY  = 'mighty_v1';    // synced app data (cloud + local cache)
+const CFG_KEY = 'mighty_cfg';   // device-local config — NEVER synced (keys live here)
 const DEFAULT = {
   readings: [],
-  cc: { sessions: [] },           // cold-call / simulator sessions
+  cc: { sessions: [] },
   quiz: { sessions: [], weak: {} },
   planner: { tasks: [] },
-  opt: {},                         // F-1/OPT dates
-  settings: { apiKey:'', model:'claude-sonnet-4-6' },
+  opt: {},
+  watch: { items: [], lastRun: null },
 };
-function loadDB(){
-  try{ const s = JSON.parse(localStorage.getItem(DB_KEY)); if(s&&typeof s==='object') return {...DEFAULT,...s,
-    cc:{...DEFAULT.cc,...(s.cc||{})}, quiz:{...DEFAULT.quiz,...(s.quiz||{})},
-    planner:{...DEFAULT.planner,...(s.planner||{})}, settings:{...DEFAULT.settings,...(s.settings||{})}}; }catch(e){}
-  return JSON.parse(JSON.stringify(DEFAULT));
+function shape(d){
+  d = d||{};
+  return { ...JSON.parse(JSON.stringify(DEFAULT)), ...d,
+    cc:{...DEFAULT.cc,...(d.cc||{})}, quiz:{...DEFAULT.quiz,...(d.quiz||{})},
+    planner:{...DEFAULT.planner,...(d.planner||{})}, watch:{...DEFAULT.watch,...(d.watch||{})} };
 }
+function loadDB(){ try{ return shape(JSON.parse(localStorage.getItem(DB_KEY))); }catch(e){ return shape(); } }
+
+const CFG_DEFAULT = { apiKey:'', model:'claude-sonnet-4-6', supabaseUrl:'', supabaseKey:'' };
+function loadCfg(){
+  let c; try{ c = {...CFG_DEFAULT, ...(JSON.parse(localStorage.getItem(CFG_KEY))||{})}; }catch(e){ c={...CFG_DEFAULT}; }
+  // one-time migration: pull an old v0 inline API key out of synced data
+  if(!c.apiKey){ try{ const old=JSON.parse(localStorage.getItem(DB_KEY)); if(old&&old.settings&&old.settings.apiKey) c.apiKey=old.settings.apiKey; }catch(e){} }
+  return c;
+}
+function saveCfg(c){ localStorage.setItem(CFG_KEY, JSON.stringify(c)); }
+
 const uid = () => Math.random().toString(36).slice(2,10);
 const now = () => Date.now();
 const fmtDate = ts => new Date(ts).toLocaleDateString(undefined,{month:'short',day:'numeric'});
 const daysBetween = (a,b) => Math.round((b-a)/864e5);
+const rel = ts => { if(!ts) return 'never'; const s=(now()-ts)/1000;
+  if(s<60) return 'just now'; if(s<3600) return Math.floor(s/60)+'m ago';
+  if(s<86400) return Math.floor(s/3600)+'h ago'; return Math.floor(s/86400)+'d ago'; };
+const MIT_RE = /@([a-z0-9-]+\.)*mit\.edu$/i;
 
 /* ============================ LLM layer ============================ */
-// One file, two runtimes: Claude artifact (window.claude.complete) OR direct Anthropic API (BYO key).
 const inArtifact = () => typeof window!=='undefined' && window.claude && typeof window.claude.complete==='function';
-function llmMode(settings){
-  if(inArtifact()) return 'artifact';
-  if(settings && settings.apiKey) return 'api';
-  return 'none';
-}
-async function llm(settings, system, user, maxTokens=1400){
-  const mode = llmMode(settings);
-  if(mode==='artifact'){
-    const prompt = `${system}\n\n———\n${user}`;
-    return await window.claude.complete(prompt);
-  }
+function llmMode(cfg){ if(inArtifact()) return 'artifact'; if(cfg && cfg.apiKey) return 'api'; return 'none'; }
+async function llm(cfg, system, user, maxTokens=1400){
+  const mode = llmMode(cfg);
+  if(mode==='artifact') return await window.claude.complete(`${system}\n\n———\n${user}`);
   if(mode==='api'){
-    const res = await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{ 'content-type':'application/json','x-api-key':settings.apiKey,
+    const res = await fetch('https://api.anthropic.com/v1/messages',{ method:'POST',
+      headers:{ 'content-type':'application/json','x-api-key':cfg.apiKey,
         'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
-      body: JSON.stringify({ model: settings.model||'claude-sonnet-4-6', max_tokens:maxTokens, system,
-        messages:[{role:'user',content:user}] })
-    });
+      body: JSON.stringify({ model:cfg.model||'claude-sonnet-4-6', max_tokens:maxTokens, system, messages:[{role:'user',content:user}] }) });
     if(!res.ok){ const t=await res.text(); throw new Error(`API ${res.status}: ${t.slice(0,300)}`); }
-    const data = await res.json();
-    return (data.content||[]).map(c=>c.text||'').join('');
+    const data = await res.json(); return (data.content||[]).map(c=>c.text||'').join('');
   }
-  throw new Error('No Claude connection. Open Settings and add your Anthropic API key, or run this file as a Claude artifact.');
+  throw new Error('No Claude connection. Add your Anthropic API key in Settings, or run this as a Claude artifact.');
 }
 function extractJSON(text){
   if(!text) throw new Error('Empty response');
-  // strip code fences and grab the outermost object
-  let t = text.replace(/```json/gi,'```').trim();
-  const f = t.indexOf('```'); if(f>=0){ const e=t.indexOf('```',f+3); if(e>f) t=t.slice(f+3,e).trim(); }
-  const a=t.indexOf('{'), b=t.lastIndexOf('}');
-  if(a<0||b<a) throw new Error('No JSON found in response');
+  let t=text.replace(/```json/gi,'```').trim();
+  const f=t.indexOf('```'); if(f>=0){ const e=t.indexOf('```',f+3); if(e>f) t=t.slice(f+3,e).trim(); }
+  const a=t.indexOf('{'), b=t.lastIndexOf('}'); if(a<0||b<a) throw new Error('No JSON in response');
   return JSON.parse(t.slice(a,b+1));
 }
-async function llmJSON(settings, system, user, maxTokens=1600){
-  const raw = await llm(settings, system+'\n\nRespond with ONLY valid minified JSON, no prose, no code fences.', user, maxTokens);
-  return extractJSON(raw);
+async function llmJSON(cfg, system, user, maxTokens=1600){
+  return extractJSON(await llm(cfg, system+'\n\nRespond with ONLY valid minified JSON, no prose, no code fences.', user, maxTokens));
 }
 
 /* ============================ personas ============================ */
@@ -220,100 +230,221 @@ const PERSONAS = {
     rubric:'structure (MECE), quantitative reasoning, business judgment, and synthesis/recommendation' },
 };
 
-/* ============================ tiny UI atoms ============================ */
+/* ============================ MIT Watch starter set ============================ */
+const STARTER = [
+  {label:'Sloan Hub',              url:'https://sloanhub.mit.edu/',                         category:'Sloan',     needsLogin:true,  watchFor:'New announcements, events, or action items for Sloan Fellows'},
+  {label:'Student Funding',        url:'https://sloanhub.mit.edu/pages/student-funding',    category:'Money',     needsLogin:true,  watchFor:'New funding / fellowship opportunities and their application deadlines'},
+  {label:'MySloan',                url:'https://mysloan.mit.edu/',                          category:'Sloan',     needsLogin:true,  watchFor:'Anything new on my dashboard: holds, to-dos, forms'},
+  {label:'Canvas',                 url:'https://canvas.mit.edu/',                           category:'Academics', needsLogin:true,  watchFor:'New assignments, announcements, or grades posted'},
+  {label:'WebSIS / Registrar',     url:'https://student.mit.edu/',                          category:'Academics', needsLogin:true,  watchFor:'Registration holds, schedule changes, deadlines'},
+  {label:'International Students',  url:'https://iso.mit.edu/',                              category:'Visa',      needsLogin:false, watchFor:'OPT/CPT deadlines, document requirements, workshops — DATES ONLY, no rule interpretation'},
+  {label:'MITPAY',                 url:'https://mitpay.mit.edu/',                           category:'Money',     needsLogin:true,  watchFor:'Balance due and payment deadlines — SHOW ONLY, never pay'},
+  {label:'Career (CDO)',           url:'https://cdo.mit.edu/',                              category:'Career',    needsLogin:true,  watchFor:'New roles, application deadlines, recruiting events'},
+  {label:'MIT Events Calendar',    url:'https://calendar.mit.edu/',                         category:'Campus',    needsLogin:false, watchFor:'Upcoming events relevant to me this week'},
+  {label:'Atlas',                  url:'https://atlas.mit.edu/',                            category:'Admin',     needsLogin:true,  watchFor:'Action items, requests, or holds in my queue'},
+];
+
+/* ============================ atoms ============================ */
 function Dots(){ return <span className="typing"><i></i><i></i><i></i></span>; }
 function Stat({k,v,sub,d}){ return <div className="kpi"><div className="k">{k}</div><div className="v">{v}{sub&&<small> {sub}</small>}</div>{d&&<div className="d">{d}</div>}</div>; }
 
 /* ============================ App shell ============================ */
 function App(){
   const [db,setDb] = useState(loadDB);
+  const [cfg,setCfgState] = useState(loadCfg);
   const [tab,setTab] = useState('home');
-  useEffect(()=>{ localStorage.setItem(DB_KEY, JSON.stringify(db)); },[db]);
-  // helper: shallow-merge a slice
-  const patch = (slice, val) => setDb(d=>({...d, [slice]: typeof val==='function'? val(d[slice]) : {...d[slice],...val}}));
-  const mode = llmMode(db.settings);
+  const [sb,setSb] = useState(null);
+  const [auth,setAuth] = useState({status:'loading', user:null});
+  const [authOpen,setAuthOpen] = useState(false);
+  const lastSync = useRef(null);
+  const saveTimer = useRef(null);
 
+  const setCfg = (p) => setCfgState(c=>{ const n={...c,...p}; saveCfg(n); return n; });
+  const patch = (slice, val) => setDb(d=>({...d,[slice]: typeof val==='function'? val(d[slice]):{...d[slice],...val}}));
+
+  // build supabase client when creds present
+  useEffect(()=>{
+    if(cfg.supabaseUrl && cfg.supabaseKey && window.supabase){
+      try{ setSb(window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseKey)); }
+      catch(e){ setSb(null); setAuth({status:'guest',user:null}); }
+    } else { setSb(null); setAuth({status:'guest',user:null}); }
+  },[cfg.supabaseUrl, cfg.supabaseKey]);
+
+  // auth session + listener
+  useEffect(()=>{
+    if(!sb){ return; }
+    let sub;
+    const onUser = (u)=>{ setAuth({status:u?'in':'out', user:u}); if(u) pull(sb,u); };
+    sb.auth.getSession().then(({data})=>onUser(data.session?.user||null));
+    const r = sb.auth.onAuthStateChange((_e,session)=>onUser(session?.user||null));
+    sub = r.data?.subscription;
+    return ()=>{ sub&&sub.unsubscribe(); };
+  },[sb]);
+
+  async function pull(client, u){
+    try{
+      const {data} = await client.from('user_data').select('data').eq('user_id',u.id).maybeSingle();
+      if(data && data.data){ const s=shape(data.data); lastSync.current=JSON.stringify(s); setDb(s); }
+      else { const s=loadDB(); lastSync.current=JSON.stringify(s);
+        await client.from('user_data').upsert({user_id:u.id, data:s, updated_at:new Date().toISOString()}); }
+    }catch(e){ /* stay on local cache */ }
+  }
+
+  // persist locally always; push to cloud when signed in & changed
+  useEffect(()=>{
+    const s = JSON.stringify(db);
+    localStorage.setItem(DB_KEY, s);
+    if(auth.status==='in' && sb && s!==lastSync.current){
+      lastSync.current = s;
+      clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(()=>{
+        sb.from('user_data').upsert({user_id:auth.user.id, data:db, updated_at:new Date().toISOString()})
+          .then(()=>{},()=>{});
+      },1200);
+    }
+  },[db]);
+
+  // re-pull on window focus (cross-device freshness)
+  useEffect(()=>{
+    if(auth.status!=='in'||!sb) return;
+    const f=()=>pull(sb,auth.user); window.addEventListener('focus',f); return ()=>window.removeEventListener('focus',f);
+  },[auth.status, sb]);
+
+  const mode = llmMode(cfg);
+  const sbReady = !!sb;
   const TABS = [
-    ['home','🏠','Home'],['library','📚','Library'],['sim','🎯','Simulator'],
-    ['tutor','🧑‍🏫','Tutor'],['quiz','🃏','Quiz'],['planner','🗓️','Planner'],
-    ['opt','🛂','OPT Clock'],['settings','⚙️','Settings'],
+    ['home','🏠','Home'],['watch','📡','MIT Watch'],['library','📚','Library'],['sim','🎯','Simulator'],
+    ['tutor','🧑‍🏫','Tutor'],['quiz','🃏','Quiz'],['planner','🗓️','Planner'],['opt','🛂','OPT'],['settings','⚙️','Settings'],
   ];
+
+  async function signOut(){ if(sb){ await sb.auth.signOut(); } }
 
   return <div className="wrap">
     <div className="head">
       <div className="brandrow">
         <div className="logo">Mi</div>
-        <div>
-          <div className="brand-name"><b>MI</b>gh<b>T</b>y</div>
-          <div className="brand-sub">study + survival agent · Sloan Fellows · v0</div>
-        </div>
+        <div><div className="brand-name"><b>MI</b>gh<b>T</b>y</div>
+          <div className="brand-sub">study + survival agent · Sloan Fellows</div></div>
       </div>
-      {mode==='none'
-        ? <button className="statusdot st-warn" onClick={()=>setTab('settings')}><i></i>No Claude connection — set up</button>
-        : <span className="statusdot st-ok"><i></i>{mode==='artifact'?'Claude artifact':'API connected'}</span>}
+      <div className="acct">
+        {mode==='none'
+          ? <button className="statusdot st-warn" onClick={()=>setTab('settings')}><i></i>No Claude — set up</button>
+          : <span className="statusdot st-ok"><i></i>{mode==='artifact'?'Artifact':'Claude on'}</span>}
+        {auth.status==='in'
+          ? <><span className="statusdot st-blue"><i></i>{auth.user.email}</span><button className="iconbtn" onClick={signOut}>sign out</button></>
+          : sbReady
+            ? <button className="btn sm" onClick={()=>setAuthOpen(true)}>Sign in</button>
+            : <button className="iconbtn" onClick={()=>setTab('settings')}>set up sync</button>}
+      </div>
     </div>
 
     <div className="nav">
-      {TABS.map(([id,em,lb])=>
-        <button key={id} className={tab===id?'on':''} onClick={()=>setTab(id)}><span className="em">{em}</span>{lb}</button>)}
+      {TABS.map(([id,em,lb])=><button key={id} className={tab===id?'on':''} onClick={()=>setTab(id)}><span className="em">{em}</span>{lb}</button>)}
     </div>
 
-    {tab==='home' && <Home db={db} setTab={setTab}/>}
+    {tab==='home' && <Home db={db} setTab={setTab} auth={auth} sbReady={sbReady} onSignIn={()=>setAuthOpen(true)}/>}
+    {tab==='watch' && <Watch db={db} patch={patch} cfg={cfg} auth={auth} sbReady={sbReady} onSignIn={()=>setAuthOpen(true)}/>}
     {tab==='library' && <Library db={db} patch={patch}/>}
-    {tab==='sim' && <Simulator db={db} patch={patch} setTab={setTab}/>}
-    {tab==='tutor' && <Tutor db={db}/>}
-    {tab==='quiz' && <Quiz db={db} patch={patch} setTab={setTab}/>}
+    {tab==='sim' && <Simulator db={db} patch={patch} cfg={cfg} setTab={setTab}/>}
+    {tab==='tutor' && <Tutor db={db} cfg={cfg}/>}
+    {tab==='quiz' && <Quiz db={db} patch={patch} cfg={cfg} setTab={setTab}/>}
     {tab==='planner' && <Planner db={db} patch={patch}/>}
     {tab==='opt' && <OPT db={db} patch={patch}/>}
-    {tab==='settings' && <Settings db={db} patch={patch}/>}
+    {tab==='settings' && <Settings db={db} cfg={cfg} setCfg={setCfg} auth={auth} signOut={signOut}/>}
+
+    {authOpen && sb && <AuthModal sb={sb} onClose={()=>setAuthOpen(false)}/>}
 
     <div className="foot">
-      MIghTy v0 · no MIT login, no Canvas, no backend — only what you upload lives here, in this browser.<br/>
-      Not affiliated with or endorsed by MIT. Visa/immigration items track dates only — for guidance see the ISO.
+      MIghTy · {auth.status==='in'?'signed in — work syncs across your devices':'guest mode — work saved in this browser only'}.<br/>
+      Not affiliated with or endorsed by MIT. MIT Watch reads pages in <b>your own logged-in browser</b> — no MIT passwords stored. Visa items track dates only; for guidance see the ISO.
+    </div>
+  </div>;
+}
+
+/* ============================ Auth modal ============================ */
+function AuthModal({sb,onClose}){
+  const [mode,setMode]=useState('in');   // in | up | reset
+  const [email,setEmail]=useState(''); const [pw,setPw]=useState('');
+  const [busy,setBusy]=useState(false); const [msg,setMsg]=useState(null); const [err,setErr]=useState(null);
+  async function go(){
+    setErr(null); setMsg(null);
+    if(!MIT_RE.test(email.trim())){ setErr('Use your @mit.edu email address.'); return; }
+    setBusy(true);
+    try{
+      if(mode==='up'){
+        const {error}=await sb.auth.signUp({email:email.trim(),password:pw});
+        if(error) throw error;
+        setMsg('Account created. Check your @mit.edu inbox for a confirmation link, then sign in.'); setMode('in');
+      } else if(mode==='in'){
+        const {error}=await sb.auth.signInWithPassword({email:email.trim(),password:pw});
+        if(error) throw error; onClose();
+      } else {
+        const {error}=await sb.auth.resetPasswordForEmail(email.trim(),{redirectTo:location.href});
+        if(error) throw error; setMsg('Password reset link sent to your inbox.');
+      }
+    }catch(e){ setErr(e.message||String(e)); } finally{ setBusy(false); }
+  }
+  return <div className="overlay" onClick={onClose}>
+    <div className="modal" onClick={e=>e.stopPropagation()}>
+      <div className="ph"><h2>{mode==='up'?'Create account':mode==='reset'?'Reset password':'Sign in'}</h2>
+        <button className="iconbtn" onClick={onClose}>✕</button></div>
+      <div className="bluebox" style={{marginBottom:14}}>Only <b>@mit.edu</b> email addresses can register. Your study data syncs privately to your account — isolated per user.</div>
+      <label className="fld">MIT email</label>
+      <input className="inp" value={email} onChange={e=>setEmail(e.target.value)} placeholder="kerberos@mit.edu" autoFocus/>
+      {mode!=='reset' && <><div style={{height:10}}/><label className="fld">Password</label>
+        <input className="inp" type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')go();}} placeholder="••••••••"/></>}
+      <div style={{marginTop:16}}><button className="btn" style={{width:'100%'}} onClick={go} disabled={busy}>
+        {busy?<Dots/>:mode==='up'?'Create account':mode==='reset'?'Send reset link':'Sign in'}</button></div>
+      {msg && <div className="okbox" style={{marginTop:12}}>{msg}</div>}
+      {err && <div className="warnbox" style={{marginTop:12}}>{err}</div>}
+      <div className="divider"/>
+      <div style={{display:'flex',justifyContent:'space-between',fontSize:12.5}}>
+        {mode==='in' ? <>
+          <a style={{cursor:'pointer'}} onClick={()=>setMode('up')}>Create account</a>
+          <a style={{cursor:'pointer'}} onClick={()=>setMode('reset')}>Forgot password?</a></>
+          : <a style={{cursor:'pointer'}} onClick={()=>setMode('in')}>← Back to sign in</a>}
+      </div>
     </div>
   </div>;
 }
 
 /* ============================ Home ============================ */
-function Home({db,setTab}){
-  const ccDone = db.cc.sessions.length;
-  const avg = ccDone ? Math.round(db.cc.sessions.reduce((s,x)=>s+(x.avgScore||0),0)/ccDone) : null;
-  const weak = Object.entries(db.quiz.weak).map(([t,v])=>({t,...v}))
-    .filter(w=>w.missed>0).sort((a,b)=>(b.missed/b.seen)-(a.missed/a.seen)).slice(0,4);
-  const opt = db.opt.eadEnd ? daysBetween(now(), new Date(db.opt.eadEnd).getTime()) : null;
-  const open = db.planner.tasks.filter(t=>!t.done);
-  const nextTask = open.filter(t=>t.due).sort((a,b)=>new Date(a.due)-new Date(b.due))[0];
-
+function Home({db,setTab,auth,sbReady,onSignIn}){
+  const ccDone=db.cc.sessions.length;
+  const avg=ccDone?Math.round(db.cc.sessions.reduce((s,x)=>s+(x.avgScore||0),0)/ccDone):null;
+  const opt=db.opt.eadEnd?daysBetween(now(),new Date(db.opt.eadEnd).getTime()):null;
+  const flagged=db.watch.items.filter(i=>i.status==='changed'||i.status==='attention');
+  const nextTask=db.planner.tasks.filter(t=>!t.done&&t.due).sort((a,b)=>new Date(a.due)-new Date(b.due))[0];
   return <div style={{display:'flex',flexDirection:'column',gap:16}}>
+    {sbReady && auth.status!=='in' && <div className="panel pad" style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+      <div><b>You're in guest mode.</b> <span className="note">Sign in with your @mit.edu email to save your work and use MIT Watch across devices.</span></div>
+      <button className="btn sm" onClick={onSignIn}>Sign in</button></div>}
     <div className="grid3">
+      <Stat k="MIT Watch flags" v={flagged.length} d={db.watch.items.length?`of ${db.watch.items.length} watched · ${rel(db.watch.lastRun)}`:'set up your watch list →'}/>
       <Stat k="Cold-call reps" v={ccDone} d={avg!=null?`avg ${avg}/100`:'run your first sim →'}/>
-      <Stat k="Readings in library" v={db.readings.length} d={db.readings.length?'tutor · quiz · cold-call ready':'upload one to start'}/>
-      <Stat k="OPT runway" v={opt!=null?opt:'—'} sub={opt!=null?'days':''} d={opt!=null?'until EAD end':'set dates in OPT Clock'}/>
+      <Stat k="OPT runway" v={opt!=null?opt:'—'} sub={opt!=null?'days':''} d={opt!=null?'until EAD end':'set dates in OPT'}/>
     </div>
-
     <div className="grid2">
       <div className="panel pad">
-        <div className="ph"><div><h2>Start here</h2><div className="sub">The v0 core — fully offline-from-MIT, runs on your uploads.</div></div></div>
+        <div className="ph"><div><h2>Start here</h2><div className="sub">Your MIT surface + the study core.</div></div></div>
         <div className="list">
+          <Quick em="📡" t="MIT Watch" m="Watch your 20–30 MIT pages; see what changed without logging into each." on={()=>setTab('watch')}/>
           <Quick em="🎯" t="Cold-call simulator" m="Get called on. 3–4 sentence answers, escalating follow-ups." on={()=>setTab('sim')}/>
-          <Quick em="📚" t="Add a reading or case" m="Paste the text — everything else draws from your library." on={()=>setTab('library')}/>
+          <Quick em="📚" t="Add a reading or case" m="Paste the text — Simulator, Tutor, Quiz draw from it." on={()=>setTab('library')}/>
           <Quick em="🧑‍🏫" t="Concept tutor" m="Socratic or direct, grounded in a reading." on={()=>setTab('tutor')}/>
-          <Quick em="🃏" t="Self-quiz" m="Auto-generated questions with weak-spot tracking." on={()=>setTab('quiz')}/>
         </div>
       </div>
       <div className="panel pad">
         <div className="ph"><div><h2>Your radar</h2><div className="sub">What needs attention.</div></div></div>
-        {nextTask && <div className="row" style={{marginBottom:9}}>
-          <div className="grow"><div className="t">Next due · {nextTask.title}</div>
-            <div className="m">{fmtDate(new Date(nextTask.due).getTime())} · weight {nextTask.weight||'—'}</div></div>
+        {flagged.length>0 && <><div className="tag" style={{marginBottom:8}}>MIT Watch — changed</div>
+          <div className="list" style={{marginBottom:10}}>{flagged.slice(0,4).map(i=><div key={i.id} className="row">
+            <span className={'statdot '+(i.status==='attention'?'sd-attn':'sd-changed')}></span>
+            <div className="grow"><div className="t" style={{fontSize:13}}>{i.label}</div><div className="m">{i.latest||'updated'}</div></div>
+            <span className="tag">{rel(i.lastChecked)}</span></div>)}</div></>}
+        {nextTask && <div className="row"><div className="grow"><div className="t">Next due · {nextTask.title}</div>
+          <div className="m">{fmtDate(new Date(nextTask.due).getTime())} · weight {nextTask.weight||'—'}</div></div>
           <button className="iconbtn" onClick={()=>setTab('planner')}>open</button></div>}
-        {weak.length>0 ? <>
-          <div className="tag" style={{marginBottom:8}}>Weak spots (from quizzes)</div>
-          <div className="list">{weak.map(w=><div key={w.t} className="row">
-            <div className="grow"><div className="t">{w.t}</div>
-              <div className="bar" style={{marginTop:6}}><i style={{width:`${Math.round(100*w.missed/w.seen)}%`,background:'var(--terra)'}}></i></div></div>
-            <span className="tag">{w.missed}/{w.seen} missed</span></div>)}</div>
-        </> : !nextTask && <div className="empty"><div className="big">🧭</div>No signals yet. Run a sim or a quiz and this fills in.</div>}
+        {flagged.length===0 && !nextTask && <div className="empty"><div className="big">🧭</div>No signals yet. Set up MIT Watch or add a task.</div>}
       </div>
     </div>
   </div>;
@@ -322,12 +453,158 @@ function Quick({em,t,m,on}){ return <div className="row" onClick={on} style={{cu
   <div style={{fontSize:22}}>{em}</div><div className="grow"><div className="t">{t}</div><div className="m">{m}</div></div>
   <span className="iconbtn">go →</span></div>; }
 
+/* ============================ MIT Watch ============================ */
+function Watch({db,patch,cfg,auth,sbReady,onSignIn}){
+  const items=db.watch.items;
+  const [adding,setAdding]=useState(false);
+  const [refreshing,setRefreshing]=useState(false);
+  const setItems=fn=>patch('watch',w=>({...w,items:fn(w.items)}));
+  const addItem=it=>setItems(list=>[...list,{id:uid(),latest:null,status:null,lastChecked:null,history:[],...it}]);
+  const removeItem=id=>setItems(list=>list.filter(i=>i.id!==id));
+  const addStarter=s=>{ if(!items.some(i=>i.url===s.url)) addItem(s); };
+  const groups=useMemo(()=>{ const g={}; items.forEach(i=>{(g[i.category||'Other']=g[i.category||'Other']||[]).push(i);}); return g; },[items]);
+
+  return <div style={{display:'flex',flexDirection:'column',gap:16}}>
+    {sbReady && auth.status!=='in' && <div className="bluebox">Tip: <a style={{cursor:'pointer'}} onClick={onSignIn}>sign in</a> so your watch list and results follow you between laptop and phone.</div>}
+
+    <div className="panel pad">
+      <div className="ph"><div><h2>📡 MIT Watch</h2>
+        <div className="sub">{items.length? `${items.length} pages · last refresh ${rel(db.watch.lastRun)}`:'Pick the MIT pages you want watched.'}</div></div>
+        <div style={{display:'flex',gap:8}}>
+          <button className="btn ghost sm" onClick={()=>setAdding(a=>!a)}>＋ Add link</button>
+          {items.length>0 && <button className="btn sm" onClick={()=>setRefreshing(true)}>↻ Refresh</button>}</div></div>
+
+      {items.length===0 && !adding && <>
+        <div className="empty" style={{padding:'18px'}}><div className="big">📡</div>Add the MIT pages you check constantly. MIghTy will help you see what changed — so you don't open eight portals a day.</div>
+        <div className="tag" style={{margin:'4px 0 9px'}}>Starter set — tap to add</div>
+        <StarterGrid items={items} addStarter={addStarter}/>
+      </>}
+
+      {adding && <AddLink onAdd={it=>{addItem(it);setAdding(false);}} onCancel={()=>setAdding(false)}/>}
+
+      {items.length>0 && Object.entries(groups).map(([cat,list])=><div key={cat} style={{marginTop:14}}>
+        <div className="tag" style={{marginBottom:8}}>{cat}</div>
+        <div className="list">{list.map(i=><WatchRow key={i.id} item={i} onRemove={()=>removeItem(i.id)}
+          onLog={(latest,status)=>setItems(l=>l.map(x=>x.id===i.id?{...x,latest,status,lastChecked:now(),history:[{ts:now(),summary:latest},...(x.history||[])].slice(0,20)}:x))}/>)}</div>
+      </div>)}
+
+      {items.length>0 && <><div className="divider"/>
+        <div className="tag" style={{marginBottom:9}}>Add more from the starter set</div>
+        <StarterGrid items={items} addStarter={addStarter}/></>}
+    </div>
+
+    {refreshing && <RefreshModal db={db} cfg={cfg} patch={patch} setItems={setItems}
+      onClose={()=>setRefreshing(false)} markRun={()=>patch('watch',{lastRun:now()})}/>}
+  </div>;
+}
+function StarterGrid({items,addStarter}){
+  return <div className="grid3">{STARTER.map(s=>{ const have=items.some(i=>i.url===s.url);
+    return <div key={s.url} className="row" style={{opacity:have?.5:1}}>
+      <div className="grow"><div className="t" style={{fontSize:13.5}}>{s.label} {s.needsLogin&&<span className="badge login">login</span>}</div>
+        <div className="m">{s.watchFor}</div></div>
+      <button className="iconbtn" disabled={have} onClick={()=>addStarter(s)}>{have?'added':'＋'}</button></div>; })}</div>;
+}
+function AddLink({onAdd,onCancel}){
+  const [f,setF]=useState({label:'',url:'',category:'Other',needsLogin:true,watchFor:''});
+  const set=(k,v)=>setF(s=>({...s,[k]:v}));
+  return <div className="grade">
+    <div className="grid2" style={{gap:12}}>
+      <div><label className="fld">Label</label><input className="inp" value={f.label} onChange={e=>set('label',e.target.value)} placeholder="e.g. Sloan Senate"/></div>
+      <div><label className="fld">Category</label><input className="inp" value={f.category} onChange={e=>set('category',e.target.value)} placeholder="Sloan / Money / Visa…"/></div>
+    </div>
+    <div style={{height:10}}/><label className="fld">URL</label>
+    <input className="inp" value={f.url} onChange={e=>set('url',e.target.value)} placeholder="https://…mit.edu/…"/>
+    <div style={{height:10}}/><label className="fld">What to watch for</label>
+    <textarea className="inp" rows={2} value={f.watchFor} onChange={e=>set('watchFor',e.target.value)} placeholder="e.g. new funding opportunities and their deadlines"/>
+    <div style={{display:'flex',gap:10,marginTop:12,alignItems:'center'}}>
+      <button className="btn sm" onClick={()=>{ if(f.url.trim()&&f.label.trim()) onAdd(f); }} disabled={!f.url.trim()||!f.label.trim()}>Add</button>
+      <button className="btn ghost sm" onClick={onCancel}>Cancel</button>
+      <label className="chip pick" style={{cursor:'pointer'}}><input type="checkbox" checked={f.needsLogin} onChange={e=>set('needsLogin',e.target.checked)} style={{marginRight:3}}/>needs MIT login</label>
+    </div>
+  </div>;
+}
+function WatchRow({item,onRemove,onLog}){
+  const [open,setOpen]=useState(false); const [val,setVal]=useState(''); const [st,setSt]=useState('ok');
+  const sd = item.status==='attention'?'sd-attn':item.status==='changed'?'sd-changed':item.status==='ok'?'sd-ok':'sd-none';
+  return <div className="row" style={{flexDirection:'column',alignItems:'stretch',gap:0}}>
+    <div style={{display:'flex',alignItems:'center',gap:12}}>
+      <span className={'statdot '+sd}></span>
+      <div className="grow">
+        <div className="t" style={{fontSize:13.5}}>{item.label} {item.needsLogin&&<span className="badge login">login</span>}</div>
+        <a className="linkurl" href={item.url} target="_blank" rel="noopener">{item.url}</a>
+        <div className="m">{item.latest? item.latest : <span style={{color:'var(--mute)'}}>watching: {item.watchFor}</span>}</div>
+      </div>
+      <span className="tag">{rel(item.lastChecked)}</span>
+      <button className="iconbtn" onClick={()=>setOpen(o=>!o)}>log</button>
+      <button className="iconbtn" onClick={onRemove}>✕</button>
+    </div>
+    {open && <div style={{marginTop:10,paddingTop:10,borderTop:'1px solid var(--line2)'}}>
+      <label className="fld">Latest — what's there now / what changed</label>
+      <textarea className="inp" rows={2} value={val} onChange={e=>setVal(e.target.value)} placeholder="e.g. New travel grant, deadline Jul 15"/>
+      <div style={{display:'flex',gap:8,marginTop:9,alignItems:'center'}}>
+        <div className="seg">
+          {[['ok','no change'],['changed','changed'],['attention','needs me']].map(([k,l])=>
+            <button key={k} className={st===k?'on':''} onClick={()=>setSt(k)}>{l}</button>)}
+        </div>
+        <button className="btn sm" onClick={()=>{ if(val.trim()){onLog(val.trim(),st);setVal('');setOpen(false);} }} disabled={!val.trim()}>Save</button>
+      </div>
+    </div>}
+  </div>;
+}
+
+/* The desktop refresh flow: generates a brief for Claude-in-Chrome, ingests results JSON back. */
+function RefreshModal({db,cfg,patch,setItems,onClose,markRun}){
+  const items=db.watch.items;
+  const [paste,setPaste]=useState(''); const [msg,setMsg]=useState(null); const [copied,setCopied]=useState(false);
+  const brief = useMemo(()=>{
+    const lines=items.map(i=>`- id:${i.id} | ${i.label} | ${i.url} | watch_for: ${i.watchFor}${i.needsLogin?' | (needs MIT login — use my existing browser session)':''}`).join('\n');
+    return `You are my MIT page-watcher. In MY already-logged-in Chrome, visit each link below and report only what's relevant to "watch_for". Do not log in anywhere, do not submit anything, do not make payments — read only.\n\nLinks:\n${lines}\n\nFor each, return a JSON array (and nothing else):\n[{"id":"<id>","latest":"<1-2 sentence summary of what's there / what changed, with any dates>","status":"ok|changed|attention"}]\nUse "attention" only if it needs action soon. Paste that JSON back into MIghTy → MIT Watch → Refresh.`;
+  },[items]);
+  function ingest(){
+    try{ const arr=extractArray(paste); let n=0;
+      setItems(list=>list.map(it=>{ const r=arr.find(a=>a.id===it.id || a.label===it.label); if(!r) return it; n++;
+        return {...it, latest:r.latest||it.latest, status:r.status||'changed', lastChecked:now(),
+          history:[{ts:now(),summary:r.latest||''},...(it.history||[])].slice(0,20)}; }));
+      markRun(); setMsg(`Updated ${n} item${n!==1?'s':''}. You can close this.`);
+    }catch(e){ setMsg('Could not parse that JSON — paste exactly what the agent returned.'); }
+  }
+  function copy(){ navigator.clipboard?.writeText(brief).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),1500);},()=>{}); }
+  return <div className="overlay" onClick={onClose}>
+    <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:560}}>
+      <div className="ph"><h2>↻ Refresh with Claude in Chrome</h2><button className="iconbtn" onClick={onClose}>✕</button></div>
+      <div className="bluebox" style={{marginBottom:12}}>The refresh runs on <b>desktop</b>, in your own logged-in browser — that's how it reads Touchstone-protected pages without ever touching your password. Needs the <b>Claude for Chrome</b> extension.</div>
+      <ol className="note" style={{margin:'0 0 12px',paddingLeft:18,lineHeight:1.7}}>
+        <li>Copy the brief below.</li>
+        <li>Open Claude for Chrome and paste it — let it visit your links in your session.</li>
+        <li>Copy the JSON it returns and paste it back here → <b>Apply</b>.</li>
+      </ol>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+        <span className="tag">Agent brief</span><button className="btn ghost sm" onClick={copy}>{copied?'copied ✓':'copy'}</button></div>
+      <div className="codebox">{brief}</div>
+      <div style={{height:14}}/>
+      <label className="fld">Paste the agent's JSON result</label>
+      <textarea className="inp" rows={4} value={paste} onChange={e=>setPaste(e.target.value)} placeholder='[{"id":"…","latest":"…","status":"changed"}]'/>
+      <div style={{display:'flex',gap:9,marginTop:12,alignItems:'center'}}>
+        <button className="btn" onClick={ingest} disabled={!paste.trim()}>Apply updates</button>
+        <span className="note">Public pages can be automated later; login pages stay in-browser by design.</span>
+      </div>
+      {msg && <div className="okbox" style={{marginTop:12}}>{msg}</div>}
+    </div>
+  </div>;
+}
+function extractArray(text){
+  let t=text.replace(/```json/gi,'```').trim();
+  const f=t.indexOf('```'); if(f>=0){ const e=t.indexOf('```',f+3); if(e>f) t=t.slice(f+3,e).trim(); }
+  const a=t.indexOf('['), b=t.lastIndexOf(']'); if(a<0||b<a) throw new Error('no array');
+  return JSON.parse(t.slice(a,b+1));
+}
+
 /* ============================ Library ============================ */
 function Library({db,patch}){
   const [title,setTitle]=useState(''); const [text,setText]=useState('');
   const add=()=>{ if(!text.trim())return;
-    const r={id:uid(),title:title.trim()||`Reading ${db.readings.length+1}`,text:text.trim(),addedAt:now()};
-    patch('readings',rs=>[r,...rs]); setTitle(''); setText(''); };
+    patch('readings',rs=>[{id:uid(),title:title.trim()||`Reading ${rs.length+1}`,text:text.trim(),addedAt:now()},...rs]);
+    setTitle(''); setText(''); };
   const del=id=>patch('readings',rs=>rs.filter(r=>r.id!==id));
   const onFile=e=>{ const f=e.target.files[0]; if(!f)return; const rd=new FileReader();
     rd.onload=()=>{ setText(String(rd.result||'')); if(!title) setTitle(f.name.replace(/\.[^.]+$/,'')); }; rd.readAsText(f); };
@@ -336,8 +613,7 @@ function Library({db,patch}){
       <div className="ph"><div><h2>Add a reading or case</h2><div className="sub">Paste text or drop a .txt/.md file. Your own content only.</div></div></div>
       <label className="fld">Title</label>
       <input className="inp" value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Christensen — Disruptive Technologies"/>
-      <div style={{height:12}}/>
-      <label className="fld">Text</label>
+      <div style={{height:12}}/><label className="fld">Text</label>
       <textarea className="inp" rows={11} value={text} onChange={e=>setText(e.target.value)} placeholder="Paste the case / reading / your notes here…"/>
       <div style={{display:'flex',gap:10,marginTop:12,alignItems:'center'}}>
         <button className="btn" onClick={add} disabled={!text.trim()}>＋ Add to library</button>
@@ -345,21 +621,18 @@ function Library({db,patch}){
         <span className="tag">{text.trim()? `${text.trim().split(/\s+/).length} words`:''}</span>
       </div>
       <div className="divider"/>
-      <div className="warnbox">⚠️ Recording note: Massachusetts is all-party-consent. Don't paste secretly-recorded class audio. Use officially posted recordings or your own voice memos only.</div>
+      <div className="warnbox">⚠️ Massachusetts is all-party-consent. Don't paste secretly-recorded class audio. Use officially posted recordings or your own voice memos only.</div>
     </div>
     <div className="panel pad">
       <div className="ph"><div><h2>Library</h2><div className="sub">{db.readings.length} item{db.readings.length!==1?'s':''}</div></div></div>
       {db.readings.length===0
         ? <div className="empty"><div className="big">📚</div>Nothing yet. Add a reading and the Simulator, Tutor, and Quiz light up.</div>
         : <div className="list">{db.readings.map(r=><div key={r.id} className="row">
-            <div className="grow"><div className="t">{r.title}</div>
-              <div className="m">{r.text.split(/\s+/).length} words · {fmtDate(r.addedAt)}</div></div>
+            <div className="grow"><div className="t">{r.title}</div><div className="m">{r.text.split(/\s+/).length} words · {fmtDate(r.addedAt)}</div></div>
             <button className="iconbtn" onClick={()=>del(r.id)}>delete</button></div>)}</div>}
     </div>
   </div>;
 }
-
-/* reading picker */
 function ReadingPick({db,value,onChange,allowNone}){
   return <select className="inp" value={value||''} onChange={e=>onChange(e.target.value||null)}>
     {allowNone && <option value="">— no reading (general) —</option>}
@@ -367,96 +640,63 @@ function ReadingPick({db,value,onChange,allowNone}){
     {db.readings.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}
   </select>;
 }
-const readingCtx = (db,id,limit=6000) => {
-  const r = db.readings.find(x=>x.id===id); if(!r) return '';
-  return `\n\nASSIGNED READING — "${r.title}":\n${r.text.slice(0,limit)}${r.text.length>limit?'\n…[truncated]':''}`;
-};
+const readingCtx=(db,id,limit=6000)=>{ const r=db.readings.find(x=>x.id===id); if(!r) return '';
+  return `\n\nASSIGNED READING — "${r.title}":\n${r.text.slice(0,limit)}${r.text.length>limit?'\n…[truncated]':''}`; };
 
-/* ============================ Simulator (cold-call + interview reuse) ============================ */
-function Simulator({db,patch,setTab}){
+/* ============================ Simulator ============================ */
+function Simulator({db,patch,cfg,setTab}){
   const [persona,setPersona]=useState('professor');
   const [readingId,setReadingId]=useState(db.readings[0]?.id||null);
   const [subject,setSubject]=useState('');
-  const [turns,setTurns]=useState([]);   // {role:'ai'|'me', text, grade?}
-  const [input,setInput]=useState('');
-  const [busy,setBusy]=useState(false);
-  const [err,setErr]=useState('');
-  const [live,setLive]=useState(false);
-  const [froze,setFroze]=useState(false);
-  const scroller=useRef(null);
-  const P = PERSONAS[persona];
-  const needReading = persona==='professor';
-  const ctx = { subject, reading: readingId };
-
+  const [turns,setTurns]=useState([]); const [input,setInput]=useState('');
+  const [busy,setBusy]=useState(false); const [err,setErr]=useState(''); const [live,setLive]=useState(false); const [froze,setFroze]=useState(false);
+  const scroller=useRef(null); const P=PERSONAS[persona]; const needReading=persona==='professor';
   useEffect(()=>{ if(scroller.current) scroller.current.scrollTop=scroller.current.scrollHeight; },[turns,busy]);
-
-  const sysBase = () => P.sys({subject}) + readingCtx(db,readingId) +
-    `\nKeep your messages short — one question or one reaction. Address the candidate as "you".`;
-
+  const sysBase=()=>P.sys({subject})+readingCtx(db,readingId)+`\nKeep your messages short — one question or one reaction. Address the candidate as "you".`;
   async function begin(){
-    if(needReading && !readingId){ setErr('Pick a reading first (or add one in Library).'); return; }
+    if(needReading&&!readingId){ setErr('Pick a reading first (or add one in Library).'); return; }
     setErr(''); setBusy(true); setTurns([]); setLive(true); setFroze(false);
-    try{
-      const q = await llm(db.settings, sysBase(),
-        `Open the session: greet briefly in character and ask your first question. One question only.`, 500);
+    try{ const q=await llm(cfg,sysBase(),`Open the session: greet briefly in character and ask your first question. One question only.`,500);
       setTurns([{role:'ai',text:q.trim()}]);
     }catch(e){ setErr(e.message); setLive(false); } finally{ setBusy(false); }
   }
-
   async function answer(){
     const a=input.trim(); if(!a||busy) return; setInput('');
-    const history = turns.map(t=>`${t.role==='ai'?'INTERVIEWER':'CANDIDATE'}: ${t.text}`).join('\n');
+    const history=turns.map(t=>`${t.role==='ai'?'INTERVIEWER':'CANDIDATE'}: ${t.text}`).join('\n');
     const myTurn={role:'me',text:a}; setTurns(t=>[...t,myTurn]); setBusy(true); setErr('');
-    try{
-      const j = await llmJSON(db.settings,
-        sysBase()+`\nYou grade each answer. Rubric dimensions: ${P.rubric}.`,
-        `Conversation so far:\n${history}\nCANDIDATE: ${a}\n\nReturn JSON: {"score":0-100,"dims":{"<dim>":0-100,...4 keys},"model_answer":"a calibrated 3-4 sentence answer they could have said out loud","feedback":"2 sentences, direct","followup":"your next, escalating question in character"}`,
-        1100);
+    try{ const j=await llmJSON(cfg, sysBase()+`\nYou grade each answer. Rubric dimensions: ${P.rubric}.`,
+        `Conversation so far:\n${history}\nCANDIDATE: ${a}\n\nReturn JSON: {"score":0-100,"dims":{"<dim>":0-100,...4 keys},"model_answer":"a calibrated 3-4 sentence answer they could have said out loud","feedback":"2 sentences, direct","followup":"your next, escalating question in character"}`,1100);
       const grade={ score:Math.max(0,Math.min(100,+j.score||0)), dims:j.dims||{}, model:j.model_answer||'', feedback:j.feedback||'' };
       setTurns(t=>{ const c=[...t]; c[c.length-1]={...myTurn,grade}; return [...c,{role:'ai',text:(j.followup||'Continue.').trim()}]; });
     }catch(e){ setErr(e.message); } finally{ setBusy(false); }
   }
-
-  function end(){
-    const graded=turns.filter(t=>t.grade);
-    if(graded.length){
-      const avg=Math.round(graded.reduce((s,t)=>s+t.grade.score,0)/graded.length);
-      const sess={ id:uid(), persona, personaLabel:P.label, readingId,
-        readingTitle: db.readings.find(r=>r.id===readingId)?.title||subject||'general',
-        questions:graded.length, avgScore:avg, froze, createdAt:now(),
-        scores:graded.map(t=>t.grade.score) };
-      patch('cc',cc=>({...cc,sessions:[sess,...cc.sessions]}));
-    }
+  function end(){ const graded=turns.filter(t=>t.grade);
+    if(graded.length){ const avg=Math.round(graded.reduce((s,t)=>s+t.grade.score,0)/graded.length);
+      patch('cc',cc=>({...cc,sessions:[{id:uid(),persona,personaLabel:P.label,readingId,
+        readingTitle:db.readings.find(r=>r.id===readingId)?.title||subject||'general',
+        questions:graded.length,avgScore:avg,froze,createdAt:now()},...cc.sessions]})); }
     setLive(false);
   }
-
-  const lastGrade = [...turns].reverse().find(t=>t.grade)?.grade;
-
+  const lastGrade=[...turns].reverse().find(t=>t.grade)?.grade;
   return <div className="grid2">
     <div className="panel pad" style={{display:'flex',flexDirection:'column'}}>
       <div className="ph"><div><h2>{P.emoji} Simulator</h2><div className="sub">{live?'Session live — answer in 3–4 speakable sentences.':P.desc}</div></div>
         {live && <button className="btn ghost sm" onClick={end}>End & save</button>}</div>
-
       {!live && <>
         <label className="fld">Mode</label>
         <div style={{display:'flex',flexWrap:'wrap',gap:7,marginBottom:14}}>
-          {Object.entries(PERSONAS).map(([k,v])=>
-            <span key={k} className={'chip pick'+(persona===k?' on':'')} onClick={()=>setPersona(k)}>{v.emoji} {v.label}</span>)}
-        </div>
+          {Object.entries(PERSONAS).map(([k,v])=><span key={k} className={'chip pick'+(persona===k?' on':'')} onClick={()=>setPersona(k)}>{v.emoji} {v.label}</span>)}</div>
         {needReading
-          ? (db.readings.length
-              ? <><label className="fld">Reading</label><ReadingPick db={db} value={readingId} onChange={setReadingId}/></>
-              : <div className="warnbox">Add a reading in <a onClick={()=>setTab('library')} style={{cursor:'pointer'}}>Library</a> to run a professor cold-call.</div>)
+          ? (db.readings.length? <><label className="fld">Reading</label><ReadingPick db={db} value={readingId} onChange={setReadingId}/></>
+            : <div className="warnbox">Add a reading in <a onClick={()=>setTab('library')} style={{cursor:'pointer'}}>Library</a> to run a professor cold-call.</div>)
           : <><label className="fld">Topic / role <span style={{textTransform:'none',color:'var(--mute)'}}>(optional)</span></label>
               <input className="inp" value={subject} onChange={e=>setSubject(e.target.value)}
                 placeholder={persona==='negotiation'?'e.g. Series A term sheet, 2 cofounders':persona==='behavioral'?'e.g. Director of AI, pharma':persona==='case'?'e.g. declining margins, regional airline':'topic'}/></>}
         <div style={{marginTop:14}}><button className="btn" onClick={begin} disabled={busy||(needReading&&!db.readings.length)}>{busy?<Dots/>:'▶ Start session'}</button></div>
       </>}
-
       {live && <>
         <div className="chat" ref={scroller}>
-          {turns.map((t,i)=><div key={i} className={'msg '+(t.role==='ai'?'ai':'me')}>
-            <div className="who">{t.role==='ai'?P.label:'you'}</div>{t.text}</div>)}
+          {turns.map((t,i)=><div key={i} className={'msg '+(t.role==='ai'?'ai':'me')}><div className="who">{t.role==='ai'?P.label:'you'}</div>{t.text}</div>)}
           {busy && <div className="msg ai"><div className="who">{P.label}</div><Dots/></div>}
         </div>
         <div style={{marginTop:12}}>
@@ -465,88 +705,62 @@ function Simulator({db,patch,setTab}){
             placeholder="Your answer — out loud it should be ~3–4 sentences…  (⌘/Ctrl+Enter)"/>
           <div style={{display:'flex',gap:9,marginTop:9,alignItems:'center'}}>
             <button className="btn" onClick={answer} disabled={busy||!input.trim()}>Answer</button>
-            <label className="chip pick" style={{cursor:'pointer'}}>
-              <input type="checkbox" checked={froze} onChange={e=>setFroze(e.target.checked)} style={{marginRight:2}}/> I froze here
-            </label>
+            <label className="chip pick" style={{cursor:'pointer'}}><input type="checkbox" checked={froze} onChange={e=>setFroze(e.target.checked)} style={{marginRight:2}}/> I froze here</label>
             <span className="tag">{turns.filter(t=>t.grade).length} graded</span>
           </div>
         </div>
       </>}
       {err && <div className="warnbox" style={{marginTop:12}}>{err}</div>}
     </div>
-
     <div className="panel pad">
       <div className="ph"><div><h2>Feedback</h2><div className="sub">Latest grade + your reps.</div></div></div>
       {lastGrade ? <div className="grade">
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline'}}>
-          <span className="tag">Last answer</span><span className="mono" style={{fontWeight:700,fontSize:18}}>{lastGrade.score}/100</span></div>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline'}}><span className="tag">Last answer</span><span className="mono" style={{fontWeight:700,fontSize:18}}>{lastGrade.score}/100</span></div>
         <div className="scorebar"><i style={{width:`${lastGrade.score}%`}}></i></div>
-        <div className="dims">{Object.entries(lastGrade.dims).slice(0,4).map(([k,v])=>
-          <div key={k} className="dim"><span>{k}</span><b>{v}</b></div>)}</div>
+        <div className="dims">{Object.entries(lastGrade.dims).slice(0,4).map(([k,v])=><div key={k} className="dim"><span>{k}</span><b>{v}</b></div>)}</div>
         {lastGrade.feedback && <p className="note" style={{marginTop:10}}>{lastGrade.feedback}</p>}
-        {lastGrade.model && <><div className="tag" style={{marginTop:8}}>Model answer (speakable)</div>
-          <p className="note" style={{marginTop:4,fontStyle:'italic'}}>"{lastGrade.model}"</p></>}
+        {lastGrade.model && <><div className="tag" style={{marginTop:8}}>Model answer (speakable)</div><p className="note" style={{marginTop:4,fontStyle:'italic'}}>"{lastGrade.model}"</p></>}
       </div> : <div className="empty"><div className="big">🎯</div>Start a session and your first grade shows here.</div>}
-
-      {db.cc.sessions.length>0 && <>
-        <div className="divider"/>
-        <div className="tag" style={{marginBottom:9}}>Recent reps</div>
+      {db.cc.sessions.length>0 && <><div className="divider"/><div className="tag" style={{marginBottom:9}}>Recent reps</div>
         <div className="list">{db.cc.sessions.slice(0,6).map(s=><div key={s.id} className="row">
           <div className="grow"><div className="t">{PERSONAS[s.persona]?.emoji} {s.readingTitle}</div>
             <div className="m">{s.questions} Q · {s.personaLabel}{s.froze?' · froze':''} · {fmtDate(s.createdAt)}</div></div>
-          <span className="mono" style={{fontWeight:700}}>{s.avgScore}</span></div>)}</div>
-      </>}
+          <span className="mono" style={{fontWeight:700}}>{s.avgScore}</span></div>)}</div></>}
     </div>
   </div>;
 }
 
 /* ============================ Tutor ============================ */
-function Tutor({db}){
-  const [readingId,setReadingId]=useState(db.readings[0]?.id||null);
-  const [style,setStyle]=useState('socratic');
-  const [turns,setTurns]=useState([]);
-  const [input,setInput]=useState(''); const [busy,setBusy]=useState(false); const [err,setErr]=useState('');
+function Tutor({db,cfg}){
+  const [readingId,setReadingId]=useState(db.readings[0]?.id||null); const [style,setStyle]=useState('socratic');
+  const [turns,setTurns]=useState([]); const [input,setInput]=useState(''); const [busy,setBusy]=useState(false); const [err,setErr]=useState('');
   const scroller=useRef(null);
   useEffect(()=>{ if(scroller.current) scroller.current.scrollTop=scroller.current.scrollHeight; },[turns,busy]);
-  const sys = () => `You are a patient expert tutor for an MIT Sloan Fellow. Mode: ${style==='socratic'
-      ? 'SOCRATIC — guide with questions, hints, and one idea at a time; do not dump answers.'
-      : 'DIRECT — explain clearly and concisely with concrete examples.'} Ground everything in the reading when present; if the user goes beyond it, say so. Keep replies tight.`+readingCtx(db,readingId);
-  async function send(seed){
-    const text = seed || input.trim(); if(!text||busy) return; if(!seed) setInput('');
-    const mine={role:'me',text}; const next=[...turns,mine]; setTurns(next); setBusy(true); setErr('');
-    try{
-      const hist=next.map(t=>`${t.role==='me'?'STUDENT':'TUTOR'}: ${t.text}`).join('\n');
-      const r=await llm(db.settings, sys(), hist+'\nTUTOR:', 1100);
-      setTurns(t=>[...t,{role:'ai',text:r.trim()}]);
-    }catch(e){ setErr(e.message); } finally{ setBusy(false); }
-  }
+  const sys=()=>`You are a patient expert tutor for an MIT Sloan Fellow. Mode: ${style==='socratic'?'SOCRATIC — guide with questions, hints, and one idea at a time; do not dump answers.':'DIRECT — explain clearly and concisely with concrete examples.'} Ground everything in the reading when present; if the user goes beyond it, say so. Keep replies tight.`+readingCtx(db,readingId);
+  async function send(seed){ const text=seed||input.trim(); if(!text||busy) return; if(!seed) setInput('');
+    const next=[...turns,{role:'me',text}]; setTurns(next); setBusy(true); setErr('');
+    try{ const hist=next.map(t=>`${t.role==='me'?'STUDENT':'TUTOR'}: ${t.text}`).join('\n');
+      const r=await llm(cfg,sys(),hist+'\nTUTOR:',1100); setTurns(t=>[...t,{role:'ai',text:r.trim()}]);
+    }catch(e){ setErr(e.message); } finally{ setBusy(false); } }
   return <div className="panel pad">
     <div className="ph"><div><h2>🧑‍🏫 Concept tutor</h2><div className="sub">Learns from your reading. Ask anything; it teaches.</div></div>
-      <div className="seg">
-        <button className={style==='socratic'?'on':''} onClick={()=>setStyle('socratic')}>Socratic</button>
-        <button className={style==='direct'?'on':''} onClick={()=>setStyle('direct')}>Direct</button>
-      </div></div>
+      <div className="seg"><button className={style==='socratic'?'on':''} onClick={()=>setStyle('socratic')}>Socratic</button><button className={style==='direct'?'on':''} onClick={()=>setStyle('direct')}>Direct</button></div></div>
     <div className="grid2" style={{gridTemplateColumns:'1fr 2fr',gap:18}}>
       <div>
-        <label className="fld">Grounding reading</label>
-        <ReadingPick db={db} value={readingId} onChange={setReadingId} allowNone/>
-        <div style={{height:14}}/>
-        <div className="tag" style={{marginBottom:7}}>Quick starts</div>
+        <label className="fld">Grounding reading</label><ReadingPick db={db} value={readingId} onChange={setReadingId} allowNone/>
+        <div style={{height:14}}/><div className="tag" style={{marginBottom:7}}>Quick starts</div>
         <div style={{display:'flex',flexDirection:'column',gap:7}}>
           {['Explain the core argument like I have 5 minutes before class','What would a professor cold-call me on here?','Give me the 3 things I must not miss','Where is this reading weakest or most contestable?'].map(s=>
-            <button key={s} className="btn ghost sm" style={{justifyContent:'flex-start',textAlign:'left'}} onClick={()=>send(s)} disabled={busy}>{s}</button>)}
-        </div>
+            <button key={s} className="btn ghost sm" style={{justifyContent:'flex-start',textAlign:'left'}} onClick={()=>send(s)} disabled={busy}>{s}</button>)}</div>
       </div>
       <div>
         <div className="chat" ref={scroller} style={{maxHeight:'48vh'}}>
           {turns.length===0 && <div className="empty"><div className="big">🧠</div>Pick a mode, ask a question, or tap a quick-start.</div>}
-          {turns.map((t,i)=><div key={i} className={'msg '+(t.role==='ai'?'ai':'me')}>
-            <div className="who">{t.role==='ai'?'tutor':'you'}</div>{t.text}</div>)}
+          {turns.map((t,i)=><div key={i} className={'msg '+(t.role==='ai'?'ai':'me')}><div className="who">{t.role==='ai'?'tutor':'you'}</div>{t.text}</div>)}
           {busy && <div className="msg ai"><div className="who">tutor</div><Dots/></div>}
         </div>
         <div style={{marginTop:12,display:'flex',gap:9}}>
-          <textarea className="inp" rows={2} value={input} onChange={e=>setInput(e.target.value)}
-            onKeyDown={e=>{ if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)) send(); }} placeholder="Ask the tutor…  (⌘/Ctrl+Enter)"/>
+          <textarea className="inp" rows={2} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)) send(); }} placeholder="Ask the tutor…  (⌘/Ctrl+Enter)"/>
           <button className="btn" onClick={()=>send()} disabled={busy||!input.trim()}>Send</button>
         </div>
         {err && <div className="warnbox" style={{marginTop:10}}>{err}</div>}
@@ -556,48 +770,33 @@ function Tutor({db}){
 }
 
 /* ============================ Quiz ============================ */
-function Quiz({db,patch,setTab}){
-  const [readingId,setReadingId]=useState(db.readings[0]?.id||null);
-  const [n,setN]=useState(5);
-  const [qs,setQs]=useState([]);        // {q, topic, answer, idx, picked?, correct?}
-  const [busy,setBusy]=useState(false); const [err,setErr]=useState(''); const [done,setDone]=useState(false);
-  async function gen(){
-    if(!readingId){ setErr('Pick a reading.'); return; } setErr(''); setBusy(true); setQs([]); setDone(false);
-    try{
-      const r=db.readings.find(x=>x.id===readingId);
-      const j=await llmJSON(db.settings,
-        `You write exam-style self-quiz questions for an MIT Sloan Fellow from the reading. Mix recall and application. Each question has a short topic label (2-3 words) for weak-spot tracking.`,
+function Quiz({db,patch,cfg,setTab}){
+  const [readingId,setReadingId]=useState(db.readings[0]?.id||null); const [n,setN]=useState(5);
+  const [qs,setQs]=useState([]); const [busy,setBusy]=useState(false); const [err,setErr]=useState(''); const [done,setDone]=useState(false);
+  async function gen(){ if(!readingId){ setErr('Pick a reading.'); return; } setErr(''); setBusy(true); setQs([]); setDone(false);
+    try{ const r=db.readings.find(x=>x.id===readingId);
+      const j=await llmJSON(cfg,`You write exam-style self-quiz questions for an MIT Sloan Fellow from the reading. Mix recall and application. Each question has a short topic label (2-3 words) for weak-spot tracking.`,
         `From "${r.title}":\n${r.text.slice(0,7000)}\n\nWrite ${n} questions. JSON: {"questions":[{"q":"...","topic":"...","answer":"a 2-3 sentence model answer"}]}`,1800);
       setQs((j.questions||[]).map(x=>({...x,reveal:false,self:null})));
-    }catch(e){ setErr(e.message); } finally{ setBusy(false); }
-  }
+    }catch(e){ setErr(e.message); } finally{ setBusy(false); } }
   const mark=(i,ok)=>setQs(qs=>qs.map((q,j)=>j===i?{...q,self:ok}:q));
   const reveal=i=>setQs(qs=>qs.map((q,j)=>j===i?{...q,reveal:true}:q));
-  function finish(){
-    const answered=qs.filter(q=>q.self!=null); if(!answered.length){setDone(true);return;}
+  function finish(){ const answered=qs.filter(q=>q.self!=null); if(!answered.length){setDone(true);return;}
     const weak={...db.quiz.weak};
-    answered.forEach(q=>{ const t=q.topic||'general'; const w=weak[t]||{seen:0,missed:0};
-      w.seen++; if(q.self===false) w.missed++; weak[t]=w; });
-    const sess={id:uid(),readingTitle:db.readings.find(r=>r.id===readingId)?.title,n:answered.length,
-      correct:answered.filter(q=>q.self).length,createdAt:now()};
-    patch('quiz',q=>({...q,weak,sessions:[sess,...q.sessions]})); setDone(true);
-  }
+    answered.forEach(q=>{ const t=q.topic||'general'; const w=weak[t]||{seen:0,missed:0}; w.seen++; if(q.self===false) w.missed++; weak[t]=w; });
+    patch('quiz',q=>({...q,weak,sessions:[{id:uid(),readingTitle:db.readings.find(r=>r.id===readingId)?.title,n:answered.length,correct:answered.filter(q=>q.self).length,createdAt:now()},...q.sessions]})); setDone(true); }
   const score=qs.filter(q=>q.self).length, ans=qs.filter(q=>q.self!=null).length;
   return <div className="grid2" style={{gridTemplateColumns:'1fr 1.6fr'}}>
     <div className="panel pad">
       <div className="ph"><div><h2>🃏 Self-quiz</h2><div className="sub">Grade yourself honestly — it tracks your weak spots.</div></div></div>
       {db.readings.length===0
         ? <div className="warnbox">Add a reading in <a onClick={()=>setTab('library')} style={{cursor:'pointer'}}>Library</a> first.</div>
-        : <>
-          <label className="fld">Reading</label><ReadingPick db={db} value={readingId} onChange={setReadingId}/>
-          <div style={{height:12}}/>
-          <label className="fld">How many questions</label>
+        : <><label className="fld">Reading</label><ReadingPick db={db} value={readingId} onChange={setReadingId}/>
+          <div style={{height:12}}/><label className="fld">How many questions</label>
           <div className="seg">{[3,5,8].map(x=><button key={x} className={n===x?'on':''} onClick={()=>setN(x)}>{x}</button>)}</div>
-          <div style={{marginTop:14}}><button className="btn" onClick={gen} disabled={busy}>{busy?<Dots/>:'Generate quiz'}</button></div>
-        </>}
+          <div style={{marginTop:14}}><button className="btn" onClick={gen} disabled={busy}>{busy?<Dots/>:'Generate quiz'}</button></div></>}
       {err && <div className="warnbox" style={{marginTop:12}}>{err}</div>}
-      <div className="divider"/>
-      <div className="tag" style={{marginBottom:9}}>Weak spots</div>
+      <div className="divider"/><div className="tag" style={{marginBottom:9}}>Weak spots</div>
       {Object.keys(db.quiz.weak).length===0 ? <div className="note">No data yet — finish a quiz to build this.</div>
         : <div className="list">{Object.entries(db.quiz.weak).sort((a,b)=>(b[1].missed/b[1].seen)-(a[1].missed/a[1].seen)).slice(0,8).map(([t,w])=>
             <div key={t} className="row"><div className="grow"><div className="t" style={{fontSize:13}}>{t}</div>
@@ -617,7 +816,7 @@ function Quiz({db,patch,setTab}){
                   <button className={'btn sm '+(q.self===false?'':'ghost')} onClick={()=>mark(i,false)}>✗ Missed it</button>
                 </div></>}
           </div>)}</div>}
-      {done && <div className="okbox" style={{marginTop:12}}>Saved. Weak spots updated — check the Simulator or Tutor to drill them.</div>}
+      {done && <div className="okbox" style={{marginTop:12}}>Saved. Weak spots updated — drill them in the Simulator or Tutor.</div>}
     </div>
   </div>;
 }
@@ -625,31 +824,23 @@ function Quiz({db,patch,setTab}){
 /* ============================ Planner ============================ */
 function Planner({db,patch}){
   const [title,setTitle]=useState(''); const [due,setDue]=useState(''); const [weight,setWeight]=useState(20); const [est,setEst]=useState(2);
-  const add=()=>{ if(!title.trim())return;
-    patch('planner',p=>({...p,tasks:[...p.tasks,{id:uid(),title:title.trim(),due,weight:+weight,est:+est,done:false}]}));
-    setTitle(''); setDue(''); };
+  const add=()=>{ if(!title.trim())return; patch('planner',p=>({...p,tasks:[...p.tasks,{id:uid(),title:title.trim(),due,weight:+weight,est:+est,done:false}]})); setTitle(''); setDue(''); };
   const toggle=id=>patch('planner',p=>({...p,tasks:p.tasks.map(t=>t.id===id?{...t,done:!t.done}:t)}));
   const del=id=>patch('planner',p=>({...p,tasks:p.tasks.filter(t=>t.id!==id)}));
-  // priority = weight / days-left, clamped; higher = do sooner
-  const scored=useMemo(()=>db.planner.tasks.filter(t=>!t.done).map(t=>{
-    const d=t.due? Math.max(0.4, daysBetween(now(),new Date(t.due).getTime())) : 14;
-    return {...t, urg:(t.weight||10)/d, daysLeft:t.due?daysBetween(now(),new Date(t.due).getTime()):null};
-  }).sort((a,b)=>b.urg-a.urg),[db.planner.tasks]);
-  const maxUrg=scored[0]?.urg||1;
-  const totalHrs=scored.reduce((s,t)=>s+(t.est||0),0);
+  const scored=useMemo(()=>db.planner.tasks.filter(t=>!t.done).map(t=>{ const d=t.due?Math.max(0.4,daysBetween(now(),new Date(t.due).getTime())):14;
+    return {...t,urg:(t.weight||10)/d,daysLeft:t.due?daysBetween(now(),new Date(t.due).getTime()):null}; }).sort((a,b)=>b.urg-a.urg),[db.planner.tasks]);
+  const maxUrg=scored[0]?.urg||1; const totalHrs=scored.reduce((s,t)=>s+(t.est||0),0);
   return <div className="grid2">
     <div className="panel pad">
-      <div className="ph"><div><h2>🗓️ Manual planner</h2><div className="sub">v0 fallback — no Canvas. Enter deadlines, get a weighted order.</div></div></div>
-      <label className="fld">Task</label>
-      <input className="inp" value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Finance pset 3"/>
+      <div className="ph"><div><h2>🗓️ Manual planner</h2><div className="sub">No-Canvas fallback. Enter deadlines, get a weighted order.</div></div></div>
+      <label className="fld">Task</label><input className="inp" value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Finance pset 3"/>
       <div className="grid3" style={{marginTop:12,gap:10}}>
         <div><label className="fld">Due</label><input type="date" className="inp" value={due} onChange={e=>setDue(e.target.value)}/></div>
         <div><label className="fld">Weight</label><input type="number" className="inp" value={weight} onChange={e=>setWeight(e.target.value)} min={1} max={100}/></div>
         <div><label className="fld">Est hrs</label><input type="number" className="inp" value={est} onChange={e=>setEst(e.target.value)} min={0} step={.5}/></div>
       </div>
       <div style={{marginTop:14}}><button className="btn" onClick={add} disabled={!title.trim()}>＋ Add task</button></div>
-      <div className="divider"/>
-      <div className="note">Priority weighs grade-weight against days remaining. Higher bar = do it sooner. Open load: <b>{totalHrs}h</b> across {scored.length} task{scored.length!==1?'s':''}.</div>
+      <div className="divider"/><div className="note">Priority weighs grade-weight against days remaining. Open load: <b>{totalHrs}h</b> across {scored.length} task{scored.length!==1?'s':''}.</div>
     </div>
     <div className="panel pad">
       <div className="ph"><div><h2>Weighted plan</h2><div className="sub">Sorted by urgency.</div></div></div>
@@ -657,7 +848,7 @@ function Planner({db,patch}){
         : <div className="list">{scored.map(t=><div key={t.id} className="row">
             <input type="checkbox" checked={t.done} onChange={()=>toggle(t.id)}/>
             <div className="grow"><div className="t">{t.title}</div>
-              <div className="m">{t.daysLeft!=null? (t.daysLeft<0?`${-t.daysLeft}d overdue`:t.daysLeft===0?'due today':`${t.daysLeft}d left`):'no date'} · w{t.weight} · {t.est}h</div>
+              <div className="m">{t.daysLeft!=null?(t.daysLeft<0?`${-t.daysLeft}d overdue`:t.daysLeft===0?'due today':`${t.daysLeft}d left`):'no date'} · w{t.weight} · {t.est}h</div>
               <div className="bar" style={{marginTop:6}}><i style={{width:`${Math.round(100*t.urg/maxUrg)}%`,background:t.daysLeft!=null&&t.daysLeft<2?'var(--brand)':'var(--green)'}}></i></div></div>
             <button className="iconbtn" onClick={()=>del(t.id)}>✕</button></div>)}</div>}
       {db.planner.tasks.some(t=>t.done) && <><div className="divider"/><div className="tag" style={{marginBottom:8}}>Done</div>
@@ -669,44 +860,31 @@ function Planner({db,patch}){
   </div>;
 }
 
-/* ============================ OPT Clock ============================ */
+/* ============================ OPT ============================ */
 function OPT({db,patch}){
-  const o=db.opt; const set=(k,v)=>patch('opt',op=>({...op,[k]:v}));
-  const D=s=>s?new Date(s).getTime():null;
-  const milestones=[
-    ['programEnd','Program end date','EAD applications open up to 90 days before this.'],
+  const o=db.opt; const set=(k,v)=>patch('opt',op=>({...op,[k]:v})); const D=s=>s?new Date(s).getTime():null;
+  const milestones=[['programEnd','Program end date','EAD applications open up to 90 days before this.'],
     ['eadStart','OPT / EAD start date','Your 12-month clock starts here.'],
-    ['eadEnd','OPT / EAD end date','Authorization ends. STEM extension may apply.'],
-  ];
-  const eadStart=D(o.eadStart), eadEnd=D(o.eadEnd);
-  const unemployedLimit=90; // F-1 OPT aggregate unemployment cap (date math only, not advice)
-  const runway = eadEnd? daysBetween(now(),eadEnd):null;
-  const elapsed = eadStart? Math.max(0,daysBetween(eadStart,now())):null;
-  const total = eadStart&&eadEnd? daysBetween(eadStart,eadEnd):null;
+    ['eadEnd','OPT / EAD end date','Authorization ends. STEM extension may apply.']];
+  const eadStart=D(o.eadStart), eadEnd=D(o.eadEnd); const unemployedLimit=90;
+  const runway=eadEnd?daysBetween(now(),eadEnd):null; const elapsed=eadStart?Math.max(0,daysBetween(eadStart,now())):null; const total=eadStart&&eadEnd?daysBetween(eadStart,eadEnd):null;
   return <div className="grid2">
     <div className="panel pad">
       <div className="ph"><div><h2>🛂 OPT / F-1 clock</h2><div className="sub">Dates only. Tracks deadlines — never interprets visa rules.</div></div></div>
       <div className="warnbox" style={{marginBottom:14}}>⚠️ This tracks <b>your dates</b> and nothing else. It is not immigration advice. For any rule, eligibility, or filing question, talk to the <b>MIT International Students Office (ISO)</b>.</div>
-      {milestones.map(([k,lbl,hint])=><div key={k} style={{marginBottom:12}}>
-        <label className="fld">{lbl}</label>
-        <input type="date" className="inp" value={o[k]||''} onChange={e=>set(k,e.target.value)}/>
-        <div className="note" style={{marginTop:4}}>{hint}</div>
-      </div>)}
+      {milestones.map(([k,lbl,hint])=><div key={k} style={{marginBottom:12}}><label className="fld">{lbl}</label>
+        <input type="date" className="inp" value={o[k]||''} onChange={e=>set(k,e.target.value)}/><div className="note" style={{marginTop:4}}>{hint}</div></div>)}
       <label className="fld">Days of unemployment used <span style={{textTransform:'none',color:'var(--mute)'}}>(you track this)</span></label>
       <input type="number" className="inp" value={o.unemp||''} onChange={e=>set('unemp',e.target.value)} min={0} max={120} placeholder="0"/>
     </div>
     <div className="panel pad">
       <div className="ph"><div><h2>Countdown</h2></div></div>
       {!eadEnd ? <div className="empty"><div className="big">🛂</div>Enter your EAD end date to see runway.</div>
-        : <>
-          <div className="grid2" style={{gap:12}}>
+        : <><div className="grid2" style={{gap:12}}>
             <Stat k="OPT runway" v={runway} sub="days" d="until EAD end"/>
-            <Stat k="Unemployment left" v={Math.max(0,unemployedLimit-(+o.unemp||0))} sub={`of ${unemployedLimit}`} d="days (you-entered)"/>
-          </div>
-          {total&&elapsed!=null && <div style={{marginTop:14}}>
-            <div className="tag" style={{marginBottom:6}}>OPT period · {Math.min(100,Math.round(100*elapsed/total))}% elapsed</div>
-            <div className="scorebar"><i style={{width:`${Math.min(100,Math.round(100*elapsed/total))}%`}}></i></div>
-          </div>}
+            <Stat k="Unemployment left" v={Math.max(0,unemployedLimit-(+o.unemp||0))} sub={`of ${unemployedLimit}`} d="days (you-entered)"/></div>
+          {total&&elapsed!=null && <div style={{marginTop:14}}><div className="tag" style={{marginBottom:6}}>OPT period · {Math.min(100,Math.round(100*elapsed/total))}% elapsed</div>
+            <div className="scorebar"><i style={{width:`${Math.min(100,Math.round(100*elapsed/total))}%`}}></i></div></div>}
           {o.programEnd && <div className="okbox" style={{marginTop:14}}>EAD filing window opened ~{fmtDate(D(o.programEnd)-90*864e5)} (90 days before program end). Confirm exact dates with ISO.</div>}
           {(+o.unemp||0)>=70 && <div className="warnbox" style={{marginTop:12}}>You've logged {o.unemp} unemployment days — close to the 90-day cap. Check with ISO.</div>}
         </>}
@@ -715,49 +893,63 @@ function OPT({db,patch}){
 }
 
 /* ============================ Settings ============================ */
-function Settings({db,patch}){
-  const s=db.settings; const set=(k,v)=>patch('settings',{[k]:v});
-  const art=inArtifact();
-  const [show,setShow]=useState(false);
-  function wipe(){ if(confirm('Erase ALL MIghTy data in this browser (readings, reps, quizzes, planner, OPT)? This cannot be undone.')){
-    localStorage.removeItem(DB_KEY); location.reload(); } }
-  function exportData(){ const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='mighty-backup.json'; a.click(); }
-  return <div className="grid2">
-    <div className="panel pad">
-      <div className="ph"><div><h2>⚙️ Connection</h2><div className="sub">How MIghTy reaches Claude.</div></div></div>
-      {art ? <div className="okbox">✅ Running inside a Claude artifact — using <span className="mono">window.claude.complete</span>. No API key needed.</div>
-        : <>
-          <div className="note" style={{marginBottom:12}}>Standalone mode. Add your own Anthropic API key — it's stored only in this browser (localStorage) and sent directly to Anthropic, never to any other server.</div>
-          <label className="fld">Anthropic API key</label>
-          <div style={{display:'flex',gap:8}}>
-            <input className="inp" type={show?'text':'password'} value={s.apiKey} onChange={e=>set('apiKey',e.target.value)} placeholder="sk-ant-…"/>
-            <button className="btn ghost sm" onClick={()=>setShow(v=>!v)}>{show?'hide':'show'}</button>
+function Settings({db,cfg,setCfg,auth,signOut}){
+  const art=inArtifact(); const [show,setShow]=useState(false); const [showKey,setShowKey]=useState(false);
+  function wipeLocal(){ if(confirm('Erase MIghTy data in THIS browser? If you are signed in, your cloud copy remains and re-syncs on next load.')){ localStorage.removeItem(DB_KEY); location.reload(); } }
+  function exportData(){ const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='mighty-backup.json'; a.click(); }
+  const sbReady=!!(cfg.supabaseUrl&&cfg.supabaseKey);
+  return <div style={{display:'flex',flexDirection:'column',gap:16}}>
+    <div className="grid2">
+      <div className="panel pad">
+        <div className="ph"><div><h2>⚙️ Claude connection</h2><div className="sub">How MIghTy reaches Claude.</div></div></div>
+        {art ? <div className="okbox">✅ Running inside a Claude artifact — using <span className="mono">window.claude.complete</span>. No API key needed.</div>
+          : <><div className="note" style={{marginBottom:12}}>Add your Anthropic API key — stored only in this browser, sent directly to Anthropic.</div>
+            <label className="fld">Anthropic API key</label>
+            <div style={{display:'flex',gap:8}}><input className="inp" type={showKey?'text':'password'} value={cfg.apiKey} onChange={e=>setCfg({apiKey:e.target.value})} placeholder="sk-ant-…"/>
+              <button className="btn ghost sm" onClick={()=>setShowKey(v=>!v)}>{showKey?'hide':'show'}</button></div>
+            <div style={{height:12}}/><label className="fld">Model</label>
+            <select className="inp" value={cfg.model} onChange={e=>setCfg({model:e.target.value})}>
+              <option value="claude-sonnet-4-6">Claude Sonnet 4.6 — fast, cheap (recommended)</option>
+              <option value="claude-opus-4-8">Claude Opus 4.8 — sharpest grading</option>
+              <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 — cheapest</option>
+            </select>
+            <div className="note" style={{marginTop:10}}>Key at <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a>.</div></>}
+      </div>
+      <div className="panel pad">
+        <div className="ph"><div><h2>Account & sync</h2><div className="sub">Cloud save across your devices.</div></div></div>
+        {auth.status==='in'
+          ? <div className="okbox">✅ Signed in as <b>{auth.user.email}</b>. Your work syncs automatically.
+              <div style={{marginTop:10}}><button className="btn ghost sm" onClick={signOut}>Sign out</button></div></div>
+          : sbReady
+            ? <div className="bluebox">Backend connected. Use <b>Sign in</b> (top right) to create your @mit.edu account and turn on sync.</div>
+            : <div className="note">Not connected yet — add your Supabase project below to enable accounts + sync. Until then MIghTy runs in guest mode (this browser only).</div>}
+        <div style={{height:14}}/>
+        <details>
+          <summary style={{cursor:'pointer',fontWeight:600,fontSize:13.5}}>Supabase backend config {sbReady?'✓':''}</summary>
+          <div style={{marginTop:12}}>
+            <label className="fld">Project URL</label>
+            <input className="inp" value={cfg.supabaseUrl} onChange={e=>setCfg({supabaseUrl:e.target.value})} placeholder="https://xxxx.supabase.co"/>
+            <div style={{height:10}}/><label className="fld">Anon public key</label>
+            <div style={{display:'flex',gap:8}}><input className="inp" type={show?'text':'password'} value={cfg.supabaseKey} onChange={e=>setCfg({supabaseKey:e.target.value})} placeholder="eyJhbGci…"/>
+              <button className="btn ghost sm" onClick={()=>setShow(v=>!v)}>{show?'hide':'show'}</button></div>
+            <div className="note" style={{marginTop:10}}>These are public keys (safe in the browser) — your data is protected by row-level security. Run the setup SQL once in your Supabase project. The anon key restricts the domain to @mit.edu via a DB rule.</div>
           </div>
-          <div style={{height:12}}/>
-          <label className="fld">Model</label>
-          <select className="inp" value={s.model} onChange={e=>set('model',e.target.value)}>
-            <option value="claude-sonnet-4-6">Claude Sonnet 4.6 — fast, cheap (recommended)</option>
-            <option value="claude-opus-4-8">Claude Opus 4.8 — sharpest grading</option>
-            <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 — cheapest</option>
-          </select>
-          <div className="note" style={{marginTop:10}}>Get a key at <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a>. At cohort scale during finals this is a real bill — Sonnet keeps it modest.</div>
-        </>}
+        </details>
+      </div>
     </div>
     <div className="panel pad">
-      <div className="ph"><div><h2>Your data</h2><div className="sub">It all lives in this browser. No backend, ever, in v0.</div></div></div>
-      <div className="grid2" style={{gap:12}}>
+      <div className="ph"><div><h2>Your data</h2><div className="sub">{auth.status==='in'?'Synced to your account + cached locally.':'In this browser only (guest mode).'}</div></div></div>
+      <div className="grid3" style={{gap:12}}>
+        <Stat k="MIT Watch links" v={db.watch.items.length}/>
         <Stat k="Readings" v={db.readings.length}/>
         <Stat k="Cold-call reps" v={db.cc.sessions.length}/>
-        <Stat k="Quiz sessions" v={db.quiz.sessions.length}/>
-        <Stat k="Planner tasks" v={db.planner.tasks.length}/>
       </div>
       <div style={{display:'flex',gap:9,marginTop:16,flexWrap:'wrap'}}>
         <button className="btn ghost sm" onClick={exportData}>⤓ Export backup (.json)</button>
-        <button className="btn ghost sm" onClick={wipe} style={{color:'var(--brand2)',borderColor:'#E7C2BD'}}>Erase all data</button>
+        <button className="btn ghost sm" onClick={wipeLocal} style={{color:'var(--brand2)',borderColor:'#E7C2BD'}}>Erase local copy</button>
       </div>
       <div className="divider"/>
-      <div className="note"><b>v0 scope:</b> no MIT login, no Canvas, no email/calendar, no FERPA-protected records — only what you upload. The proactive layer (morning briefs, auto-reminders, OPT countdown that fires on its own) is v1, and needs per-user auth + institutional review. Don't ship that as a side project.</div>
+      <div className="note"><b>Privacy:</b> MIghTy stores only what you put in — readings, reps, your watch list, and the summaries you (or your in-browser agent) record. No MIT records, no Canvas, no grades. MIT Watch never stores your MIT password — it reads pages through your own logged-in browser.</div>
     </div>
   </div>;
 }
