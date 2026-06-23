@@ -288,7 +288,26 @@ function App(){
       else { const s=loadDB(); lastSync.current=JSON.stringify(s);
         await client.from('user_data').upsert({user_id:u.id, data:s, updated_at:new Date().toISOString()}); }
     }catch(e){ /* stay on local cache */ }
+    ingest(client,u);
   }
+
+  // Pull any results the in-browser agent posted, merge into the watch list, clear the inbox.
+  async function ingest(client, u){
+    try{
+      const {data,error} = await client.from('watch_results').select('id,payload').eq('user_id',u.id).order('created_at',{ascending:true});
+      if(error || !data || !data.length) return 0;
+      const ups=[]; data.forEach(r=>{ const p=r.payload; if(Array.isArray(p)) ups.push(...p); else if(p&&Array.isArray(p.payload)) ups.push(...p.payload); });
+      if(ups.length){
+        setDb(d=>{ const items=d.watch.items.map(it=>{ const m=ups.find(a=>a.id===it.id||a.label===it.label); if(!m) return it;
+          return {...it, latest:m.latest||it.latest, status:m.status||'changed', lastChecked:now(),
+            history:[{ts:now(),summary:m.latest||''},...(it.history||[])].slice(0,20)}; });
+          return {...d, watch:{...d.watch, items, lastRun:now()}}; });
+      }
+      await client.from('watch_results').delete().in('id', data.map(r=>r.id));
+      return ups.length;
+    }catch(e){ return 0; }
+  }
+  const doIngest = () => (auth.status==='in' && sb) ? ingest(sb, auth.user) : Promise.resolve(0);
 
   // persist locally always; push to cloud when signed in & changed
   useEffect(()=>{
@@ -347,7 +366,7 @@ function App(){
               {TABS.map(([id,em,lb])=><button key={id} className={tab===id?'on':''} onClick={()=>setTab(id)}><span className="em">{em}</span>{lb}</button>)}
             </div>
             {tab==='home' && <Home db={db} setTab={setTab} auth={auth} sbReady={sbReady} onSignIn={()=>setLocalOnly(false)}/>}
-            {tab==='watch' && <Watch db={db} patch={patch} cfg={cfg} auth={auth} sbReady={sbReady} onSignIn={()=>setLocalOnly(false)}/>}
+            {tab==='watch' && <Watch db={db} patch={patch} cfg={cfg} auth={auth} sb={sb} sbReady={sbReady} doIngest={doIngest} onSignIn={()=>setLocalOnly(false)}/>}
             {tab==='library' && <Library db={db} patch={patch}/>}
             {tab==='sim' && <Simulator db={db} patch={patch} cfg={cfg} setTab={setTab}/>}
             {tab==='tutor' && <Tutor db={db} cfg={cfg}/>}
@@ -479,7 +498,7 @@ function Quick({em,t,m,on}){ return <div className="row" onClick={on} style={{cu
   <span className="iconbtn">go →</span></div>; }
 
 /* ============================ MIT Watch ============================ */
-function Watch({db,patch,cfg,auth,sbReady,onSignIn}){
+function Watch({db,patch,cfg,auth,sb,sbReady,doIngest,onSignIn}){
   const items=db.watch.items;
   const [adding,setAdding]=useState(false);
   const [refreshing,setRefreshing]=useState(false);
@@ -519,6 +538,7 @@ function Watch({db,patch,cfg,auth,sbReady,onSignIn}){
     </div>
 
     {refreshing && <RefreshModal db={db} cfg={cfg} patch={patch} setItems={setItems}
+      signedIn={auth.status==='in'} sb={sb} doIngest={doIngest}
       onClose={()=>setRefreshing(false)} markRun={()=>patch('watch',{lastRun:now()})}/>}
   </div>;
 }
@@ -577,42 +597,71 @@ function WatchRow({item,onRemove,onLog}){
   </div>;
 }
 
-/* The desktop refresh flow: generates a brief for Claude-in-Chrome, ingests results JSON back. */
-function RefreshModal({db,cfg,patch,setItems,onClose,markRun}){
+/* Desktop refresh: an agent brief for Claude-in-Chrome. When signed in, the agent
+   POSTs results straight to Supabase and they stream back here — no copy-paste. */
+function RefreshModal({db,cfg,patch,setItems,signedIn,sb,doIngest,onClose,markRun}){
   const items=db.watch.items;
-  const [paste,setPaste]=useState(''); const [msg,setMsg]=useState(null); const [copied,setCopied]=useState(false);
-  const brief = useMemo(()=>{
-    const lines=items.map(i=>`- id:${i.id} | ${i.label} | ${i.url} | watch_for: ${i.watchFor}${i.needsLogin?' | (needs MIT login — use my existing browser session)':''}`).join('\n');
-    return `You are my MIT page-watcher. In MY already-logged-in Chrome, visit each link below and report only what's relevant to "watch_for". Do not log in anywhere, do not submit anything, do not make payments — read only.\n\nLinks:\n${lines}\n\nFor each, return a JSON array (and nothing else):\n[{"id":"<id>","latest":"<1-2 sentence summary of what's there / what changed, with any dates>","status":"ok|changed|attention"}]\nUse "attention" only if it needs action soon. Paste that JSON back into MIghTy → MIT Watch → Refresh.`;
-  },[items]);
-  function ingest(){
+  const auto = signedIn && cfg.supabaseUrl && cfg.supabaseKey;
+  const [token,setToken]=useState(null);
+  const [waiting,setWaiting]=useState(false); const [applied,setApplied]=useState(0);
+  const [paste,setPaste]=useState(''); const [msg,setMsg]=useState(null); const [copied,setCopied]=useState(false); const [showManual,setShowManual]=useState(!auto);
+  const poll=useRef(null);
+
+  useEffect(()=>{ if(auto && sb) sb.auth.getSession().then(({data})=>setToken(data.session?.access_token||null)); },[auto]);
+  useEffect(()=>()=>clearInterval(poll.current),[]);
+
+  const lines = items.map(i=>`- id:${i.id} | ${i.label} | ${i.url} | watch_for: ${i.watchFor}${i.needsLogin?' | (needs MIT login — use my existing browser session)':''}`).join('\n');
+  const readOnly = `Read only — do not log in anywhere, do not submit anything, do not make payments.`;
+  const autoBrief = `You are my MIT page-watcher. In MY already-logged-in Chrome, visit each link below and summarize only what's relevant to its "watch_for". ${readOnly}\n\nLinks:\n${lines}\n\nWhen finished, POST your findings with ONE request:\nPOST ${cfg.supabaseUrl}/rest/v1/watch_results\nHeaders:\n  apikey: ${cfg.supabaseKey}\n  Authorization: Bearer ${token||'<sign in to MIghTy to mint this token>'}\n  Content-Type: application/json\n  Prefer: return=minimal\nBody:\n  {"payload":[{"id":"<id>","latest":"<1-2 sentence summary with any dates>","status":"ok|changed|attention"}]}\n\nUse "attention" only if it needs action soon. After the POST returns 201 you're done — results appear in MIghTy automatically.`;
+  const manualBrief = `You are my MIT page-watcher. In MY already-logged-in Chrome, visit each link below and summarize only what's relevant to its "watch_for". ${readOnly}\n\nLinks:\n${lines}\n\nReturn ONLY this JSON array:\n[{"id":"<id>","latest":"<1-2 sentence summary with any dates>","status":"ok|changed|attention"}]\nThen paste it back into MIghTy.`;
+  const brief = auto ? autoBrief : manualBrief;
+
+  function copy(){ navigator.clipboard?.writeText(brief).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),1500);},()=>{}); }
+  function startWaiting(){
+    setWaiting(true); clearInterval(poll.current);
+    poll.current=setInterval(async()=>{ const n=await doIngest(); if(n) setApplied(a=>a+n); },6000);
+  }
+  function applyPaste(){
     try{ const arr=extractArray(paste); let n=0;
-      setItems(list=>list.map(it=>{ const r=arr.find(a=>a.id===it.id || a.label===it.label); if(!r) return it; n++;
+      setItems(list=>list.map(it=>{ const r=arr.find(a=>a.id===it.id||a.label===it.label); if(!r) return it; n++;
         return {...it, latest:r.latest||it.latest, status:r.status||'changed', lastChecked:now(),
           history:[{ts:now(),summary:r.latest||''},...(it.history||[])].slice(0,20)}; }));
-      markRun(); setMsg(`Updated ${n} item${n!==1?'s':''}. You can close this.`);
+      markRun(); setMsg(`Updated ${n} item${n!==1?'s':''}. You can close this.`); setPaste('');
     }catch(e){ setMsg('Could not parse that JSON — paste exactly what the agent returned.'); }
   }
-  function copy(){ navigator.clipboard?.writeText(brief).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),1500);},()=>{}); }
   return <div className="overlay" onClick={onClose}>
-    <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:560}}>
+    <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:580}}>
       <div className="ph"><h2>↻ Refresh with Claude in Chrome</h2><button className="iconbtn" onClick={onClose}>✕</button></div>
-      <div className="bluebox" style={{marginBottom:12}}>The refresh runs on <b>desktop</b>, in your own logged-in browser — that's how it reads Touchstone-protected pages without ever touching your password. Needs the <b>Claude for Chrome</b> extension.</div>
-      <ol className="note" style={{margin:'0 0 12px',paddingLeft:18,lineHeight:1.7}}>
-        <li>Copy the brief below.</li>
-        <li>Open Claude for Chrome and paste it — let it visit your links in your session.</li>
-        <li>Copy the JSON it returns and paste it back here → <b>Apply</b>.</li>
-      </ol>
+      <div className="bluebox" style={{marginBottom:12}}>Runs on <b>desktop</b>, in your own logged-in browser — that's how it reads Touchstone pages without ever touching your password. Needs the <b>Claude for Chrome</b> extension.</div>
+      {auto
+        ? <ol className="note" style={{margin:'0 0 12px',paddingLeft:18,lineHeight:1.7}}>
+            <li>Copy the brief. Open Claude for Chrome and paste it.</li>
+            <li>Let it visit your links and post the results to your account.</li>
+            <li>Hit <b>Watch for results</b> below — they apply here automatically.</li></ol>
+        : <ol className="note" style={{margin:'0 0 12px',paddingLeft:18,lineHeight:1.7}}>
+            <li>Copy the brief; run it in Claude for Chrome.</li>
+            <li>Paste the JSON it returns back here → Apply.</li></ol>}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-        <span className="tag">Agent brief</span><button className="btn ghost sm" onClick={copy}>{copied?'copied ✓':'copy'}</button></div>
+        <span className="tag">Agent brief {auto && <span className="badge login" style={{marginLeft:6}}>auto write-back</span>}</span>
+        <button className="btn ghost sm" onClick={copy}>{copied?'copied ✓':'copy'}</button></div>
       <div className="codebox">{brief}</div>
-      <div style={{height:14}}/>
-      <label className="fld">Paste the agent's JSON result</label>
-      <textarea className="inp" rows={4} value={paste} onChange={e=>setPaste(e.target.value)} placeholder='[{"id":"…","latest":"…","status":"changed"}]'/>
-      <div style={{display:'flex',gap:9,marginTop:12,alignItems:'center'}}>
-        <button className="btn" onClick={ingest} disabled={!paste.trim()}>Apply updates</button>
-        <span className="note">Public pages can be automated later; login pages stay in-browser by design.</span>
-      </div>
+      {auto && <div style={{marginTop:6}}><span className="note">The brief includes a short-lived token scoped to your own account — fine to paste into your own Chrome agent.</span></div>}
+
+      {auto && <div style={{marginTop:14,display:'flex',gap:9,alignItems:'center',flexWrap:'wrap'}}>
+        {!waiting
+          ? <button className="btn" onClick={startWaiting}>Watch for results</button>
+          : <span className="statusdot st-blue"><i></i><Dots/> waiting for the agent…</span>}
+        {applied>0 && <span className="okbox" style={{padding:'7px 11px'}}>✓ {applied} update{applied!==1?'s':''} applied</span>}
+        <button className="iconbtn" onClick={()=>setShowManual(s=>!s)}>{showManual?'hide':'paste manually instead'}</button>
+      </div>}
+
+      {showManual && <div style={{marginTop:14}}>
+        <label className="fld">Paste the agent's JSON result</label>
+        <textarea className="inp" rows={4} value={paste} onChange={e=>setPaste(e.target.value)} placeholder='[{"id":"…","latest":"…","status":"changed"}]'/>
+        <div style={{display:'flex',gap:9,marginTop:10,alignItems:'center'}}>
+          <button className="btn" onClick={applyPaste} disabled={!paste.trim()}>Apply updates</button>
+          <span className="note">Login pages stay in-browser by design; public pages can also run on a schedule (see SETUP.md).</span></div>
+      </div>}
       {msg && <div className="okbox" style={{marginTop:12}}>{msg}</div>}
     </div>
   </div>;

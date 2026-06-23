@@ -15,7 +15,25 @@ Open `index.html` as a Claude artifact, or host it (GitHub Pages). Works immedia
 
 ## MIT Watch (the dashboard)
 Pick the MIT pages you check constantly (starter set + your own). Each carries a "what to watch for."
-**Refresh runs on desktop**, in your own logged-in browser, via the **Claude for Chrome** extension — that's how it reads Touchstone-protected pages without ever storing your MIT password. Click **Refresh** → copy the generated brief into Claude for Chrome → paste the JSON it returns back into MIghTy. (Mobile/web shows the last desktop sync, read-only.)
+**Refresh runs on desktop**, in your own logged-in browser, via the **Claude for Chrome** extension — that's how it reads Touchstone-protected pages without ever storing your MIT password.
+
+- **Signed in → auto write-back:** click **Refresh** → copy the brief into Claude for Chrome → it visits your links and POSTs the findings straight to your account → click **Watch for results** and they apply automatically (no copy-paste). The brief carries a short-lived token scoped to your own row.
+- **Local / fallback:** paste the JSON the agent returns back into the modal.
+- Mobile/web shows the last desktop sync, read-only.
+
+### Optional: auto-check PUBLIC pages on a schedule
+Login pages must stay in-browser, but `needsLogin: false` pages can be checked server-side on a cron. Deploy [`edge-public-watch.ts`](edge-public-watch.ts) as a Supabase Edge Function (instructions in its header), then schedule it daily:
+
+```sql
+-- enable once: extensions pg_cron + pg_net (Database → Extensions)
+select cron.schedule('mighty-public-watch','0 12 * * *', $$
+  select net.http_post(
+    url:='https://<project-ref>.functions.supabase.co/public-watch',
+    headers:=jsonb_build_object('Authorization','Bearer <your-anon-or-service-key>')
+  );
+$$);
+```
+Results land in the same inbox and show up next time the app syncs.
 
 ## Deploy
 `./deploy.sh` copies `~/mighty.html` → `index.html`, commits, and pushes (add a GitHub remote first).

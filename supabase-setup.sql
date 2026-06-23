@@ -45,6 +45,24 @@ create trigger enforce_mit_email_trg
   before insert on auth.users
   for each row execute function public.enforce_mit_email();
 
+-- 4. MIT Watch results "inbox" — the in-browser Claude agent writes findings
+--    here directly (one authenticated INSERT); the app ingests + clears them.
+--    user_id defaults to the caller, so the agent only needs to send {payload}.
+create table if not exists public.watch_results (
+  id         bigint generated always as identity primary key,
+  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  payload    jsonb not null,
+  created_at timestamptz not null default now()
+);
+alter table public.watch_results enable row level security;
+
+drop policy if exists "wr select own" on public.watch_results;
+create policy "wr select own" on public.watch_results for select using (auth.uid() = user_id);
+drop policy if exists "wr insert own" on public.watch_results;
+create policy "wr insert own" on public.watch_results for insert with check (auth.uid() = user_id);
+drop policy if exists "wr delete own" on public.watch_results;
+create policy "wr delete own" on public.watch_results for delete using (auth.uid() = user_id);
+
 -- ============================================================
 -- Also in the dashboard (not SQL):
 --   • Authentication → Providers → Email: ENABLED, "Confirm email" ON
