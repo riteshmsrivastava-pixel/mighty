@@ -255,7 +255,7 @@ function App(){
   const [tab,setTab] = useState('home');
   const [sb,setSb] = useState(null);
   const [auth,setAuth] = useState({status:'loading', user:null});
-  const [authOpen,setAuthOpen] = useState(false);
+  const [localOnly,setLocalOnly] = useState(false);
   const lastSync = useRef(null);
   const saveTimer = useRef(null);
 
@@ -332,37 +332,47 @@ function App(){
           : <span className="statusdot st-ok"><i></i>{mode==='artifact'?'Artifact':'Claude on'}</span>}
         {auth.status==='in'
           ? <><span className="statusdot st-blue"><i></i>{auth.user.email}</span><button className="iconbtn" onClick={signOut}>sign out</button></>
-          : sbReady
-            ? <button className="btn sm" onClick={()=>setAuthOpen(true)}>Sign in</button>
-            : <button className="iconbtn" onClick={()=>setTab('settings')}>set up sync</button>}
+          : localOnly
+            ? <button className="btn sm" onClick={()=>setLocalOnly(false)}>Sign in</button>
+            : null}
       </div>
     </div>
 
-    <div className="nav">
-      {TABS.map(([id,em,lb])=><button key={id} className={tab===id?'on':''} onClick={()=>setTab(id)}><span className="em">{em}</span>{lb}</button>)}
-    </div>
-
-    {tab==='home' && <Home db={db} setTab={setTab} auth={auth} sbReady={sbReady} onSignIn={()=>setAuthOpen(true)}/>}
-    {tab==='watch' && <Watch db={db} patch={patch} cfg={cfg} auth={auth} sbReady={sbReady} onSignIn={()=>setAuthOpen(true)}/>}
-    {tab==='library' && <Library db={db} patch={patch}/>}
-    {tab==='sim' && <Simulator db={db} patch={patch} cfg={cfg} setTab={setTab}/>}
-    {tab==='tutor' && <Tutor db={db} cfg={cfg}/>}
-    {tab==='quiz' && <Quiz db={db} patch={patch} cfg={cfg} setTab={setTab}/>}
-    {tab==='planner' && <Planner db={db} patch={patch}/>}
-    {tab==='opt' && <OPT db={db} patch={patch}/>}
-    {tab==='settings' && <Settings db={db} cfg={cfg} setCfg={setCfg} auth={auth} signOut={signOut}/>}
-
-    {authOpen && sb && <AuthModal sb={sb} onClose={()=>setAuthOpen(false)}/>}
+    {auth.status==='loading'
+      ? <div className="panel pad"><div className="empty"><div className="big">⏳</div>Loading…</div></div>
+      : (auth.status!=='in' && !localOnly)
+        ? <Gate sb={sb} cfg={cfg} setCfg={setCfg} onLocal={()=>setLocalOnly(true)}/>
+        : <>
+            <div className="nav">
+              {TABS.map(([id,em,lb])=><button key={id} className={tab===id?'on':''} onClick={()=>setTab(id)}><span className="em">{em}</span>{lb}</button>)}
+            </div>
+            {tab==='home' && <Home db={db} setTab={setTab} auth={auth} sbReady={sbReady} onSignIn={()=>setLocalOnly(false)}/>}
+            {tab==='watch' && <Watch db={db} patch={patch} cfg={cfg} auth={auth} sbReady={sbReady} onSignIn={()=>setLocalOnly(false)}/>}
+            {tab==='library' && <Library db={db} patch={patch}/>}
+            {tab==='sim' && <Simulator db={db} patch={patch} cfg={cfg} setTab={setTab}/>}
+            {tab==='tutor' && <Tutor db={db} cfg={cfg}/>}
+            {tab==='quiz' && <Quiz db={db} patch={patch} cfg={cfg} setTab={setTab}/>}
+            {tab==='planner' && <Planner db={db} patch={patch}/>}
+            {tab==='opt' && <OPT db={db} patch={patch}/>}
+            {tab==='settings' && <Settings db={db} cfg={cfg} setCfg={setCfg} auth={auth} signOut={signOut}/>}
+          </>}
 
     <div className="foot">
-      MIghTy · {auth.status==='in'?'signed in — work syncs across your devices':'guest mode — work saved in this browser only'}.<br/>
+      MIghTy · {auth.status==='in'?'signed in — work syncs across your devices':localOnly?'local mode — work saved in this browser only':'sign in with your @mit.edu email to begin'}.<br/>
       Not affiliated with or endorsed by MIT. MIT Watch reads pages in <b>your own logged-in browser</b> — no MIT passwords stored. Visa items track dates only; for guidance see the ISO.
     </div>
   </div>;
 }
 
-/* ============================ Auth modal ============================ */
-function AuthModal({sb,onClose}){
+/* ============================ Login gate ============================ */
+function Gate({sb,cfg,setCfg,onLocal}){
+  return <div style={{display:'flex',justifyContent:'center',padding:'10px 0 4px'}}>
+    <div style={{width:'100%',maxWidth:460}}>
+      {sb ? <LoginCard sb={sb} onLocal={onLocal}/> : <SetupCard cfg={cfg} setCfg={setCfg} onLocal={onLocal}/>}
+    </div>
+  </div>;
+}
+function LoginCard({sb,onLocal}){
   const [mode,setMode]=useState('in');   // in | up | reset
   const [email,setEmail]=useState(''); const [pw,setPw]=useState('');
   const [busy,setBusy]=useState(false); const [msg,setMsg]=useState(null); const [err,setErr]=useState(null);
@@ -377,34 +387,49 @@ function AuthModal({sb,onClose}){
         setMsg('Account created. Check your @mit.edu inbox for a confirmation link, then sign in.'); setMode('in');
       } else if(mode==='in'){
         const {error}=await sb.auth.signInWithPassword({email:email.trim(),password:pw});
-        if(error) throw error; onClose();
+        if(error) throw error; /* auth listener flips the gate */
       } else {
         const {error}=await sb.auth.resetPasswordForEmail(email.trim(),{redirectTo:location.href});
         if(error) throw error; setMsg('Password reset link sent to your inbox.');
       }
     }catch(e){ setErr(e.message||String(e)); } finally{ setBusy(false); }
   }
-  return <div className="overlay" onClick={onClose}>
-    <div className="modal" onClick={e=>e.stopPropagation()}>
-      <div className="ph"><h2>{mode==='up'?'Create account':mode==='reset'?'Reset password':'Sign in'}</h2>
-        <button className="iconbtn" onClick={onClose}>✕</button></div>
-      <div className="bluebox" style={{marginBottom:14}}>Only <b>@mit.edu</b> email addresses can register. Your study data syncs privately to your account — isolated per user.</div>
-      <label className="fld">MIT email</label>
-      <input className="inp" value={email} onChange={e=>setEmail(e.target.value)} placeholder="kerberos@mit.edu" autoFocus/>
-      {mode!=='reset' && <><div style={{height:10}}/><label className="fld">Password</label>
-        <input className="inp" type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')go();}} placeholder="••••••••"/></>}
-      <div style={{marginTop:16}}><button className="btn" style={{width:'100%'}} onClick={go} disabled={busy}>
-        {busy?<Dots/>:mode==='up'?'Create account':mode==='reset'?'Send reset link':'Sign in'}</button></div>
-      {msg && <div className="okbox" style={{marginTop:12}}>{msg}</div>}
-      {err && <div className="warnbox" style={{marginTop:12}}>{err}</div>}
-      <div className="divider"/>
-      <div style={{display:'flex',justifyContent:'space-between',fontSize:12.5}}>
-        {mode==='in' ? <>
-          <a style={{cursor:'pointer'}} onClick={()=>setMode('up')}>Create account</a>
-          <a style={{cursor:'pointer'}} onClick={()=>setMode('reset')}>Forgot password?</a></>
-          : <a style={{cursor:'pointer'}} onClick={()=>setMode('in')}>← Back to sign in</a>}
-      </div>
+  return <div className="modal">
+    <div className="ph"><h2>{mode==='up'?'Create account':mode==='reset'?'Reset password':'Sign in to MIghTy'}</h2></div>
+    <div className="bluebox" style={{marginBottom:14}}>Only <b>@mit.edu</b> email addresses can register. Your data syncs privately to your account — isolated per user.</div>
+    <label className="fld">MIT email</label>
+    <input className="inp" value={email} onChange={e=>setEmail(e.target.value)} placeholder="kerberos@mit.edu" autoFocus/>
+    {mode!=='reset' && <><div style={{height:10}}/><label className="fld">Password</label>
+      <input className="inp" type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')go();}} placeholder="••••••••"/></>}
+    <div style={{marginTop:16}}><button className="btn" style={{width:'100%'}} onClick={go} disabled={busy}>
+      {busy?<Dots/>:mode==='up'?'Create account':mode==='reset'?'Send reset link':'Sign in'}</button></div>
+    {msg && <div className="okbox" style={{marginTop:12}}>{msg}</div>}
+    {err && <div className="warnbox" style={{marginTop:12}}>{err}</div>}
+    <div className="divider"/>
+    <div style={{display:'flex',justifyContent:'space-between',fontSize:12.5}}>
+      {mode==='in' ? <>
+        <a style={{cursor:'pointer'}} onClick={()=>setMode('up')}>Create account</a>
+        <a style={{cursor:'pointer'}} onClick={()=>setMode('reset')}>Forgot password?</a></>
+        : <a style={{cursor:'pointer'}} onClick={()=>setMode('in')}>← Back to sign in</a>}
     </div>
+    {onLocal && <div style={{textAlign:'center',marginTop:14}}>
+      <a style={{cursor:'pointer',fontSize:12,color:'var(--mute)'}} onClick={onLocal}>Use without an account (local only) →</a></div>}
+  </div>;
+}
+function SetupCard({cfg,setCfg,onLocal}){
+  const [show,setShow]=useState(false);
+  return <div className="modal">
+    <div className="ph"><h2>Set up MIghTy</h2></div>
+    <div className="bluebox" style={{marginBottom:14}}>Connect a Supabase project to turn on <b>@mit.edu</b> sign-in and cross-device sync. One-time, by whoever runs the app — steps in <span className="mono">SETUP.md</span>.</div>
+    <label className="fld">Supabase project URL</label>
+    <input className="inp" value={cfg.supabaseUrl} onChange={e=>setCfg({supabaseUrl:e.target.value})} placeholder="https://xxxx.supabase.co"/>
+    <div style={{height:10}}/><label className="fld">Anon public key</label>
+    <div style={{display:'flex',gap:8}}>
+      <input className="inp" type={show?'text':'password'} value={cfg.supabaseKey} onChange={e=>setCfg({supabaseKey:e.target.value})} placeholder="eyJhbGci…"/>
+      <button className="btn ghost sm" onClick={()=>setShow(v=>!v)}>{show?'hide':'show'}</button></div>
+    <div className="note" style={{marginTop:10}}>Public keys — safe in the browser; row-level security protects the data. As soon as these are valid, the sign-in screen appears.</div>
+    <div className="divider"/>
+    <a style={{cursor:'pointer',fontSize:12.5}} onClick={onLocal}>Continue without an account (local only, this browser) →</a>
   </div>;
 }
 
