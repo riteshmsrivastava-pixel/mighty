@@ -120,7 +120,7 @@ async function runRefresh(){
 }
 
 /* ---------- discovery: follow links on watched pages, add same-site sub-pages ---------- */
-const MAX_PAGES = 40;
+const MAX_PAGES = 150;
 const SKIP_RE = /logout|sign[-_]?out|\.pdf|\.zip|\.docx?|\.xlsx?|\.pptx?|mailto:|tel:|\/print\b|javascript:/i;
 async function discover(){
   const store = await chrome.storage.local.get('watch');
