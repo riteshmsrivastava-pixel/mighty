@@ -65,6 +65,15 @@ $('refresh').onclick = async () => {
   const poll = setInterval(async () => { const { running } = await get('running'); render(); if (!running) clearInterval(poll); }, 1200);
 };
 
+$('discover').onclick = () => {
+  $('discover').disabled = true; $('discover').textContent = '🔍 discovering…';
+  chrome.runtime.sendMessage({ type:'discover' }, (res) => {
+    $('discover').disabled = false; $('discover').textContent = '🔍 Auto-discover linked pages';
+    if (res) $('discoverNote').textContent = `Added ${res.added} page${res.added!==1?'s':''} · now watching ${res.total}. Hit “Refresh now” to read them.`;
+    render();
+  });
+};
+
 $('add').onclick = async () => {
   const label = $('newLabel').value.trim(), url = $('newUrl').value.trim(), watchFor = $('newWatch').value.trim();
   if (!label || !url) return;

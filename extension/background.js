@@ -10,6 +10,7 @@ const DEFAULT_WATCH = [
 
 /* ---------- helpers ---------- */
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const uid = () => Math.random().toString(36).slice(2,9);
 function hash(s){ let h = 5381; for (let i=0;i<s.length;i++){ h = ((h<<5)+h) + s.charCodeAt(i); h |= 0; } return h>>>0; }
 function looksLikeLogin(url, text){
   if (/idp\.mit\.edu|shibboleth|\/wayf|duosecurity|cas\/login|login\.mit\.edu|oidc\/authorize/i.test(url||'')) return true;
@@ -35,7 +36,14 @@ async function scrape(url){
     await sleep(2800); // let single-page apps render
     const out = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      func: () => ({ url: location.href, title: document.title, text: ((document.body && document.body.innerText) || '').slice(0, 12000) })
+      func: () => {
+        const main = document.querySelector('main, [role=main], #main, #content, .main-content, .page-content') || document.body;
+        const text = (((main && main.innerText) || (document.body && document.body.innerText) || '')).slice(0, 12000);
+        const links = Array.from(document.querySelectorAll('a[href]'))
+          .map(a => ({ href: a.href, label: (a.innerText || a.textContent || '').trim().replace(/\s+/g,' ').slice(0, 60) }))
+          .filter(l => l.href && /^https?:/i.test(l.href));
+        return { url: location.href, title: document.title, text, links };
+      }
     });
     return out && out[0] ? out[0].result : { error: 'no result' };
   } catch(e){ return { error: String((e && e.message) || e) }; }
@@ -111,6 +119,39 @@ async function runRefresh(){
   }
 }
 
+/* ---------- discovery: follow links on watched pages, add same-site sub-pages ---------- */
+const MAX_PAGES = 40;
+const SKIP_RE = /logout|sign[-_]?out|\.pdf|\.zip|\.docx?|\.xlsx?|\.pptx?|mailto:|tel:|\/print\b|javascript:/i;
+async function discover(){
+  const store = await chrome.storage.local.get('watch');
+  let watch = store.watch || [];
+  const have = new Set(watch.map(w => normUrl(w.url)));
+  const seeds = [...watch];
+  let added = 0;
+  for (const item of seeds){
+    if (watch.length >= MAX_PAGES) break;
+    const r = await scrape(item.url);
+    if (r.error || !r.links) continue;
+    let base; try { base = new URL(item.url); } catch(e){ continue; }
+    for (const l of r.links){
+      if (watch.length >= MAX_PAGES) break;
+      let u; try { u = new URL(l.href); } catch(e){ continue; }
+      if (u.hostname !== base.hostname) continue;        // same site as the seed only
+      if (SKIP_RE.test(u.href)) continue;
+      const key = normUrl(u.href);
+      if (have.has(key)) continue;
+      have.add(key);
+      const slug = (l.label || u.pathname.split('/').filter(Boolean).pop() || u.hostname).slice(0, 48);
+      watch.push({ id: uid(), label: `${u.hostname.replace(/\.mit\.edu$/,'')} — ${slug}`,
+        url: u.origin + u.pathname, watchFor: 'anything new or changed' });
+      added++;
+    }
+  }
+  await chrome.storage.local.set({ watch });
+  return { total: watch.length, added };
+}
+function normUrl(s){ try { const u = new URL(s); return (u.origin + u.pathname).replace(/\/$/, ''); } catch(e){ return s; } }
+
 /* ---------- wiring ---------- */
 chrome.runtime.onInstalled.addListener(async () => {
   const { watch } = await chrome.storage.local.get('watch');
@@ -122,6 +163,7 @@ chrome.alarms.onAlarm.addListener(a => { if (a.name === 'dailyRefresh') runRefre
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg && msg.type === 'refreshNow'){ runRefresh().then(() => sendResponse({ ok:true })); return true; }
+  if (msg && msg.type === 'discover'){ discover().then(res => sendResponse(res)); return true; }
   if (msg && msg.type === 'setDaily'){
     chrome.alarms.clear('dailyRefresh');
     if (msg.on) chrome.alarms.create('dailyRefresh', { periodInMinutes: 1440, delayInMinutes: 1 });
