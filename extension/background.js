@@ -37,15 +37,27 @@ async function scrape(url){
     const out = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: () => {
-        // collect links FIRST (the nav holds the sub-page links we want for discovery)
-        const links = Array.from(document.querySelectorAll('a[href]'))
-          .map(a => ({ href: a.href, label: (a.textContent || '').trim().replace(/\s+/g,' ').slice(0, 60) }))
-          .filter(l => l.href && /^https?:/i.test(l.href));
+        // collect links FIRST — pierce shadow DOM, resolve relative URLs, catch any [href]
+        const links = []; const seen = new Set();
+        const walk = (root) => {
+          let nodes; try { nodes = root.querySelectorAll('a[href], [href], [role="link"]'); } catch(e){ nodes = []; }
+          nodes.forEach(a => {
+            let href = a.href || (a.getAttribute && (a.getAttribute('href') || a.getAttribute('data-href') || a.getAttribute('data-url')));
+            if (!href || typeof href !== 'string') return;
+            try { href = new URL(href, location.href).href; } catch(e){ return; }
+            if (!/^https?:/i.test(href) || seen.has(href)) return;
+            seen.add(href);
+            links.push({ href, label: (a.textContent || '').trim().replace(/\s+/g,' ').slice(0, 60) });
+          });
+          let all; try { all = root.querySelectorAll('*'); } catch(e){ all = []; }
+          all.forEach(el => { if (el.shadowRoot) walk(el.shadowRoot); });
+        };
+        try { walk(document); } catch(e){}
         // then strip chrome/nav so the captured TEXT is the page content, not the menu
-        try { document.querySelectorAll('nav, aside, header, footer, [role=navigation], [class*="sidebar"], [class*="nav"], script, style, noscript').forEach(el => el.remove()); } catch(e){}
+        try { document.querySelectorAll('nav, aside, header, footer, [role=navigation], [class*="sidebar"], script, style, noscript').forEach(el => el.remove()); } catch(e){}
         const mainEl = document.querySelector('main, [role=main], #content, #main, .content, .page-content, article');
         const text = ((((mainEl || document.body) || {}).innerText) || '').replace(/\s+/g,' ').trim().slice(0, 12000);
-        return { url: location.href, title: document.title, text, links };
+        return { url: location.href, title: document.title, text, links, linkCount: links.length };
       }
     });
     return out && out[0] ? out[0].result : { error: 'no result' };
@@ -130,11 +142,12 @@ async function discover(){
   let watch = store.watch || [];
   const have = new Set(watch.map(w => normUrl(w.url)));
   const seeds = [...watch];
-  let added = 0;
+  let added = 0, scanned = 0;
   for (const item of seeds){
     if (watch.length >= MAX_PAGES) break;
     const r = await scrape(item.url);
     if (r.error || !r.links) continue;
+    scanned += r.links.length;
     let base; try { base = new URL(item.url); } catch(e){ continue; }
     for (const l of r.links){
       if (watch.length >= MAX_PAGES) break;
@@ -151,7 +164,7 @@ async function discover(){
     }
   }
   await chrome.storage.local.set({ watch });
-  return { total: watch.length, added };
+  return { total: watch.length, added, scanned };
 }
 function normUrl(s){ try { const u = new URL(s); return (u.origin + u.pathname).replace(/\/$/, ''); } catch(e){ return s; } }
 

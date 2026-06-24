@@ -69,7 +69,7 @@ $('discover').onclick = () => {
   $('discover').disabled = true; $('discover').textContent = '🔍 discovering…';
   chrome.runtime.sendMessage({ type:'discover' }, (res) => {
     $('discover').disabled = false; $('discover').textContent = '🔍 Auto-discover linked pages';
-    if (res) $('discoverNote').textContent = `Added ${res.added} page${res.added!==1?'s':''} · now watching ${res.total}. Hit “Refresh now” to read them.`;
+    if (res) $('discoverNote').textContent = `Saw ${res.scanned} links · added ${res.added} new · now watching ${res.total}. Hit “Refresh now” to read them.`;
     render();
   });
 };
