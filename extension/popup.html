@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  :root{ --card:#FFFDF9; --line:#E7DECB; --card2:#FBF6EC; --ink:#2A2320; --sub:#73685B; --mute:#9A8E7E;
+    --brand:#A31F34; --brand2:#8A1828; --green:#5F7A4E; --terra:#C8703D; --blue:#3A6B8A; --inp:#FCF8F0; }
+  *{box-sizing:border-box;}
+  body{ width:380px; margin:0; padding:0; font-family:-apple-system,system-ui,sans-serif; color:var(--ink);
+    background:#EFE7D7; font-size:13px; }
+  .wrap{ padding:12px; }
+  .head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .logo{ width:30px;height:30px;border-radius:9px;background:linear-gradient(150deg,#B83A30,#8A1828);color:#FFF6EC;
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px; }
+  .title{ font-weight:800; font-size:15px; } .title b{color:var(--brand);}
+  .sub{ font-size:10.5px; color:var(--sub); }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:13px; padding:11px; margin-bottom:10px; }
+  button{ font-family:inherit; cursor:pointer; }
+  .btn{ background:linear-gradient(150deg,#B83A30,#8A1828); color:#FFF6EC; border:1px solid var(--brand2);
+    border-radius:9px; padding:8px 12px; font-weight:700; font-size:12.5px; }
+  .btn:disabled{ opacity:.55; cursor:default; }
+  .ghost{ background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:6px 10px; font-size:12px; }
+  .row{ display:flex; align-items:center; gap:8px; padding:8px; border:1px solid var(--line); border-radius:10px; background:var(--card2); margin-bottom:6px; }
+  .row .g{ flex:1; min-width:0; }
+  .row .t{ font-weight:700; font-size:12.5px; }
+  .row .m{ font-size:11px; color:var(--sub); margin-top:2px; word-break:break-word; }
+  .dot{ width:8px;height:8px;border-radius:50%;flex:none; }
+  .ok{background:var(--green);} .changed{background:var(--terra);} .attention{background:var(--brand);}
+  .login{background:#C9A24A;} .error{background:#B0413A;} .none{background:#CFC4B2;}
+  .tag{ font-size:9.5px; color:var(--mute); font-family:ui-monospace,monospace; }
+  a{ color:var(--blue); font-size:10.5px; text-decoration:none; word-break:break-all; } a:hover{text-decoration:underline;}
+  label{ display:block; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--mute); margin:8px 0 3px; }
+  input{ width:100%; padding:7px 9px; border:1px solid var(--line); border-radius:8px; background:var(--inp); font-size:12.5px; font-family:inherit; }
+  .mini{ font-size:11px; color:var(--sub); line-height:1.45; }
+  .seg{ display:flex; align-items:center; gap:6px; font-size:12px; }
+  summary{ cursor:pointer; font-weight:700; font-size:12.5px; }
+  .x{ border:none;background:none;color:var(--mute);cursor:pointer;font-size:13px; }
+  .iconadd{ border:1px solid var(--line); background:var(--card); border-radius:7px; padding:5px 8px; font-size:11.5px; }
+  .note{ font-size:10.5px; color:var(--sub); margin-top:6px; line-height:1.4; }
+  .bluebox{ background:#E1EBF1;border:1px solid #C9DCE7;border-radius:9px;padding:8px 10px;font-size:10.5px;color:var(--blue);line-height:1.45;margin-bottom:8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div style="display:flex;align-items:center;gap:9px;">
+      <div class="logo">Mi</div>
+      <div><div class="title"><b>MI</b>gh<b>T</b>y · MIT Watch</div><div class="sub" id="lastrun">—</div></div>
+    </div>
+    <button class="btn" id="refresh">↻ Refresh now</button>
+  </div>
+
+  <div class="bluebox">Runs in <b>your own browser</b>, in your logged-in MIT session. A daily alarm refreshes these pages automatically and flags what changed. Nothing leaves your machine unless you connect a MIghTy account below.</div>
+
+  <div id="results"></div>
+
+  <details>
+    <summary>⚙️ Pages & settings</summary>
+    <div class="card" style="margin-top:8px;">
+      <div style="font-weight:700;margin-bottom:6px;">Watched pages</div>
+      <div id="watchlist"></div>
+      <div style="margin-top:8px;">
+        <input id="newLabel" placeholder="Label (e.g. Canvas)"/>
+        <input id="newUrl" placeholder="https://…mit.edu/…" style="margin-top:5px;"/>
+        <input id="newWatch" placeholder="What to watch for" style="margin-top:5px;"/>
+        <button class="iconadd" id="add" style="margin-top:6px;">＋ Add page</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <label class="seg" style="text-transform:none;font-size:12px;color:var(--ink);font-weight:600;">
+        <input type="checkbox" id="daily" style="width:auto;"/> Auto-refresh once every 24 hours
+      </label>
+      <div class="note">When on, the extension refreshes by itself daily (when Chrome is running). You can also hit “Refresh now” any time.</div>
+    </div>
+
+    <details>
+      <summary style="font-size:12px;">Optional · Claude summaries (Anthropic API key)</summary>
+      <div class="card" style="margin-top:6px;">
+        <div class="note">Without a key, you get “changed / unchanged” + a text preview (free). With a key, each change is summarized into a task. Stored only in this browser.</div>
+        <label>Anthropic API key</label>
+        <input id="anthropicKey" type="password" placeholder="sk-ant-…"/>
+        <button class="ghost" id="saveAnthropic" style="margin-top:7px;">Save</button>
+      </div>
+    </details>
+
+    <details>
+      <summary style="font-size:12px;">Optional · Sync to your MIghTy account (Supabase)</summary>
+      <div class="card" style="margin-top:6px;">
+        <div class="note">Pushes results to your MIghTy web app so they show on all your devices.</div>
+        <label>Supabase URL</label><input id="sbUrl" placeholder="https://xxxx.supabase.co"/>
+        <label>Anon key</label><input id="sbKey" type="password" placeholder="eyJhbGci…"/>
+        <label>MIT email</label><input id="sbEmail" placeholder="kerberos@mit.edu"/>
+        <label>Password</label><input id="sbPass" type="password" placeholder="••••••••"/>
+        <button class="ghost" id="sbSignin" style="margin-top:7px;">Sign in & connect</button>
+        <div class="note" id="sbStatus"></div>
+      </div>
+    </details>
+  </details>
+</div>
+<script src="popup.js"></script>
+</body>
+</html>

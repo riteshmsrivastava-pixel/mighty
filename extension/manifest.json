@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "MIghTy — MIT Watch",
+  "version": "0.1.0",
+  "description": "Daily auto-refresh of your MIT pages. Reads them in your own logged-in browser and tracks what changed.",
+  "permissions": ["alarms", "storage", "tabs", "scripting"],
+  "host_permissions": [
+    "https://*.mit.edu/*",
+    "https://*.supabase.co/*",
+    "https://api.anthropic.com/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_popup": "popup.html", "default_title": "MIghTy — MIT Watch" }
+}
