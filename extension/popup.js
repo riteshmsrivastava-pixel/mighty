@@ -75,11 +75,16 @@ $('discover').onclick = () => {
 };
 
 $('add').onclick = async () => {
-  const label = $('newLabel').value.trim(), url = $('newUrl').value.trim(), watchFor = $('newWatch').value.trim();
-  if (!label || !url) return;
+  let url = $('newUrl').value.trim();
+  if (!url) { $('newUrl').focus(); $('newUrl').style.borderColor = 'var(--brand)'; return; }
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;          // tolerate "canvas.mit.edu"
+  let label = $('newLabel').value.trim();
+  if (!label) { try { label = new URL(url).hostname.replace(/^www\./,'').replace(/\.mit\.edu$/,''); } catch(e){ label = url; } }
+  const watchFor = $('newWatch').value.trim() || 'anything new or changed';
   const s = await get('watch');
   await set({ watch: [ ...(s.watch||[]), { id: uid(), label, url, watchFor } ] });
-  $('newLabel').value=''; $('newUrl').value=''; $('newWatch').value=''; render();
+  $('newLabel').value=''; $('newUrl').value=''; $('newWatch').value=''; $('newUrl').style.borderColor='';
+  render();
 };
 
 $('daily').onchange = async () => {
