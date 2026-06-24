@@ -168,6 +168,30 @@ async function discover(){
 }
 function normUrl(s){ try { const u = new URL(s); return (u.origin + u.pathname).replace(/\/$/, ''); } catch(e){ return s; } }
 
+/* ---------- capture-as-you-browse: a page you opened sent us its content ---------- */
+async function ingestCapture(data){
+  if (!data || !data.url) return;
+  const store = await chrome.storage.local.get(['watch','results']);
+  let watch = store.watch || [];
+  const results = store.results || {};
+  const key = normUrl(data.url);
+  let item = watch.find(w => normUrl(w.url) === key);
+  if (!item){
+    if (watch.length >= MAX_PAGES) return;
+    let host = ''; try { host = new URL(data.url).hostname.replace(/\.mit\.edu$/,''); } catch(e){}
+    const slug = (data.title || key).replace(/\s+/g,' ').trim().slice(0, 56);
+    item = { id: uid(), label: `${host} — ${slug}`.slice(0, 72), url: data.url.split('#')[0], watchFor:'anything new or changed', auto:true };
+    watch.push(item);
+    await chrome.storage.local.set({ watch });
+  }
+  const h = hash(data.text || '');
+  const prev = results[item.id] || {};
+  const changed = prev.hash !== undefined && prev.hash !== h;
+  results[item.id] = { ...prev, label:item.label, url:item.url, title:data.title, hash:h,
+    status: changed ? 'changed' : 'ok', summary: (data.text || '').slice(0, 240), lastChecked: Date.now() };
+  await chrome.storage.local.set({ results, lastRun: Date.now() });
+}
+
 /* ---------- wiring ---------- */
 chrome.runtime.onInstalled.addListener(async () => {
   const { watch } = await chrome.storage.local.get('watch');
@@ -180,6 +204,7 @@ chrome.alarms.onAlarm.addListener(a => { if (a.name === 'dailyRefresh') runRefre
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg && msg.type === 'refreshNow'){ runRefresh().then(() => sendResponse({ ok:true })); return true; }
   if (msg && msg.type === 'discover'){ discover().then(res => sendResponse(res)); return true; }
+  if (msg && msg.type === 'capture'){ ingestCapture(msg.data); return false; }
   if (msg && msg.type === 'setDaily'){
     chrome.alarms.clear('dailyRefresh');
     if (msg.on) chrome.alarms.create('dailyRefresh', { periodInMinutes: 1440, delayInMinutes: 1 });

@@ -10,5 +10,8 @@
     "https://api.anthropic.com/*"
   ],
   "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    { "matches": ["https://*.mit.edu/*"], "js": ["content.js"], "run_at": "document_idle" }
+  ],
   "action": { "default_popup": "popup.html", "default_title": "MIghTy — MIT Watch" }
 }
