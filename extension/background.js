@@ -37,11 +37,14 @@ async function scrape(url){
     const out = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: () => {
-        const main = document.querySelector('main, [role=main], #main, #content, .main-content, .page-content') || document.body;
-        const text = (((main && main.innerText) || (document.body && document.body.innerText) || '')).slice(0, 12000);
+        // collect links FIRST (the nav holds the sub-page links we want for discovery)
         const links = Array.from(document.querySelectorAll('a[href]'))
-          .map(a => ({ href: a.href, label: (a.innerText || a.textContent || '').trim().replace(/\s+/g,' ').slice(0, 60) }))
+          .map(a => ({ href: a.href, label: (a.textContent || '').trim().replace(/\s+/g,' ').slice(0, 60) }))
           .filter(l => l.href && /^https?:/i.test(l.href));
+        // then strip chrome/nav so the captured TEXT is the page content, not the menu
+        try { document.querySelectorAll('nav, aside, header, footer, [role=navigation], [class*="sidebar"], [class*="nav"], script, style, noscript').forEach(el => el.remove()); } catch(e){}
+        const mainEl = document.querySelector('main, [role=main], #content, #main, .content, .page-content, article');
+        const text = ((((mainEl || document.body) || {}).innerText) || '').replace(/\s+/g,' ').trim().slice(0, 12000);
         return { url: location.href, title: document.title, text, links };
       }
     });
