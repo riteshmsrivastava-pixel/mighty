@@ -1266,6 +1266,49 @@ function PersonDrawer({row,rowEvents,db,sb,auth,drawerTab,setDrawerTab,onClose,u
 
   const EVENT_TYPES = [['connection_request','Connection request'],['first_message','First message'],['reply','Reply'],['coffee_chat','Coffee chat'],['referral','Referral'],['interview','Interview'],['note','Note']];
 
+  // Per-contact reasoning context for Meeting Prep + Relationship Health — built
+  // from what's actually on file (profile, briefing, notes, real timeline).
+  function personDigest(){
+    const ctx = row.context||{};
+    const evLines = rowEvents.slice().sort((a,b)=>new Date(a.occurred_at)-new Date(b.occurred_at))
+      .map(e=>`${fmtDate(new Date(e.occurred_at).getTime())} · ${e.event_type}${e.note?': '+e.note:''}`);
+    return [
+      `Contact: ${displayName(row)}${row.title?', '+row.title:''}${row.company?' at '+row.company:''}`,
+      `Status: ${row.status.replace(/_/g,' ')}`,
+      row.contacted_at?`First contacted: ${fmtDate(new Date(row.contacted_at).getTime())}`:'',
+      ctx.aboutText?`Profile: ${String(ctx.aboutText).slice(0,1500)}`:'',
+      ctx.mutualConnectionsRaw?`Mutual connections: ${ctx.mutualConnectionsRaw}`:'',
+      briefing.careerSummary?`Briefing: ${briefing.careerSummary}`:'',
+      row.notes?`My notes: ${row.notes}`:'',
+      evLines.length?`Interaction history:\n${evLines.join('\n')}`:'No logged interactions yet.'
+    ].filter(Boolean).join('\n');
+  }
+  const [prep,setPrep]=useState(null); const [prepBusy,setPrepBusy]=useState(false);
+  const [health,setHealth]=useState(null); const [healthBusy,setHealthBusy]=useState(false);
+  const [prepErr,setPrepErr]=useState(null);
+  useEffect(()=>{ setPrep(null); setHealth(null); setPrepErr(null); },[row.id]);
+  async function genPrep(){
+    setPrepBusy(true); setPrepErr(null);
+    try{
+      const r = await llmJSON(sb, auth, 'meeting_prep',
+        'You are prepping an MIT Sloan Fellows MBA student for an upcoming conversation with this person. Use ONLY the provided context; never invent facts. Be specific, practical, and warm.',
+        `${personDigest()}\n\nReturn JSON: {"talkingPoints": string[], "questions": string[], "reminders": string[], "risks": string[]}. 2 to 4 concise items in each array; use [] if nothing applies.`);
+      setPrep(r);
+    }catch(e){ setPrepErr(e.message||String(e)); }
+    setPrepBusy(false);
+  }
+  async function genHealth(){
+    setHealthBusy(true); setPrepErr(null);
+    try{
+      const r = await llmJSON(sb, auth, 'relationship_health',
+        'Assess the health of this professional relationship for an MIT Sloan Fellows MBA student. Base it ONLY on the interaction history, status, and timing provided — never invent. Classify into exactly one of: growing, warm, fading, dormant.',
+        `${personDigest()}\n\nToday is ${new Date().toISOString().slice(0,10)}.\nReturn JSON: {"status": "growing"|"warm"|"fading"|"dormant", "reason": string (under 20 words), "nextMove": string (under 15 words)}`);
+      setHealth(r);
+    }catch(e){ setPrepErr(e.message||String(e)); }
+    setHealthBusy(false);
+  }
+  const HEALTH_META={growing:{label:'Growing',c:'#ec3013',bg:'#fff2ef'},warm:{label:'Warm',c:'#ae1800',bg:'#ffe0d9'},fading:{label:'Fading',c:'var(--sub)',bg:'var(--chip)'},dormant:{label:'Dormant',c:'var(--mute)',bg:'var(--bg2)'}};
+
   return <>
     <div className="overlay" onClick={onClose}/>
     <div className="drawer">
@@ -1303,7 +1346,7 @@ function PersonDrawer({row,rowEvents,db,sb,auth,drawerTab,setDrawerTab,onClose,u
           <button className="btn ghost sm" onClick={()=>setDrawerTab('notes')}>Add note</button>
         </div>
         <div className="drawer-tabs">
-          {['briefing','timeline','notes'].map(t=><div key={t} className={'drawer-tab'+(drawerTab===t?' on':'')} onClick={()=>setDrawerTab(t)}>{t[0].toUpperCase()+t.slice(1)}</div>)}
+          {['briefing','prep','timeline','notes'].map(t=><div key={t} className={'drawer-tab'+(drawerTab===t?' on':'')} onClick={()=>setDrawerTab(t)}>{t==='prep'?'AI Prep':t[0].toUpperCase()+t.slice(1)}</div>)}
         </div>
       </div>
       <div style={{flex:1,overflowY:'auto',padding:'18px 24px 36px'}}>
@@ -1318,6 +1361,34 @@ function PersonDrawer({row,rowEvents,db,sb,auth,drawerTab,setDrawerTab,onClose,u
               {briefing.conversationStarters?.length>0 && <><div className="tag" style={{margin:'14px 0 8px'}}>Conversation starters</div>
                 <div className="list">{briefing.conversationStarters.map((s,i)=><div key={i} className="row" style={{background:'var(--card2)'}}><div className="m">{s}</div></div>)}</div></>}
               {briefing.whyContactReasons?.length>0 && <><div className="tag" style={{margin:'14px 0 6px'}}>Why contact</div><div className="note" style={{fontSize:13.5,color:'var(--ink)'}}>{briefing.whyContactReasons.join(' · ')}</div></>}
+            </>}
+        </>}
+        {drawerTab==='prep' && <>
+          {mode==='none'
+            ? <div className="empty"><div className="big">✨</div>Sign in to use AI prep.</div>
+            : <>
+              {/* Relationship health */}
+              <div className="ph" style={{marginBottom:8}}><div><h2 style={{fontSize:15}}>Relationship health</h2><div className="sub">How this connection is trending, from your real history.</div></div>
+                <button className="btn ghost sm" onClick={genHealth} disabled={healthBusy}>{healthBusy?<Dots/>:health?'Re-check':'Check'}</button></div>
+              {health && (()=>{ const m=HEALTH_META[health.status]||HEALTH_META.warm; return <div className="panel pad" style={{marginBottom:20}}>
+                <span className="pill" style={{background:m.bg,color:m.c,fontSize:12.5}}>{m.label}</span>
+                <div className="note" style={{fontSize:13.5,color:'var(--ink)',marginTop:8}}>{health.reason}</div>
+                {health.nextMove && <div style={{marginTop:8,display:'flex',gap:8,alignItems:'baseline'}}><span className="tag">Next move</span><span style={{fontSize:13,fontWeight:600,color:'var(--brand2)'}}>{health.nextMove}</span></div>}
+              </div>; })()}
+
+              {/* Meeting prep */}
+              <div className="ph" style={{marginBottom:8}}><div><h2 style={{fontSize:15}}>Meeting prep</h2><div className="sub">Talking points and questions for your next conversation.</div></div>
+                <button className="btn sm" onClick={genPrep} disabled={prepBusy}>{prepBusy?<Dots/>:prep?'Regenerate':'Prep me'}</button></div>
+              {prepErr && <div className="warnbox" style={{marginBottom:12}}>{prepErr}</div>}
+              {prep
+                ? <div style={{display:'flex',flexDirection:'column',gap:16}}>
+                    {[['Talking points',prep.talkingPoints],['Questions to ask',prep.questions],['Reminders',prep.reminders],['Watch out for',prep.risks]].map(([label,arr])=>
+                      (arr&&arr.length>0) ? <div key={label}>
+                        <div className="tag" style={{marginBottom:7}}>{label}</div>
+                        <div className="list">{arr.map((s,i)=><div key={i} className="row" style={{background:'var(--card2)',alignItems:'flex-start'}}><div className="m" style={{color:'var(--ink)'}}>{s}</div></div>)}</div>
+                      </div> : null)}
+                  </div>
+                : !prepBusy && <div className="note" style={{fontSize:13}}>Click <b>Prep me</b> for talking points, smart questions, and reminders grounded in this person's profile and your history together.</div>}
             </>}
         </>}
         {drawerTab==='timeline' && <>
