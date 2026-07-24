@@ -177,17 +177,21 @@ const DEFAULT = {
   settings: {
     sheets: { sheetId:'', tabName:'MIghTy Outreach', lastSyncedAt:null, lastError:null },
     targetCompanies: [],
+    targetRoles: [],
     followUpDays: 7,
     communityOptIn: false,
+    onboardedAt: null, // set once the first-run setup is finished/skipped
   },
 };
 function shape(d){
   d = d||{};
+  const sd = (d.settings||{});
   return { ...JSON.parse(JSON.stringify(DEFAULT)), ...d,
     templates: Array.isArray(d.templates) ? d.templates : DEFAULT.templates,
-    settings: { ...DEFAULT.settings, ...(d.settings||{}),
-      sheets:{ ...DEFAULT.settings.sheets, ...((d.settings||{}).sheets||{}) },
-      targetCompanies: Array.isArray((d.settings||{}).targetCompanies) ? d.settings.targetCompanies : DEFAULT.settings.targetCompanies } };
+    settings: { ...DEFAULT.settings, ...sd,
+      sheets:{ ...DEFAULT.settings.sheets, ...(sd.sheets||{}) },
+      targetCompanies: Array.isArray(sd.targetCompanies) ? sd.targetCompanies : DEFAULT.settings.targetCompanies,
+      targetRoles: Array.isArray(sd.targetRoles) ? sd.targetRoles : DEFAULT.settings.targetRoles } };
 }
 function loadDB(){ try{ return shape(JSON.parse(localStorage.getItem(DB_KEY))); }catch(e){ return shape(); } }
 
@@ -531,6 +535,7 @@ function App(){
     <div className="panel pad" style={{maxWidth:420,textAlign:'center'}}><h2>MIghTy isn't set up yet</h2>
       <p className="note" style={{marginTop:10}}>The deployer needs to add a Supabase project URL + anon key to <span className="mono">index.html</span> — see SETUP.md.</p></div></div>;
   if(auth.status!=='in') return <Gate sb={sb}/>;
+  if(!db.settings.onboardedAt) return <Onboarding db={db} patch={patch} auth={auth} setTab={setTab}/>;
 
   return <div className="app">
     <div className="rail">
@@ -614,6 +619,108 @@ function Gate({sb}){
     </div>
   </div>;
 }
+
+/* ============================ Onboarding (first run) ============================ */
+function ChipInput({label, hint, placeholder, value, onChange, suggestions}){
+  const [text,setText]=useState('');
+  const add=(v)=>{ v=(v||'').trim(); if(!v) return; if(!value.some(x=>x.toLowerCase()===v.toLowerCase())) onChange([...value,v]); setText(''); };
+  const remove=(v)=>onChange(value.filter(x=>x!==v));
+  return <div>
+    <label className="fld">{label}</label>
+    {hint && <div className="note" style={{margin:'-2px 0 8px'}}>{hint}</div>}
+    <div style={{display:'flex',gap:8}}>
+      <input className="inp" value={text} placeholder={placeholder}
+        onChange={e=>setText(e.target.value)}
+        onKeyDown={e=>{ if(e.key==='Enter'){e.preventDefault(); add(text);} if(e.key==='Backspace'&&!text&&value.length) remove(value[value.length-1]); }}/>
+      <button className="btn ghost" type="button" onClick={()=>add(text)}>Add</button>
+    </div>
+    {value.length>0 && <div style={{display:'flex',flexWrap:'wrap',gap:7,marginTop:10}}>
+      {value.map(v=><span key={v} className="chip" style={{gap:7}}>{v}<span onClick={()=>remove(v)} style={{cursor:'pointer',fontWeight:700,color:'var(--mute)'}}>✕</span></span>)}
+    </div>}
+    {suggestions && suggestions.length>0 && <div style={{marginTop:10}}>
+      <div className="tag" style={{marginBottom:6}}>Popular</div>
+      <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+        {suggestions.filter(s=>!value.some(x=>x.toLowerCase()===s.toLowerCase())).map(s=>
+          <span key={s} onClick={()=>add(s)} className="chip" style={{cursor:'pointer',background:'var(--card)',border:'1px solid var(--line)'}}>+ {s}</span>)}
+      </div>
+    </div>}
+  </div>;
+}
+function Onboarding({db, patch, auth, setTab}){
+  const [step,setStep]=useState(0);
+  const [companies,setCompanies]=useState(db.settings.targetCompanies||[]);
+  const [roles,setRoles]=useState(db.settings.targetRoles||[]);
+  const first=(auth.user.email||'').split('@')[0];
+  const finish=()=>patch('settings',{targetCompanies:companies, targetRoles:roles, onboardedAt:Date.now()});
+
+  const STEPS = [
+    { key:'welcome', title:`Welcome, ${first}`, sub:'MIghTy helps you build real relationships on LinkedIn, not just connections. Two quick questions, then you\'re set.' },
+    { key:'companies', title:'Which companies are you targeting?', sub:'MIghTy uses these to score who\'s worth reaching out to. You can change them anytime in Settings.' },
+    { key:'roles', title:'What roles are you after?', sub:'Optional - helps MIghTy prioritise the right people. Skip if you\'re just exploring.' },
+    { key:'extension', title:'Add the Chrome extension', sub:'This is what lets MIghTy read LinkedIn pages you\'re viewing and save people with one click. It never sends or connects for you.' },
+    { key:'tour', title:'Here\'s the flow', sub:'Four moves, and MIghTy does the remembering.' },
+  ];
+  const s=STEPS[step];
+  const last=step===STEPS.length-1;
+  const COMPANY_SUGGESTIONS=['McKinsey','BCG','Bain & Company','Amazon','Google','Stripe','OpenAI','Goldman Sachs','Deloitte'];
+  const ROLE_SUGGESTIONS=['Product Manager','Consultant','Investor / VC','Founder','Data Scientist','Strategy','Business Development'];
+
+  return <div style={{minHeight:'100vh',background:'var(--bg)',display:'grid',placeItems:'center',padding:24}}>
+    <div className="panel" style={{width:540,maxWidth:'100%'}}>
+      <div style={{display:'flex',alignItems:'center',gap:9,padding:'18px 22px',borderBottom:'1px solid var(--line)'}}>
+        <img src="../assets/logo-icon.png" alt="" style={{width:24,height:24}}/>
+        <div style={{fontWeight:700}}>Set up MIghTy</div>
+        <div style={{flex:1}}/>
+        <div className="tag">Step {step+1} of {STEPS.length}</div>
+      </div>
+      {/* progress */}
+      <div style={{display:'flex',gap:4,padding:'12px 22px 0'}}>
+        {STEPS.map((_,i)=><div key={i} style={{flex:1,height:4,background:i<=step?'var(--brand)':'var(--chip)'}}/>)}
+      </div>
+      <div className="pad" style={{minHeight:220}}>
+        <h2 style={{fontSize:22}}>{s.title}</h2>
+        <div className="note" style={{marginTop:6,fontSize:13.5,lineHeight:1.55}}>{s.sub}</div>
+        <div style={{marginTop:18}}>
+          {s.key==='companies' &&
+            <ChipInput label="Target companies" placeholder="Type a company, press Enter" value={companies} onChange={setCompanies} suggestions={COMPANY_SUGGESTIONS}/>}
+          {s.key==='roles' &&
+            <ChipInput label="Target roles (optional)" placeholder="Type a role, press Enter" value={roles} onChange={setRoles} suggestions={ROLE_SUGGESTIONS}/>}
+          {s.key==='extension' &&
+            <div style={{display:'flex',flexDirection:'column',gap:12}}>
+              <a className="btn" href="../install/" target="_blank" rel="noopener noreferrer" style={{alignSelf:'flex-start',textDecoration:'none'}}>Open install guide ↗</a>
+              <div className="okbox">You can finish setup now and add the extension later - the web app works on its own. The extension just makes saving from LinkedIn one click.</div>
+            </div>}
+          {s.key==='welcome' &&
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              {[['◔','Decide who\'s worth your time'],['✍','Draft grounded first messages'],['↗','Remember every relationship']].map(([em,t])=>
+                <div key={t} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',border:'1px solid var(--line)',background:'var(--card2)'}}>
+                  <div style={{width:26,height:26,flex:'none',background:'var(--brand)',color:'#fff',display:'grid',placeItems:'center',fontSize:13}}>{em}</div>
+                  <div style={{fontWeight:600,fontSize:13.5}}>{t}</div></div>)}
+            </div>}
+          {s.key==='tour' &&
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              {[['1','Save people','From LinkedIn search or a profile, save anyone interesting.'],
+                ['2','See the match','MIghTy scores each person and tells you why.'],
+                ['3','Draft & send','Get a grounded first draft. You always click Send yourself.'],
+                ['4','Track it','Log coffee chats and follow-ups; MIghTy resurfaces them.']].map(([n,t,d])=>
+                <div key={n} style={{display:'flex',gap:12,alignItems:'flex-start'}}>
+                  <div style={{width:26,height:26,flex:'none',background:'var(--brand)',color:'#fff',display:'grid',placeItems:'center',fontWeight:700,fontSize:13}}>{n}</div>
+                  <div><div style={{fontWeight:600,fontSize:13.5}}>{t}</div><div className="note" style={{fontSize:12.5}}>{d}</div></div></div>)}
+            </div>}
+        </div>
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:10,padding:'14px 22px',borderTop:'1px solid var(--line)'}}>
+        {step>0 ? <button className="btn ghost" onClick={()=>setStep(step-1)}>← Back</button> : <span/>}
+        <div style={{flex:1}}/>
+        {!last && step>0 && <a onClick={finish} style={{fontSize:12.5,color:'var(--mute)',cursor:'pointer'}}>Skip setup</a>}
+        {last
+          ? <button className="btn" onClick={()=>{ finish(); setTab('people'); }}>Finish - start with People</button>
+          : <button className="btn" onClick={()=>setStep(step+1)}>Continue</button>}
+      </div>
+    </div>
+  </div>;
+}
+
 /* ============================ Dashboard ============================ */
 function Dashboard({db,log,events,communityStats,sb,auth,setTab,setDrawerId,setDraftFor}){
   const candidates = log.filter(r=>r.status==='prospect'||r.status==='ready_to_contact');
