@@ -117,21 +117,30 @@ Deno.serve(async (req) => {
     }
   }
 
-  // ---- precheck: one round-trip for all counters + budgets ----
+  // ---- precheck: one round-trip for all counters + budgets + plan ----
   const { data: pc, error: pcErr } = await admin.rpc("ai_precheck", { p_user_id: user.id });
   if (pcErr) return json({ ok: false, error: "usage_error", message: pcErr.message }, 500);
-  const cfg = (pc?.config) || { daily_company_budget_usd: 20, free_daily_assists: 30, free_monthly_assists: 400, user_monthly_budget_usd: 15 };
+  const cfg = (pc?.config) || { daily_company_budget_usd: 20, free_daily_assists: 30, explorer_monthly_assists: 25, builder_monthly_assists: 300, user_monthly_budget_usd: 15 };
+  const plan       = pc?.plan || "explorer";
   const dayCount   = Number(pc?.day_count || 0);
   const monthCount = Number(pc?.month_count || 0);
   const userMonth$ = Number(pc?.user_month_cost || 0);
   const company$   = Number(pc?.company_day_cost || 0);
 
-  // ---- G3/G4: per-user daily + monthly assist caps ----
-  if (dayCount + weight > cfg.free_daily_assists) {
-    return json({ ok: false, error: "rate_limited", scope: "daily", message: `Daily AI limit reached (${cfg.free_daily_assists} assists/day). Resets tomorrow.` });
+  // Per-plan monthly assist cap (Explorer/Builder/Leader). Leader = unlimited.
+  const PLAN_LABEL: Record<string, string> = { explorer: "Explorer", builder: "Builder", leader: "Leader" };
+  const monthlyCap = plan === "leader" ? Infinity
+    : plan === "builder" ? Number(cfg.builder_monthly_assists ?? 300)
+    : Number(cfg.explorer_monthly_assists ?? 25);
+
+  // ---- G3: per-user daily abuse guard (skipped for Leader) ----
+  if (plan !== "leader" && dayCount + weight > Number(cfg.free_daily_assists)) {
+    return json({ ok: false, error: "rate_limited", scope: "daily", message: `Daily AI limit reached (${cfg.free_daily_assists}/day). Resets tomorrow.` });
   }
-  if (monthCount + weight > cfg.free_monthly_assists) {
-    return json({ ok: false, error: "rate_limited", scope: "monthly", message: `Monthly AI limit reached (${cfg.free_monthly_assists} assists/month).` });
+  // ---- G4: per-plan monthly assist cap ----
+  if (monthCount + weight > monthlyCap) {
+    const up = plan === "explorer" ? " Upgrade to Builder for more." : "";
+    return json({ ok: false, error: "rate_limited", scope: "monthly", plan, message: `You've used all ${monthlyCap} MIghTy Assists in your ${PLAN_LABEL[plan] || plan} plan this month.${up}` });
   }
   // ---- G6: per-user monthly $ ceiling ----
   if (userMonth$ >= Number(cfg.user_monthly_budget_usd)) {
@@ -181,8 +190,8 @@ Deno.serve(async (req) => {
   return json({
     ok: true, text,
     meta: {
-      model, tier: def.tier, cached: false, assists: weight,
-      assistsLeftToday: Math.max(0, cfg.free_daily_assists - dayCount - weight),
+      model, tier: def.tier, cached: false, assists: weight, plan,
+      assistsLeftMonth: monthlyCap === Infinity ? null : Math.max(0, monthlyCap - monthCount - weight),
       downgraded: overBudget,
     },
   });

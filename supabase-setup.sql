@@ -251,15 +251,33 @@ $$;
 create table if not exists public.ai_config (
   id                       int primary key default 1 check (id = 1),
   daily_company_budget_usd numeric not null default 20,   -- G7: whole-cohort daily ceiling
-  free_daily_assists       int     not null default 30,   -- G3: per-user/day (non-cached calls)
-  free_monthly_assists     int     not null default 400,  -- G4: per-user/month
+  free_daily_assists       int     not null default 30,   -- G3: per-user/day abuse guard (all paid plans)
+  free_monthly_assists     int     not null default 400,  -- legacy flat monthly cap (superseded by per-plan below)
   user_monthly_budget_usd  numeric not null default 15    -- G6: per-user/month $ ceiling
 );
 insert into public.ai_config (id) values (1) on conflict (id) do nothing;
+-- Per-plan monthly assist caps (Explorer/Builder/Leader). Added idempotently so
+-- existing installs pick them up. Leader is unlimited (enforced in the gateway).
+alter table public.ai_config add column if not exists explorer_monthly_assists int not null default 25;
+alter table public.ai_config add column if not exists builder_monthly_assists  int not null default 300;
 alter table public.ai_config enable row level security;
 -- readable by any signed-in user (the app shows "assists left"); only service role writes.
 drop policy if exists "aicfg select" on public.ai_config;
 create policy "aicfg select" on public.ai_config for select using (auth.role() = 'authenticated');
+
+-- Which plan each user is on. Defaults to Explorer (free). There is no payment
+-- integration yet, so upgrades are set here manually (or by a future billing
+-- webhook using the service-role key): update public.user_plans set plan='builder'
+-- where user_id = '...';  Users can read their own plan but never change it.
+create table if not exists public.user_plans (
+  user_id    uuid primary key references auth.users(id) on delete cascade,
+  plan       text not null default 'explorer' check (plan in ('explorer','builder','leader')),
+  updated_at timestamptz not null default now()
+);
+alter table public.user_plans enable row level security;
+drop policy if exists "up select own" on public.user_plans;
+create policy "up select own" on public.user_plans for select using (auth.uid() = user_id);
+-- no insert/update/delete policy — plan changes go through the service role only.
 
 -- One row per Claude call — the gateway's ledger. cache_hit rows cost $0.
 create table if not exists public.ai_call_log (
@@ -315,6 +333,7 @@ as $$
                              and created_at >= date_trunc('month', now() at time zone 'utc')), 0),
     'company_day_cost', coalesce((select sum(est_cost_usd) from public.ai_call_log
                            where created_at >= date_trunc('day', now() at time zone 'utc')), 0),
+    'plan',             coalesce((select plan from public.user_plans where user_id = p_user_id), 'explorer'),
     'config',           (select row_to_json(c) from public.ai_config c where id = 1)
   );
 $$;
