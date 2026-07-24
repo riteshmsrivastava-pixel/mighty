@@ -183,6 +183,25 @@ function sentThisWeek(log){
   const ws = weekStartUTC();
   return (log||[]).filter(r=>r.status==='sent' && r.sent_at && new Date(r.sent_at).getTime()>=ws).length;
 }
+function addOffset(ts, amount, unit){
+  const ms = unit==='weeks' ? 7*864e5 : unit==='months' ? 30*864e5 : 864e5;
+  return new Date(ts + (amount||0)*ms).toISOString();
+}
+// Honest, transparent relationship strength — recency decay + interaction count +
+// reciprocity, all from data that already exists. No fabricated probabilities.
+function computeStrength(row, rowEvents){
+  const ts = [row.sent_at, row.shortlisted_at, ...rowEvents.map(e=>e.occurred_at)].filter(Boolean).map(t=>new Date(t).getTime());
+  const lastContact = ts.length ? Math.max(...ts) : null;
+  const daysSince = lastContact!=null ? Math.max(0,(now()-lastContact)/864e5) : null;
+  const recency = lastContact!=null ? Math.pow(0.5, daysSince/45) : 0; // 45-day half-life
+  const interactionScore = Math.min(rowEvents.length,6)/6; // diminishing returns past 6 touches
+  const reciprocated = row.status==='replied' || rowEvents.some(e=>e.event_type==='reply');
+  const score = 50*recency + 30*interactionScore + (reciprocated?20:0);
+  const pips = Math.max(0, Math.min(5, Math.round(score/20)));
+  const reasons = [lastContact!=null?`Last spoke ${Math.round(daysSince)}d ago`:'No contact yet',
+    `${rowEvents.length} interaction${rowEvents.length===1?'':'s'}`, ...(reciprocated?['They replied']:[])];
+  return { score, pips, reasons };
+}
 function renderTemplate(body, row){
   const firstName = (row.name||'').trim().split(/\s+/)[0] || 'there';
   return (body||'').replaceAll('{{firstName}}', firstName).replaceAll('{{company}}', row.company||'your company');
@@ -254,6 +273,9 @@ const OBJECTIVES = [
 /* ============================ atoms ============================ */
 function Dots(){ return <span className="typing"><i></i><i></i><i></i></span>; }
 function Stat({k,v,sub,d}){ return <div className="kpi"><div className="k">{k}</div><div className="v">{v}{sub&&<small> {sub}</small>}</div>{d&&<div className="d">{d}</div>}</div>; }
+function Pips({n}){ return <span style={{letterSpacing:'1px'}}>{[0,1,2,3,4].map(i=><span key={i} style={{color:i<n?'var(--brand)':'var(--line2)'}}>●</span>)}</span>; }
+function MiniBar({v,max}){ const pct=Math.min(100,Math.round(100*v/Math.max(1,max)));
+  return <div className="scorebar" style={{margin:'6px 0 0'}}><i style={{width:`${pct}%`}}></i></div>; }
 
 /* ============================ App shell ============================ */
 function App(){
@@ -378,10 +400,12 @@ function App(){
 
   // Timeline entry. A 'reply' also flips status (dashboard response-rate counts
   // off status, not events); coffee_chat/referral/interview/note never touch status.
-  async function logEvent(row, eventType, note){
+  // `extra` carries structured extraction (coffee-chat facts/suggested_next_touch) —
+  // there's no update policy on outreach_events, so it must be set at insert time.
+  async function logEvent(row, eventType, note, extra={}){
     if(!sb || auth.status!=='in') return {ok:false, error:'Not signed in'};
     try{
-      await sb.from('outreach_events').insert({user_id:auth.user.id, log_id:row.id, event_type:eventType, note:note||null});
+      await sb.from('outreach_events').insert({user_id:auth.user.id, log_id:row.id, event_type:eventType, note:note||null, ...extra});
       if(eventType==='reply') await updateRow(row, {status:'replied'});
       await refreshEvents(sb, auth.user);
       return {ok:true};
@@ -445,9 +469,9 @@ function App(){
               {TABS.map(([id,em,lb])=><button key={id} className={tab===id?'on':''} onClick={()=>setTab(id)}><span className="em">{em}</span>{lb}</button>)}
             </div>
             {tab==='home' && <Home db={db} log={log} events={events} communityStats={communityStats} cfg={cfg} setTab={setTab} auth={auth} sbReady={sbReady} onSignIn={()=>setLocalOnly(false)} updateRow={updateRow}/>}
-            {tab==='shortlist' && <Shortlist db={db} log={log} cfg={cfg} auth={auth} sbReady={sbReady} doIngest={doIngest} updateRow={updateRow} onSignIn={()=>setLocalOnly(false)}/>}
+            {tab==='shortlist' && <Shortlist db={db} log={log} events={events} cfg={cfg} auth={auth} sbReady={sbReady} doIngest={doIngest} updateRow={updateRow} onSignIn={()=>setLocalOnly(false)}/>}
             {tab==='templates' && <Templates db={db} patch={patch} cfg={cfg}/>}
-            {tab==='log' && <Log db={db} patch={patch} log={log} events={events} auth={auth} sb={sb} updateRow={updateRow} logEvent={logEvent}/>}
+            {tab==='log' && <Log db={db} patch={patch} log={log} events={events} cfg={cfg} auth={auth} sb={sb} updateRow={updateRow} logEvent={logEvent}/>}
             {tab==='settings' && <Settings db={db} patch={patch} cfg={cfg} setCfg={setCfg} auth={auth} sb={sb} signOut={signOut}/>}
           </>}
 
@@ -533,64 +557,67 @@ function Home({db,log,events,communityStats,cfg,setTab,auth,sbReady,onSignIn,upd
   const sentCount = sentThisWeek(log);
   const nextReset = new Date(weekStartUTC()+7*864e5);
 
-  const candidates = log.filter(r=>r.status==='to_contact'||r.status==='deferred');
-  const bestTen = candidates.map(r=>({row:r, ...computeScore(r, db.settings.targetCompanies)}))
-    .sort((a,b)=>b.score-a.score).slice(0,10);
-
   const everSent = log.filter(r=>r.status==='sent'||r.status==='replied').length;
   const replied = log.filter(r=>r.status==='replied').length;
   const responseRate = everSent ? Math.round(100*replied/everSent) : 0;
-  const coffeeChats = events.filter(e=>e.event_type==='coffee_chat').length;
+  const coffeeChatsTotal = events.filter(e=>e.event_type==='coffee_chat').length;
   const referrals = events.filter(e=>e.event_type==='referral').length;
   const interviews = events.filter(e=>e.event_type==='interview').length;
+  const coffeeChatsThisWeek = events.filter(e=>e.event_type==='coffee_chat' && new Date(e.occurred_at).getTime()>=weekStartUTC()).length;
 
   const followUpDays = db.settings.followUpDays||7;
   const repliedLogIds = new Set(events.filter(e=>e.event_type==='reply').map(e=>e.log_id));
   const needsFollowUp = log.filter(r=>r.status==='sent' && !repliedLogIds.has(r.id) && r.sent_at && (now()-new Date(r.sent_at).getTime())>followUpDays*864e5);
+
+  // One ranked "what to do next" queue — either a fresh contact worth reaching
+  // out to, or an existing one overdue for a follow-up. Same transparent
+  // reasoning idiom either way, no fabricated stats.
+  const toContact = log.filter(r=>r.status==='to_contact'||r.status==='deferred')
+    .map(r=>({row:r, action:'contact', label:'Message for the first time', ...computeScore(r, db.settings.targetCompanies)}));
+  const overdue = needsFollowUp.map(r=>{
+    const daysOver = Math.round((now()-new Date(r.sent_at).getTime())/864e5);
+    return { row:r, action:'followup', label:`Follow up — no reply in ${daysOver}d`,
+      score: Math.min(100, 50+(daysOver-followUpDays)*3), reasons:[`Sent ${daysOver}d ago`] };
+  });
+  const queue = [...toContact, ...overdue].sort((a,b)=>b.score-a.score).slice(0,10);
 
   return <div style={{display:'flex',flexDirection:'column',gap:16}}>
     {sbReady && !signedIn && <div className="panel pad" style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
       <div><b>You're in guest mode.</b> <span className="note">Sign in with your @mit.edu email to see your ranked contacts and start tracking.</span></div>
       <button className="btn sm" onClick={onSignIn}>Sign in</button></div>}
 
+    {signedIn && <div className="grid3">
+      <div className="kpi"><div className="k">Contacted this week</div><div className="v">{sentCount}<small> / 100</small></div><MiniBar v={sentCount} max={100}/></div>
+      <div className="kpi"><div className="k">Coffee chats this week</div><div className="v">{coffeeChatsThisWeek}</div><MiniBar v={coffeeChatsThisWeek} max={5}/></div>
+      <div className="kpi"><div className="k">Follow-ups overdue</div><div className="v" style={{color:needsFollowUp.length>0?'var(--terra)':'inherit'}}>{needsFollowUp.length}</div><MiniBar v={needsFollowUp.length} max={5}/></div>
+    </div>}
+
     <div className="panel pad">
-      <div className="ph"><div><h2>🎯 Today's Best {bestTen.length||10} People to Contact</h2><div className="sub">Ranked by relevance — target companies, shared school, mutual connections, recency.</div></div>
+      <div className="ph"><div><h2>🎯 What to do next</h2><div className="sub">Ranked — new people worth reaching out to, or overdue follow-ups, whichever matters more right now.</div></div>
         <button className="btn ghost sm" onClick={()=>setTab('shortlist')}>Open Shortlist →</button></div>
       {!signedIn
         ? <div className="empty"><div className="big">🎯</div>Sign in to see your ranked queue.</div>
-        : bestTen.length===0
-          ? <div className="empty"><div className="big">🎯</div>Nothing to rank yet. Shortlist some profiles with the extension, then come back.</div>
-          : <div className="list">{bestTen.map(({row,reasons},i)=><div key={row.id} className="row">
-              <div className="tag" style={{fontSize:16,fontWeight:800,color:'var(--brand)'}}>{i+1}</div>
-              <div className="grow">
-                <div className="t">{row.name||row.profile_url}</div>
-                <div className="m">{row.title||''}{row.company?` · ${row.company}`:''}</div>
-                <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:6}}>{reasons.map((r,j)=><span key={j} className="chip">{r}</span>)}</div>
-              </div>
-              <button className="iconbtn" onClick={()=>window.open(row.profile_url,'_blank','noopener')}>view</button>
-            </div>)}</div>}
+        : queue.length===0
+          ? <div className="empty"><div className="big">🎯</div>Nothing to act on yet. Shortlist some profiles with the extension, then come back.</div>
+          : <div className="list">{queue.map((item,i)=><AdvisorRow key={item.row.id+item.action} item={item} rank={i+1} cfg={cfg} updateRow={updateRow} setTab={setTab}/>)}</div>}
       <div className="note" style={{marginTop:10}}>Add target companies in Settings to sharpen this ranking.</div>
     </div>
 
     <div className="grid3">
       <Stat k="Sent this week" v={sentCount} sub="/ 100" d={`resets ${fmtDate(nextReset.getTime())} 00:00 UTC`}/>
       <Stat k="Response rate" v={`${responseRate}%`} d={`${replied} of ${everSent} replied`}/>
-      <Stat k="Coffee chats" v={coffeeChats} d={`${referrals} referrals · ${interviews} interviews`}/>
+      <Stat k="Coffee chats" v={coffeeChatsTotal} d={`${referrals} referrals · ${interviews} interviews`}/>
     </div>
-
-    {needsFollowUp.length>0 && <div className="panel pad">
-      <div className="ph"><div><h2>⏰ Needs a follow-up</h2><div className="sub">No reply after {followUpDays} days.</div></div></div>
-      <div className="list">{needsFollowUp.map(r=><FollowUpRow key={r.id} row={r} cfg={cfg} updateRow={updateRow}/>)}</div>
-    </div>}
 
     <CommunityPanel db={db} communityStats={communityStats} setTab={setTab}/>
   </div>;
 }
-function FollowUpRow({row,cfg,updateRow}){
+function AdvisorRow({item,rank,cfg,updateRow,setTab}){
+  const {row,action,label,reasons} = item;
   const [busy,setBusy]=useState(false);
-  const daysAgo = Math.round((now()-new Date(row.sent_at).getTime())/864e5);
-  async function generateAndCopy(){
+  async function generateFollowUpAndCopy(){
     setBusy(true);
+    const daysAgo = Math.round((now()-new Date(row.sent_at).getTime())/864e5);
     try{
       const draft = await llm(cfg,
         'You are helping an MIT Sloan Fellows MBA student follow up on LinkedIn after no reply. Keep it brief, low-pressure, not a repeat of the original. Return only the message.',
@@ -601,8 +628,18 @@ function FollowUpRow({row,cfg,updateRow}){
     setBusy(false);
   }
   return <div className="row">
-    <div className="grow"><div className="t">{row.name||row.profile_url}</div><div className="m">Sent {daysAgo}d ago, no reply yet</div></div>
-    <button className="btn sm" onClick={generateAndCopy} disabled={busy}>{busy?<Dots/>:'✨ Draft follow-up + open'}</button>
+    <div className="tag" style={{fontSize:16,fontWeight:800,color:'var(--brand)'}}>{rank}</div>
+    <div className="grow">
+      <div className="t">{row.name||row.profile_url}</div>
+      <div className="m">{row.title||''}{row.company?` · ${row.company}`:''}</div>
+      <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:6}}>
+        <span className="chip" style={{background:action==='followup'?'var(--tsoft)':'var(--chip)',color:action==='followup'?'var(--terra2)':'var(--sub)'}}>{label}</span>
+        {reasons.map((r,j)=><span key={j} className="chip">{r}</span>)}
+      </div>
+    </div>
+    {action==='followup'
+      ? <button className="btn sm" onClick={generateFollowUpAndCopy} disabled={busy}>{busy?<Dots/>:'✨ Draft follow-up + open'}</button>
+      : <button className="iconbtn" onClick={()=>setTab('shortlist')}>open in Shortlist</button>}
   </div>;
 }
 function CommunityPanel({db,communityStats,setTab}){
@@ -620,7 +657,7 @@ function CommunityPanel({db,communityStats,setTab}){
 }
 
 /* ============================ Shortlist ============================ */
-function Shortlist({db,log,cfg,auth,sbReady,doIngest,updateRow,onSignIn}){
+function Shortlist({db,log,events,cfg,auth,sbReady,doIngest,updateRow,onSignIn}){
   const [checking,setChecking]=useState(false);
   const signedIn = auth.status==='in';
   const rows = log.filter(r=>r.status==='to_contact'||r.status==='deferred')
@@ -641,11 +678,11 @@ function Shortlist({db,log,cfg,auth,sbReady,doIngest,updateRow,onSignIn}){
         <button className="btn ghost sm" onClick={async()=>{setChecking(true); await doIngest(); setChecking(false);}} disabled={checking}>{checking?<Dots/>:'↻ Check for new profiles'}</button></div>
       {rows.length===0
         ? <div className="empty"><div className="big">📋</div>Nothing shortlisted yet. Use the extension on a LinkedIn search-results page, then come back and hit "Check for new profiles."</div>
-        : <div className="list">{rows.map(r=><ShortlistRow key={r.id} row={r} templates={db.templates} cfg={cfg} capReached={capReached} updateRow={updateRow}/>)}</div>}
+        : <div className="list">{rows.map(r=><ShortlistRow key={r.id} row={r} rowEvents={events.filter(e=>e.log_id===r.id)} templates={db.templates} cfg={cfg} capReached={capReached} updateRow={updateRow}/>)}</div>}
     </div>
   </div>;
 }
-function ShortlistRow({row,templates,cfg,capReached,updateRow}){
+function ShortlistRow({row,rowEvents,templates,cfg,capReached,updateRow}){
   const [tplId,setTplId]=useState(templates[0]?.id||'');
   const [objective,setObjective]=useState('coffee_chat');
   const [busy,setBusy]=useState(false); const [err,setErr]=useState(null);
@@ -684,6 +721,7 @@ function ShortlistRow({row,templates,cfg,capReached,updateRow}){
       <div className="grow">
         <div className="t">{row.name || row.profile_url}{row.status==='deferred' && <span className="badge" style={{marginLeft:6}}>deferred</span>}</div>
         <div className="m">{row.title||''}{row.company?` · ${row.company}`:''}</div>
+        {row.status==='deferred' && rowEvents.length>0 && (()=>{ const s=computeStrength(row,rowEvents); return <div style={{marginTop:2}}><Pips n={s.pips}/> <span className="note" style={{marginLeft:6}}>{s.reasons[0]}</span></div>; })()}
         <a className="linkurl" href={row.profile_url} target="_blank" rel="noopener">{row.profile_url}</a>
       </div>
       {!row.ai_draft && templates.length>1 && <select className="inp" style={{width:'auto'}} value={tplId} onChange={e=>setTplId(e.target.value)}>
@@ -777,7 +815,7 @@ function Templates({db,patch,cfg}){
 }
 
 /* ============================ Log ============================ */
-function Log({db,patch,log,events,auth,sb,updateRow,logEvent}){
+function Log({db,patch,log,events,cfg,auth,sb,updateRow,logEvent}){
   const [filter,setFilter]=useState('all');
   const [syncBusy,setSyncBusy]=useState(false); const [syncMsg,setSyncMsg]=useState(null);
   const signedIn = auth.status==='in';
@@ -812,7 +850,7 @@ function Log({db,patch,log,events,auth,sb,updateRow,logEvent}){
       <div className="seg" style={{marginBottom:12}}>{FILTERS.map(([k,l])=><button key={k} className={filter===k?'on':''} onClick={()=>setFilter(k)}>{l}</button>)}</div>
       {rows.length===0
         ? <div className="empty"><div className="big">📊</div>Nothing here yet.</div>
-        : <div className="list">{rows.map(r=><LogRow key={r.id} row={r} events={events.filter(e=>e.log_id===r.id)} logEvent={logEvent}/>)}</div>}
+        : <div className="list">{rows.map(r=><LogRow key={r.id} row={r} events={events.filter(e=>e.log_id===r.id)} cfg={cfg} logEvent={logEvent}/>)}</div>}
     </div>
   </div>;
 }
@@ -820,40 +858,74 @@ const EVENT_TYPES = [
   ['connection_request','Connection request'],['first_message','First message'],['reply','Reply'],
   ['coffee_chat','Coffee chat'],['referral','Referral'],['interview','Interview'],['note','Note'],
 ];
-function LogRow({row,events,logEvent}){
+function LogRow({row,events,cfg,logEvent}){
   const [open,setOpen]=useState(false);
   const [busy,setBusy]=useState(false);
-  const [noteType,setNoteType]=useState(null);
+  const [noteType,setNoteType]=useState(null); // null | 'note' | 'coffee_chat'
   const [noteText,setNoteText]=useState('');
-  async function add(eventType, note){
+  const [extractErr,setExtractErr]=useState(null);
+  const mode = llmMode(cfg);
+  const strength = computeStrength(row, events);
+
+  async function add(eventType, note, extra){
     setBusy(true);
-    await logEvent(row, eventType, note);
-    setBusy(false); setNoteType(null); setNoteText('');
+    await logEvent(row, eventType, note, extra);
+    setBusy(false); setNoteType(null); setNoteText(''); setExtractErr(null);
+  }
+  async function addCoffeeChatWithExtraction(){
+    if(mode==='none'){ await add('coffee_chat', noteText.trim()); return; }
+    setBusy(true); setExtractErr(null);
+    try{
+      const r = await llmJSON(cfg,
+        'You are helping an MIT Sloan Fellows MBA student capture structured notes right after a real coffee chat. Extract only what the notes actually state or clearly imply — never invent personal details or promises not mentioned. Suggest a next-touch timing as a relative offset, not a calendar date.',
+        `Contact: ${row.name||row.profile_url}, ${row.title||''} at ${row.company||''}.\nStudent's notes from the coffee chat:\n${noteText.trim()}\n\nReturn JSON: {"personalDetails": string[], "promises": string[], "nextTouch": {"amount": number, "unit": "days"|"weeks"|"months", "justification": string}}`);
+      const extracted = { personalDetails:r.personalDetails||[], promises:r.promises||[], nextTouchJustification:r.nextTouch?.justification||'' };
+      const suggested_next_touch = r.nextTouch ? addOffset(now(), r.nextTouch.amount, r.nextTouch.unit) : null;
+      await logEvent(row, 'coffee_chat', noteText.trim(), { extracted, suggested_next_touch });
+      setNoteType(null); setNoteText('');
+    }catch(e){ setExtractErr(e.message||String(e)); }
+    setBusy(false);
   }
   return <div className="row" style={{flexDirection:'column',alignItems:'stretch',gap:8}}>
     <div style={{display:'flex',alignItems:'center',gap:12}}>
       <div className="grow">
         <div className="t">{row.name||row.profile_url}</div>
         <div className="m">{row.title||''}{row.company?` · ${row.company}`:''} · <span className="tag">{row.status}</span></div>
+        <div style={{marginTop:4}}><Pips n={strength.pips}/> <span className="note" style={{marginLeft:6}}>{strength.reasons.join(' · ')}</span></div>
         <a className="linkurl" href={row.profile_url} target="_blank" rel="noopener">{row.profile_url}</a>
       </div>
       <span className="tag">{rel(new Date(row.updated_at).getTime())}</span>
       <button className="iconbtn" onClick={()=>setOpen(o=>!o)}>{open?'hide':'timeline'} ({events.length})</button>
     </div>
     {open && <div style={{paddingTop:8,borderTop:'1px solid var(--line2)'}}>
-      {events.length>0 && <div className="list" style={{marginBottom:10}}>{events.map(e=><div key={e.id} className="row" style={{padding:'8px 10px'}}>
-        <div className="grow"><span className="badge">{EVENT_TYPES.find(t=>t[0]===e.event_type)?.[1]||e.event_type}</span>
-          {e.note && <span className="m" style={{marginLeft:8}}>{e.note}</span>}</div>
-        <span className="tag">{fmtDate(new Date(e.occurred_at).getTime())}</span>
+      {events.length>0 && <div className="list" style={{marginBottom:10}}>{events.map(e=><div key={e.id} className="row" style={{padding:'8px 10px',flexDirection:'column',alignItems:'stretch',gap:4}}>
+        <div style={{display:'flex',alignItems:'center'}}>
+          <div className="grow"><span className="badge">{EVENT_TYPES.find(t=>t[0]===e.event_type)?.[1]||e.event_type}</span>
+            {e.note && !e.extracted && <span className="m" style={{marginLeft:8}}>{e.note}</span>}</div>
+          <span className="tag">{fmtDate(new Date(e.occurred_at).getTime())}</span>
+        </div>
+        {e.extracted && <div className="m" style={{marginLeft:2}}>
+          {e.extracted.personalDetails?.length>0 && <div><b>Mentioned:</b> {e.extracted.personalDetails.join(' · ')}</div>}
+          {e.extracted.promises?.length>0 && <div><b>Promised:</b> {e.extracted.promises.join(' · ')}</div>}
+          {e.suggested_next_touch && <div><b>Next touch:</b> {fmtDate(new Date(e.suggested_next_touch).getTime())}{e.extracted.nextTouchJustification?` — ${e.extracted.nextTouchJustification}`:''}</div>}
+        </div>}
       </div>)}</div>}
       <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-        {EVENT_TYPES.map(([k,l])=> k==='note'
-          ? <button key={k} className="iconbtn" onClick={()=>setNoteType(noteType==='note'?null:'note')} disabled={busy}>+ {l}</button>
+        {EVENT_TYPES.map(([k,l])=> (k==='note'||k==='coffee_chat')
+          ? <button key={k} className="iconbtn" onClick={()=>setNoteType(noteType===k?null:k)} disabled={busy}>+ {l}</button>
           : <button key={k} className="iconbtn" onClick={()=>add(k)} disabled={busy}>+ {l}</button>)}
       </div>
       {noteType==='note' && <div style={{display:'flex',gap:8,marginTop:8}}>
         <input className="inp" value={noteText} onChange={e=>setNoteText(e.target.value)} placeholder="Quick note…"/>
         <button className="btn sm" onClick={()=>add('note',noteText.trim())} disabled={!noteText.trim()||busy}>Save</button>
+      </div>}
+      {noteType==='coffee_chat' && <div style={{marginTop:8}}>
+        <textarea className="inp" rows={3} value={noteText} onChange={e=>setNoteText(e.target.value)} placeholder="What did you talk about? Any personal details, promises, next steps…"/>
+        <div style={{display:'flex',gap:8,marginTop:8,alignItems:'center'}}>
+          {mode!=='none' && <button className="btn sm" onClick={addCoffeeChatWithExtraction} disabled={!noteText.trim()||busy}>{busy?<Dots/>:'✨ Extract details & save'}</button>}
+          <button className="btn ghost sm" onClick={()=>add('coffee_chat',noteText.trim())} disabled={!noteText.trim()||busy}>Save note only</button>
+        </div>
+        {extractErr && <div className="warnbox" style={{marginTop:8}}>{extractErr}</div>}
       </div>}
     </div>}
   </div>;

@@ -123,9 +123,17 @@ create table if not exists public.outreach_events (
                 ('connection_request','first_message','reply','coffee_chat','note','referral','interview')),
   note        text,
   occurred_at timestamptz not null default now(),
-  created_at  timestamptz not null default now()
+  created_at  timestamptz not null default now(),
+  -- structured coffee-chat capture: extracted personal details/promises, and an
+  -- AI-suggested next-touch date. Populated at insert time only — there's no
+  -- update policy on this table, so extraction happens before the row is written.
+  extracted             jsonb,
+  suggested_next_touch  timestamptz
 );
 alter table public.outreach_events enable row level security;
+
+alter table public.outreach_events add column if not exists extracted jsonb;
+alter table public.outreach_events add column if not exists suggested_next_touch timestamptz;
 
 drop policy if exists "oe select own" on public.outreach_events;
 create policy "oe select own" on public.outreach_events for select using (auth.uid() = user_id);
