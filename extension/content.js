@@ -30,11 +30,51 @@ const SELECTORS = {
   mutualConnections: 'a[href*="facetNetwork"] span, .entity-result__simple-insight-text, .member-insights',
 };
 
-// LinkedIn headlines are almost always "Title at Company" — good enough to
-// split without a real parser; left blank rather than guessed wrong.
+// LinkedIn headlines are "Title at Company", "Title @ Company", or
+// "Company | tagline | ..." — good enough to split without a real parser.
+// Returns '' rather than guessing when no company pattern is present.
 function companyFromTitle(title) {
-  const m = (title || '').match(/\bat\s+(.+)$/i);
-  return m ? m[1].trim() : '';
+  const t = title || '';
+  const at = t.match(/\bat\s+(.+?)(?:\s*[·|]|$)/i);
+  if (at) return at[1].trim();
+  const atSign = t.match(/@\s*(.+?)(?:\s*[·|]|$)/);
+  if (atSign) return atSign[1].trim();
+  if (t.includes('|')) { const b = t.split('|')[0].trim(); if (b && b.length < 50) return b; }
+  return '';
+}
+
+/* ---------- robust profile-page extraction ----------
+   LinkedIn ships obfuscated, frequently-rotated class names (e.g. "_699ffef9")
+   and renders the name in an <h2>, not <h1> — so fixed class selectors rot fast.
+   These read from stable anchors instead: the document <title>, the
+   profile-photo image src pattern, and DOM order relative to the name. Verified
+   against the live profile DOM; if this breaks, re-inspect and fix HERE. */
+function profileName() {
+  const t = (document.title || '').split(/\s[|·]\s/)[0].trim();
+  if (t && !/^\(\d+\)/.test(t) && t.toLowerCase() !== 'linkedin') return t;
+  const h = [...document.querySelectorAll('h1,h2')].find(x => {
+    const s = x.textContent.trim();
+    return s.length > 1 && s.length < 60;
+  });
+  return h ? h.textContent.trim() : '';
+}
+function profilePhotoUrl() {
+  const imgs = [...document.querySelectorAll('img[src*="profile-displayphoto"], img[src*="profile-framedphoto"]')];
+  imgs.sort((a, b) => (b.naturalWidth || b.width || 0) - (a.naturalWidth || a.width || 0));
+  return imgs[0] ? imgs[0].src : '';
+}
+function profileHeadline(name) {
+  const nameH = [...document.querySelectorAll('h1,h2')].find(h => h.textContent.trim() === name);
+  if (!nameH) return '';
+  let card = nameH;
+  for (let i = 0; i < 8 && card.parentElement; i++) { card = card.parentElement; if (card.querySelector('img[src*="profile-displayphoto"]')) break; }
+  const bad = /^·|^\d|1st|2nd|3rd|Contact info|mutual|connection|follower|^Message$|^More$|^Follow$|Skip to|MIghTy|match ·|first time/i;
+  const leaves = [...card.querySelectorAll('div,span,p')].filter(el => el.children.length === 0);
+  for (const el of leaves) {
+    const t = el.textContent.trim();
+    if (t.length > 15 && t.length < 300 && t !== name && !bad.test(t)) return t;
+  }
+  return '';
 }
 
 function send(type, extra) {
@@ -47,25 +87,35 @@ function normProfileUrl(href) {
   catch (e) { return href; }
 }
 
-/* ---------- 1. shortlist panel on search-results pages ---------- */
+/* ---------- 1. shortlist panel on search-results pages ----------
+   LinkedIn's result cards use rotated hashed class names, so we anchor on the
+   only stable things: /in/ profile links, the profile-photo src pattern, and
+   the text layout (name / "· Nth" degree / headline / location). Each result
+   card is deduped by its container element so mutual-connection avatar links
+   don't create phantom rows. Verified against the live search DOM. */
 function extractCards() {
-  const cards = Array.from(document.querySelectorAll(SELECTORS.searchResultCard));
-  return cards.map(card => {
-    const linkEl = card.querySelector(SELECTORS.cardProfileLink);
-    const nameEl = card.querySelector(SELECTORS.cardName);
-    const titleEl = card.querySelector(SELECTORS.cardTitle);
-    const photoEl = card.querySelector(SELECTORS.cardPhoto);
-    if (!linkEl) return null;
-    const title = (titleEl && titleEl.textContent || '').trim();
-    return {
-      profileUrl: normProfileUrl(linkEl.href),
-      name: (nameEl && nameEl.textContent || '').trim(),
-      title,
-      company: companyFromTitle(title),
-      photo: (photoEl && photoEl.src) || '',
-      el: card,
-    };
-  }).filter(Boolean);
+  const INSIGHT = /mutual connection|are mutual|follower|\bfollows\b|View .*profile/i;
+  const seenCards = new Set(), seenUrl = new Set(), out = [];
+  for (const link of document.querySelectorAll('a[href*="/in/"]')) {
+    const href = link.getAttribute('href') || '';
+    if (!/\/in\//.test(href)) continue;
+    const url = normProfileUrl(link.href);
+    if (seenUrl.has(url)) continue;
+    let card = link;
+    for (let i = 0; i < 6 && card.parentElement; i++) {
+      card = card.parentElement;
+      if (card.querySelector('img[src*="profile-displayphoto"], img[src*="profile-framedphoto"]') && card.innerText.trim().length > 30) break;
+    }
+    if (seenCards.has(card)) continue;
+    const lines = card.innerText.split('\n').map(s => s.trim()).filter(Boolean);
+    const name = lines[0] || '';
+    if (!name || name.length > 45 || INSIGHT.test(name)) continue; // secondary/insight link
+    const title = lines.slice(1).find(l => !/^[·•]/.test(l) && l !== name && l.length > 4 && !/^\d/.test(l) && !INSIGHT.test(l)) || '';
+    const photoEl = card.querySelector('img[src*="profile-displayphoto"], img[src*="profile-framedphoto"]');
+    seenCards.add(card); seenUrl.add(url);
+    out.push({ profileUrl: url, name, title, company: companyFromTitle(title), photo: (photoEl && photoEl.src) || '', el: card });
+  }
+  return out;
 }
 
 let panel = null;
@@ -211,16 +261,34 @@ function captureProfileContext() {
    info for a stranger — that preserves the same discard-if-not-shortlisted
    boundary as profile-context capture). For an untracked profile, only a
    lighter "save?" panel appears. */
+const ACCENT = '#ec3013';
 let sidebarEl = null;
 function ensureSidebar() {
   if (sidebarEl && document.body.contains(sidebarEl)) return sidebarEl;
   sidebarEl = document.createElement('div');
   sidebarEl.id = 'mighty-sidebar';
-  sidebarEl.style.cssText = 'position:fixed;top:70px;right:16px;width:290px;max-height:80vh;overflow:auto;z-index:99998;'
-    + 'background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.18);'
-    + 'font:13px -apple-system,system-ui,sans-serif;color:#1F1E1B;padding:14px;';
+  sidebarEl.style.cssText = 'position:fixed;top:70px;right:16px;width:320px;max-height:85vh;overflow:auto;z-index:99998;'
+    + 'background:#fff;border:1px solid rgba(0,0,0,.14);box-shadow:0 12px 40px rgba(0,0,0,.18);'
+    + "font:13px 'Archivo',-apple-system,system-ui,sans-serif;color:#201e1d;padding:16px;";
   document.body.appendChild(sidebarEl);
   return sidebarEl;
+}
+function esc(s) { return (s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function mightyBrandHead(rightHtml) {
+  return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+    <img src="${chrome.runtime.getURL('icons/logo-32.png')}" style="width:22px;height:22px;display:block;">
+    <span style="font-weight:800;font-size:15px;">MIghTy</span>
+    <span style="margin-left:auto;">${rightHtml || ''}</span></div>`;
+}
+// A readable "last interaction" label from the most recent event or status.
+function lastInteractionLabel(row, rowEvents) {
+  const ev = rowEvents.slice().sort((a, b) => new Date(b.occurred_at) - new Date(a.occurred_at))[0];
+  if (ev) {
+    const map = { stage_change: 'Stage updated', reply: 'They replied', coffee_chat: 'Coffee chat', referral: 'Referral', interview: 'Interview', first_message: 'Message sent', connection_request: 'Connection request', note: 'Note added' };
+    return map[ev.event_type] || 'Updated';
+  }
+  if (row.contacted_at) return 'Message sent';
+  return 'Saved';
 }
 async function renderProfileSidebar() {
   if (!PROFILE_PAGE_RE.test(location.pathname)) { if (sidebarEl) { sidebarEl.remove(); sidebarEl = null; } return; }
@@ -230,63 +298,81 @@ async function renderProfileSidebar() {
   const row = r.log.find(x => x.profile_url === profileUrl);
   const el = ensureSidebar();
 
+  // Live-scraped identity — fills gaps if the stored row is sparse.
+  const liveName = profileName();
+  const liveHeadline = profileHeadline(liveName);
+  const liveCompany = companyFromTitle(liveHeadline);
+  const livePhoto = profilePhotoUrl();
+
   if (!row) {
-    el.innerHTML = '';
-    const title = document.createElement('div'); title.style.cssText = 'font-weight:700;margin-bottom:6px;'; title.textContent = 'MIghTy';
-    const note = document.createElement('div'); note.style.cssText = 'color:#6E6B64;margin-bottom:10px;'; note.textContent = 'Not yet tracked in MIghTy.';
+    el.innerHTML = mightyBrandHead(`<span style="font-size:11px;font-weight:700;color:#605d5d;background:#eae7e7;padding:3px 9px;">Not tracked</span>`)
+      + `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          ${livePhoto ? `<img src="${esc(livePhoto)}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex:none;">` : ''}
+          <div style="min-width:0;"><div style="font-weight:800;font-size:15px;">${esc(liveName) || 'This profile'}</div>
+          <div style="font-size:11.5px;color:#605d5d;line-height:1.35;max-height:32px;overflow:hidden;">${esc(liveHeadline)}</div></div>
+        </div>
+        <div style="color:#605d5d;margin-bottom:12px;font-size:12.5px;">Not yet tracked in MIghTy. Save it to see match, status, and notes here.</div>`;
     const btn = document.createElement('button');
-    btn.textContent = 'Save to MIghTy'; btn.style.cssText = 'background:#4661D8;color:#fff;border:none;border-radius:8px;padding:8px 12px;font-weight:600;cursor:pointer;width:100%;';
+    btn.textContent = 'Save to MIghTy';
+    btn.style.cssText = `background:${ACCENT};color:#fff;border:none;padding:9px 12px;font-weight:800;font-size:13px;cursor:pointer;width:100%;font-family:inherit;`;
     btn.onclick = async () => {
-      const nameEl = document.querySelector('h1');
-      const titleEl = document.querySelector('.text-body-medium');
-      const photoEl = document.querySelector(SELECTORS.profilePhoto);
-      const title = (titleEl && titleEl.textContent || '').trim();
-      const res = await send('saveProfile', { payload: {
-        profileUrl, name: (nameEl && nameEl.textContent || '').trim(), title,
-        company: companyFromTitle(title), avatarUrl: (photoEl && photoEl.src) || '',
-      } });
+      btn.textContent = 'Saving…';
+      const res = await send('saveProfile', { payload: { profileUrl, name: liveName, title: liveHeadline, company: liveCompany, avatarUrl: livePhoto } });
       if (res && res.ok) { renderProfileSidebar(); return; }
       btn.textContent = 'Saved ✓'; btn.disabled = true;
     };
-    el.append(title, note, btn);
+    el.appendChild(btn);
     return;
   }
 
   const rowEvents = r.events.filter(e => e.log_id === row.id);
   const next = mightySuggestedNext(row);
   const { score, reasons } = mightyComputeScore(row, r.targetCompanies);
-  el.innerHTML = '';
-  const head = document.createElement('div'); head.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:10px;';
-  head.innerHTML = `<span style="font-weight:700;">MIghTy</span><span style="margin-left:auto;font-size:11px;font-weight:700;color:#1F6F54;background:#E2F1EC;padding:2px 8px;border-radius:99px;">${row.status.replace('_',' ')}</span>`;
-  el.appendChild(head);
-  const matchTitle = document.createElement('div'); matchTitle.style.cssText = 'font-weight:700;font-size:15px;color:#A31F34;margin-bottom:2px;';
-  matchTitle.textContent = `${mightyMatchLabel(score)} · ${score}%`;
-  el.appendChild(matchTitle);
-  if (reasons.length) {
-    const matchReasons = document.createElement('div'); matchReasons.style.cssText = 'font-size:11.5px;color:#6E6B64;margin-bottom:10px;';
-    matchReasons.textContent = reasons.join(' · ');
-    el.appendChild(matchReasons);
-  }
-  if (next) {
-    const nextBox = document.createElement('div');
-    nextBox.style.cssText = 'background:#E7EDFB;border-radius:8px;padding:9px 10px;margin-bottom:10px;font-size:12.5px;color:#3B55B8;';
-    nextBox.textContent = next;
-    el.appendChild(nextBox);
-  }
-  if (row.briefing && row.briefing.careerSummary) {
-    const brief = document.createElement('div'); brief.style.cssText = 'font-size:12px;color:#3D3B35;margin-bottom:10px;line-height:1.5;';
-    brief.textContent = row.briefing.careerSummary;
-    el.appendChild(brief);
-  }
-  const notesLabel = document.createElement('div'); notesLabel.style.cssText = 'font-size:10.5px;font-weight:700;text-transform:uppercase;color:#8A867C;margin-bottom:4px;'; notesLabel.textContent = 'Your notes';
+  const name = row.name || liveName;
+  const headline = row.title || liveHeadline;
+  const company = row.company || liveCompany;
+  const photo = row.avatar_url || livePhoto;
+  const statusLabel = row.status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+  el.innerHTML =
+    mightyBrandHead(`<span style="font-size:11px;font-weight:700;color:#605d5d;background:#eae7e7;padding:3px 9px;">Saved</span>`)
+    + `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        ${photo ? `<img src="${esc(photo)}" style="width:46px;height:46px;border-radius:50%;object-fit:cover;flex:none;">` : ''}
+        <div style="min-width:0;">
+          <div style="font-weight:800;font-size:15px;">${esc(name)}</div>
+          <div style="font-size:11.5px;color:#605d5d;line-height:1.35;max-height:32px;overflow:hidden;">${esc(company || headline)}</div>
+        </div>
+      </div>
+      <div style="font-weight:800;font-size:18px;color:${ACCENT};line-height:1.1;">${mightyMatchLabel(score)}</div>
+      <div style="font-size:11.5px;color:#605d5d;margin-bottom:12px;">${score}%${reasons.length ? ' · ' + esc(reasons.join(' · ')) : ''}</div>
+      <div style="border-top:1px solid rgba(0,0,0,.12);padding-top:11px;display:flex;flex-direction:column;gap:8px;font-size:12.5px;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:#605d5d;">Status</span><span style="font-weight:600;background:#eae7e7;padding:1px 8px;">${esc(statusLabel)}</span></div>
+        <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:#605d5d;">Last interaction</span><span style="font-weight:600;">${esc(lastInteractionLabel(row, rowEvents))}</span></div>
+        <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:#605d5d;">Next action</span><span style="font-weight:700;color:${ACCENT};text-align:right;max-width:170px;">${esc(next || '—')}</span></div>
+      </div>`;
+
+  // notes
+  const notesWrap = document.createElement('div');
+  notesWrap.style.cssText = 'background:#f8f4f4;border:1px solid rgba(0,0,0,.1);padding:9px 10px;margin-bottom:12px;';
+  notesWrap.innerHTML = `<div style="font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7d7979;margin-bottom:5px;">Your notes</div>`;
   const notesBox = document.createElement('textarea');
   notesBox.value = row.notes || ''; notesBox.placeholder = 'Jot anything…';
-  notesBox.style.cssText = 'width:100%;min-height:60px;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:7px 9px;font:12px inherit;margin-bottom:10px;';
+  notesBox.style.cssText = 'width:100%;min-height:52px;border:none;background:transparent;padding:0;font:12.5px inherit;color:#201e1d;resize:vertical;outline:none;';
   let notesTimer;
   notesBox.addEventListener('input', () => { clearTimeout(notesTimer); notesTimer = setTimeout(() => send('patchNotes', { logId: row.id, notes: notesBox.value }), 900); });
-  el.append(notesLabel, notesBox);
+  notesWrap.appendChild(notesBox);
+  el.appendChild(notesWrap);
 
-  if (rowEvents.length === 0) { /* no timeline yet */ }
+  // actions
+  const draftBtn = document.createElement('button');
+  draftBtn.textContent = row.status === 'prospect' || row.status === 'ready_to_contact' ? 'Draft message' : 'Draft follow-up';
+  draftBtn.style.cssText = `background:${ACCENT};color:#fff;border:none;padding:9px 12px;font-weight:800;font-size:13px;cursor:pointer;width:100%;font-family:inherit;margin-bottom:8px;`;
+  draftBtn.onclick = () => window.open(`${(r.appUrl || 'https://yourmighty.com/app/')}?open=${row.id}`, '_blank');
+  const openBtn = document.createElement('button');
+  openBtn.textContent = 'Open in MIghTy';
+  openBtn.style.cssText = 'background:#fff;color:#201e1d;border:1px solid rgba(0,0,0,.2);padding:9px 12px;font-weight:800;font-size:13px;cursor:pointer;width:100%;font-family:inherit;';
+  openBtn.onclick = () => window.open('https://yourmighty.com/app/', '_blank');
+  el.append(draftBtn, openBtn);
 }
 
 /* ---------- 4. passive send/connect observer (never triggers a click) ---------- */
