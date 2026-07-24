@@ -87,6 +87,7 @@ create table if not exists public.outreach_log (
   name           text,
   title          text,
   company        text,
+  avatar_url     text,
   message_sent   text,
   status         text not null default 'prospect'
                    check (status in ('prospect','ready_to_contact','contacted','replied','coffee_chat','referral','interview','offer','do_not_contact')),
@@ -121,6 +122,7 @@ alter table public.outreach_log add column if not exists notes text;
 alter table public.outreach_log add column if not exists context jsonb;
 alter table public.outreach_log add column if not exists briefing jsonb;
 alter table public.outreach_log add column if not exists ai_draft text;
+alter table public.outreach_log add column if not exists avatar_url text;
 
 alter table public.outreach_log drop constraint if exists outreach_log_status_check;
 update public.outreach_log set status = 'prospect' where status in ('shortlisted','to_contact','deferred');

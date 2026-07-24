@@ -353,7 +353,13 @@ function Dots(){ return <span className="typing"><i></i><i></i><i></i></span>; }
 function Stat({k,v,sub,d}){ return <div className="kpi"><div className="k">{k}</div><div className="v">{v}{sub&&<small> {sub}</small>}</div>{d&&<div className="d">{d}</div>}</div>; }
 function Pips({n}){ return <span style={{letterSpacing:'1px'}}>{[0,1,2,3,4].map(i=><span key={i} style={{color:i<n?'var(--brand)':'var(--chip)'}}>●</span>)}</span>; }
 function MiniBar({v,max}){ const pct=Math.min(100,Math.round(100*v/Math.max(1,max))); return <div className="scorebar" style={{marginTop:6}}><i style={{width:`${pct}%`}}></i></div>; }
-function Avatar({row,size}){ const av=avatarFor(row); size=size||32; return <div className="avatar" style={{width:size,height:size,background:av.bg,color:av.fg,fontSize:size*0.38}}>{av.init}</div>; }
+function Avatar({row,size}){
+  const av=avatarFor(row); size=size||32;
+  return <div className="avatar" style={{width:size,height:size,background:av.bg,color:av.fg,fontSize:size*0.38,position:'relative',overflow:'hidden'}}>
+    {av.init}
+    {row.avatar_url && <img src={row.avatar_url} alt="" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}} onError={e=>{e.target.style.display='none';}}/>}
+  </div>;
+}
 function StagePill({status}){ const m=STAGE_META[status]||STAGE_META.prospect; return <span className="pill" style={{background:m.bg,color:m.fg}}>{m.label}</span>; }
 function PriorityDot({priority}){ const m=PRIORITY_META[priority]||PRIORITY_META.medium; return <span style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:12.5,color:'var(--sub)'}}><span className="dot" style={{background:m.dot}}></span>{m.label}</span>; }
 
@@ -443,7 +449,7 @@ function App(){
             }
           } else {
             await client.from('outreach_log').upsert({
-              user_id:u.id, profile_url:p.profileUrl, name:p.name||null, title:p.title||null, company:p.company||null, updated_at:new Date().toISOString(),
+              user_id:u.id, profile_url:p.profileUrl, name:p.name||null, title:p.title||null, company:p.company||null, avatar_url:p.avatarUrl||null, updated_at:new Date().toISOString(),
             }, {onConflict:'user_id,profile_url'});
           }
           consumed.push(row.id);

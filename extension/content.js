@@ -19,14 +19,23 @@ const SELECTORS = {
   cardName: '.entity-result__title-text a span[aria-hidden="true"], .entity-result__title-text a',
   cardTitle: '.entity-result__primary-subtitle',
   cardProfileLink: 'a.app-aware-link[href*="/in/"]',
+  cardPhoto: 'img.presence-entity__image, img.EntityPhoto-circle-3, img[class*="entity-result__universal-image"]',
   composeBox: 'div.msg-form__contenteditable, div[role="textbox"][contenteditable="true"]',
   sendButton: 'button.msg-form__send-button, button[aria-label*="Send" i]',
   connectButton: 'button[aria-label*="Connect" i], button[aria-label^="Invite"]',
   profileAbout: '#about ~ .display-flex .inline-show-more-text, section.summary .inline-show-more-text',
   profileExperience: '#experience ~ .pvs-list__container, section.experience-section',
   profileEducation: '#education ~ .pvs-list__container, section.education-section',
+  profilePhoto: 'img.pv-top-card-profile-picture__image, img.pv-top-card-profile-picture__image--show, .pv-top-card__photo img, button[aria-label*="profile photo" i] img',
   mutualConnections: 'a[href*="facetNetwork"] span, .entity-result__simple-insight-text, .member-insights',
 };
+
+// LinkedIn headlines are almost always "Title at Company" — good enough to
+// split without a real parser; left blank rather than guessed wrong.
+function companyFromTitle(title) {
+  const m = (title || '').match(/\bat\s+(.+)$/i);
+  return m ? m[1].trim() : '';
+}
 
 function send(type, extra) {
   return new Promise(resolve => chrome.runtime.sendMessage({ type, ...extra }, resolve));
@@ -45,11 +54,15 @@ function extractCards() {
     const linkEl = card.querySelector(SELECTORS.cardProfileLink);
     const nameEl = card.querySelector(SELECTORS.cardName);
     const titleEl = card.querySelector(SELECTORS.cardTitle);
+    const photoEl = card.querySelector(SELECTORS.cardPhoto);
     if (!linkEl) return null;
+    const title = (titleEl && titleEl.textContent || '').trim();
     return {
       profileUrl: normProfileUrl(linkEl.href),
       name: (nameEl && nameEl.textContent || '').trim(),
-      title: (titleEl && titleEl.textContent || '').trim(),
+      title,
+      company: companyFromTitle(title),
+      photo: (photoEl && photoEl.src) || '',
       el: card,
     };
   }).filter(Boolean);
@@ -131,7 +144,7 @@ function renderCardCheckboxes() {
     if (!selected.length) return;
     btn.textContent = 'Saving…';
     for (const c of selected) {
-      await send('saveProfile', { payload: { profileUrl: c.profileUrl, name: c.name, title: c.title } });
+      await send('saveProfile', { payload: { profileUrl: c.profileUrl, name: c.name, title: c.title, company: c.company, avatarUrl: c.photo } });
     }
     selected.forEach(c => { const b = c.el.querySelector('.mighty-badge'); if (b) b.remove(); });
     checked.clear();
@@ -224,8 +237,14 @@ async function renderProfileSidebar() {
     const btn = document.createElement('button');
     btn.textContent = 'Save to MIghTy'; btn.style.cssText = 'background:#4661D8;color:#fff;border:none;border-radius:8px;padding:8px 12px;font-weight:600;cursor:pointer;width:100%;';
     btn.onclick = async () => {
-      const nameEl = document.querySelector('h1'); const titleEl = document.querySelector('.text-body-medium');
-      const res = await send('saveProfile', { payload: { profileUrl, name: (nameEl && nameEl.textContent || '').trim(), title: (titleEl && titleEl.textContent || '').trim() } });
+      const nameEl = document.querySelector('h1');
+      const titleEl = document.querySelector('.text-body-medium');
+      const photoEl = document.querySelector(SELECTORS.profilePhoto);
+      const title = (titleEl && titleEl.textContent || '').trim();
+      const res = await send('saveProfile', { payload: {
+        profileUrl, name: (nameEl && nameEl.textContent || '').trim(), title,
+        company: companyFromTitle(title), avatarUrl: (photoEl && photoEl.src) || '',
+      } });
       if (res && res.ok) { renderProfileSidebar(); return; }
       btn.textContent = 'Saved ✓'; btn.disabled = true;
     };

@@ -104,6 +104,7 @@ async function saveProfile(payload) {
       name: payload.name || null,
       title: payload.title || null,
       company: payload.company || null,
+      avatar_url: payload.avatarUrl || null,
       updated_at: new Date().toISOString(),
     }),
   });
@@ -176,3 +177,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg && msg.type === 'patchNotes') { patchNotes(msg.logId, msg.notes).then(sendResponse); return true; }
   if (msg && msg.type === 'generateDraft') { generateDraft(msg.system, msg.user, msg.maxTokens).then(sendResponse); return true; }
 });
+
+// Toolbar icon reflects sign-in state — colored when signed in, grey otherwise.
+const COLOR_ICON = { 16: 'icons/logo-16.png', 32: 'icons/logo-32.png', 48: 'icons/logo-48.png', 128: 'icons/logo-128.png' };
+const GREY_ICON = { 16: 'icons-grey/logo-16.png', 32: 'icons-grey/logo-32.png', 48: 'icons-grey/logo-48.png', 128: 'icons-grey/logo-128.png' };
+async function updateActionIcon() {
+  const { settings = {} } = await chrome.storage.local.get('settings');
+  const connected = !!(settings.sb && settings.sb.accessToken);
+  chrome.action.setIcon({ path: connected ? COLOR_ICON : GREY_ICON });
+}
+chrome.storage.onChanged.addListener((changes, area) => { if (area === 'local' && changes.settings) updateActionIcon(); });
+updateActionIcon();
