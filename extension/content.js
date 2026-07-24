@@ -14,20 +14,14 @@
 // LinkedIn's DOM changes without notice and isn't verifiable from this dev
 // environment. If shortlisting or send-detection breaks, inspect the live
 // page and fix ONLY this SELECTORS object.
+// Only the compose box + send/connect buttons still use fixed selectors —
+// everything else (names, titles, companies, photos, profile text, mutual
+// connections) is scraped by DOM-anchoring helpers below, because LinkedIn's
+// class names rotate. If Send/Connect detection or draft-fill breaks, fix here.
 const SELECTORS = {
-  searchResultCard: 'li.reusable-search__result-container, div[data-chameleon-result-urn]',
-  cardName: '.entity-result__title-text a span[aria-hidden="true"], .entity-result__title-text a',
-  cardTitle: '.entity-result__primary-subtitle',
-  cardProfileLink: 'a.app-aware-link[href*="/in/"]',
-  cardPhoto: 'img.presence-entity__image, img.EntityPhoto-circle-3, img[class*="entity-result__universal-image"]',
   composeBox: 'div.msg-form__contenteditable, div[role="textbox"][contenteditable="true"]',
   sendButton: 'button.msg-form__send-button, button[aria-label*="Send" i]',
   connectButton: 'button[aria-label*="Connect" i], button[aria-label^="Invite"]',
-  profileAbout: '#about ~ .display-flex .inline-show-more-text, section.summary .inline-show-more-text',
-  profileExperience: '#experience ~ .pvs-list__container, section.experience-section',
-  profileEducation: '#education ~ .pvs-list__container, section.education-section',
-  profilePhoto: 'img.pv-top-card-profile-picture__image, img.pv-top-card-profile-picture__image--show, .pv-top-card__photo img, button[aria-label*="profile photo" i] img',
-  mutualConnections: 'a[href*="facetNetwork"] span, .entity-result__simple-insight-text, .member-insights',
 };
 
 // LinkedIn headlines are "Title at Company", "Title @ Company", or
@@ -233,26 +227,43 @@ function wireComposeFill() {
    Fires on any profile page the student opens. Reads only what's already
    rendered — no scrolling automation, no expanding hidden sections, no
    navigation. The web app DISCARDS this for any profile not already on the
-   student's shortlist, so nothing is retained for someone just browsed past. */
+   student's shortlist, so nothing is retained for someone just browsed past.
+
+   LinkedIn dropped the #about / #experience / #education anchors and rotates
+   its class names, so instead of chasing per-section selectors we read the
+   main column's visible text (which contains About/Experience/Education/
+   activity inline) and trim LinkedIn's global footer. This feeds the AI
+   briefing and the MIT/Sloan relevance signal far more durably. */
 const PROFILE_PAGE_RE = /^\/in\/[^\/]+\/?$/;
-function textOf(selector) {
-  return Array.from(document.querySelectorAll(selector))
-    .map(el => (el.textContent || '').trim()).filter(Boolean).join(' ').replace(/\s+/g, ' ').slice(0, 2000);
+function profileMainText() {
+  const main = document.querySelector('main');
+  if (!main) return '';
+  let t = (main.innerText || '').replace(/\s+/g, ' ').trim();
+  const cut = t.search(/Accessibility\s+Talent Solutions|LinkedIn Corporation|©\s*\d{4}\s*LinkedIn|More profiles for you|People also viewed/i);
+  if (cut > 200) t = t.slice(0, cut);
+  return t.slice(0, 5000);
+}
+function mutualText() {
+  const el = [...document.querySelectorAll('a, span')]
+    .map(e => (e.textContent || '').trim())
+    .find(t => /mutual connection/i.test(t) && t.length < 160);
+  return el || '';
 }
 let lastContextUrl = '';
 function captureProfileContext() {
   if (!PROFILE_PAGE_RE.test(location.pathname)) return;
   const profileUrl = normProfileUrl(location.href);
   if (profileUrl === lastContextUrl) return;
+  const main = profileMainText();
+  if (!main || main.length < 60) return; // page likely hasn't rendered yet — retry on next scan
   lastContextUrl = profileUrl;
   const payload = {
     profileUrl,
-    aboutText: textOf(SELECTORS.profileAbout),
-    experienceText: textOf(SELECTORS.profileExperience),
-    educationText: textOf(SELECTORS.profileEducation),
-    mutualConnectionsRaw: textOf(SELECTORS.mutualConnections),
+    aboutText: main,       // the full profile body; the app reads this for briefings + scoring
+    experienceText: '',
+    educationText: '',
+    mutualConnectionsRaw: mutualText(),
   };
-  if (!payload.aboutText && !payload.experienceText && !payload.educationText) return; // page likely hasn't rendered yet
   send('pushInbox', { kind: 'profile_context', payload });
 }
 
