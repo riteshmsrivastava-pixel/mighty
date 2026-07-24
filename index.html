@@ -4,204 +4,281 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MIghTy — build better professional relationships</title>
-<meta name="description" content="MIghTy helps you decide who to reach out to, prepares thoughtful first drafts based on real profile context, and remembers every relationship — from first message to coffee chat.">
+<meta name="description" content="MIghTy helps you decide who to reach out to, drafts thoughtful first messages from real profile context, and remembers every relationship from first message to coffee chat.">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#ec3013">
+<!-- Open Graph / Twitter — a shared link with an image gets ~2x the clicks -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="MIghTy — build better professional relationships">
+<meta property="og:description" content="Decide who to reach out to, draft grounded first messages, and remember every relationship from first message to coffee chat.">
+<meta property="og:image" content="https://yourmighty.com/assets/og-image.png">
+<meta property="og:url" content="https://yourmighty.com/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="MIghTy — build better professional relationships">
+<meta name="twitter:description" content="Decide who to reach out to, draft grounded first messages, and remember every relationship.">
+<meta name="twitter:image" content="https://yourmighty.com/assets/og-image.png">
 <link rel="stylesheet" href="assets/modernist.css">
 <style>
 html{scroll-behavior:smooth}
 .wrap{max-width:1180px;margin:0 auto;padding:0 32px;}
 .rule{border-top:2px solid var(--color-divider);}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:48px;}
-.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;}
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:28px;}
-@media(max-width:900px){.grid2{grid-template-columns:1fr;}.grid3{grid-template-columns:1fr;}.grid4{grid-template-columns:1fr 1fr;}}
-@media(max-width:560px){.grid4{grid-template-columns:1fr;}}
-.mock-card{border:2px solid var(--color-text);background:var(--color-neutral-100);padding:14px;display:flex;flex-direction:column;gap:10px;}
-.mock-row{display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--color-divider);padding-bottom:9px;}
-.mock-row:last-child{border-bottom:none;padding-bottom:0;}
+
+/* framed product screenshot */
+.shot{border:2px solid var(--color-text);box-shadow:var(--shadow-lg);background:#fff;display:block;width:100%;}
+.shot-bar{display:flex;align-items:center;gap:6px;padding:9px 12px;border-bottom:2px solid var(--color-text);background:var(--color-neutral-200);}
+.shot-dot{width:11px;height:11px;border-radius:50%;background:var(--color-neutral-400);}
+.shot img{display:block;width:100%;}
+
+/* check / cross icons as small inline SVG, never bare glyphs */
+.ico{width:22px;height:22px;flex:none;display:block}
+
+/* nav: collapse links on small screens, keep one CTA */
+.nav-links{display:contents}
+.step-num{width:34px;height:34px;flex:none;background:var(--color-accent);color:var(--color-bg);display:grid;place-items:center;font-weight:800;font-family:var(--font-heading);font-size:15px;}
+
+@media(max-width:900px){
+  .grid2{grid-template-columns:1fr;gap:32px;}
+  .grid3{grid-template-columns:1fr;}
+  .grid4{grid-template-columns:1fr 1fr;}
+  .split{grid-template-columns:1fr !important;}
+  .split-media{order:-1;}
+}
+@media(max-width:640px){
+  .wrap{padding:0 20px;}
+  .grid4{grid-template-columns:1fr;}
+  .nav-links{display:none !important;}
+  .hero-h1{font-size:40px !important;}
+  .hero-ctas{flex-direction:column;align-items:stretch;}
+  .hero-ctas a{justify-content:center;}
+  .poster-h{font-size:34px !important;}
+}
 </style>
 </head>
 <body>
 
-<div class="nav" style="padding:14px 32px;position:sticky;top:0;background:var(--color-bg);z-index:10">
-  <div class="nav-brand" style="display:flex;align-items:center;gap:10px"><img src="assets/logo-icon.png" alt="MIghTy logo" style="width:24px;height:24px">MIghTy</div>
-  <a href="#why">Why MIghTy</a>
-  <a href="#what">What it does</a>
-  <a href="install/">Get the extension</a>
-  <a href="#privacy">Privacy</a>
+<div class="nav" style="padding:14px 32px;position:sticky;top:0;background:var(--color-bg);z-index:20">
+  <div class="nav-brand" style="display:flex;align-items:center;gap:10px"><img src="assets/logo-icon.png" alt="MIghTy logo" style="width:26px;height:26px">MIghTy</div>
+  <span class="nav-links">
+    <a href="#how">How it works</a>
+    <a href="#what">What it does</a>
+    <a href="#privacy">Privacy</a>
+  </span>
   <a class="btn btn-primary" href="app/" style="text-decoration:none">Get started</a>
 </div>
 
-<div class="wrap" style="padding:72px 32px 56px">
-  <span class="tag tag-outline">Your LinkedIn networking copilot</span>
-  <h1 style="font-size:clamp(48px,6.5vw,78px);margin:22px 0 0;max-width:940px">Build better professional relationships.</h1>
-  <p style="font-size:18px;line-height:1.6;max-width:660px;margin:26px 0 0">MIghTy helps you decide who to reach out to, prepares thoughtful first drafts based on real profile context, and remembers every relationship, from first message to coffee chat, so nothing important slips through the cracks.</p>
-  <h6 style="margin:22px 0 0;color:var(--color-neutral-700)">You stay in control · You always click Send</h6>
-  <div style="display:flex;gap:12px;margin-top:28px">
-    <a class="btn btn-primary" href="app/" style="text-decoration:none;padding:12px 22px;font-size:15px">Get started</a>
-    <a class="btn btn-secondary" href="install/" style="text-decoration:none;padding:12px 22px;font-size:15px">Get the extension</a>
+<!-- HERO with a real product screenshot -->
+<div class="wrap" style="padding:64px 32px 24px">
+  <div class="grid2 split" style="align-items:center;gap:52px">
+    <div>
+      <span class="tag tag-outline">Your LinkedIn networking copilot</span>
+      <h1 class="hero-h1" style="font-size:clamp(40px,5.2vw,64px);margin:20px 0 0;letter-spacing:-.02em">Build better professional relationships.</h1>
+      <p style="font-size:18px;line-height:1.6;margin:22px 0 0;color:var(--color-neutral-800)">MIghTy decides who's worth reaching out to, drafts thoughtful first messages from a person's real background, and remembers every relationship, from first message to coffee chat.</p>
+      <div class="hero-ctas" style="display:flex;gap:12px;margin-top:28px">
+        <a class="btn btn-primary" href="app/" style="text-decoration:none;padding:13px 24px;font-size:15px">Get started free</a>
+        <a class="btn btn-secondary" href="install/" style="text-decoration:none;padding:13px 24px;font-size:15px">Get the extension</a>
+      </div>
+      <h6 style="margin:22px 0 0;color:var(--color-neutral-700)">You stay in control · You always click Send</h6>
+    </div>
+    <div class="split-media">
+      <div class="shot">
+        <div class="shot-bar"><span class="shot-dot"></span><span class="shot-dot"></span><span class="shot-dot"></span></div>
+        <img src="assets/app-dashboard.png" alt="MIghTy dashboard showing today's priorities and networking progress" loading="eager">
+      </div>
+    </div>
   </div>
-  <p class="text-muted" style="font-size:13px;margin:26px 0 0">Built by an MIT Sloan Fellow, for people who take their network seriously.</p>
+  <p class="text-muted" style="font-size:13px;margin:28px 0 0">Built by an MIT Sloan Fellow, for people who take their network seriously.</p>
 </div>
 
-<div class="rule">
-  <div class="wrap grid3">
-    <div style="padding:28px 28px 36px 0">
-      <div class="card-kicker">01 · Home</div>
-      <h4 style="margin:6px 0 14px">What deserves attention</h4>
-      <div class="mock-card">
-        <h6 style="margin:0;font-size:10px;color:var(--color-neutral-700)">Today's priorities</h6>
-        <div class="mock-row">
-          <div style="flex:1;min-width:0"><div style="font-weight:800;font-size:12.5px">Sarah Chen</div><div style="font-size:11px;color:var(--color-neutral-600)">Messaged 7 days ago · draft ready</div></div>
-          <span class="tag tag-accent" style="flex:none">Follow up</span>
-        </div>
-        <div class="mock-row">
-          <div style="flex:1;min-width:0"><div style="font-weight:800;font-size:12.5px">David Lee</div><div style="font-size:11px;color:var(--color-neutral-600)">Coffee chat today</div></div>
-          <span class="tag tag-neutral" style="flex:none">9:30 AM</span>
-        </div>
-        <div class="mock-row">
-          <div style="flex:1;min-width:0"><div style="font-weight:800;font-size:12.5px">James Park</div><div style="font-size:11px;color:var(--color-neutral-600)">Promised an intro 2 weeks ago</div></div>
-          <span class="tag tag-outline" style="flex:none">Reconnect</span>
-        </div>
+<!-- HOW IT WORKS — restores the missing explanation of extension + web app -->
+<div id="how" class="rule" style="margin-top:40px">
+  <div class="wrap" style="padding:64px 32px">
+    <h6 style="color:var(--color-accent-700)">How it works</h6>
+    <h2 style="font-size:clamp(30px,4vw,40px);margin-top:8px;max-width:640px">A Chrome extension and a web app that work together.</h2>
+    <div class="grid4" style="margin-top:40px">
+      <div style="border-top:2px solid var(--color-text);padding-top:16px;display:flex;flex-direction:column;gap:12px">
+        <div class="step-num">1</div>
+        <h4 style="margin:0">Add the extension</h4>
+        <p style="font-size:14px;line-height:1.6;color:var(--color-neutral-800);margin:0">A one-minute install. It reads LinkedIn pages you're already viewing, nothing more.</p>
       </div>
-      <figcaption>Every day: which conversations are worth continuing.</figcaption>
-    </div>
-    <div style="padding:28px 28px 36px;border-left:2px solid var(--color-divider)">
-      <div class="card-kicker">02 · Person profile</div>
-      <h4 style="margin:6px 0 14px">Briefed before you write</h4>
-      <div class="mock-card">
-        <div><div style="font-weight:800;font-size:13px">Sarah Chen</div><div style="font-size:11px;color:var(--color-neutral-600)">PM, Amazon · Sloan '23 · ex-Deloitte</div></div>
-        <div style="border-top:1px solid var(--color-divider);padding-top:9px"><h6 style="margin:0 0 5px;font-size:10px;color:var(--color-accent-700)">AI briefing</h6><div style="font-size:11px;line-height:1.5;color:var(--color-neutral-800)">Writes about career switching. Mentors first-time founders. Open with her recent post.</div></div>
-        <div style="border-top:1px solid var(--color-divider);padding-top:9px"><h6 style="margin:0 0 6px;font-size:10px;color:var(--color-neutral-700)">Relationship</h6><div style="display:flex;gap:4px"><div style="width:22px;height:8px;background:var(--color-accent)"></div><div style="width:22px;height:8px;background:var(--color-accent)"></div><div style="width:22px;height:8px;background:var(--color-accent)"></div><div style="width:22px;height:8px;background:var(--color-neutral-300)"></div><div style="width:22px;height:8px;background:var(--color-neutral-300)"></div></div></div>
-        <div style="border-top:1px solid var(--color-divider);padding-top:9px;display:flex;gap:6px;align-items:center;font-size:10px;color:var(--color-neutral-700)">Saved<span style="color:var(--color-neutral-400)">→</span>Messaged<span style="color:var(--color-neutral-400)">→</span>Replied<span style="color:var(--color-neutral-400)">→</span><span style="font-weight:800;color:var(--color-text)">Coffee chat</span></div>
+      <div style="border-top:2px solid var(--color-text);padding-top:16px;display:flex;flex-direction:column;gap:12px">
+        <div class="step-num">2</div>
+        <h4 style="margin:0">Shortlist as you browse</h4>
+        <p style="font-size:14px;line-height:1.6;color:var(--color-neutral-800);margin:0">Save interesting people from search or their profile. MIghTy scores who's worth your time.</p>
       </div>
-      <figcaption>Context, briefing and history: one page per person.</figcaption>
-    </div>
-    <div style="padding:28px 0 36px 28px;border-left:2px solid var(--color-divider)">
-      <div class="card-kicker">03 · Conversation notes</div>
-      <h4 style="margin:6px 0 14px">Rough notes in, actions out</h4>
-      <div class="mock-card">
-        <div><h6 style="margin:0 0 5px;font-size:10px;color:var(--color-neutral-700)">Your raw notes</h6><div style="font-size:11px;line-height:1.5;color:var(--color-neutral-600)">"loves fintech, intro to her manager?? send her the Sloan paper, circle back mid-Oct"</div></div>
-        <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-weight:800;color:var(--color-accent-700)"><span>↓</span>MIghTy extracts</div>
-        <div style="border-top:1px solid var(--color-divider);padding-top:9px;display:flex;flex-direction:column;gap:7px">
-          <div style="display:flex;gap:8px;align-items:center;font-size:11px"><div style="width:12px;height:12px;flex:none;background:var(--color-accent);color:var(--color-bg);display:grid;place-items:center;font-size:9px;font-weight:800">✓</div>Send the Sloan fintech paper</div>
-          <div style="display:flex;gap:8px;align-items:center;font-size:11px"><div style="width:12px;height:12px;flex:none;border:1.5px solid var(--color-divider)"></div>Ask about the manager intro</div>
-          <div style="display:flex;gap:8px;align-items:center;font-size:11px"><div style="width:12px;height:12px;flex:none;border:1.5px solid var(--color-divider)"></div>Reconnect mid-October</div>
-        </div>
+      <div style="border-top:2px solid var(--color-text);padding-top:16px;display:flex;flex-direction:column;gap:12px">
+        <div class="step-num">3</div>
+        <h4 style="margin:0">Get briefed &amp; draft</h4>
+        <p style="font-size:14px;line-height:1.6;color:var(--color-neutral-800);margin:0">A grounded briefing and a first-message draft, built from the person's real background.</p>
       </div>
-      <figcaption>Promises and follow-ups, remembered for you.</figcaption>
+      <div style="border-top:2px solid var(--color-text);padding-top:16px;display:flex;flex-direction:column;gap:12px">
+        <div class="step-num">4</div>
+        <h4 style="margin:0">Track every relationship</h4>
+        <p style="font-size:14px;line-height:1.6;color:var(--color-neutral-800);margin:0">Coffee chats, intros, promises and follow-ups, remembered in one timeline per person.</p>
+      </div>
     </div>
   </div>
 </div>
 
-<div id="why" class="rule">
-  <div class="wrap grid2" style="padding:64px 32px">
+<!-- WHY — problem framing, red left-rule list (no bare ? glyphs) -->
+<div id="why" class="rule" style="background:var(--color-surface)">
+  <div class="wrap grid2 split" style="padding:64px 32px">
     <div>
       <h6 style="color:var(--color-accent-700)">Why MIghTy</h6>
-      <h2 style="font-size:38px;max-width:480px;margin-top:10px;text-wrap:pretty">LinkedIn is great at helping you find people.</h2>
-      <p style="font-size:17px;margin-top:8px">It's not built to help you build relationships.</p>
+      <h2 style="font-size:clamp(28px,3.6vw,38px);max-width:480px;margin-top:10px;text-wrap:pretty">LinkedIn helps you find people. It doesn't help you build relationships.</h2>
+      <p style="font-size:17px;margin-top:12px;color:var(--color-neutral-800)">After a few weeks, the questions pile up, and the details slip.</p>
     </div>
-    <div style="display:flex;flex-direction:column;gap:14px;font-size:16px;line-height:1.6">
-      <p class="text-muted" style="margin:0">After a few weeks you start asking yourself:</p>
-      <div style="display:flex;gap:12px"><span style="color:var(--color-accent);font-weight:800;flex:none">?</span>Have I already messaged this person?</div>
-      <div style="display:flex;gap:12px"><span style="color:var(--color-accent);font-weight:800;flex:none">?</span>What did we talk about?</div>
-      <div style="display:flex;gap:12px"><span style="color:var(--color-accent);font-weight:800;flex:none">?</span>Did they promise an introduction?</div>
-      <div style="display:flex;gap:12px"><span style="color:var(--color-accent);font-weight:800;flex:none">?</span>Should I follow up now or wait?</div>
-      <div style="display:flex;gap:12px"><span style="color:var(--color-accent);font-weight:800;flex:none">?</span>Who should I reach out to today?</div>
-      <p style="font-weight:800;margin-top:10px">MIghTy quietly keeps track of everything so you can focus on people, not on remembering details.</p>
+    <div style="display:flex;flex-direction:column;gap:12px;font-size:16px;line-height:1.5">
+      <div style="border-left:3px solid var(--color-accent);padding:2px 0 2px 14px">Have I already messaged this person?</div>
+      <div style="border-left:3px solid var(--color-accent);padding:2px 0 2px 14px">What did we actually talk about?</div>
+      <div style="border-left:3px solid var(--color-accent);padding:2px 0 2px 14px">Did they promise an introduction?</div>
+      <div style="border-left:3px solid var(--color-accent);padding:2px 0 2px 14px">Should I follow up now, or wait?</div>
+      <div style="border-left:3px solid var(--color-accent);padding:2px 0 2px 14px">Who should I reach out to today?</div>
+      <p style="font-weight:800;margin-top:8px">MIghTy keeps track of all of it, so you can focus on people, not on remembering details.</p>
     </div>
   </div>
 </div>
 
+<!-- WHAT IT DOES — with the second real screenshot -->
 <div id="what" class="rule">
   <div class="wrap" style="padding:64px 32px">
-    <h2 style="font-size:38px">What it helps you do</h2>
-    <div class="grid4" style="margin-top:36px">
-      <div style="border-top:2px solid var(--color-text);padding-top:16px">
-        <div class="card-kicker">01</div>
-        <h4 style="margin:8px 0 10px">Find the right people</h4>
-        <p style="font-size:14px;line-height:1.6;color:var(--color-neutral-800)">Shortlist interesting people while browsing LinkedIn and organize them around your own goals.</p>
+    <div class="grid2 split" style="align-items:center;gap:52px">
+      <div class="split-media">
+        <div class="shot">
+          <div class="shot-bar"><span class="shot-dot"></span><span class="shot-dot"></span><span class="shot-dot"></span></div>
+          <img src="assets/app-people.png" alt="MIghTy people list with status, priority and next action per contact" loading="lazy">
+        </div>
       </div>
-      <div style="border-top:2px solid var(--color-text);padding-top:16px">
-        <div class="card-kicker">02</div>
-        <h4 style="margin:8px 0 10px">Reach out thoughtfully</h4>
-        <p style="font-size:14px;line-height:1.6;color:var(--color-neutral-800)">Generate personalized first drafts based on the person's actual background, not generic templates.</p>
-      </div>
-      <div style="border-top:2px solid var(--color-text);padding-top:16px">
-        <div class="card-kicker">03</div>
-        <h4 style="margin:8px 0 10px">Remember every interaction</h4>
-        <p style="font-size:14px;line-height:1.6;color:var(--color-neutral-800)">Capture coffee chats, introductions, notes and follow-ups in one relationship timeline.</p>
-      </div>
-      <div style="border-top:2px solid var(--color-text);padding-top:16px">
-        <div class="card-kicker">04</div>
-        <h4 style="margin:8px 0 10px">Know what deserves attention</h4>
-        <p style="font-size:14px;line-height:1.6;color:var(--color-neutral-800)">Every day MIghTy tells you which conversations are worth continuing and which relationships need attention.</p>
+      <div>
+        <h2 style="font-size:clamp(28px,3.6vw,38px)">Every contact, with a next step</h2>
+        <div style="display:flex;flex-direction:column;gap:20px;margin-top:26px">
+          <div><h4 style="margin:0 0 4px">Find the right people</h4><p style="font-size:15px;line-height:1.6;color:var(--color-neutral-800);margin:0">Shortlist while browsing LinkedIn and organize everyone around your own goals.</p></div>
+          <div><h4 style="margin:0 0 4px">Reach out thoughtfully</h4><p style="font-size:15px;line-height:1.6;color:var(--color-neutral-800);margin:0">Personalized first drafts from a person's actual background, not generic templates.</p></div>
+          <div><h4 style="margin:0 0 4px">Remember every interaction</h4><p style="font-size:15px;line-height:1.6;color:var(--color-neutral-800);margin:0">Coffee chats, intros, notes and follow-ups in one relationship timeline.</p></div>
+          <div><h4 style="margin:0 0 4px">Know what deserves attention</h4><p style="font-size:15px;line-height:1.6;color:var(--color-neutral-800);margin:0">Each day, MIghTy tells you which conversations are worth continuing.</p></div>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
-<div class="rule" style="background:var(--color-surface)">
-  <div class="wrap grid2" style="padding:64px 32px">
+<!-- FULL-BLEED POSTER — breaks the section rhythm -->
+<div style="background:var(--color-text);color:var(--color-bg)">
+  <div class="wrap" style="padding:88px 32px;text-align:center">
+    <div class="poster-h" style="font-family:var(--font-heading);font-weight:800;font-size:clamp(30px,5vw,56px);line-height:1.1;letter-spacing:-.02em;max-width:900px;margin:0 auto">“Your network is the highest-return asset you'll ever build. MIghTy makes sure you actually tend it.”</div>
+  </div>
+</div>
+
+<!-- USE CASES — trimmed to five, with hierarchy -->
+<div class="rule">
+  <div class="wrap grid2 split" style="padding:64px 32px">
     <div>
-      <h2 style="font-size:38px;max-width:440px;text-wrap:pretty">Built for people who build relationships</h2>
-      <p style="font-size:16px;color:var(--color-neutral-800);max-width:420px;margin-top:10px">Recruiting is one use case, not the product. Whatever you're building toward, MIghTy helps you stay intentional.</p>
+      <h2 style="font-size:clamp(28px,3.6vw,38px);max-width:440px;text-wrap:pretty">Built for people who build relationships</h2>
+      <p style="font-size:16px;color:var(--color-neutral-800);max-width:420px;margin-top:12px">Recruiting is one use case, not the product. Whatever you're building toward, MIghTy helps you stay intentional.</p>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:10px;align-content:flex-start">
-      <span class="tag tag-neutral" style="font-size:13px;padding:8px 14px">Exploring new industries</span>
-      <span class="tag tag-neutral" style="font-size:13px;padding:8px 14px">Meeting alumni</span>
-      <span class="tag tag-neutral" style="font-size:13px;padding:8px 14px">Raising funding</span>
-      <span class="tag tag-neutral" style="font-size:13px;padding:8px 14px">Finding a co-founder</span>
-      <span class="tag tag-neutral" style="font-size:13px;padding:8px 14px">Finding mentors</span>
-      <span class="tag tag-neutral" style="font-size:13px;padding:8px 14px">Customer discovery</span>
-      <span class="tag tag-neutral" style="font-size:13px;padding:8px 14px">Growing your network</span>
-      <span class="tag tag-accent" style="font-size:13px;padding:8px 14px">Your next opportunity</span>
+      <span class="tag tag-neutral" style="font-size:14px;padding:9px 15px">Meeting alumni</span>
+      <span class="tag tag-neutral" style="font-size:14px;padding:9px 15px">Finding mentors</span>
+      <span class="tag tag-neutral" style="font-size:14px;padding:9px 15px">Raising funding</span>
+      <span class="tag tag-neutral" style="font-size:14px;padding:9px 15px">Customer discovery</span>
+      <span class="tag tag-accent" style="font-size:14px;padding:9px 15px">Your next opportunity</span>
     </div>
   </div>
 </div>
 
-<div class="rule">
+<!-- YOU STAY IN CONTROL — checkmarks (guarantees), not × failures -->
+<div class="rule" style="background:var(--color-surface)">
   <div class="wrap" style="padding:64px 32px">
     <h6 style="color:var(--color-accent-700)">You stay in control</h6>
-    <div class="grid3" style="gap:28px;margin-top:20px">
-      <div style="display:flex;gap:12px;font-size:16px;font-weight:800"><span style="color:var(--color-accent);flex:none">×</span>MIghTy never sends messages for you.</div>
-      <div style="display:flex;gap:12px;font-size:16px;font-weight:800"><span style="color:var(--color-accent);flex:none">×</span>It never clicks Connect.</div>
-      <div style="display:flex;gap:12px;font-size:16px;font-weight:800"><span style="color:var(--color-accent);flex:none">×</span>It never automates LinkedIn.</div>
+    <h2 style="font-size:clamp(26px,3.4vw,34px);margin-top:8px;max-width:640px">Human-in-the-loop by design</h2>
+    <div class="grid3" style="margin-top:26px">
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        <div style="font-size:16px;font-weight:800">MIghTy never sends messages for you.</div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        <div style="font-size:16px;font-weight:800">It never clicks Connect for you.</div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        <div style="font-size:16px;font-weight:800">It never automates LinkedIn.</div>
+      </div>
     </div>
-    <p style="font-size:16px;max-width:560px;margin-top:24px;color:var(--color-neutral-800)">It helps you make better networking decisions while you remain in complete control. Every message is yours. Every send is your click.</p>
+    <p style="font-size:16px;max-width:600px;margin-top:24px;color:var(--color-neutral-800)">It helps you make better networking decisions while you stay in complete control. Every message is yours. Every send is your click.</p>
   </div>
 </div>
 
+<!-- PRIVACY + ABOUT -->
 <div id="privacy" class="rule">
-  <div class="wrap grid2" style="padding:64px 32px">
+  <div class="wrap grid2 split" style="padding:64px 32px">
     <div>
       <h6 style="color:var(--color-accent-700)">Privacy</h6>
       <h3 style="margin-top:10px">Your relationships belong to you.</h3>
-      <p style="font-size:15px;line-height:1.65;color:var(--color-neutral-800);max-width:460px">Your messages, notes and relationship history remain private. Community insights are always anonymous and only shown after enough members have opted in.</p>
+      <p style="font-size:15px;line-height:1.65;color:var(--color-neutral-800);max-width:460px">Your messages, notes and relationship history stay private. Community insights are always anonymous, and only shown once enough members have opted in.</p>
     </div>
     <div>
       <h6 style="color:var(--color-accent-700)">About</h6>
       <h3 style="margin-top:10px">A side project, taken seriously.</h3>
-      <p style="font-size:15px;line-height:1.65;color:var(--color-neutral-800);max-width:460px">MIghTy began as a side project by an MIT Sloan Fellow who wanted networking to feel less chaotic and more intentional. It is independently built and is not affiliated with MIT or LinkedIn.</p>
+      <p style="font-size:15px;line-height:1.65;color:var(--color-neutral-800);max-width:460px">MIghTy began as a side project by an MIT Sloan Fellow who wanted networking to feel less chaotic and more intentional. It's independently built and not affiliated with MIT or LinkedIn.</p>
     </div>
   </div>
 </div>
 
+<!-- CLOSING CTA -->
 <div style="background:var(--color-accent);color:var(--color-bg)">
   <div class="wrap" style="padding:80px 32px">
-    <h2 style="font-size:clamp(40px,5vw,64px);color:var(--color-bg);max-width:900px;text-wrap:pretty">LinkedIn helps you connect.<br>MIghTy helps you build relationships.</h2>
-    <a class="btn" href="app/" style="text-decoration:none;background:var(--color-bg);color:var(--color-text);padding:13px 24px;font-size:15px;margin-top:30px;display:inline-flex">Get started</a>
+    <h2 style="font-size:clamp(34px,5vw,60px);color:var(--color-bg);max-width:900px;text-wrap:pretty">LinkedIn helps you connect.<br>MIghTy helps you build relationships.</h2>
+    <div style="display:flex;gap:12px;margin-top:30px;flex-wrap:wrap">
+      <a class="btn" href="app/" style="text-decoration:none;background:var(--color-bg);color:var(--color-text);padding:14px 26px;font-size:15px;display:inline-flex">Get started free</a>
+      <a class="btn" href="install/" style="text-decoration:none;background:transparent;color:var(--color-bg);border:1px solid var(--color-bg);padding:14px 26px;font-size:15px;display:inline-flex">Get the extension</a>
+    </div>
   </div>
 </div>
 
-<div class="rule">
-  <div class="wrap" style="padding:20px 32px;display:flex;gap:24px;align-items:center;font-size:12.5px;color:var(--color-neutral-700);flex-wrap:wrap">
-    <div style="display:flex;align-items:center;gap:8px;font-family:var(--font-heading);font-weight:800;color:var(--color-text)"><img src="assets/logo-icon.png" alt="" style="width:16px;height:16px">MIghTy</div>
-    <div>Built by an MIT Sloan Fellow</div>
-    <div style="flex:1"></div>
-    <a href="install/">Get the extension</a>
-    <div>Independently built · Not affiliated with MIT or LinkedIn</div>
+<!-- FOOTER -->
+<footer class="rule">
+  <div class="wrap" style="padding:44px 32px">
+    <div class="grid4" style="gap:32px">
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;font-family:var(--font-heading);font-weight:800;color:var(--color-text);font-size:17px"><img src="assets/logo-icon.png" alt="" style="width:22px;height:22px">MIghTy</div>
+        <p class="text-muted" style="font-size:13px;margin-top:10px;max-width:240px">Build relationships. Not just connections.</p>
+      </div>
+      <div>
+        <h6 style="color:var(--color-neutral-700)">Product</h6>
+        <div style="display:flex;flex-direction:column;gap:7px;margin-top:10px;font-size:14px">
+          <a href="#how">How it works</a>
+          <a href="#what">What it does</a>
+          <a href="install/">Get the extension</a>
+          <a href="app/">Sign in</a>
+        </div>
+      </div>
+      <div>
+        <h6 style="color:var(--color-neutral-700)">Company</h6>
+        <div style="display:flex;flex-direction:column;gap:7px;margin-top:10px;font-size:14px">
+          <a href="#privacy">Privacy</a>
+          <a href="#why">Why MIghTy</a>
+          <a href="mailto:hello@yourmighty.com">Contact</a>
+        </div>
+      </div>
+      <div>
+        <h6 style="color:var(--color-neutral-700)">Get in touch</h6>
+        <div style="display:flex;flex-direction:column;gap:7px;margin-top:10px;font-size:14px">
+          <a href="mailto:hello@yourmighty.com">hello@yourmighty.com</a>
+        </div>
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--color-divider);margin-top:32px;padding-top:18px;display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--color-neutral-700)">
+      <div>© 2026 MIghTy</div>
+      <div style="flex:1"></div>
+      <div>Independently built · Not affiliated with MIT or LinkedIn</div>
+    </div>
   </div>
-</div>
+</footer>
 
 </body>
 </html>
