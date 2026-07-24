@@ -555,7 +555,7 @@ function App(){
     <div className="main">
       <div className="topbar"><h2>{TITLES[tab]}</h2></div>
       <div className="content">
-        {tab==='dashboard' && <Dashboard db={db} log={log} events={events} communityStats={communityStats} sb={sb} auth={auth} setTab={setTab} setDrawerId={setDrawerId} setDraftFor={setDraftFor}/>}
+        {tab==='dashboard' && <Dashboard db={db} log={log} events={events} tasks={tasks} communityStats={communityStats} sb={sb} auth={auth} setTab={setTab} setDrawerId={setDrawerId} setDraftFor={setDraftFor}/>}
         {tab==='people' && <People db={db} log={log} events={events} doIngest={doIngest} setDrawerId={setDrawerId}/>}
         {tab==='pipeline' && <Pipeline log={log} changeStage={changeStage}/>}
         {tab==='tasks' && <Tasks tasks={tasks} log={log} addTask={addTask} toggleTask={toggleTask} deleteTask={deleteTask} setDrawerId={setDrawerId}/>}
@@ -721,8 +721,89 @@ function Onboarding({db, patch, auth, setTab}){
   </div>;
 }
 
+/* ============================ Daily Copilot ============================
+   The "if I had 30 minutes today, what should I do?" feature. Reasons only over
+   the student's real pipeline (never invents), routed through the AI Gateway's
+   daily_plan feature (Sonnet, cached, budget-governed). We assemble a compact,
+   factual digest client-side — SQL/JS does the counting; Claude does the
+   prioritising (Rule #1: AI thinks, it doesn't calculate). */
+function buildDailyDigest(log, events, tasks, settings){
+  const followUpDays = settings.followUpDays||7;
+  const repliedIds = new Set(events.filter(e=>e.event_type==='reply').map(e=>e.log_id));
+  const lines = [];
+  const push = (h, arr) => { if(arr.length) lines.push(`${h}: ${arr.slice(0,8).join('; ')}`); };
+  const nm = r => `${displayName(r)}${r.company?` (${r.company})`:''}`;
+
+  const waitingReply = log.filter(r=>r.status==='contacted' && !repliedIds.has(r.id) && r.contacted_at)
+    .map(r=>({r, days:Math.round((now()-new Date(r.contacted_at).getTime())/864e5)}));
+  push('Overdue follow-ups (no reply)', waitingReply.filter(x=>x.days>followUpDays).map(x=>`${nm(x.r)} ${x.days}d`));
+  push('Recently contacted, still waiting', waitingReply.filter(x=>x.days<=followUpDays).map(x=>`${nm(x.r)} ${x.days}d`));
+  push('Replied — propose a coffee chat', log.filter(r=>r.status==='replied').map(nm));
+  push('Coffee chat done — send thanks / next touch', log.filter(r=>r.status==='coffee_chat').map(nm));
+  push('Referral / interview in progress', log.filter(r=>r.status==='referral'||r.status==='interview').map(r=>`${nm(r)} [${r.status}]`));
+  const fresh = log.filter(r=>r.status==='prospect'||r.status==='ready_to_contact')
+    .map(r=>({r, ...computeScore(r, settings.targetCompanies)})).sort((a,b)=>b.score-a.score);
+  push('Top new people to message first', fresh.slice(0,6).map(x=>`${nm(x.r)} score ${x.score}`));
+  const todayStr = new Date().toISOString().slice(0,10);
+  push('Tasks due', (tasks||[]).filter(t=>!t.done && t.due_date && t.due_date<=todayStr).map(t=>t.label));
+  if((settings.targetCompanies||[]).length) lines.push(`Target companies: ${settings.targetCompanies.join(', ')}`);
+  if((settings.targetRoles||[]).length) lines.push(`Target roles: ${settings.targetRoles.join(', ')}`);
+  return lines.join('\n');
+}
+function DailyCopilot({db, log, events, tasks, sb, auth, setDrawerId}){
+  const [plan,setPlan]=useState(null); const [busy,setBusy]=useState(false); const [err,setErr]=useState(null);
+  const mode = llmMode(sb,auth);
+  const digest = buildDailyDigest(log, events, tasks, db.settings);
+  const hasWork = digest.trim().length>0 && log.length>0;
+  async function generate(){
+    setBusy(true); setErr(null);
+    try{
+      const r = await llmJSON(sb, auth, 'daily_plan',
+        'You are MIghTy\'s daily networking copilot for an MIT Sloan Fellows MBA student. Given their real outreach pipeline below, recommend the best use of about 30 minutes today. Use ONLY the people and facts provided — never invent anyone. Prioritise time-sensitive, high-leverage moves (overdue follow-ups, replies waiting, coffee-chat thank-yous, warm high-score intros). Be specific and concise.',
+        `Pipeline:\n${digest}\n\nReturn JSON: {"headline": string (one short motivating line), "actions": [{"title": string (imperative, <8 words), "who": string (person name or "—"), "why": string (<15 words), "minutes": number}]}. 3 to 4 actions, ordered by priority, total ~30 minutes.`,
+        900);
+      setPlan(r);
+    }catch(e){ setErr(e.message||String(e)); }
+    setBusy(false);
+  }
+  const findRow = who => log.find(r=>who && displayName(r).toLowerCase()===String(who).toLowerCase().replace(/\s*\(.*\)$/,'').trim());
+
+  return <div className="panel pad" style={{background:'var(--ink)',color:'#fff',border:'none'}}>
+    <div style={{display:'flex',alignItems:'center',gap:10}}>
+      <div style={{fontWeight:700,fontSize:15}}>⚡ Your 30 minutes today</div>
+      <div style={{flex:1}}/>
+      {mode!=='none' && <button className="btn sm" onClick={generate} disabled={busy||!hasWork}
+        style={{background:'#fff',color:'var(--ink)'}}>{busy?'Thinking…':plan?'Re-plan':'Plan my 30 minutes'}</button>}
+    </div>
+    {mode==='none'
+      ? <div style={{fontSize:13,opacity:.85,marginTop:8}}>Sign in to get an AI plan for your day.</div>
+      : !hasWork
+        ? <div style={{fontSize:13,opacity:.85,marginTop:8}}>Save a few people first, then MIghTy can plan your day around them.</div>
+        : busy
+          ? <div style={{marginTop:12}}><Dots/></div>
+          : err
+            ? <div style={{fontSize:12.5,marginTop:10,color:'#ffb3a6'}}>{err}</div>
+            : plan
+              ? <div style={{marginTop:12}}>
+                  {plan.headline && <div style={{fontSize:13.5,opacity:.9,marginBottom:12}}>{plan.headline}</div>}
+                  <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                    {(plan.actions||[]).map((a,i)=>{ const row=findRow(a.who);
+                      return <div key={i} style={{display:'flex',gap:12,alignItems:'flex-start',paddingBottom:10,borderBottom:i<plan.actions.length-1?'1px solid rgba(255,255,255,.14)':'none'}}>
+                        <div style={{width:24,height:24,flex:'none',background:'var(--brand)',color:'#fff',display:'grid',placeItems:'center',fontWeight:700,fontSize:12}}>{i+1}</div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontWeight:600,fontSize:14}}>{a.title}{a.minutes?<span style={{opacity:.6,fontWeight:400}}> · {a.minutes} min</span>:null}</div>
+                          <div style={{fontSize:12.5,opacity:.82,marginTop:2}}>{a.who&&a.who!=='—'?`${a.who} — `:''}{a.why}</div>
+                        </div>
+                        {row && <button className="btn ghost sm" onClick={()=>setDrawerId(row.id)} style={{background:'transparent',color:'#fff',borderColor:'rgba(255,255,255,.3)'}}>Open</button>}
+                      </div>; })}
+                  </div>
+                </div>
+              : <div style={{fontSize:13,opacity:.85,marginTop:8}}>Ask MIghTy what's worth doing in the next half hour.</div>}
+  </div>;
+}
+
 /* ============================ Dashboard ============================ */
-function Dashboard({db,log,events,communityStats,sb,auth,setTab,setDrawerId,setDraftFor}){
+function Dashboard({db,log,events,tasks,communityStats,sb,auth,setTab,setDrawerId,setDraftFor}){
   const candidates = log.filter(r=>r.status==='prospect'||r.status==='ready_to_contact');
   const scored = candidates.map(r=>({row:r, kind:'contact', label:'Message for the first time', ...computeScore(r, db.settings.targetCompanies)}));
   const followUpDays = db.settings.followUpDays||7;
@@ -756,6 +837,8 @@ function Dashboard({db,log,events,communityStats,sb,auth,setTab,setDrawerId,setD
   return <div className="page">
     <div style={{fontSize:24,fontWeight:700,letterSpacing:'-.02em'}}>Good {tod}{first?`, ${first}`:''}</div>
     <div className="note" style={{marginTop:4,fontSize:13.5}}>{priorities.length ? `${priorities.length} thing${priorities.length!==1?'s':''} worth doing today.` : 'Nothing urgent — check People to shortlist more contacts.'}</div>
+
+    <div style={{marginTop:20}}><DailyCopilot db={db} log={log} events={events} tasks={tasks} sb={sb} auth={auth} setDrawerId={setDrawerId}/></div>
 
     <div className="tag" style={{margin:'28px 0 10px'}}>Today's priorities</div>
     {priorities.length===0
