@@ -90,7 +90,7 @@ async function decorateCardsWithScores(cards) {
       const { score, reasons } = mightyComputeScore(row, r.targetCompanies);
       badge.style.background = '#E7EDFB'; badge.style.color = '#3B55B8';
       badge.title = reasons.join(' · ');
-      badge.textContent = `${score}% · tracked`;
+      badge.textContent = `${score}% · ${mightyMatchLabel(score)}`;
     } else {
       const text = (c.title || '') + ' ' + (c.name || '');
       const match = (r.targetCompanies || []).find(co => text.toLowerCase().includes(co.trim().toLowerCase()));
@@ -129,13 +129,15 @@ function renderCardCheckboxes() {
   btn.onclick = async () => {
     const selected = cards.filter(c => checked.has(c.profileUrl));
     if (!selected.length) return;
-    btn.textContent = 'Sending…';
+    btn.textContent = 'Saving…';
     for (const c of selected) {
-      await send('pushInbox', { kind: 'profile', payload: { profileUrl: c.profileUrl, name: c.name, title: c.title } });
+      await send('saveProfile', { payload: { profileUrl: c.profileUrl, name: c.name, title: c.title } });
     }
+    selected.forEach(c => { const b = c.el.querySelector('.mighty-badge'); if (b) b.remove(); });
     checked.clear();
     document.querySelectorAll('.mighty-check').forEach(el => { el.checked = false; });
-    btn.textContent = `Sent ✓ — Send 0 to MIghTy`;
+    btn.textContent = `Saved ✓ — Send 0 to MIghTy`;
+    decorateCardsWithScores(cards).catch(() => {});
   };
 }
 
@@ -223,7 +225,8 @@ async function renderProfileSidebar() {
     btn.textContent = 'Save to MIghTy'; btn.style.cssText = 'background:#4661D8;color:#fff;border:none;border-radius:8px;padding:8px 12px;font-weight:600;cursor:pointer;width:100%;';
     btn.onclick = async () => {
       const nameEl = document.querySelector('h1'); const titleEl = document.querySelector('.text-body-medium');
-      await send('pushInbox', { kind: 'profile', payload: { profileUrl, name: (nameEl && nameEl.textContent || '').trim(), title: (titleEl && titleEl.textContent || '').trim() } });
+      const res = await send('saveProfile', { payload: { profileUrl, name: (nameEl && nameEl.textContent || '').trim(), title: (titleEl && titleEl.textContent || '').trim() } });
+      if (res && res.ok) { renderProfileSidebar(); return; }
       btn.textContent = 'Saved ✓'; btn.disabled = true;
     };
     el.append(title, note, btn);
@@ -232,10 +235,19 @@ async function renderProfileSidebar() {
 
   const rowEvents = r.events.filter(e => e.log_id === row.id);
   const next = mightySuggestedNext(row);
+  const { score, reasons } = mightyComputeScore(row, r.targetCompanies);
   el.innerHTML = '';
   const head = document.createElement('div'); head.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:10px;';
   head.innerHTML = `<span style="font-weight:700;">MIghTy</span><span style="margin-left:auto;font-size:11px;font-weight:700;color:#1F6F54;background:#E2F1EC;padding:2px 8px;border-radius:99px;">${row.status.replace('_',' ')}</span>`;
   el.appendChild(head);
+  const matchTitle = document.createElement('div'); matchTitle.style.cssText = 'font-weight:700;font-size:15px;color:#A31F34;margin-bottom:2px;';
+  matchTitle.textContent = `${mightyMatchLabel(score)} · ${score}%`;
+  el.appendChild(matchTitle);
+  if (reasons.length) {
+    const matchReasons = document.createElement('div'); matchReasons.style.cssText = 'font-size:11.5px;color:#6E6B64;margin-bottom:10px;';
+    matchReasons.textContent = reasons.join(' · ');
+    el.appendChild(matchReasons);
+  }
   if (next) {
     const nextBox = document.createElement('div');
     nextBox.style.cssText = 'background:#E7EDFB;border-radius:8px;padding:9px 10px;margin-bottom:10px;font-size:12.5px;color:#3B55B8;';

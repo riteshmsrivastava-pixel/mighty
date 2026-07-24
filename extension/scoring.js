@@ -37,4 +37,10 @@ function mightySuggestedNext(row) {
   }
 }
 
-Object.assign(window, { mightyComputeScore, mightySuggestedNext });
+function mightyMatchLabel(score) {
+  if (score >= 65) return 'Strong match';
+  if (score >= 35) return 'Good match';
+  return 'Early match';
+}
+
+Object.assign(window, { mightyComputeScore, mightySuggestedNext, mightyMatchLabel });

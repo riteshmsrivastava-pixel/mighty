@@ -27,6 +27,7 @@ async function render() {
   $('statusDot').className = 'dot ' + (connected ? 'ok' : 'warn');
   $('statusText').textContent = connected ? `Connected — ${sb.email}` : 'Not connected';
   $('connectedCard').style.display = connected ? 'block' : 'none';
+  $('signinDetails').style.display = connected ? 'none' : 'block';
   $('signinDetails').open = !connected;
 
   if (connected) {
@@ -58,6 +59,13 @@ $('sbSignin').onclick = async () => {
     $('sbPass').value = '';
     render();
   } catch (e) { $('sbStatus').textContent = '✕ ' + (e.message || e); }
+};
+
+$('signOutBtn').onclick = async () => {
+  const s = await get('settings'); const settings = s.settings || {};
+  delete settings.sb;
+  await set({ settings });
+  render();
 };
 
 render();

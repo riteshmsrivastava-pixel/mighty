@@ -79,6 +79,60 @@ async function fetchLog(force) {
   } catch (e) { return { ok: false, error: String(e && e.message || e) }; }
 }
 
+// Direct upsert into outreach_log — used only for the explicit "Save to
+// MIghTy" action (sidebar's Save button, search-results' Send-N-to-MIghTy
+// panel). Unlike the passive sent-confirmation/profile-context observations,
+// this is a deliberate save, so it goes straight to outreach_log instead of
+// round-tripping through outreach_inbox and waiting for the web app to be
+// open to ingest it — otherwise the sidebar keeps saying "not tracked" even
+// right after the student clicked Save.
+async function saveProfile(payload) {
+  const { settings = {} } = await chrome.storage.local.get('settings');
+  const sb = settings.sb;
+  if (!sb || !sb.url || !sb.anonKey || !sb.accessToken) return { ok: false, error: 'not_signed_in' };
+
+  const doPost = (accessToken) => fetch(`${sb.url}/rest/v1/outreach_log?on_conflict=user_id,profile_url`, {
+    method: 'POST',
+    headers: {
+      apikey: sb.anonKey,
+      Authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json',
+      Prefer: 'resolution=merge-duplicates,return=representation',
+    },
+    body: JSON.stringify({
+      profile_url: payload.profileUrl,
+      name: payload.name || null,
+      title: payload.title || null,
+      company: payload.company || null,
+      updated_at: new Date().toISOString(),
+    }),
+  });
+
+  let res;
+  try { res = await doPost(sb.accessToken); }
+  catch (e) { return { ok: false, error: String(e && e.message || e) }; }
+
+  if (res.status === 401 && sb.refreshToken) {
+    try {
+      const r = await fetch(`${sb.url}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST', headers: { apikey: sb.anonKey, 'content-type': 'application/json' },
+        body: JSON.stringify({ refresh_token: sb.refreshToken }),
+      });
+      const j = await r.json();
+      if (r.ok && j.access_token) {
+        settings.sb = { ...sb, accessToken: j.access_token, refreshToken: j.refresh_token || sb.refreshToken };
+        await chrome.storage.local.set({ settings });
+        res = await doPost(j.access_token);
+      }
+    } catch (e) { /* fall through with original failure */ }
+  }
+  if (!res.ok) return { ok: false, status: res.status };
+  const rows = await res.json().catch(() => []);
+  const row = rows[0];
+  if (row) logCache.log = [row, ...logCache.log.filter(r => r.id !== row.id)];
+  return { ok: true, row };
+}
+
 // Direct PATCH to outreach_log.notes — that table already has an update
 // policy (unlike outreach_inbox/outreach_events), so this doesn't need to
 // go through the inbox relay.
@@ -118,6 +172,7 @@ async function generateDraft(system, user, maxTokens) {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg && msg.type === 'pushInbox') { pushInboxWithRetry(msg.kind, msg.payload).then(sendResponse); return true; }
   if (msg && msg.type === 'fetchLog') { fetchLog(msg.force).then(sendResponse); return true; }
+  if (msg && msg.type === 'saveProfile') { saveProfile(msg.payload).then(sendResponse); return true; }
   if (msg && msg.type === 'patchNotes') { patchNotes(msg.logId, msg.notes).then(sendResponse); return true; }
   if (msg && msg.type === 'generateDraft') { generateDraft(msg.system, msg.user, msg.maxTokens).then(sendResponse); return true; }
 });
