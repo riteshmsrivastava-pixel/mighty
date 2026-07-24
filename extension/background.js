@@ -1,213 +1,60 @@
-// MIghTy — MIT Watch · background service worker
-// Runs daily (and on demand): opens each watched MIT page in a background tab,
-// reads it in YOUR logged-in session, detects what changed, optionally summarizes
-// with Claude, and optionally pushes to your MIghTy (Supabase) account.
+// MIghTy — LinkedIn Outreach · background service worker
+//
+// This is a thin relay ONLY. It never opens tabs, never navigates, never
+// clicks anything — it just forwards events the content script observed
+// (in a page the student themselves opened) to Supabase's outreach_inbox.
+// No alarms, no scheduled jobs: nothing runs unless the student is actively
+// browsing LinkedIn themselves.
 
-const DEFAULT_WATCH = [
-  { id: 'sloanhub',  label: 'SloanHub — Dashboard',       url: 'https://sloanhub.mit.edu/',                       watchFor: 'new announcements, tasks, or action items' },
-  { id: 'funding',   label: 'SloanHub — Student Funding',  url: 'https://sloanhub.mit.edu/pages/student-funding',  watchFor: 'new funding/fellowship opportunities and their deadlines' },
-];
+async function pushInbox(kind, payload) {
+  const { settings = {} } = await chrome.storage.local.get('settings');
+  const sb = settings.sb;
+  if (!sb || !sb.url || !sb.anonKey || !sb.accessToken) return { ok: false, error: 'not_signed_in' };
 
-/* ---------- helpers ---------- */
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-const uid = () => Math.random().toString(36).slice(2,9);
-function hash(s){ let h = 5381; for (let i=0;i<s.length;i++){ h = ((h<<5)+h) + s.charCodeAt(i); h |= 0; } return h>>>0; }
-function looksLikeLogin(url, text){
-  if (/idp\.mit\.edu|shibboleth|\/wayf|duosecurity|cas\/login|login\.mit\.edu|oidc\/authorize/i.test(url||'')) return true;
-  if (/touchstone/i.test(text||'') && /password/i.test(text||'') && (text||'').length < 4000) return true;
-  return false;
-}
-
-function waitForComplete(tabId, timeout){
-  return new Promise(resolve => {
-    let done = false;
-    const finish = () => { if (done) return; done = true; clearTimeout(to); chrome.tabs.onUpdated.removeListener(listener); resolve(); };
-    const to = setTimeout(finish, timeout);
-    function listener(id, info){ if (id === tabId && info.status === 'complete') finish(); }
-    chrome.tabs.onUpdated.addListener(listener);
-  });
-}
-
-async function scrape(url){
-  let tab;
-  try{
-    tab = await chrome.tabs.create({ url, active: false });
-    await waitForComplete(tab.id, 25000);
-    await sleep(2800); // let single-page apps render
-    const out = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: () => {
-        // collect links FIRST — pierce shadow DOM, resolve relative URLs, catch any [href]
-        const links = []; const seen = new Set();
-        const walk = (root) => {
-          let nodes; try { nodes = root.querySelectorAll('a[href], [href], [role="link"]'); } catch(e){ nodes = []; }
-          nodes.forEach(a => {
-            let href = a.href || (a.getAttribute && (a.getAttribute('href') || a.getAttribute('data-href') || a.getAttribute('data-url')));
-            if (!href || typeof href !== 'string') return;
-            try { href = new URL(href, location.href).href; } catch(e){ return; }
-            if (!/^https?:/i.test(href) || seen.has(href)) return;
-            seen.add(href);
-            links.push({ href, label: (a.textContent || '').trim().replace(/\s+/g,' ').slice(0, 60) });
-          });
-          let all; try { all = root.querySelectorAll('*'); } catch(e){ all = []; }
-          all.forEach(el => { if (el.shadowRoot) walk(el.shadowRoot); });
-        };
-        try { walk(document); } catch(e){}
-        // then strip chrome/nav so the captured TEXT is the page content, not the menu
-        try { document.querySelectorAll('nav, aside, header, footer, [role=navigation], [class*="sidebar"], script, style, noscript').forEach(el => el.remove()); } catch(e){}
-        const mainEl = document.querySelector('main, [role=main], #content, #main, .content, .page-content, article');
-        const text = ((((mainEl || document.body) || {}).innerText) || '').replace(/\s+/g,' ').trim().slice(0, 12000);
-        return { url: location.href, title: document.title, text, links, linkCount: links.length };
-      }
-    });
-    return out && out[0] ? out[0].result : { error: 'no result' };
-  } catch(e){ return { error: String((e && e.message) || e) }; }
-  finally { if (tab && tab.id) { try { await chrome.tabs.remove(tab.id); } catch(e){} } }
-}
-
-async function summarize(item, text, settings){
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
+  const doPost = (accessToken) => fetch(`${sb.url}/rest/v1/outreach_inbox`, {
     method: 'POST',
-    headers: { 'content-type':'application/json', 'x-api-key': settings.anthropicKey,
-      'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
-    body: JSON.stringify({ model: settings.model || 'claude-sonnet-4-6', max_tokens: 300,
-      system: `Summarize ONLY what is relevant to: "${item.watchFor}". 1-2 sentences, include any dates. On a final line output exactly one word: ok, changed, or attention.`,
-      messages: [{ role:'user', content: text.slice(0, 8000) }] })
+    headers: {
+      apikey: sb.anonKey,
+      Authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json',
+      Prefer: 'return=minimal',
+    },
+    body: JSON.stringify({ kind, payload }),
   });
-  const j = await r.json();
-  const out = ((j.content && j.content[0] && j.content[0].text) || '').trim();
-  const last = (out.split('\n').pop() || '').toLowerCase();
-  const status = /attention/.test(last) ? 'attention' : /changed/.test(last) ? 'changed' : 'ok';
-  return { summary: out.replace(/\n?(ok|changed|attention)\s*$/i, '').trim(), status };
-}
 
-async function pushSupabase(sb, payload){
-  const res = await fetch(`${sb.url}/rest/v1/watch_results`, {
-    method: 'POST',
-    headers: { apikey: sb.anonKey, Authorization: `Bearer ${sb.accessToken}`,
-      'content-type':'application/json', Prefer:'return=minimal' },
-    body: JSON.stringify({ payload })
-  });
-  return res.ok;
-}
+  let res;
+  try { res = await doPost(sb.accessToken); }
+  catch (e) { return { ok: false, error: String(e && e.message || e) }; }
 
-/* ---------- the refresh run ---------- */
-let RUNNING = false;
-async function runRefresh(){
-  if (RUNNING) return;
-  RUNNING = true;
-  try {
-    const store = await chrome.storage.local.get(['watch','settings','results']);
-    const watch = store.watch || [];
-    const settings = store.settings || {};
-    const results = store.results || {};
-    if (!watch.length) return;
-    await chrome.storage.local.set({ running: true });
-
-    for (const item of watch){
-      const r = await scrape(item.url);
-      let entry = results[item.id] || {};
-      if (r.error){
-        entry = { ...entry, label:item.label, url:item.url, status:'error', summary:r.error, lastChecked: Date.now() };
-      } else if (looksLikeLogin(r.url, r.text)){
-        entry = { ...entry, label:item.label, url:item.url, status:'login', summary:'Needs MIT login — open the page, sign in, then refresh.', lastChecked: Date.now() };
-      } else {
-        const h = hash(r.text);
-        const changed = entry.hash !== undefined && entry.hash !== h;
-        let status = changed ? 'changed' : 'ok';
-        let summary = (r.text || '').replace(/\s+/g,' ').trim().slice(0, 240);
-        if (settings.anthropicKey){
-          try { const s = await summarize(item, r.text, settings); summary = s.summary; status = s.status; } catch(e){}
-        }
-        entry = { ...entry, label:item.label, url:item.url, title:r.title, hash:h, status, summary, lastChecked: Date.now() };
-        if (settings.sb && settings.sb.url && settings.sb.anonKey && settings.sb.accessToken){
-          try { await pushSupabase(settings.sb, [{ id:item.id, label:item.label, latest:summary, status }]); } catch(e){}
-        }
+  if (res.status === 401 && sb.refreshToken) {
+    // Access token expired — refresh once and retry.
+    try {
+      const r = await fetch(`${sb.url}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST', headers: { apikey: sb.anonKey, 'content-type': 'application/json' },
+        body: JSON.stringify({ refresh_token: sb.refreshToken }),
+      });
+      const j = await r.json();
+      if (r.ok && j.access_token) {
+        settings.sb = { ...sb, accessToken: j.access_token, refreshToken: j.refresh_token || sb.refreshToken };
+        await chrome.storage.local.set({ settings });
+        res = await doPost(j.access_token);
       }
-      results[item.id] = entry;
-      await chrome.storage.local.set({ results });
-    }
-    await chrome.storage.local.set({ lastRun: Date.now() });
-  } finally {
-    RUNNING = false;
-    await chrome.storage.local.set({ running: false });
+    } catch (e) { /* fall through with original failure */ }
   }
+  return { ok: res.ok, status: res.status };
 }
 
-/* ---------- discovery: follow links on watched pages, add same-site sub-pages ---------- */
-const MAX_PAGES = 150;
-const SKIP_RE = /logout|sign[-_]?out|\.pdf|\.zip|\.docx?|\.xlsx?|\.pptx?|mailto:|tel:|\/print\b|javascript:/i;
-async function discover(){
-  const store = await chrome.storage.local.get('watch');
-  let watch = store.watch || [];
-  const have = new Set(watch.map(w => normUrl(w.url)));
-  const seeds = [...watch];
-  let added = 0, scanned = 0;
-  for (const item of seeds){
-    if (watch.length >= MAX_PAGES) break;
-    const r = await scrape(item.url);
-    if (r.error || !r.links) continue;
-    scanned += r.links.length;
-    let base; try { base = new URL(item.url); } catch(e){ continue; }
-    for (const l of r.links){
-      if (watch.length >= MAX_PAGES) break;
-      let u; try { u = new URL(l.href); } catch(e){ continue; }
-      if (u.hostname !== base.hostname) continue;        // same site as the seed only
-      if (SKIP_RE.test(u.href)) continue;
-      const key = normUrl(u.href);
-      if (have.has(key)) continue;
-      have.add(key);
-      const slug = (l.label || u.pathname.split('/').filter(Boolean).pop() || u.hostname).slice(0, 48);
-      watch.push({ id: uid(), label: `${u.hostname.replace(/\.mit\.edu$/,'')} — ${slug}`,
-        url: u.origin + u.pathname, watchFor: 'anything new or changed' });
-      added++;
-    }
-  }
-  await chrome.storage.local.set({ watch });
-  return { total: watch.length, added, scanned };
+// One retry with backoff — a lost "sent confirmation" matters more than a
+// lost "shortlisted" event, and there's no daily job to catch it later.
+async function pushInboxWithRetry(kind, payload) {
+  let r = await pushInbox(kind, payload);
+  if (!r.ok) { await new Promise(res => setTimeout(res, 2000)); r = await pushInbox(kind, payload); }
+  return r;
 }
-function normUrl(s){ try { const u = new URL(s); return (u.origin + u.pathname).replace(/\/$/, ''); } catch(e){ return s; } }
-
-/* ---------- capture-as-you-browse: a page you opened sent us its content ---------- */
-async function ingestCapture(data){
-  if (!data || !data.url) return;
-  const store = await chrome.storage.local.get(['watch','results']);
-  let watch = store.watch || [];
-  const results = store.results || {};
-  const key = normUrl(data.url);
-  let item = watch.find(w => normUrl(w.url) === key);
-  if (!item){
-    if (watch.length >= MAX_PAGES) return;
-    let host = ''; try { host = new URL(data.url).hostname.replace(/\.mit\.edu$/,''); } catch(e){}
-    const slug = (data.title || key).replace(/\s+/g,' ').trim().slice(0, 56);
-    item = { id: uid(), label: `${host} — ${slug}`.slice(0, 72), url: data.url.split('#')[0], watchFor:'anything new or changed', auto:true };
-    watch.push(item);
-    await chrome.storage.local.set({ watch });
-  }
-  const h = hash(data.text || '');
-  const prev = results[item.id] || {};
-  const changed = prev.hash !== undefined && prev.hash !== h;
-  results[item.id] = { ...prev, label:item.label, url:item.url, title:data.title, hash:h,
-    status: changed ? 'changed' : 'ok', summary: (data.text || '').slice(0, 240), lastChecked: Date.now() };
-  await chrome.storage.local.set({ results, lastRun: Date.now() });
-}
-
-/* ---------- wiring ---------- */
-chrome.runtime.onInstalled.addListener(async () => {
-  const { watch } = await chrome.storage.local.get('watch');
-  if (!watch) await chrome.storage.local.set({ watch: DEFAULT_WATCH, settings: { daily: true } });
-  chrome.alarms.create('dailyRefresh', { periodInMinutes: 1440, delayInMinutes: 1 });
-});
-
-chrome.alarms.onAlarm.addListener(a => { if (a.name === 'dailyRefresh') runRefresh(); });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg && msg.type === 'refreshNow'){ runRefresh().then(() => sendResponse({ ok:true })); return true; }
-  if (msg && msg.type === 'discover'){ discover().then(res => sendResponse(res)); return true; }
-  if (msg && msg.type === 'capture'){ ingestCapture(msg.data); return false; }
-  if (msg && msg.type === 'setDaily'){
-    chrome.alarms.clear('dailyRefresh');
-    if (msg.on) chrome.alarms.create('dailyRefresh', { periodInMinutes: 1440, delayInMinutes: 1 });
-    sendResponse({ ok:true });
+  if (msg && msg.type === 'pushInbox') {
+    pushInboxWithRetry(msg.kind, msg.payload).then(sendResponse);
+    return true; // async response
   }
 });

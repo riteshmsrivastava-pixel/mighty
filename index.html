@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MIghTy · study + survival agent</title>
+<title>MIghTy · LinkedIn outreach</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -86,22 +86,13 @@ textarea.inp{line-height:1.5;}
 .empty{text-align:center;padding:34px 18px;color:var(--mute);}
 .empty .big{font-size:30px;margin-bottom:8px;}
 
-.chat{display:flex;flex-direction:column;gap:12px;max-height:52vh;overflow:auto;padding:4px;}
-.msg{max-width:88%;padding:12px 15px;border-radius:16px;font-size:14.5px;line-height:1.55;white-space:pre-wrap;}
-.msg.ai{align-self:flex-start;background:var(--card2);border:1px solid var(--line2);border-bottom-left-radius:5px;}
-.msg.me{align-self:flex-end;background:var(--bsoft);border:1px solid #F0CFC9;border-bottom-right-radius:5px;color:#5A211D;}
-.msg .who{font-family:var(--fm);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute2);margin-bottom:5px;}
 .typing{display:inline-flex;gap:4px;align-items:center;}
 .typing i{width:6px;height:6px;border-radius:50%;background:var(--mute);animation:bl 1.2s infinite;}
 .typing i:nth-child(2){animation-delay:.2s;} .typing i:nth-child(3){animation-delay:.4s;}
 @keyframes bl{0%,60%,100%{opacity:.25;}30%{opacity:1;}}
 
-.grade{background:var(--card2);border:1px solid var(--line2);border-radius:16px;padding:15px;margin-top:6px;}
 .scorebar{height:8px;border-radius:99px;background:var(--seg);overflow:hidden;margin:8px 0;}
 .scorebar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#C8703D,#5F7A4E);}
-.dims{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-top:10px;}
-.dim{font-size:12.5px;color:var(--sub);display:flex;justify-content:space-between;gap:8px;}
-.dim b{font-family:var(--fm);color:var(--ink);}
 
 .list{display:flex;flex-direction:column;gap:9px;}
 .row{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line2);border-radius:14px;background:var(--card2);}
@@ -110,24 +101,19 @@ textarea.inp{line-height:1.5;}
 .row .m{font-size:12px;color:var(--sub);margin-top:2px;}
 .iconbtn{border:1px solid var(--line);background:var(--card);border-radius:9px;padding:6px 9px;font-size:12px;color:var(--sub);}
 .iconbtn:hover{background:#F8F2E6;color:var(--ink);}
-.bar{height:7px;border-radius:99px;background:var(--seg);overflow:hidden;}
-.bar i{display:block;height:100%;}
+.iconbtn:disabled{opacity:.4;cursor:not-allowed;}
 .divider{height:1px;background:var(--line2);margin:16px 0;}
 .note{font-size:12px;color:var(--sub);line-height:1.5;}
 .warnbox{background:var(--tsoft);border:1px solid #E7C9A8;border-radius:13px;padding:12px 14px;font-size:12.5px;color:var(--terra2);line-height:1.5;}
 .okbox{background:var(--gsoft);border:1px solid #C9D8B6;border-radius:13px;padding:12px 14px;font-size:12.5px;color:var(--green2);line-height:1.5;}
 .bluebox{background:var(--bluesoft);border:1px solid #C9DCE7;border-radius:13px;padding:12px 14px;font-size:12.5px;color:var(--blue);line-height:1.5;}
 .foot{text-align:center;font-size:11.5px;color:var(--mute2);margin:22px 0 8px;line-height:1.6;}
-.seg{display:inline-flex;background:var(--seg);border-radius:11px;padding:3px;gap:3px;}
+.seg{display:inline-flex;background:var(--seg);border-radius:11px;padding:3px;gap:3px;flex-wrap:wrap;}
 .seg button{border:none;background:transparent;padding:7px 13px;border-radius:9px;font-weight:600;font-size:12.5px;color:var(--sub);}
 .seg button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow);}
 
-.statdot{width:9px;height:9px;border-radius:50%;flex:none;}
-.sd-ok{background:var(--green);} .sd-changed{background:var(--terra);} .sd-attn{background:var(--brand);} .sd-none{background:#CFC4B2;}
-
 .overlay{position:fixed;inset:0;background:rgba(60,45,25,.34);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:50;padding:18px;}
 .modal{background:var(--card);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadowL);width:100%;max-width:430px;padding:24px;}
-.codebox{font-family:var(--fm);font-size:11.5px;line-height:1.5;background:#2A2320;color:#F3ECDC;border-radius:13px;padding:14px;white-space:pre-wrap;max-height:240px;overflow:auto;}
 .linkurl{font-size:11.5px;color:var(--blue);word-break:break-all;text-decoration:none;}
 .linkurl:hover{text-decoration:underline;}
 </style>
@@ -147,29 +133,25 @@ textarea.inp{line-height:1.5;}
 const {useState,useEffect,useRef,useMemo} = React;
 
 /* ============================ persistence ============================ */
-const DB_KEY  = 'mighty_v1';    // synced app data (cloud + local cache)
+const DB_KEY  = 'mighty_v1';    // synced app data (cloud + local cache) — templates + settings only
 const CFG_KEY = 'mighty_cfg';   // device-local config — NEVER synced (keys live here)
 const DEFAULT = {
-  readings: [],
-  cc: { sessions: [] },
-  quiz: { sessions: [], weak: {} },
-  planner: { tasks: [] },
-  opt: {},
-  watch: { items: [], lastRun: null },
+  templates: [
+    { id:'starter', name:'Intro — Sloan Fellow', body:"Hi {{firstName}}, I'm an MIT Sloan Fellow exploring {{company}} and would love to hear about your path there. Would you be open to a quick chat?" },
+  ],
+  settings: { sheets: { sheetId:'', tabName:'MIghTy Outreach', lastSyncedAt:null, lastError:null } },
 };
 function shape(d){
   d = d||{};
   return { ...JSON.parse(JSON.stringify(DEFAULT)), ...d,
-    cc:{...DEFAULT.cc,...(d.cc||{})}, quiz:{...DEFAULT.quiz,...(d.quiz||{})},
-    planner:{...DEFAULT.planner,...(d.planner||{})}, watch:{...DEFAULT.watch,...(d.watch||{})} };
+    templates: Array.isArray(d.templates) ? d.templates : DEFAULT.templates,
+    settings: { ...DEFAULT.settings, ...(d.settings||{}), sheets:{ ...DEFAULT.settings.sheets, ...((d.settings||{}).sheets||{}) } } };
 }
 function loadDB(){ try{ return shape(JSON.parse(localStorage.getItem(DB_KEY))); }catch(e){ return shape(); } }
 
 const CFG_DEFAULT = { apiKey:'', model:'claude-sonnet-4-6', supabaseUrl:'', supabaseKey:'' };
 function loadCfg(){
   let c; try{ c = {...CFG_DEFAULT, ...(JSON.parse(localStorage.getItem(CFG_KEY))||{})}; }catch(e){ c={...CFG_DEFAULT}; }
-  // one-time migration: pull an old v0 inline API key out of synced data
-  if(!c.apiKey){ try{ const old=JSON.parse(localStorage.getItem(DB_KEY)); if(old&&old.settings&&old.settings.apiKey) c.apiKey=old.settings.apiKey; }catch(e){} }
   return c;
 }
 function saveCfg(c){ localStorage.setItem(CFG_KEY, JSON.stringify(c)); }
@@ -177,16 +159,32 @@ function saveCfg(c){ localStorage.setItem(CFG_KEY, JSON.stringify(c)); }
 const uid = () => Math.random().toString(36).slice(2,10);
 const now = () => Date.now();
 const fmtDate = ts => new Date(ts).toLocaleDateString(undefined,{month:'short',day:'numeric'});
-const daysBetween = (a,b) => Math.round((b-a)/864e5);
 const rel = ts => { if(!ts) return 'never'; const s=(now()-ts)/1000;
   if(s<60) return 'just now'; if(s<3600) return Math.floor(s/60)+'m ago';
   if(s<86400) return Math.floor(s/3600)+'h ago'; return Math.floor(s/86400)+'d ago'; };
 const MIT_RE = /@([a-z0-9-]+\.)*mit\.edu$/i;
 
-/* ============================ LLM layer ============================ */
+// Week = Monday 00:00 UTC through the next Monday 00:00 UTC, fixed for everyone.
+// Must match the Postgres trigger's date_trunc('week', ...) definition exactly.
+function weekStartUTC(ts = now()){
+  const d = new Date(ts);
+  const day = d.getUTCDay();
+  const diff = day===0 ? -6 : 1-day;
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()+diff);
+}
+function sentThisWeek(log){
+  const ws = weekStartUTC();
+  return (log||[]).filter(r=>r.status==='sent' && r.sent_at && new Date(r.sent_at).getTime()>=ws).length;
+}
+function renderTemplate(body, row){
+  const firstName = (row.name||'').trim().split(/\s+/)[0] || 'there';
+  return (body||'').replaceAll('{{firstName}}', firstName).replaceAll('{{company}}', row.company||'your company');
+}
+
+/* ============================ LLM layer (optional — template polish only) ============================ */
 const inArtifact = () => typeof window!=='undefined' && window.claude && typeof window.claude.complete==='function';
 function llmMode(cfg){ if(inArtifact()) return 'artifact'; if(cfg && cfg.apiKey) return 'api'; return 'none'; }
-async function llm(cfg, system, user, maxTokens=1400){
+async function llm(cfg, system, user, maxTokens=600){
   const mode = llmMode(cfg);
   if(mode==='artifact') return await window.claude.complete(`${system}\n\n———\n${user}`);
   if(mode==='api'){
@@ -199,50 +197,6 @@ async function llm(cfg, system, user, maxTokens=1400){
   }
   throw new Error('No Claude connection. Add your Anthropic API key in Settings, or run this as a Claude artifact.');
 }
-function extractJSON(text){
-  if(!text) throw new Error('Empty response');
-  let t=text.replace(/```json/gi,'```').trim();
-  const f=t.indexOf('```'); if(f>=0){ const e=t.indexOf('```',f+3); if(e>f) t=t.slice(f+3,e).trim(); }
-  const a=t.indexOf('{'), b=t.lastIndexOf('}'); if(a<0||b<a) throw new Error('No JSON in response');
-  return JSON.parse(t.slice(a,b+1));
-}
-async function llmJSON(cfg, system, user, maxTokens=1600){
-  return extractJSON(await llm(cfg, system+'\n\nRespond with ONLY valid minified JSON, no prose, no code fences.', user, maxTokens));
-}
-
-/* ============================ personas ============================ */
-const PERSONAS = {
-  professor: { emoji:'🎓', label:'Professor cold-call',
-    desc:'Sloan-style cold call. Answer in a tight, speakable 3–4 sentences. Escalating follow-ups.',
-    sys:(ctx)=>`You are a demanding but fair MIT Sloan professor running a Socratic cold call${ctx.subject?` in ${ctx.subject}`:''}. Reference the assigned reading. Ask ONE pointed question at a time. Expect a calibrated, speakable 3–4 sentence answer — not an essay. After each answer escalate: probe an assumption, push on a tradeoff, or apply it to a new situation. Be concise and a little intimidating, never cruel.`,
-    rubric:'clarity, structure (claim→because→therefore), use of the reading/evidence, and concision/speakability (says it in ~3–4 sentences out loud)' },
-  negotiation: { emoji:'🤝', label:'Negotiation counterpart',
-    desc:'Salary, term sheets, equity, vendor deals. They push; you make moves; it critiques.',
-    sys:(ctx)=>`You are a sharp negotiation counterpart in a role-play (${ctx.subject||'a salary / deal negotiation'}). Hold a firm but realistic position with hidden interests. Respond in character to the user's moves and occasionally make offers or apply pressure. Map to Power & Negotiation concepts (BATNA, anchoring, ZOPA, value creation vs claiming).`,
-    rubric:'anchoring & framing, use of BATNA/leverage, value creation vs pure claiming, and composure/clarity under pressure' },
-  behavioral: { emoji:'💼', label:'Behavioral interview',
-    desc:'Mock interview tuned to a job lane. STAR stories, follow-ups, feedback.',
-    sys:(ctx)=>`You are an experienced interviewer running a behavioral interview${ctx.subject?` for: ${ctx.subject}`:''}. Ask one behavioral question at a time and probe for specifics (situation, the user's actual actions, measurable results). Push politely when answers are vague or take undue credit.`,
-    rubric:'STAR structure, specificity & ownership, measurable impact, and concision' },
-  case: { emoji:'📊', label:'Case interview (MBB)',
-    desc:'Timed MBB-style case. Structure, math, recommendation.',
-    sys:(ctx)=>`You are an MBB consulting interviewer running a case${ctx.subject?` on: ${ctx.subject}`:''}. Present a business problem, then guide through it: expect the user to structure it (a clean framework), drive the analysis, do back-of-envelope math, and end with a crisp recommendation. Give data only when asked. Keep it moving.`,
-    rubric:'structure (MECE), quantitative reasoning, business judgment, and synthesis/recommendation' },
-};
-
-/* ============================ MIT Watch starter set ============================ */
-const STARTER = [
-  {label:'Sloan Hub',              url:'https://sloanhub.mit.edu/',                         category:'Sloan',     needsLogin:true,  watchFor:'New announcements, events, or action items for Sloan Fellows'},
-  {label:'Student Funding',        url:'https://sloanhub.mit.edu/pages/student-funding',    category:'Money',     needsLogin:true,  watchFor:'New funding / fellowship opportunities and their application deadlines'},
-  {label:'MySloan',                url:'https://mysloan.mit.edu/',                          category:'Sloan',     needsLogin:true,  watchFor:'Anything new on my dashboard: holds, to-dos, forms'},
-  {label:'Canvas',                 url:'https://canvas.mit.edu/',                           category:'Academics', needsLogin:true,  watchFor:'New assignments, announcements, or grades posted'},
-  {label:'WebSIS / Registrar',     url:'https://student.mit.edu/',                          category:'Academics', needsLogin:true,  watchFor:'Registration holds, schedule changes, deadlines'},
-  {label:'International Students',  url:'https://iso.mit.edu/',                              category:'Visa',      needsLogin:false, watchFor:'OPT/CPT deadlines, document requirements, workshops — DATES ONLY, no rule interpretation'},
-  {label:'MITPAY',                 url:'https://mitpay.mit.edu/',                           category:'Money',     needsLogin:true,  watchFor:'Balance due and payment deadlines — SHOW ONLY, never pay'},
-  {label:'Career (CDO)',           url:'https://cdo.mit.edu/',                              category:'Career',    needsLogin:true,  watchFor:'New roles, application deadlines, recruiting events'},
-  {label:'MIT Events Calendar',    url:'https://calendar.mit.edu/',                         category:'Campus',    needsLogin:false, watchFor:'Upcoming events relevant to me this week'},
-  {label:'Atlas',                  url:'https://atlas.mit.edu/',                            category:'Admin',     needsLogin:true,  watchFor:'Action items, requests, or holds in my queue'},
-];
 
 /* ============================ atoms ============================ */
 function Dots(){ return <span className="typing"><i></i><i></i><i></i></span>; }
@@ -256,6 +210,7 @@ function App(){
   const [sb,setSb] = useState(null);
   const [auth,setAuth] = useState({status:'loading', user:null});
   const [localOnly,setLocalOnly] = useState(false);
+  const [log,setLog] = useState([]);
   const lastSync = useRef(null);
   const saveTimer = useRef(null);
 
@@ -274,7 +229,7 @@ function App(){
   useEffect(()=>{
     if(!sb){ return; }
     let sub;
-    const onUser = (u)=>{ setAuth({status:u?'in':'out', user:u}); if(u) pull(sb,u); };
+    const onUser = (u)=>{ setAuth({status:u?'in':'out', user:u}); if(u) pull(sb,u); else setLog([]); };
     sb.auth.getSession().then(({data})=>onUser(data.session?.user||null));
     const r = sb.auth.onAuthStateChange((_e,session)=>onUser(session?.user||null));
     sub = r.data?.subscription;
@@ -288,26 +243,58 @@ function App(){
       else { const s=loadDB(); lastSync.current=JSON.stringify(s);
         await client.from('user_data').upsert({user_id:u.id, data:s, updated_at:new Date().toISOString()}); }
     }catch(e){ /* stay on local cache */ }
-    ingest(client,u);
+    await ingest(client,u);
+    await refreshLog(client,u);
   }
 
-  // Pull any results the in-browser agent posted, merge into the watch list, clear the inbox.
+  async function refreshLog(client,u){
+    try{
+      const {data} = await client.from('outreach_log').select('*').eq('user_id',u.id).order('updated_at',{ascending:false});
+      setLog(data||[]);
+    }catch(e){ /* keep whatever we had */ }
+  }
+
+  // Pull whatever the extension pushed (shortlisted profiles / confirmed sends),
+  // merge each into the permanent outreach_log, then clear the consumed inbox rows.
   async function ingest(client, u){
     try{
-      const {data,error} = await client.from('watch_results').select('id,payload').eq('user_id',u.id).order('created_at',{ascending:true});
+      const {data,error} = await client.from('outreach_inbox').select('id,kind,payload').eq('user_id',u.id).order('created_at',{ascending:true});
       if(error || !data || !data.length) return 0;
-      const ups=[]; data.forEach(r=>{ const p=r.payload; if(Array.isArray(p)) ups.push(...p); else if(p&&Array.isArray(p.payload)) ups.push(...p.payload); });
-      if(ups.length){
-        setDb(d=>{ const items=d.watch.items.map(it=>{ const m=ups.find(a=>a.id===it.id||a.label===it.label); if(!m) return it;
-          return {...it, latest:m.latest||it.latest, status:m.status||'changed', lastChecked:now(),
-            history:[{ts:now(),summary:m.latest||''},...(it.history||[])].slice(0,20)}; });
-          return {...d, watch:{...d.watch, items, lastRun:now()}}; });
+      const consumed=[];
+      for(const row of data){
+        const p = row.payload || {};
+        if(!p.profileUrl){ consumed.push(row.id); continue; }
+        try{
+          if(row.kind==='sent_confirmation'){
+            await client.from('outreach_log').upsert({
+              user_id:u.id, profile_url:p.profileUrl, status:'sent',
+              sent_at: p.ts ? new Date(p.ts).toISOString() : new Date().toISOString(),
+              updated_at:new Date().toISOString(),
+            }, {onConflict:'user_id,profile_url'});
+          } else {
+            await client.from('outreach_log').upsert({
+              user_id:u.id, profile_url:p.profileUrl,
+              name:p.name||null, title:p.title||null, company:p.company||null,
+              updated_at:new Date().toISOString(),
+            }, {onConflict:'user_id,profile_url'});
+          }
+          consumed.push(row.id);
+        }catch(e){ /* likely the weekly-cap trigger — leave unconsumed, profile stays Shortlisted */ }
       }
-      await client.from('watch_results').delete().in('id', data.map(r=>r.id));
-      return ups.length;
+      if(consumed.length) await client.from('outreach_inbox').delete().in('id', consumed);
+      return consumed.length;
     }catch(e){ return 0; }
   }
-  const doIngest = () => (auth.status==='in' && sb) ? ingest(sb, auth.user) : Promise.resolve(0);
+  const doIngest = async () => { if(auth.status==='in' && sb){ await ingest(sb, auth.user); await refreshLog(sb, auth.user); } };
+
+  async function setRowStatus(row, fields){
+    if(!sb || auth.status!=='in') return {ok:false, error:'Not signed in'};
+    try{
+      await sb.from('outreach_log').update({...fields, updated_at:new Date().toISOString()}).eq('id',row.id);
+      await refreshLog(sb, auth.user);
+      return {ok:true};
+    }catch(e){ return {ok:false, error:e.message||String(e)}; }
+  }
 
   // persist locally always; push to cloud when signed in & changed
   useEffect(()=>{
@@ -323,7 +310,7 @@ function App(){
     }
   },[db]);
 
-  // re-pull on window focus (cross-device freshness)
+  // re-pull on window focus (cross-device freshness, and picks up anything the extension just pushed)
   useEffect(()=>{
     if(auth.status!=='in'||!sb) return;
     const f=()=>pull(sb,auth.user); window.addEventListener('focus',f); return ()=>window.removeEventListener('focus',f);
@@ -332,8 +319,8 @@ function App(){
   const mode = llmMode(cfg);
   const sbReady = !!sb;
   const TABS = [
-    ['home','🏠','Home'],['watch','📡','MIT Watch'],['library','📚','Library'],['sim','🎯','Simulator'],
-    ['tutor','🧑‍🏫','Tutor'],['quiz','🃏','Quiz'],['planner','🗓️','Planner'],['opt','🛂','OPT'],['settings','⚙️','Settings'],
+    ['home','🏠','Home'],['shortlist','📋','Shortlist'],['templates','✉️','Templates'],
+    ['log','📊','Log'],['settings','⚙️','Settings'],
   ];
 
   async function signOut(){ if(sb){ await sb.auth.signOut(); } }
@@ -343,11 +330,11 @@ function App(){
       <div className="brandrow">
         <div className="logo">Mi</div>
         <div><div className="brand-name"><b>MI</b>gh<b>T</b>y</div>
-          <div className="brand-sub">study + survival agent · Sloan Fellows</div></div>
+          <div className="brand-sub">LinkedIn outreach · Sloan Fellows</div></div>
       </div>
       <div className="acct">
         {mode==='none'
-          ? <button className="statusdot st-warn" onClick={()=>setTab('settings')}><i></i>No Claude — set up</button>
+          ? <button className="statusdot st-warn" onClick={()=>setTab('settings')}><i></i>No Claude — optional</button>
           : <span className="statusdot st-ok"><i></i>{mode==='artifact'?'Artifact':'Claude on'}</span>}
         {auth.status==='in'
           ? <><span className="statusdot st-blue"><i></i>{auth.user.email}</span><button className="iconbtn" onClick={signOut}>sign out</button></>
@@ -365,20 +352,16 @@ function App(){
             <div className="nav">
               {TABS.map(([id,em,lb])=><button key={id} className={tab===id?'on':''} onClick={()=>setTab(id)}><span className="em">{em}</span>{lb}</button>)}
             </div>
-            {tab==='home' && <Home db={db} setTab={setTab} auth={auth} sbReady={sbReady} onSignIn={()=>setLocalOnly(false)}/>}
-            {tab==='watch' && <Watch db={db} patch={patch} cfg={cfg} auth={auth} sb={sb} sbReady={sbReady} doIngest={doIngest} onSignIn={()=>setLocalOnly(false)}/>}
-            {tab==='library' && <Library db={db} patch={patch}/>}
-            {tab==='sim' && <Simulator db={db} patch={patch} cfg={cfg} setTab={setTab}/>}
-            {tab==='tutor' && <Tutor db={db} cfg={cfg}/>}
-            {tab==='quiz' && <Quiz db={db} patch={patch} cfg={cfg} setTab={setTab}/>}
-            {tab==='planner' && <Planner db={db} patch={patch}/>}
-            {tab==='opt' && <OPT db={db} patch={patch}/>}
-            {tab==='settings' && <Settings db={db} cfg={cfg} setCfg={setCfg} auth={auth} signOut={signOut}/>}
+            {tab==='home' && <Home db={db} log={log} setTab={setTab} auth={auth} sbReady={sbReady} onSignIn={()=>setLocalOnly(false)}/>}
+            {tab==='shortlist' && <Shortlist db={db} log={log} auth={auth} sbReady={sbReady} doIngest={doIngest} setRowStatus={setRowStatus} onSignIn={()=>setLocalOnly(false)}/>}
+            {tab==='templates' && <Templates db={db} patch={patch} cfg={cfg}/>}
+            {tab==='log' && <Log db={db} patch={patch} log={log} auth={auth} sb={sb}/>}
+            {tab==='settings' && <Settings db={db} patch={patch} cfg={cfg} setCfg={setCfg} auth={auth} sb={sb} signOut={signOut}/>}
           </>}
 
     <div className="foot">
-      MIghTy · {auth.status==='in'?'signed in — work syncs across your devices':localOnly?'local mode — work saved in this browser only':'sign in with your @mit.edu email to begin'}.<br/>
-      Not affiliated with or endorsed by MIT. MIT Watch reads pages in <b>your own logged-in browser</b> — no MIT passwords stored. Visa items track dates only; for guidance see the ISO.
+      MIghTy · {auth.status==='in'?'signed in — work syncs across your devices':localOnly?'local mode — templates saved in this browser only':'sign in with your @mit.edu email to begin'}.<br/>
+      Not affiliated with or endorsed by MIT or LinkedIn. You always click Connect/Send yourself — the extension only reads pages you opened and logs sends you made.
     </div>
   </div>;
 }
@@ -415,7 +398,7 @@ function LoginCard({sb,onLocal}){
   }
   return <div className="modal">
     <div className="ph"><h2>{mode==='up'?'Create account':mode==='reset'?'Reset password':'Sign in to MIghTy'}</h2></div>
-    <div className="bluebox" style={{marginBottom:14}}>Only <b>@mit.edu</b> email addresses can register. Your data syncs privately to your account — isolated per user.</div>
+    <div className="bluebox" style={{marginBottom:14}}>Only <b>@mit.edu</b> email addresses can register. Your outreach log syncs privately to your account — isolated per user, and is what the weekly cap and Google Sheet sync are computed from.</div>
     <label className="fld">MIT email</label>
     <input className="inp" value={email} onChange={e=>setEmail(e.target.value)} placeholder="kerberos@mit.edu" autoFocus/>
     {mode!=='reset' && <><div style={{height:10}}/><label className="fld">Password</label>
@@ -439,7 +422,7 @@ function SetupCard({cfg,setCfg,onLocal}){
   const [show,setShow]=useState(false);
   return <div className="modal">
     <div className="ph"><h2>Set up MIghTy</h2></div>
-    <div className="bluebox" style={{marginBottom:14}}>Connect a Supabase project to turn on <b>@mit.edu</b> sign-in and cross-device sync. One-time, by whoever runs the app — steps in <span className="mono">SETUP.md</span>.</div>
+    <div className="bluebox" style={{marginBottom:14}}>Connect a Supabase project to turn on <b>@mit.edu</b> sign-in, the outreach log, and the weekly cap. One-time, by whoever runs the app — steps in <span className="mono">SETUP.md</span>.</div>
     <label className="fld">Supabase project URL</label>
     <input className="inp" value={cfg.supabaseUrl} onChange={e=>setCfg({supabaseUrl:e.target.value})} placeholder="https://xxxx.supabase.co"/>
     <div style={{height:10}}/><label className="fld">Anon public key</label>
@@ -453,42 +436,39 @@ function SetupCard({cfg,setCfg,onLocal}){
 }
 
 /* ============================ Home ============================ */
-function Home({db,setTab,auth,sbReady,onSignIn}){
-  const ccDone=db.cc.sessions.length;
-  const avg=ccDone?Math.round(db.cc.sessions.reduce((s,x)=>s+(x.avgScore||0),0)/ccDone):null;
-  const opt=db.opt.eadEnd?daysBetween(now(),new Date(db.opt.eadEnd).getTime()):null;
-  const flagged=db.watch.items.filter(i=>i.status==='changed'||i.status==='attention');
-  const nextTask=db.planner.tasks.filter(t=>!t.done&&t.due).sort((a,b)=>new Date(a.due)-new Date(b.due))[0];
+function Home({db,log,setTab,auth,sbReady,onSignIn}){
+  const signedIn = auth.status==='in';
+  const sentCount = sentThisWeek(log);
+  const shortlisted = log.filter(r=>r.status==='shortlisted').length;
+  const pct = Math.min(100, Math.round(100*sentCount/100));
+  const nextReset = new Date(weekStartUTC()+7*864e5);
   return <div style={{display:'flex',flexDirection:'column',gap:16}}>
-    {sbReady && auth.status!=='in' && <div className="panel pad" style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-      <div><b>You're in guest mode.</b> <span className="note">Sign in with your @mit.edu email to save your work and use MIT Watch across devices.</span></div>
+    {sbReady && !signedIn && <div className="panel pad" style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+      <div><b>You're in guest mode.</b> <span className="note">Sign in with your @mit.edu email to start your outreach log and weekly cap.</span></div>
       <button className="btn sm" onClick={onSignIn}>Sign in</button></div>}
     <div className="grid3">
-      <Stat k="MIT Watch flags" v={flagged.length} d={db.watch.items.length?`of ${db.watch.items.length} watched · ${rel(db.watch.lastRun)}`:'set up your watch list →'}/>
-      <Stat k="Cold-call reps" v={ccDone} d={avg!=null?`avg ${avg}/100`:'run your first sim →'}/>
-      <Stat k="OPT runway" v={opt!=null?opt:'—'} sub={opt!=null?'days':''} d={opt!=null?'until EAD end':'set dates in OPT'}/>
+      <Stat k="Sent this week" v={sentCount} sub="/ 100" d={`resets ${fmtDate(nextReset.getTime())} 00:00 UTC`}/>
+      <Stat k="Shortlisted" v={shortlisted} d="waiting for a message"/>
+      <Stat k="Templates" v={db.templates.length} d="ready to use"/>
+    </div>
+    <div className="panel pad">
+      <div className="ph"><div><h2>Weekly cap</h2><div className="sub">100 sends per week, tracked from your outreach log.</div></div></div>
+      <div className="scorebar"><i style={{width:`${pct}%`}}></i></div>
+      <div className="note">{sentCount>=100 ? 'Cap reached — new sends resume after the reset. Shortlisted profiles stay put.' : `${100-sentCount} left this week.`}</div>
     </div>
     <div className="grid2">
       <div className="panel pad">
-        <div className="ph"><div><h2>Start here</h2><div className="sub">Your MIT surface + the study core.</div></div></div>
+        <div className="ph"><div><h2>Start here</h2><div className="sub">The outreach workflow.</div></div></div>
         <div className="list">
-          <Quick em="📡" t="MIT Watch" m="Watch your 20–30 MIT pages; see what changed without logging into each." on={()=>setTab('watch')}/>
-          <Quick em="🎯" t="Cold-call simulator" m="Get called on. 3–4 sentence answers, escalating follow-ups." on={()=>setTab('sim')}/>
-          <Quick em="📚" t="Add a reading or case" m="Paste the text — Simulator, Tutor, Quiz draw from it." on={()=>setTab('library')}/>
-          <Quick em="🧑‍🏫" t="Concept tutor" m="Socratic or direct, grounded in a reading." on={()=>setTab('tutor')}/>
+          <Quick em="📋" t="Shortlist" m="Draft a message and open the profile for profiles the extension sent over." on={()=>setTab('shortlist')}/>
+          <Quick em="✉️" t="Templates" m="Write reusable messages with {{firstName}}/{{company}}." on={()=>setTab('templates')}/>
+          <Quick em="📊" t="Log" m="See every profile's status and sync it to your Google Sheet." on={()=>setTab('log')}/>
         </div>
       </div>
       <div className="panel pad">
-        <div className="ph"><div><h2>Your radar</h2><div className="sub">What needs attention.</div></div></div>
-        {flagged.length>0 && <><div className="tag" style={{marginBottom:8}}>MIT Watch — changed</div>
-          <div className="list" style={{marginBottom:10}}>{flagged.slice(0,4).map(i=><div key={i.id} className="row">
-            <span className={'statdot '+(i.status==='attention'?'sd-attn':'sd-changed')}></span>
-            <div className="grow"><div className="t" style={{fontSize:13}}>{i.label}</div><div className="m">{i.latest||'updated'}</div></div>
-            <span className="tag">{rel(i.lastChecked)}</span></div>)}</div></>}
-        {nextTask && <div className="row"><div className="grow"><div className="t">Next due · {nextTask.title}</div>
-          <div className="m">{fmtDate(new Date(nextTask.due).getTime())} · weight {nextTask.weight||'—'}</div></div>
-          <button className="iconbtn" onClick={()=>setTab('planner')}>open</button></div>}
-        {flagged.length===0 && !nextTask && <div className="empty"><div className="big">🧭</div>No signals yet. Set up MIT Watch or add a task.</div>}
+        <div className="ph"><div><h2>Extension</h2><div className="sub">The other half of the workflow.</div></div></div>
+        <div className="note" style={{marginBottom:10}}>Install the MIghTy LinkedIn Outreach extension (<span className="mono">extension/INSTALL.md</span>) to shortlist profiles as you browse and auto-log confirmed sends. It never clicks Connect/Message for you — you always do that yourself.</div>
+        <div className="bluebox">Human-in-the-loop by design: LinkedIn's terms don't allow automating sends, and doing so risks your own account being restricted.</div>
       </div>
     </div>
   </div>;
@@ -497,485 +477,199 @@ function Quick({em,t,m,on}){ return <div className="row" onClick={on} style={{cu
   <div style={{fontSize:22}}>{em}</div><div className="grow"><div className="t">{t}</div><div className="m">{m}</div></div>
   <span className="iconbtn">go →</span></div>; }
 
-/* ============================ MIT Watch ============================ */
-function Watch({db,patch,cfg,auth,sb,sbReady,doIngest,onSignIn}){
-  const items=db.watch.items;
-  const [adding,setAdding]=useState(false);
-  const [refreshing,setRefreshing]=useState(false);
-  const setItems=fn=>patch('watch',w=>({...w,items:fn(w.items)}));
-  const addItem=it=>setItems(list=>[...list,{id:uid(),latest:null,status:null,lastChecked:null,history:[],...it}]);
-  const removeItem=id=>setItems(list=>list.filter(i=>i.id!==id));
-  const addStarter=s=>{ if(!items.some(i=>i.url===s.url)) addItem(s); };
-  const groups=useMemo(()=>{ const g={}; items.forEach(i=>{(g[i.category||'Other']=g[i.category||'Other']||[]).push(i);}); return g; },[items]);
+/* ============================ Shortlist ============================ */
+function Shortlist({db,log,auth,sbReady,doIngest,setRowStatus,onSignIn}){
+  const [checking,setChecking]=useState(false);
+  const signedIn = auth.status==='in';
+  const rows = log.filter(r=>r.status==='shortlisted'||r.status==='deferred')
+    .sort((a,b)=>new Date(a.shortlisted_at)-new Date(b.shortlisted_at));
+  const capReached = sentThisWeek(log)>=100;
+
+  if(!signedIn){
+    return <div className="panel pad">
+      <div className="empty"><div className="big">📋</div>Sign in with your @mit.edu email to see profiles the extension shortlists.
+        {sbReady && <div style={{marginTop:12}}><button className="btn sm" onClick={onSignIn}>Sign in</button></div>}</div>
+    </div>;
+  }
 
   return <div style={{display:'flex',flexDirection:'column',gap:16}}>
-    {sbReady && auth.status!=='in' && <div className="bluebox">Tip: <a style={{cursor:'pointer'}} onClick={onSignIn}>sign in</a> so your watch list and results follow you between laptop and phone.</div>}
-
+    {capReached && <div className="warnbox">Weekly cap of 100 reached — "Mark Sent" is disabled until the reset. Everything below stays right where it is.</div>}
     <div className="panel pad">
-      <div className="ph"><div><h2>📡 MIT Watch</h2>
-        <div className="sub">{items.length? `${items.length} pages · last refresh ${rel(db.watch.lastRun)}`:'Pick the MIT pages you want watched.'}</div></div>
-        <div style={{display:'flex',gap:8}}>
-          <button className="btn ghost sm" onClick={()=>setAdding(a=>!a)}>＋ Add link</button>
-          {items.length>0 && <button className="btn sm" onClick={()=>setRefreshing(true)}>↻ Refresh</button>}</div></div>
-
-      {items.length===0 && !adding && <>
-        <div className="empty" style={{padding:'18px'}}><div className="big">📡</div>Add the MIT pages you check constantly. MIghTy will help you see what changed — so you don't open eight portals a day.</div>
-        <div className="tag" style={{margin:'4px 0 9px'}}>Starter set — tap to add</div>
-        <StarterGrid items={items} addStarter={addStarter}/>
-      </>}
-
-      {adding && <AddLink onAdd={it=>{addItem(it);setAdding(false);}} onCancel={()=>setAdding(false)}/>}
-
-      {items.length>0 && Object.entries(groups).map(([cat,list])=><div key={cat} style={{marginTop:14}}>
-        <div className="tag" style={{marginBottom:8}}>{cat}</div>
-        <div className="list">{list.map(i=><WatchRow key={i.id} item={i} onRemove={()=>removeItem(i.id)}
-          onLog={(latest,status)=>setItems(l=>l.map(x=>x.id===i.id?{...x,latest,status,lastChecked:now(),history:[{ts:now(),summary:latest},...(x.history||[])].slice(0,20)}:x))}/>)}</div>
-      </div>)}
-
-      {items.length>0 && <><div className="divider"/>
-        <div className="tag" style={{marginBottom:9}}>Add more from the starter set</div>
-        <StarterGrid items={items} addStarter={addStarter}/></>}
-    </div>
-
-    {refreshing && <RefreshModal db={db} cfg={cfg} patch={patch} setItems={setItems}
-      signedIn={auth.status==='in'} sb={sb} doIngest={doIngest}
-      onClose={()=>setRefreshing(false)} markRun={()=>patch('watch',{lastRun:now()})}/>}
-  </div>;
-}
-function StarterGrid({items,addStarter}){
-  return <div className="grid3">{STARTER.map(s=>{ const have=items.some(i=>i.url===s.url);
-    return <div key={s.url} className="row" style={{opacity:have?.5:1}}>
-      <div className="grow"><div className="t" style={{fontSize:13.5}}>{s.label} {s.needsLogin&&<span className="badge login">login</span>}</div>
-        <div className="m">{s.watchFor}</div></div>
-      <button className="iconbtn" disabled={have} onClick={()=>addStarter(s)}>{have?'added':'＋'}</button></div>; })}</div>;
-}
-function AddLink({onAdd,onCancel}){
-  const [f,setF]=useState({label:'',url:'',category:'Other',needsLogin:true,watchFor:''});
-  const set=(k,v)=>setF(s=>({...s,[k]:v}));
-  return <div className="grade">
-    <div className="grid2" style={{gap:12}}>
-      <div><label className="fld">Label</label><input className="inp" value={f.label} onChange={e=>set('label',e.target.value)} placeholder="e.g. Sloan Senate"/></div>
-      <div><label className="fld">Category</label><input className="inp" value={f.category} onChange={e=>set('category',e.target.value)} placeholder="Sloan / Money / Visa…"/></div>
-    </div>
-    <div style={{height:10}}/><label className="fld">URL</label>
-    <input className="inp" value={f.url} onChange={e=>set('url',e.target.value)} placeholder="https://…mit.edu/…"/>
-    <div style={{height:10}}/><label className="fld">What to watch for</label>
-    <textarea className="inp" rows={2} value={f.watchFor} onChange={e=>set('watchFor',e.target.value)} placeholder="e.g. new funding opportunities and their deadlines"/>
-    <div style={{display:'flex',gap:10,marginTop:12,alignItems:'center'}}>
-      <button className="btn sm" onClick={()=>{ if(f.url.trim()&&f.label.trim()) onAdd(f); }} disabled={!f.url.trim()||!f.label.trim()}>Add</button>
-      <button className="btn ghost sm" onClick={onCancel}>Cancel</button>
-      <label className="chip pick" style={{cursor:'pointer'}}><input type="checkbox" checked={f.needsLogin} onChange={e=>set('needsLogin',e.target.checked)} style={{marginRight:3}}/>needs MIT login</label>
+      <div className="ph"><div><h2>📋 Shortlist</h2><div className="sub">{rows.length} waiting · pick a template, copy the message, open the profile.</div></div>
+        <button className="btn ghost sm" onClick={async()=>{setChecking(true); await doIngest(); setChecking(false);}} disabled={checking}>{checking?<Dots/>:'↻ Check for new profiles'}</button></div>
+      {rows.length===0
+        ? <div className="empty"><div className="big">📋</div>Nothing shortlisted yet. Use the extension on a LinkedIn search-results page, then come back and hit "Check for new profiles."</div>
+        : <div className="list">{rows.map(r=><ShortlistRow key={r.id} row={r} templates={db.templates} capReached={capReached} setRowStatus={setRowStatus}/>)}</div>}
     </div>
   </div>;
 }
-function WatchRow({item,onRemove,onLog}){
-  const [open,setOpen]=useState(false); const [val,setVal]=useState(''); const [st,setSt]=useState('ok');
-  const sd = item.status==='attention'?'sd-attn':item.status==='changed'?'sd-changed':item.status==='ok'?'sd-ok':'sd-none';
-  return <div className="row" style={{flexDirection:'column',alignItems:'stretch',gap:0}}>
+function ShortlistRow({row,templates,capReached,setRowStatus}){
+  const [tplId,setTplId]=useState(templates[0]?.id||'');
+  const [busy,setBusy]=useState(false); const [err,setErr]=useState(null);
+  const tpl = templates.find(t=>t.id===tplId) || templates[0];
+  async function copyAndOpen(){
+    if(!tpl) return;
+    const msg = renderTemplate(tpl.body, row);
+    try{ await navigator.clipboard.writeText(msg); }catch(e){}
+    window.open(row.profile_url,'_blank','noopener');
+  }
+  async function act(fields){
+    setBusy(true); setErr(null);
+    const r = await setRowStatus(row, fields);
+    if(!r.ok) setErr(r.error);
+    setBusy(false);
+  }
+  return <div className="row" style={{flexDirection:'column',alignItems:'stretch',gap:8}}>
     <div style={{display:'flex',alignItems:'center',gap:12}}>
-      <span className={'statdot '+sd}></span>
       <div className="grow">
-        <div className="t" style={{fontSize:13.5}}>{item.label} {item.needsLogin&&<span className="badge login">login</span>}</div>
-        <a className="linkurl" href={item.url} target="_blank" rel="noopener">{item.url}</a>
-        <div className="m">{item.latest? item.latest : <span style={{color:'var(--mute)'}}>watching: {item.watchFor}</span>}</div>
+        <div className="t">{row.name || row.profile_url}{row.status==='deferred' && <span className="badge" style={{marginLeft:6}}>deferred</span>}</div>
+        <div className="m">{row.title||''}{row.company?` · ${row.company}`:''}</div>
+        <a className="linkurl" href={row.profile_url} target="_blank" rel="noopener">{row.profile_url}</a>
       </div>
-      <span className="tag">{rel(item.lastChecked)}</span>
-      <button className="iconbtn" onClick={()=>setOpen(o=>!o)}>log</button>
-      <button className="iconbtn" onClick={onRemove}>✕</button>
+      {templates.length>1 && <select className="inp" style={{width:'auto'}} value={tplId} onChange={e=>setTplId(e.target.value)}>
+        {templates.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+      </select>}
+      <button className="btn sm" onClick={copyAndOpen} disabled={!tpl}>Copy message + Open profile</button>
     </div>
-    {open && <div style={{marginTop:10,paddingTop:10,borderTop:'1px solid var(--line2)'}}>
-      <label className="fld">Latest — what's there now / what changed</label>
-      <textarea className="inp" rows={2} value={val} onChange={e=>setVal(e.target.value)} placeholder="e.g. New travel grant, deadline Jul 15"/>
-      <div style={{display:'flex',gap:8,marginTop:9,alignItems:'center'}}>
-        <div className="seg">
-          {[['ok','no change'],['changed','changed'],['attention','needs me']].map(([k,l])=>
-            <button key={k} className={st===k?'on':''} onClick={()=>setSt(k)}>{l}</button>)}
-        </div>
-        <button className="btn sm" onClick={()=>{ if(val.trim()){onLog(val.trim(),st);setVal('');setOpen(false);} }} disabled={!val.trim()}>Save</button>
+    <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+      <button className="iconbtn" onClick={()=>act({status:'sent',sent_at:new Date().toISOString()})} disabled={busy||capReached}>Mark Sent</button>
+      <button className="iconbtn" onClick={()=>act({status:'deferred'})} disabled={busy}>Defer</button>
+      <button className="iconbtn" onClick={()=>act({status:'do_not_contact'})} disabled={busy}>Do Not Contact</button>
+    </div>
+    {err && <div className="warnbox">{err}</div>}
+  </div>;
+}
+
+/* ============================ Templates ============================ */
+function Templates({db,patch,cfg}){
+  const [editing,setEditing]=useState(null); // template id being edited, or 'new'
+  const [name,setName]=useState(''); const [body,setBody]=useState('');
+  const [polishing,setPolishing]=useState(false);
+  const mode = llmMode(cfg);
+
+  function startNew(){ setEditing('new'); setName(''); setBody(''); }
+  function startEdit(t){ setEditing(t.id); setName(t.name); setBody(t.body); }
+  function save(){
+    if(!name.trim()||!body.trim()) return;
+    patch('templates', list=>{
+      if(editing==='new') return [...list, {id:uid(), name:name.trim(), body:body.trim()}];
+      return list.map(t=>t.id===editing?{...t,name:name.trim(),body:body.trim()}:t);
+    });
+    setEditing(null);
+  }
+  function remove(id){ patch('templates', list=>list.filter(t=>t.id!==id)); }
+  async function polish(){
+    if(mode==='none'||!body.trim()) return;
+    setPolishing(true);
+    try{
+      const out = await llm(cfg,
+        'Tighten this LinkedIn outreach message: warm, specific, under 400 characters, keep any {{firstName}}/{{company}} placeholders exactly as written. Return only the revised message, no preamble.',
+        body);
+      setBody(out.trim());
+    }catch(e){ /* leave body as-is */ }
+    setPolishing(false);
+  }
+
+  return <div className="panel pad">
+    <div className="ph"><div><h2>✉️ Templates</h2><div className="sub">Use <span className="mono">{'{{firstName}}'}</span> and <span className="mono">{'{{company}}'}</span> — filled in per profile.</div></div>
+      {editing===null && <button className="btn sm" onClick={startNew}>＋ New template</button>}</div>
+
+    {editing!==null && <div className="row" style={{flexDirection:'column',alignItems:'stretch',gap:10,marginBottom:14}}>
+      <label className="fld">Name</label>
+      <input className="inp" value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Intro — alumni outreach"/>
+      <label className="fld">Message</label>
+      <textarea className="inp" rows={4} value={body} onChange={e=>setBody(e.target.value)} placeholder="Hi {{firstName}}, ..."/>
+      <div style={{display:'flex',gap:8,alignItems:'center'}}>
+        <button className="btn sm" onClick={save} disabled={!name.trim()||!body.trim()}>Save</button>
+        <button className="btn ghost sm" onClick={()=>setEditing(null)}>Cancel</button>
+        {mode!=='none' && <button className="iconbtn" onClick={polish} disabled={polishing||!body.trim()}>{polishing?<Dots/>:'✨ AI polish'}</button>}
       </div>
     </div>}
+
+    {db.templates.length===0 && editing===null
+      ? <div className="empty"><div className="big">✉️</div>No templates yet. Add one to start drafting.</div>
+      : <div className="list">{db.templates.map(t=><div key={t.id} className="row">
+          <div className="grow"><div className="t">{t.name}</div><div className="m">{t.body}</div></div>
+          <button className="iconbtn" onClick={()=>startEdit(t)}>edit</button>
+          <button className="iconbtn" onClick={()=>remove(t.id)}>✕</button>
+        </div>)}</div>}
   </div>;
 }
 
-/* Desktop refresh: an agent brief for Claude-in-Chrome. When signed in, the agent
-   POSTs results straight to Supabase and they stream back here — no copy-paste. */
-function RefreshModal({db,cfg,patch,setItems,signedIn,sb,doIngest,onClose,markRun}){
-  const items=db.watch.items;
-  const auto = signedIn && cfg.supabaseUrl && cfg.supabaseKey;
-  const [token,setToken]=useState(null);
-  const [waiting,setWaiting]=useState(false); const [applied,setApplied]=useState(0);
-  const [paste,setPaste]=useState(''); const [msg,setMsg]=useState(null); const [copied,setCopied]=useState(false); const [showManual,setShowManual]=useState(!auto);
-  const poll=useRef(null);
+/* ============================ Log ============================ */
+function Log({db,patch,log,auth,sb}){
+  const [filter,setFilter]=useState('all');
+  const [syncBusy,setSyncBusy]=useState(false); const [syncMsg,setSyncMsg]=useState(null);
+  const signedIn = auth.status==='in';
+  const FILTERS=[['all','All'],['shortlisted','Shortlisted'],['sent','Sent'],['replied','Replied'],['deferred','Deferred'],['do_not_contact','Do Not Contact']];
+  const rows = log.filter(r=>filter==='all'||r.status===filter);
 
-  useEffect(()=>{ if(auto && sb) sb.auth.getSession().then(({data})=>setToken(data.session?.access_token||null)); },[auto]);
-  useEffect(()=>()=>clearInterval(poll.current),[]);
-
-  const lines = items.map(i=>`- id:${i.id} | ${i.label} | ${i.url} | watch_for: ${i.watchFor}${i.needsLogin?' | (needs MIT login — use my existing browser session)':''}`).join('\n');
-  const readOnly = `Read only — do not log in anywhere, do not submit anything, do not make payments.`;
-  const autoBrief = `You are my MIT page-watcher. In MY already-logged-in Chrome, visit each link below and summarize only what's relevant to its "watch_for". ${readOnly}\n\nLinks:\n${lines}\n\nWhen finished, POST your findings with ONE request:\nPOST ${cfg.supabaseUrl}/rest/v1/watch_results\nHeaders:\n  apikey: ${cfg.supabaseKey}\n  Authorization: Bearer ${token||'<sign in to MIghTy to mint this token>'}\n  Content-Type: application/json\n  Prefer: return=minimal\nBody:\n  {"payload":[{"id":"<id>","latest":"<1-2 sentence summary with any dates>","status":"ok|changed|attention"}]}\n\nUse "attention" only if it needs action soon. After the POST returns 201 you're done — results appear in MIghTy automatically.`;
-  const manualBrief = `You are my MIT page-watcher. In MY already-logged-in Chrome, visit each link below and summarize only what's relevant to its "watch_for". ${readOnly}\n\nLinks:\n${lines}\n\nReturn ONLY this JSON array:\n[{"id":"<id>","latest":"<1-2 sentence summary with any dates>","status":"ok|changed|attention"}]\nThen paste it back into MIghTy.`;
-  const brief = auto ? autoBrief : manualBrief;
-
-  function copy(){ navigator.clipboard?.writeText(brief).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),1500);},()=>{}); }
-  function startWaiting(){
-    setWaiting(true); clearInterval(poll.current);
-    poll.current=setInterval(async()=>{ const n=await doIngest(); if(n) setApplied(a=>a+n); },6000);
+  async function syncNow(){
+    if(!sb) return;
+    setSyncBusy(true); setSyncMsg(null);
+    try{
+      const {data,error} = await sb.functions.invoke('sheets-sync', {body:{action:'sync', sheetId:db.settings.sheets.sheetId, tabName:db.settings.sheets.tabName}});
+      if(error) throw error;
+      if(data.ok){
+        setSyncMsg({ok:true, text:`Synced — ${data.updated||0} updated, ${data.appended||0} added.`});
+        patch('settings', s=>({...s, sheets:{...s.sheets, lastSyncedAt:now(), lastError:null}}));
+      } else {
+        setSyncMsg({ok:false, text:data.message||data.error});
+        patch('settings', s=>({...s, sheets:{...s.sheets, lastError:data.message||data.error}}));
+      }
+    }catch(e){ setSyncMsg({ok:false, text:e.message||String(e)}); }
+    setSyncBusy(false);
   }
-  function applyPaste(){
-    try{ const arr=extractArray(paste); let n=0;
-      setItems(list=>list.map(it=>{ const r=arr.find(a=>a.id===it.id||a.label===it.label); if(!r) return it; n++;
-        return {...it, latest:r.latest||it.latest, status:r.status||'changed', lastChecked:now(),
-          history:[{ts:now(),summary:r.latest||''},...(it.history||[])].slice(0,20)}; }));
-      markRun(); setMsg(`Updated ${n} item${n!==1?'s':''}. You can close this.`); setPaste('');
-    }catch(e){ setMsg('Could not parse that JSON — paste exactly what the agent returned.'); }
-  }
-  return <div className="overlay" onClick={onClose}>
-    <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:580}}>
-      <div className="ph"><h2>↻ Refresh with Claude in Chrome</h2><button className="iconbtn" onClick={onClose}>✕</button></div>
-      <div className="bluebox" style={{marginBottom:12}}>Runs on <b>desktop</b>, in your own logged-in browser — that's how it reads Touchstone pages without ever touching your password. Needs the <b>Claude for Chrome</b> extension.</div>
-      {auto
-        ? <ol className="note" style={{margin:'0 0 12px',paddingLeft:18,lineHeight:1.7}}>
-            <li>Copy the brief. Open Claude for Chrome and paste it.</li>
-            <li>Let it visit your links and post the results to your account.</li>
-            <li>Hit <b>Watch for results</b> below — they apply here automatically.</li></ol>
-        : <ol className="note" style={{margin:'0 0 12px',paddingLeft:18,lineHeight:1.7}}>
-            <li>Copy the brief; run it in Claude for Chrome.</li>
-            <li>Paste the JSON it returns back here → Apply.</li></ol>}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-        <span className="tag">Agent brief {auto && <span className="badge login" style={{marginLeft:6}}>auto write-back</span>}</span>
-        <button className="btn ghost sm" onClick={copy}>{copied?'copied ✓':'copy'}</button></div>
-      <div className="codebox">{brief}</div>
-      {auto && <div style={{marginTop:6}}><span className="note">The brief includes a short-lived token scoped to your own account — fine to paste into your own Chrome agent.</span></div>}
 
-      {auto && <div style={{marginTop:14,display:'flex',gap:9,alignItems:'center',flexWrap:'wrap'}}>
-        {!waiting
-          ? <button className="btn" onClick={startWaiting}>Watch for results</button>
-          : <span className="statusdot st-blue"><i></i><Dots/> waiting for the agent…</span>}
-        {applied>0 && <span className="okbox" style={{padding:'7px 11px'}}>✓ {applied} update{applied!==1?'s':''} applied</span>}
-        <button className="iconbtn" onClick={()=>setShowManual(s=>!s)}>{showManual?'hide':'paste manually instead'}</button>
-      </div>}
+  if(!signedIn) return <div className="panel pad"><div className="empty"><div className="big">📊</div>Sign in to see your outreach log.</div></div>;
 
-      {showManual && <div style={{marginTop:14}}>
-        <label className="fld">Paste the agent's JSON result</label>
-        <textarea className="inp" rows={4} value={paste} onChange={e=>setPaste(e.target.value)} placeholder='[{"id":"…","latest":"…","status":"changed"}]'/>
-        <div style={{display:'flex',gap:9,marginTop:10,alignItems:'center'}}>
-          <button className="btn" onClick={applyPaste} disabled={!paste.trim()}>Apply updates</button>
-          <span className="note">Login pages stay in-browser by design; public pages can also run on a schedule (see SETUP.md).</span></div>
-      </div>}
-      {msg && <div className="okbox" style={{marginTop:12}}>{msg}</div>}
-    </div>
-  </div>;
-}
-function extractArray(text){
-  let t=text.replace(/```json/gi,'```').trim();
-  const f=t.indexOf('```'); if(f>=0){ const e=t.indexOf('```',f+3); if(e>f) t=t.slice(f+3,e).trim(); }
-  const a=t.indexOf('['), b=t.lastIndexOf(']'); if(a<0||b<a) throw new Error('no array');
-  return JSON.parse(t.slice(a,b+1));
-}
-
-/* ============================ Library ============================ */
-function Library({db,patch}){
-  const [title,setTitle]=useState(''); const [text,setText]=useState('');
-  const add=()=>{ if(!text.trim())return;
-    patch('readings',rs=>[{id:uid(),title:title.trim()||`Reading ${rs.length+1}`,text:text.trim(),addedAt:now()},...rs]);
-    setTitle(''); setText(''); };
-  const del=id=>patch('readings',rs=>rs.filter(r=>r.id!==id));
-  const onFile=e=>{ const f=e.target.files[0]; if(!f)return; const rd=new FileReader();
-    rd.onload=()=>{ setText(String(rd.result||'')); if(!title) setTitle(f.name.replace(/\.[^.]+$/,'')); }; rd.readAsText(f); };
-  return <div className="grid2">
+  return <div style={{display:'flex',flexDirection:'column',gap:16}}>
     <div className="panel pad">
-      <div className="ph"><div><h2>Add a reading or case</h2><div className="sub">Paste text or drop a .txt/.md file. Your own content only.</div></div></div>
-      <label className="fld">Title</label>
-      <input className="inp" value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Christensen — Disruptive Technologies"/>
-      <div style={{height:12}}/><label className="fld">Text</label>
-      <textarea className="inp" rows={11} value={text} onChange={e=>setText(e.target.value)} placeholder="Paste the case / reading / your notes here…"/>
-      <div style={{display:'flex',gap:10,marginTop:12,alignItems:'center'}}>
-        <button className="btn" onClick={add} disabled={!text.trim()}>＋ Add to library</button>
-        <label className="btn ghost sm" style={{cursor:'pointer'}}>Upload .txt/.md<input type="file" accept=".txt,.md,.markdown,text/plain" style={{display:'none'}} onChange={onFile}/></label>
-        <span className="tag">{text.trim()? `${text.trim().split(/\s+/).length} words`:''}</span>
-      </div>
-      <div className="divider"/>
-      <div className="warnbox">⚠️ Massachusetts is all-party-consent. Don't paste secretly-recorded class audio. Use officially posted recordings or your own voice memos only.</div>
-    </div>
-    <div className="panel pad">
-      <div className="ph"><div><h2>Library</h2><div className="sub">{db.readings.length} item{db.readings.length!==1?'s':''}</div></div></div>
-      {db.readings.length===0
-        ? <div className="empty"><div className="big">📚</div>Nothing yet. Add a reading and the Simulator, Tutor, and Quiz light up.</div>
-        : <div className="list">{db.readings.map(r=><div key={r.id} className="row">
-            <div className="grow"><div className="t">{r.title}</div><div className="m">{r.text.split(/\s+/).length} words · {fmtDate(r.addedAt)}</div></div>
-            <button className="iconbtn" onClick={()=>del(r.id)}>delete</button></div>)}</div>}
-    </div>
-  </div>;
-}
-function ReadingPick({db,value,onChange,allowNone}){
-  return <select className="inp" value={value||''} onChange={e=>onChange(e.target.value||null)}>
-    {allowNone && <option value="">— no reading (general) —</option>}
-    {!allowNone && <option value="" disabled>Pick a reading…</option>}
-    {db.readings.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}
-  </select>;
-}
-const readingCtx=(db,id,limit=6000)=>{ const r=db.readings.find(x=>x.id===id); if(!r) return '';
-  return `\n\nASSIGNED READING — "${r.title}":\n${r.text.slice(0,limit)}${r.text.length>limit?'\n…[truncated]':''}`; };
-
-/* ============================ Simulator ============================ */
-function Simulator({db,patch,cfg,setTab}){
-  const [persona,setPersona]=useState('professor');
-  const [readingId,setReadingId]=useState(db.readings[0]?.id||null);
-  const [subject,setSubject]=useState('');
-  const [turns,setTurns]=useState([]); const [input,setInput]=useState('');
-  const [busy,setBusy]=useState(false); const [err,setErr]=useState(''); const [live,setLive]=useState(false); const [froze,setFroze]=useState(false);
-  const scroller=useRef(null); const P=PERSONAS[persona]; const needReading=persona==='professor';
-  useEffect(()=>{ if(scroller.current) scroller.current.scrollTop=scroller.current.scrollHeight; },[turns,busy]);
-  const sysBase=()=>P.sys({subject})+readingCtx(db,readingId)+`\nKeep your messages short — one question or one reaction. Address the candidate as "you".`;
-  async function begin(){
-    if(needReading&&!readingId){ setErr('Pick a reading first (or add one in Library).'); return; }
-    setErr(''); setBusy(true); setTurns([]); setLive(true); setFroze(false);
-    try{ const q=await llm(cfg,sysBase(),`Open the session: greet briefly in character and ask your first question. One question only.`,500);
-      setTurns([{role:'ai',text:q.trim()}]);
-    }catch(e){ setErr(e.message); setLive(false); } finally{ setBusy(false); }
-  }
-  async function answer(){
-    const a=input.trim(); if(!a||busy) return; setInput('');
-    const history=turns.map(t=>`${t.role==='ai'?'INTERVIEWER':'CANDIDATE'}: ${t.text}`).join('\n');
-    const myTurn={role:'me',text:a}; setTurns(t=>[...t,myTurn]); setBusy(true); setErr('');
-    try{ const j=await llmJSON(cfg, sysBase()+`\nYou grade each answer. Rubric dimensions: ${P.rubric}.`,
-        `Conversation so far:\n${history}\nCANDIDATE: ${a}\n\nReturn JSON: {"score":0-100,"dims":{"<dim>":0-100,...4 keys},"model_answer":"a calibrated 3-4 sentence answer they could have said out loud","feedback":"2 sentences, direct","followup":"your next, escalating question in character"}`,1100);
-      const grade={ score:Math.max(0,Math.min(100,+j.score||0)), dims:j.dims||{}, model:j.model_answer||'', feedback:j.feedback||'' };
-      setTurns(t=>{ const c=[...t]; c[c.length-1]={...myTurn,grade}; return [...c,{role:'ai',text:(j.followup||'Continue.').trim()}]; });
-    }catch(e){ setErr(e.message); } finally{ setBusy(false); }
-  }
-  function end(){ const graded=turns.filter(t=>t.grade);
-    if(graded.length){ const avg=Math.round(graded.reduce((s,t)=>s+t.grade.score,0)/graded.length);
-      patch('cc',cc=>({...cc,sessions:[{id:uid(),persona,personaLabel:P.label,readingId,
-        readingTitle:db.readings.find(r=>r.id===readingId)?.title||subject||'general',
-        questions:graded.length,avgScore:avg,froze,createdAt:now()},...cc.sessions]})); }
-    setLive(false);
-  }
-  const lastGrade=[...turns].reverse().find(t=>t.grade)?.grade;
-  return <div className="grid2">
-    <div className="panel pad" style={{display:'flex',flexDirection:'column'}}>
-      <div className="ph"><div><h2>{P.emoji} Simulator</h2><div className="sub">{live?'Session live — answer in 3–4 speakable sentences.':P.desc}</div></div>
-        {live && <button className="btn ghost sm" onClick={end}>End & save</button>}</div>
-      {!live && <>
-        <label className="fld">Mode</label>
-        <div style={{display:'flex',flexWrap:'wrap',gap:7,marginBottom:14}}>
-          {Object.entries(PERSONAS).map(([k,v])=><span key={k} className={'chip pick'+(persona===k?' on':'')} onClick={()=>setPersona(k)}>{v.emoji} {v.label}</span>)}</div>
-        {needReading
-          ? (db.readings.length? <><label className="fld">Reading</label><ReadingPick db={db} value={readingId} onChange={setReadingId}/></>
-            : <div className="warnbox">Add a reading in <a onClick={()=>setTab('library')} style={{cursor:'pointer'}}>Library</a> to run a professor cold-call.</div>)
-          : <><label className="fld">Topic / role <span style={{textTransform:'none',color:'var(--mute)'}}>(optional)</span></label>
-              <input className="inp" value={subject} onChange={e=>setSubject(e.target.value)}
-                placeholder={persona==='negotiation'?'e.g. Series A term sheet, 2 cofounders':persona==='behavioral'?'e.g. Director of AI, pharma':persona==='case'?'e.g. declining margins, regional airline':'topic'}/></>}
-        <div style={{marginTop:14}}><button className="btn" onClick={begin} disabled={busy||(needReading&&!db.readings.length)}>{busy?<Dots/>:'▶ Start session'}</button></div>
-      </>}
-      {live && <>
-        <div className="chat" ref={scroller}>
-          {turns.map((t,i)=><div key={i} className={'msg '+(t.role==='ai'?'ai':'me')}><div className="who">{t.role==='ai'?P.label:'you'}</div>{t.text}</div>)}
-          {busy && <div className="msg ai"><div className="who">{P.label}</div><Dots/></div>}
-        </div>
-        <div style={{marginTop:12}}>
-          <textarea className="inp" rows={3} value={input} onChange={e=>setInput(e.target.value)}
-            onKeyDown={e=>{ if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)) answer(); }}
-            placeholder="Your answer — out loud it should be ~3–4 sentences…  (⌘/Ctrl+Enter)"/>
-          <div style={{display:'flex',gap:9,marginTop:9,alignItems:'center'}}>
-            <button className="btn" onClick={answer} disabled={busy||!input.trim()}>Answer</button>
-            <label className="chip pick" style={{cursor:'pointer'}}><input type="checkbox" checked={froze} onChange={e=>setFroze(e.target.checked)} style={{marginRight:2}}/> I froze here</label>
-            <span className="tag">{turns.filter(t=>t.grade).length} graded</span>
-          </div>
-        </div>
-      </>}
-      {err && <div className="warnbox" style={{marginTop:12}}>{err}</div>}
-    </div>
-    <div className="panel pad">
-      <div className="ph"><div><h2>Feedback</h2><div className="sub">Latest grade + your reps.</div></div></div>
-      {lastGrade ? <div className="grade">
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline'}}><span className="tag">Last answer</span><span className="mono" style={{fontWeight:700,fontSize:18}}>{lastGrade.score}/100</span></div>
-        <div className="scorebar"><i style={{width:`${lastGrade.score}%`}}></i></div>
-        <div className="dims">{Object.entries(lastGrade.dims).slice(0,4).map(([k,v])=><div key={k} className="dim"><span>{k}</span><b>{v}</b></div>)}</div>
-        {lastGrade.feedback && <p className="note" style={{marginTop:10}}>{lastGrade.feedback}</p>}
-        {lastGrade.model && <><div className="tag" style={{marginTop:8}}>Model answer (speakable)</div><p className="note" style={{marginTop:4,fontStyle:'italic'}}>"{lastGrade.model}"</p></>}
-      </div> : <div className="empty"><div className="big">🎯</div>Start a session and your first grade shows here.</div>}
-      {db.cc.sessions.length>0 && <><div className="divider"/><div className="tag" style={{marginBottom:9}}>Recent reps</div>
-        <div className="list">{db.cc.sessions.slice(0,6).map(s=><div key={s.id} className="row">
-          <div className="grow"><div className="t">{PERSONAS[s.persona]?.emoji} {s.readingTitle}</div>
-            <div className="m">{s.questions} Q · {s.personaLabel}{s.froze?' · froze':''} · {fmtDate(s.createdAt)}</div></div>
-          <span className="mono" style={{fontWeight:700}}>{s.avgScore}</span></div>)}</div></>}
-    </div>
-  </div>;
-}
-
-/* ============================ Tutor ============================ */
-function Tutor({db,cfg}){
-  const [readingId,setReadingId]=useState(db.readings[0]?.id||null); const [style,setStyle]=useState('socratic');
-  const [turns,setTurns]=useState([]); const [input,setInput]=useState(''); const [busy,setBusy]=useState(false); const [err,setErr]=useState('');
-  const scroller=useRef(null);
-  useEffect(()=>{ if(scroller.current) scroller.current.scrollTop=scroller.current.scrollHeight; },[turns,busy]);
-  const sys=()=>`You are a patient expert tutor for an MIT Sloan Fellow. Mode: ${style==='socratic'?'SOCRATIC — guide with questions, hints, and one idea at a time; do not dump answers.':'DIRECT — explain clearly and concisely with concrete examples.'} Ground everything in the reading when present; if the user goes beyond it, say so. Keep replies tight.`+readingCtx(db,readingId);
-  async function send(seed){ const text=seed||input.trim(); if(!text||busy) return; if(!seed) setInput('');
-    const next=[...turns,{role:'me',text}]; setTurns(next); setBusy(true); setErr('');
-    try{ const hist=next.map(t=>`${t.role==='me'?'STUDENT':'TUTOR'}: ${t.text}`).join('\n');
-      const r=await llm(cfg,sys(),hist+'\nTUTOR:',1100); setTurns(t=>[...t,{role:'ai',text:r.trim()}]);
-    }catch(e){ setErr(e.message); } finally{ setBusy(false); } }
-  return <div className="panel pad">
-    <div className="ph"><div><h2>🧑‍🏫 Concept tutor</h2><div className="sub">Learns from your reading. Ask anything; it teaches.</div></div>
-      <div className="seg"><button className={style==='socratic'?'on':''} onClick={()=>setStyle('socratic')}>Socratic</button><button className={style==='direct'?'on':''} onClick={()=>setStyle('direct')}>Direct</button></div></div>
-    <div className="grid2" style={{gridTemplateColumns:'1fr 2fr',gap:18}}>
-      <div>
-        <label className="fld">Grounding reading</label><ReadingPick db={db} value={readingId} onChange={setReadingId} allowNone/>
-        <div style={{height:14}}/><div className="tag" style={{marginBottom:7}}>Quick starts</div>
-        <div style={{display:'flex',flexDirection:'column',gap:7}}>
-          {['Explain the core argument like I have 5 minutes before class','What would a professor cold-call me on here?','Give me the 3 things I must not miss','Where is this reading weakest or most contestable?'].map(s=>
-            <button key={s} className="btn ghost sm" style={{justifyContent:'flex-start',textAlign:'left'}} onClick={()=>send(s)} disabled={busy}>{s}</button>)}</div>
-      </div>
-      <div>
-        <div className="chat" ref={scroller} style={{maxHeight:'48vh'}}>
-          {turns.length===0 && <div className="empty"><div className="big">🧠</div>Pick a mode, ask a question, or tap a quick-start.</div>}
-          {turns.map((t,i)=><div key={i} className={'msg '+(t.role==='ai'?'ai':'me')}><div className="who">{t.role==='ai'?'tutor':'you'}</div>{t.text}</div>)}
-          {busy && <div className="msg ai"><div className="who">tutor</div><Dots/></div>}
-        </div>
-        <div style={{marginTop:12,display:'flex',gap:9}}>
-          <textarea className="inp" rows={2} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)) send(); }} placeholder="Ask the tutor…  (⌘/Ctrl+Enter)"/>
-          <button className="btn" onClick={()=>send()} disabled={busy||!input.trim()}>Send</button>
-        </div>
-        {err && <div className="warnbox" style={{marginTop:10}}>{err}</div>}
-      </div>
-    </div>
-  </div>;
-}
-
-/* ============================ Quiz ============================ */
-function Quiz({db,patch,cfg,setTab}){
-  const [readingId,setReadingId]=useState(db.readings[0]?.id||null); const [n,setN]=useState(5);
-  const [qs,setQs]=useState([]); const [busy,setBusy]=useState(false); const [err,setErr]=useState(''); const [done,setDone]=useState(false);
-  async function gen(){ if(!readingId){ setErr('Pick a reading.'); return; } setErr(''); setBusy(true); setQs([]); setDone(false);
-    try{ const r=db.readings.find(x=>x.id===readingId);
-      const j=await llmJSON(cfg,`You write exam-style self-quiz questions for an MIT Sloan Fellow from the reading. Mix recall and application. Each question has a short topic label (2-3 words) for weak-spot tracking.`,
-        `From "${r.title}":\n${r.text.slice(0,7000)}\n\nWrite ${n} questions. JSON: {"questions":[{"q":"...","topic":"...","answer":"a 2-3 sentence model answer"}]}`,1800);
-      setQs((j.questions||[]).map(x=>({...x,reveal:false,self:null})));
-    }catch(e){ setErr(e.message); } finally{ setBusy(false); } }
-  const mark=(i,ok)=>setQs(qs=>qs.map((q,j)=>j===i?{...q,self:ok}:q));
-  const reveal=i=>setQs(qs=>qs.map((q,j)=>j===i?{...q,reveal:true}:q));
-  function finish(){ const answered=qs.filter(q=>q.self!=null); if(!answered.length){setDone(true);return;}
-    const weak={...db.quiz.weak};
-    answered.forEach(q=>{ const t=q.topic||'general'; const w=weak[t]||{seen:0,missed:0}; w.seen++; if(q.self===false) w.missed++; weak[t]=w; });
-    patch('quiz',q=>({...q,weak,sessions:[{id:uid(),readingTitle:db.readings.find(r=>r.id===readingId)?.title,n:answered.length,correct:answered.filter(q=>q.self).length,createdAt:now()},...q.sessions]})); setDone(true); }
-  const score=qs.filter(q=>q.self).length, ans=qs.filter(q=>q.self!=null).length;
-  return <div className="grid2" style={{gridTemplateColumns:'1fr 1.6fr'}}>
-    <div className="panel pad">
-      <div className="ph"><div><h2>🃏 Self-quiz</h2><div className="sub">Grade yourself honestly — it tracks your weak spots.</div></div></div>
-      {db.readings.length===0
-        ? <div className="warnbox">Add a reading in <a onClick={()=>setTab('library')} style={{cursor:'pointer'}}>Library</a> first.</div>
-        : <><label className="fld">Reading</label><ReadingPick db={db} value={readingId} onChange={setReadingId}/>
-          <div style={{height:12}}/><label className="fld">How many questions</label>
-          <div className="seg">{[3,5,8].map(x=><button key={x} className={n===x?'on':''} onClick={()=>setN(x)}>{x}</button>)}</div>
-          <div style={{marginTop:14}}><button className="btn" onClick={gen} disabled={busy}>{busy?<Dots/>:'Generate quiz'}</button></div></>}
-      {err && <div className="warnbox" style={{marginTop:12}}>{err}</div>}
-      <div className="divider"/><div className="tag" style={{marginBottom:9}}>Weak spots</div>
-      {Object.keys(db.quiz.weak).length===0 ? <div className="note">No data yet — finish a quiz to build this.</div>
-        : <div className="list">{Object.entries(db.quiz.weak).sort((a,b)=>(b[1].missed/b[1].seen)-(a[1].missed/a[1].seen)).slice(0,8).map(([t,w])=>
-            <div key={t} className="row"><div className="grow"><div className="t" style={{fontSize:13}}>{t}</div>
-              <div className="bar" style={{marginTop:6}}><i style={{width:`${Math.round(100*w.missed/w.seen)}%`,background:w.missed/w.seen>.4?'var(--brand)':'var(--terra)'}}></i></div></div>
-            <span className="tag">{w.missed}/{w.seen}</span></div>)}</div>}
-    </div>
-    <div className="panel pad">
-      <div className="ph"><div><h2>Questions</h2>{qs.length>0&&<div className="sub">{ans}/{qs.length} answered · {score} right</div>}</div>
-        {qs.length>0&&!done&&<button className="btn ghost sm" onClick={finish}>Finish & save</button>}</div>
-      {qs.length===0 ? <div className="empty"><div className="big">🃏</div>Generate a quiz to begin.</div>
-        : <div className="list">{qs.map((q,i)=><div key={i} className="row" style={{flexDirection:'column',alignItems:'stretch',gap:10}}>
-            <div><span className="tag">Q{i+1} · {q.topic}</span><div className="t" style={{marginTop:5,fontWeight:600}}>{q.q}</div></div>
-            {!q.reveal ? <button className="btn ghost sm" style={{alignSelf:'flex-start'}} onClick={()=>reveal(i)}>Reveal model answer</button>
-              : <><div className="okbox">{q.answer}</div>
-                <div style={{display:'flex',gap:8}}>
-                  <button className={'btn sm '+(q.self===true?'':'ghost')} onClick={()=>mark(i,true)}>✓ I had it</button>
-                  <button className={'btn sm '+(q.self===false?'':'ghost')} onClick={()=>mark(i,false)}>✗ Missed it</button>
-                </div></>}
+      <div className="ph"><div><h2>📊 Log</h2><div className="sub">{log.length} profile{log.length!==1?'s':''} tracked{db.settings.sheets.lastSyncedAt?` · last synced ${rel(db.settings.sheets.lastSyncedAt)}`:''}</div></div>
+        <button className="btn sm" onClick={syncNow} disabled={syncBusy||!db.settings.sheets.sheetId}>{syncBusy?<Dots/>:'⇪ Sync to Google Sheet'}</button></div>
+      {!db.settings.sheets.sheetId && <div className="note" style={{marginBottom:10}}>Add your Google Sheet ID in Settings to enable sync.</div>}
+      {syncMsg && <div className={syncMsg.ok?'okbox':'warnbox'} style={{marginBottom:12}}>{syncMsg.text}</div>}
+      <div className="seg" style={{marginBottom:12}}>{FILTERS.map(([k,l])=><button key={k} className={filter===k?'on':''} onClick={()=>setFilter(k)}>{l}</button>)}</div>
+      {rows.length===0
+        ? <div className="empty"><div className="big">📊</div>Nothing here yet.</div>
+        : <div className="list">{rows.map(r=><div key={r.id} className="row">
+            <div className="grow">
+              <div className="t">{r.name||r.profile_url}</div>
+              <div className="m">{r.title||''}{r.company?` · ${r.company}`:''} · <span className="tag">{r.status}</span></div>
+              <a className="linkurl" href={r.profile_url} target="_blank" rel="noopener">{r.profile_url}</a>
+            </div>
+            <span className="tag">{rel(new Date(r.updated_at).getTime())}</span>
           </div>)}</div>}
-      {done && <div className="okbox" style={{marginTop:12}}>Saved. Weak spots updated — drill them in the Simulator or Tutor.</div>}
-    </div>
-  </div>;
-}
-
-/* ============================ Planner ============================ */
-function Planner({db,patch}){
-  const [title,setTitle]=useState(''); const [due,setDue]=useState(''); const [weight,setWeight]=useState(20); const [est,setEst]=useState(2);
-  const add=()=>{ if(!title.trim())return; patch('planner',p=>({...p,tasks:[...p.tasks,{id:uid(),title:title.trim(),due,weight:+weight,est:+est,done:false}]})); setTitle(''); setDue(''); };
-  const toggle=id=>patch('planner',p=>({...p,tasks:p.tasks.map(t=>t.id===id?{...t,done:!t.done}:t)}));
-  const del=id=>patch('planner',p=>({...p,tasks:p.tasks.filter(t=>t.id!==id)}));
-  const scored=useMemo(()=>db.planner.tasks.filter(t=>!t.done).map(t=>{ const d=t.due?Math.max(0.4,daysBetween(now(),new Date(t.due).getTime())):14;
-    return {...t,urg:(t.weight||10)/d,daysLeft:t.due?daysBetween(now(),new Date(t.due).getTime()):null}; }).sort((a,b)=>b.urg-a.urg),[db.planner.tasks]);
-  const maxUrg=scored[0]?.urg||1; const totalHrs=scored.reduce((s,t)=>s+(t.est||0),0);
-  return <div className="grid2">
-    <div className="panel pad">
-      <div className="ph"><div><h2>🗓️ Manual planner</h2><div className="sub">No-Canvas fallback. Enter deadlines, get a weighted order.</div></div></div>
-      <label className="fld">Task</label><input className="inp" value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Finance pset 3"/>
-      <div className="grid3" style={{marginTop:12,gap:10}}>
-        <div><label className="fld">Due</label><input type="date" className="inp" value={due} onChange={e=>setDue(e.target.value)}/></div>
-        <div><label className="fld">Weight</label><input type="number" className="inp" value={weight} onChange={e=>setWeight(e.target.value)} min={1} max={100}/></div>
-        <div><label className="fld">Est hrs</label><input type="number" className="inp" value={est} onChange={e=>setEst(e.target.value)} min={0} step={.5}/></div>
-      </div>
-      <div style={{marginTop:14}}><button className="btn" onClick={add} disabled={!title.trim()}>＋ Add task</button></div>
-      <div className="divider"/><div className="note">Priority weighs grade-weight against days remaining. Open load: <b>{totalHrs}h</b> across {scored.length} task{scored.length!==1?'s':''}.</div>
-    </div>
-    <div className="panel pad">
-      <div className="ph"><div><h2>Weighted plan</h2><div className="sub">Sorted by urgency.</div></div></div>
-      {scored.length===0 ? <div className="empty"><div className="big">🗓️</div>No open tasks. Add one to see the plan.</div>
-        : <div className="list">{scored.map(t=><div key={t.id} className="row">
-            <input type="checkbox" checked={t.done} onChange={()=>toggle(t.id)}/>
-            <div className="grow"><div className="t">{t.title}</div>
-              <div className="m">{t.daysLeft!=null?(t.daysLeft<0?`${-t.daysLeft}d overdue`:t.daysLeft===0?'due today':`${t.daysLeft}d left`):'no date'} · w{t.weight} · {t.est}h</div>
-              <div className="bar" style={{marginTop:6}}><i style={{width:`${Math.round(100*t.urg/maxUrg)}%`,background:t.daysLeft!=null&&t.daysLeft<2?'var(--brand)':'var(--green)'}}></i></div></div>
-            <button className="iconbtn" onClick={()=>del(t.id)}>✕</button></div>)}</div>}
-      {db.planner.tasks.some(t=>t.done) && <><div className="divider"/><div className="tag" style={{marginBottom:8}}>Done</div>
-        <div className="list">{db.planner.tasks.filter(t=>t.done).map(t=><div key={t.id} className="row" style={{opacity:.55}}>
-          <input type="checkbox" checked readOnly onChange={()=>toggle(t.id)}/>
-          <div className="grow"><div className="t" style={{textDecoration:'line-through'}}>{t.title}</div></div>
-          <button className="iconbtn" onClick={()=>del(t.id)}>✕</button></div>)}</div></>}
-    </div>
-  </div>;
-}
-
-/* ============================ OPT ============================ */
-function OPT({db,patch}){
-  const o=db.opt; const set=(k,v)=>patch('opt',op=>({...op,[k]:v})); const D=s=>s?new Date(s).getTime():null;
-  const milestones=[['programEnd','Program end date','EAD applications open up to 90 days before this.'],
-    ['eadStart','OPT / EAD start date','Your 12-month clock starts here.'],
-    ['eadEnd','OPT / EAD end date','Authorization ends. STEM extension may apply.']];
-  const eadStart=D(o.eadStart), eadEnd=D(o.eadEnd); const unemployedLimit=90;
-  const runway=eadEnd?daysBetween(now(),eadEnd):null; const elapsed=eadStart?Math.max(0,daysBetween(eadStart,now())):null; const total=eadStart&&eadEnd?daysBetween(eadStart,eadEnd):null;
-  return <div className="grid2">
-    <div className="panel pad">
-      <div className="ph"><div><h2>🛂 OPT / F-1 clock</h2><div className="sub">Dates only. Tracks deadlines — never interprets visa rules.</div></div></div>
-      <div className="warnbox" style={{marginBottom:14}}>⚠️ This tracks <b>your dates</b> and nothing else. It is not immigration advice. For any rule, eligibility, or filing question, talk to the <b>MIT International Students Office (ISO)</b>.</div>
-      {milestones.map(([k,lbl,hint])=><div key={k} style={{marginBottom:12}}><label className="fld">{lbl}</label>
-        <input type="date" className="inp" value={o[k]||''} onChange={e=>set(k,e.target.value)}/><div className="note" style={{marginTop:4}}>{hint}</div></div>)}
-      <label className="fld">Days of unemployment used <span style={{textTransform:'none',color:'var(--mute)'}}>(you track this)</span></label>
-      <input type="number" className="inp" value={o.unemp||''} onChange={e=>set('unemp',e.target.value)} min={0} max={120} placeholder="0"/>
-    </div>
-    <div className="panel pad">
-      <div className="ph"><div><h2>Countdown</h2></div></div>
-      {!eadEnd ? <div className="empty"><div className="big">🛂</div>Enter your EAD end date to see runway.</div>
-        : <><div className="grid2" style={{gap:12}}>
-            <Stat k="OPT runway" v={runway} sub="days" d="until EAD end"/>
-            <Stat k="Unemployment left" v={Math.max(0,unemployedLimit-(+o.unemp||0))} sub={`of ${unemployedLimit}`} d="days (you-entered)"/></div>
-          {total&&elapsed!=null && <div style={{marginTop:14}}><div className="tag" style={{marginBottom:6}}>OPT period · {Math.min(100,Math.round(100*elapsed/total))}% elapsed</div>
-            <div className="scorebar"><i style={{width:`${Math.min(100,Math.round(100*elapsed/total))}%`}}></i></div></div>}
-          {o.programEnd && <div className="okbox" style={{marginTop:14}}>EAD filing window opened ~{fmtDate(D(o.programEnd)-90*864e5)} (90 days before program end). Confirm exact dates with ISO.</div>}
-          {(+o.unemp||0)>=70 && <div className="warnbox" style={{marginTop:12}}>You've logged {o.unemp} unemployment days — close to the 90-day cap. Check with ISO.</div>}
-        </>}
     </div>
   </div>;
 }
 
 /* ============================ Settings ============================ */
-function Settings({db,cfg,setCfg,auth,signOut}){
+function Settings({db,patch,cfg,setCfg,auth,sb,signOut}){
   const art=inArtifact(); const [show,setShow]=useState(false); const [showKey,setShowKey]=useState(false);
-  function wipeLocal(){ if(confirm('Erase MIghTy data in THIS browser? If you are signed in, your cloud copy remains and re-syncs on next load.')){ localStorage.removeItem(DB_KEY); location.reload(); } }
+  const [saEmail,setSaEmail]=useState(null); const [saErr,setSaErr]=useState(null); const [saBusy,setSaBusy]=useState(false);
+  const [copied,setCopied]=useState(false);
+  function wipeLocal(){ if(confirm('Erase MIghTy templates/settings in THIS browser? If you are signed in, your cloud copy remains and re-syncs on next load.')){ localStorage.removeItem(DB_KEY); location.reload(); } }
   function exportData(){ const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='mighty-backup.json'; a.click(); }
   const sbReady=!!(cfg.supabaseUrl&&cfg.supabaseKey);
+
+  async function fetchServiceEmail(){
+    if(!sb) return;
+    setSaBusy(true); setSaErr(null);
+    try{
+      const {data,error} = await sb.functions.invoke('sheets-sync', {body:{action:'whoami'}});
+      if(error) throw error;
+      setSaEmail(data.email);
+    }catch(e){ setSaErr(e.message||String(e)); }
+    setSaBusy(false);
+  }
+  function copyEmail(){ if(!saEmail) return; navigator.clipboard?.writeText(saEmail).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),1500);},()=>{}); }
+  function parseSheetId(input){ const m=(input||'').match(/\/d\/([a-zA-Z0-9-_]+)/); return m?m[1]:(input||'').trim(); }
+
   return <div style={{display:'flex',flexDirection:'column',gap:16}}>
     <div className="grid2">
       <div className="panel pad">
-        <div className="ph"><div><h2>⚙️ Claude connection</h2><div className="sub">How MIghTy reaches Claude.</div></div></div>
+        <div className="ph"><div><h2>⚙️ Claude connection</h2><div className="sub">Optional — used only for AI-polished templates.</div></div></div>
         {art ? <div className="okbox">✅ Running inside a Claude artifact — using <span className="mono">window.claude.complete</span>. No API key needed.</div>
           : <><div className="note" style={{marginBottom:12}}>Add your Anthropic API key — stored only in this browser, sent directly to Anthropic.</div>
             <label className="fld">Anthropic API key</label>
@@ -984,19 +678,19 @@ function Settings({db,cfg,setCfg,auth,signOut}){
             <div style={{height:12}}/><label className="fld">Model</label>
             <select className="inp" value={cfg.model} onChange={e=>setCfg({model:e.target.value})}>
               <option value="claude-sonnet-4-6">Claude Sonnet 4.6 — fast, cheap (recommended)</option>
-              <option value="claude-opus-4-8">Claude Opus 4.8 — sharpest grading</option>
+              <option value="claude-opus-4-8">Claude Opus 4.8 — sharpest</option>
               <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 — cheapest</option>
             </select>
             <div className="note" style={{marginTop:10}}>Key at <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a>.</div></>}
       </div>
       <div className="panel pad">
-        <div className="ph"><div><h2>Account & sync</h2><div className="sub">Cloud save across your devices.</div></div></div>
+        <div className="ph"><div><h2>Account & sync</h2><div className="sub">Cloud save + the outreach log.</div></div></div>
         {auth.status==='in'
           ? <div className="okbox">✅ Signed in as <b>{auth.user.email}</b>. Your work syncs automatically.
               <div style={{marginTop:10}}><button className="btn ghost sm" onClick={signOut}>Sign out</button></div></div>
           : sbReady
             ? <div className="bluebox">Backend connected. Use <b>Sign in</b> (top right) to create your @mit.edu account and turn on sync.</div>
-            : <div className="note">Not connected yet — add your Supabase project below to enable accounts + sync. Until then MIghTy runs in guest mode (this browser only).</div>}
+            : <div className="note">Not connected yet — add your Supabase project below to enable accounts + the outreach log. Until then MIghTy runs in guest mode (templates only, this browser).</div>}
         <div style={{height:14}}/>
         <details>
           <summary style={{cursor:'pointer',fontWeight:600,fontSize:13.5}}>Supabase backend config {sbReady?'✓':''}</summary>
@@ -1006,24 +700,46 @@ function Settings({db,cfg,setCfg,auth,signOut}){
             <div style={{height:10}}/><label className="fld">Anon public key</label>
             <div style={{display:'flex',gap:8}}><input className="inp" type={show?'text':'password'} value={cfg.supabaseKey} onChange={e=>setCfg({supabaseKey:e.target.value})} placeholder="eyJhbGci…"/>
               <button className="btn ghost sm" onClick={()=>setShow(v=>!v)}>{show?'hide':'show'}</button></div>
-            <div className="note" style={{marginTop:10}}>These are public keys (safe in the browser) — your data is protected by row-level security. Run the setup SQL once in your Supabase project. The anon key restricts the domain to @mit.edu via a DB rule.</div>
+            <div className="note" style={{marginTop:10}}>These are public keys (safe in the browser) — your data is protected by row-level security. Run the setup SQL once in your Supabase project.</div>
           </div>
         </details>
       </div>
     </div>
+
     <div className="panel pad">
-      <div className="ph"><div><h2>Your data</h2><div className="sub">{auth.status==='in'?'Synced to your account + cached locally.':'In this browser only (guest mode).'}</div></div></div>
+      <div className="ph"><div><h2>Google Sheets sync</h2><div className="sub">Your outreach log mirrors to a Sheet you own.</div></div></div>
+      {auth.status!=='in' ? <div className="note">Sign in first — the Sheet sync reads your outreach log, which is per-account.</div> : <>
+        <label className="fld">Google Sheet ID or URL</label>
+        <input className="inp" value={db.settings.sheets.sheetId} onChange={e=>patch('settings', s=>({...s, sheets:{...s.sheets, sheetId:parseSheetId(e.target.value)}}))} placeholder="Paste the Sheet URL — the ID is extracted automatically"/>
+        <div style={{height:10}}/><label className="fld">Tab name</label>
+        <input className="inp" value={db.settings.sheets.tabName} onChange={e=>patch('settings', s=>({...s, sheets:{...s.sheets, tabName:e.target.value}}))} placeholder="MIghTy Outreach"/>
+        <div style={{marginTop:12,display:'flex',gap:9,alignItems:'center',flexWrap:'wrap'}}>
+          <button className="btn ghost sm" onClick={fetchServiceEmail} disabled={saBusy}>{saBusy?<Dots/>:'Get service-account email'}</button>
+          {saEmail && <span className="chip">{saEmail}<button className="iconbtn" style={{padding:'2px 7px'}} onClick={copyEmail}>{copied?'✓':'copy'}</button></span>}
+        </div>
+        {saErr && <div className="warnbox" style={{marginTop:10}}>{saErr}</div>}
+        {db.settings.sheets.lastError && <div className="warnbox" style={{marginTop:10}}>Last sync error: {db.settings.sheets.lastError}</div>}
+        <div className="note" style={{marginTop:10}}>Share your Sheet with that email (Editor access) before syncing — otherwise the sync will fail with "not_shared." Do the actual sync from the <b>Log</b> tab.</div>
+      </>}
+    </div>
+
+    <div className="panel pad">
+      <div className="ph"><div><h2>Extension</h2><div className="sub">Install once per device.</div></div></div>
+      <div className="note">Load <span className="mono">extension/</span> unpacked at <span className="mono">chrome://extensions</span>, then connect it to this same Supabase project + your @mit.edu login. Full steps in <span className="mono">extension/INSTALL.md</span>.</div>
+    </div>
+
+    <div className="panel pad">
+      <div className="ph"><div><h2>Your data</h2><div className="sub">{auth.status==='in'?'Templates/settings synced; outreach log lives server-side.':'In this browser only (guest mode).'}</div></div></div>
       <div className="grid3" style={{gap:12}}>
-        <Stat k="MIT Watch links" v={db.watch.items.length}/>
-        <Stat k="Readings" v={db.readings.length}/>
-        <Stat k="Cold-call reps" v={db.cc.sessions.length}/>
+        <Stat k="Templates" v={db.templates.length}/>
+        <Stat k="Logged profiles" v={auth.status==='in' ? '—' : 0} d={auth.status==='in' ? 'see the Log tab' : 'sign in to track'}/>
       </div>
       <div style={{display:'flex',gap:9,marginTop:16,flexWrap:'wrap'}}>
-        <button className="btn ghost sm" onClick={exportData}>⤓ Export backup (.json)</button>
+        <button className="btn ghost sm" onClick={exportData}>⤓ Export templates (.json)</button>
         <button className="btn ghost sm" onClick={wipeLocal} style={{color:'var(--brand2)',borderColor:'#E7C2BD'}}>Erase local copy</button>
       </div>
       <div className="divider"/>
-      <div className="note"><b>Privacy:</b> MIghTy stores only what you put in — readings, reps, your watch list, and the summaries you (or your in-browser agent) record. No MIT records, no Canvas, no grades. MIT Watch never stores your MIT password — it reads pages through your own logged-in browser.</div>
+      <div className="note"><b>Privacy:</b> MIghTy stores your templates, settings, and outreach log (profiles you shortlisted, messages sent, status). No LinkedIn password is ever stored — the extension acts only in your own logged-in browser session, and never clicks Connect/Message for you.</div>
     </div>
   </div>;
 }
