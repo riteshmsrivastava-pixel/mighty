@@ -8,9 +8,13 @@ it most for your job search. So this extension never simulates a click on
 Connect or Message. It only:
 
 1. Reads profile cards on a LinkedIn search-results page **you** opened.
-2. Optionally fills a compose box with your drafted message, **only** when
+2. Reads a profile page's About/Experience/Education text — but **only** to
+   enrich a contact already on your shortlist. If you view a profile you
+   haven't shortlisted, this data is discarded by the web app and never
+   stored; nothing is retained for a profile you merely browsed past.
+3. Optionally fills a compose box with your drafted message, **only** when
    you click "Fill draft" — never automatically.
-3. **Watches** for you clicking the real Send/Connect button, so it can log
+4. **Watches** for you clicking the real Send/Connect button, so it can log
    the send back to your MIghTy account. It observes; it never triggers.
 
 You are always the one clicking Connect and Send.
@@ -28,25 +32,31 @@ You are always the one clicking Connect and Send.
 1. Search LinkedIn as you normally would (search bar, filters — all manual).
 2. On the results page, checkboxes appear on each visible card. Check the
    ones you want, then click **Send N to MIghTy** (bottom-right).
-3. In the MIghTy web app's **Shortlist** tab, pick a template per profile and
-   click **Copy message + Open profile** — this copies the drafted message
-   to your clipboard and opens their profile in a new tab.
-4. On LinkedIn, open Connect or Message as you normally would. Click
+3. Open the shortlisted profile on LinkedIn once — the extension reads their
+   About/Experience/Education text and sends it back so the web app can
+   generate a grounded briefing and draft (this needs no click, it's a
+   passive read of the page you're already viewing).
+4. In the MIghTy web app's **Shortlist** tab, click **✨ Generate briefing &
+   draft** (or pick a plain template), then **Copy message + Open profile** —
+   this copies the drafted message to your clipboard and opens their profile
+   in a new tab.
+5. On LinkedIn, open Connect or Message as you normally would. Click
    **Fill draft (MIghTy)** above the compose box to paste in your drafted
    message from the clipboard, edit it if you like, then click **Send** or
    **Connect** yourself.
-5. That click is detected automatically and logged back to your MIghTy Log
+6. That click is detected automatically and logged back to your MIghTy Log
    as "Sent" — no extra step needed. If detection ever misses (LinkedIn's
    markup changes), use the manual "Mark Sent" button in the Shortlist tab
-   as a fallback.
+   as a fallback. Once a contact replies or you have a coffee chat/referral/
+   interview, log it in the **Log** tab's timeline for that contact.
 
 ## Honest limits
 - Only acts on pages you manually open — there's no background crawling or
   auto-navigation between profiles.
-- LinkedIn's DOM can change without notice. If shortlisting or send-detection
-  stops working, the fix lives entirely in one place: the `SELECTORS` object
-  at the top of `content.js`. Open DevTools on the broken page, find the
-  right class names, and update just that object.
+- LinkedIn's DOM can change without notice. If shortlisting, profile-context
+  capture, or send-detection stops working, the fix lives entirely in one
+  place: the `SELECTORS` object at the top of `content.js`. Open DevTools on
+  the broken page, find the right class names, and update just that object.
 - Your weekly cap (100 sends) is enforced by the web app and backed by a
   database rule — this extension itself has no cap logic, it just reports
   what you did.

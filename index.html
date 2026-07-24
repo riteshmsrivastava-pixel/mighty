@@ -139,13 +139,20 @@ const DEFAULT = {
   templates: [
     { id:'starter', name:'Intro — Sloan Fellow', body:"Hi {{firstName}}, I'm an MIT Sloan Fellow exploring {{company}} and would love to hear about your path there. Would you be open to a quick chat?" },
   ],
-  settings: { sheets: { sheetId:'', tabName:'MIghTy Outreach', lastSyncedAt:null, lastError:null } },
+  settings: {
+    sheets: { sheetId:'', tabName:'MIghTy Outreach', lastSyncedAt:null, lastError:null },
+    targetCompanies: [],
+    followUpDays: 7,
+    communityOptIn: false,
+  },
 };
 function shape(d){
   d = d||{};
   return { ...JSON.parse(JSON.stringify(DEFAULT)), ...d,
     templates: Array.isArray(d.templates) ? d.templates : DEFAULT.templates,
-    settings: { ...DEFAULT.settings, ...(d.settings||{}), sheets:{ ...DEFAULT.settings.sheets, ...((d.settings||{}).sheets||{}) } } };
+    settings: { ...DEFAULT.settings, ...(d.settings||{}),
+      sheets:{ ...DEFAULT.settings.sheets, ...((d.settings||{}).sheets||{}) },
+      targetCompanies: Array.isArray((d.settings||{}).targetCompanies) ? d.settings.targetCompanies : DEFAULT.settings.targetCompanies } };
 }
 function loadDB(){ try{ return shape(JSON.parse(localStorage.getItem(DB_KEY))); }catch(e){ return shape(); } }
 
@@ -181,6 +188,43 @@ function renderTemplate(body, row){
   return (body||'').replaceAll('{{firstName}}', firstName).replaceAll('{{company}}', row.company||'your company');
 }
 
+// Never show a raw count from community_stats — bucket it, even above the
+// k-anonymity floor, so a small aggregate can't be reverse-engineered to one student.
+function bucketCount(n){
+  n = n||0;
+  if(n<=0) return '0';
+  if(n<=2) return '1-2';
+  if(n<=5) return '3-5';
+  if(n<=10) return '6-10';
+  return '10+';
+}
+
+// Transparent, client-side relevance scoring for "Today's Best 10" — every
+// term is explainable as a human-readable reason, nothing is a black box.
+function computeScore(row, targetCompanies){
+  const reasons = [];
+  let score = 0;
+  const ctx = row.context || {};
+  if(row.company && (targetCompanies||[]).some(c=>c.trim().toLowerCase()===row.company.trim().toLowerCase())){
+    score += 40; reasons.push(`Target company: ${row.company}`);
+  }
+  const mutualMatch = (ctx.mutualConnectionsRaw||'').match(/(\d+)\s*mutual/i);
+  if(mutualMatch){
+    const n = Math.min(parseInt(mutualMatch[1],10)||0, 3);
+    if(n>0){ score += 15*(n/3); reasons.push(`${mutualMatch[1]} mutual connection${mutualMatch[1]==='1'?'':'s'}`); }
+  }
+  if(/sloan|\bmit\b/i.test(`${ctx.educationText||''} ${ctx.aboutText||''}`)){
+    score += 15; reasons.push('MIT / Sloan connection');
+  }
+  if(row.status==='deferred'){ score += 10; reasons.push('Previously deferred — resurfacing'); }
+  const daysAgo = Math.max(0, (now()-new Date(row.shortlisted_at).getTime())/864e5);
+  const recency = Math.max(0, 1-daysAgo/30);
+  score += 10*recency;
+  if(daysAgo<3) reasons.push(`Added ${daysAgo<1?'today':Math.round(daysAgo)+'d ago'}`);
+  if(row.context){ score += 10; reasons.push('Profile context captured'); }
+  return { score, reasons: reasons.slice(0,4) };
+}
+
 /* ============================ LLM layer (optional — template polish only) ============================ */
 const inArtifact = () => typeof window!=='undefined' && window.claude && typeof window.claude.complete==='function';
 function llmMode(cfg){ if(inArtifact()) return 'artifact'; if(cfg && cfg.apiKey) return 'api'; return 'none'; }
@@ -197,6 +241,15 @@ async function llm(cfg, system, user, maxTokens=600){
   }
   throw new Error('No Claude connection. Add your Anthropic API key in Settings, or run this as a Claude artifact.');
 }
+async function llmJSON(cfg, system, user, maxTokens=900){
+  const text = await llm(cfg, system+'\n\nRespond with ONLY valid JSON, no prose, no markdown fences.', user, maxTokens);
+  return JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}')+1));
+}
+
+const OBJECTIVES = [
+  ['coffee_chat','Coffee chat'],['informational_interview','Informational interview'],
+  ['alumni_connection','Alumni connection'],['referral','Referral'],['follow_up','Follow-up'],
+];
 
 /* ============================ atoms ============================ */
 function Dots(){ return <span className="typing"><i></i><i></i><i></i></span>; }
@@ -211,6 +264,8 @@ function App(){
   const [auth,setAuth] = useState({status:'loading', user:null});
   const [localOnly,setLocalOnly] = useState(false);
   const [log,setLog] = useState([]);
+  const [events,setEvents] = useState([]);
+  const [communityStats,setCommunityStats] = useState([]);
   const lastSync = useRef(null);
   const saveTimer = useRef(null);
 
@@ -229,11 +284,18 @@ function App(){
   useEffect(()=>{
     if(!sb){ return; }
     let sub;
-    const onUser = (u)=>{ setAuth({status:u?'in':'out', user:u}); if(u) pull(sb,u); else setLog([]); };
+    const onUser = (u)=>{ setAuth({status:u?'in':'out', user:u}); if(u) pull(sb,u); else { setLog([]); setEvents([]); } };
     sb.auth.getSession().then(({data})=>onUser(data.session?.user||null));
     const r = sb.auth.onAuthStateChange((_e,session)=>onUser(session?.user||null));
     sub = r.data?.subscription;
     return ()=>{ sub&&sub.unsubscribe(); };
+  },[sb]);
+
+  // Community insights are public-read (RLS: select using(true)) — fetch whenever
+  // a backend is connected, independent of whether this student has signed in.
+  useEffect(()=>{
+    if(!sb) { setCommunityStats([]); return; }
+    sb.from('community_stats').select('*').order('outreach_count',{ascending:false}).then(({data})=>setCommunityStats(data||[]),()=>{});
   },[sb]);
 
   async function pull(client, u){
@@ -245,12 +307,20 @@ function App(){
     }catch(e){ /* stay on local cache */ }
     await ingest(client,u);
     await refreshLog(client,u);
+    await refreshEvents(client,u);
   }
 
   async function refreshLog(client,u){
     try{
       const {data} = await client.from('outreach_log').select('*').eq('user_id',u.id).order('updated_at',{ascending:false});
       setLog(data||[]);
+    }catch(e){ /* keep whatever we had */ }
+  }
+
+  async function refreshEvents(client,u){
+    try{
+      const {data} = await client.from('outreach_events').select('*').eq('user_id',u.id).order('occurred_at',{ascending:false});
+      setEvents(data||[]);
     }catch(e){ /* keep whatever we had */ }
   }
 
@@ -271,6 +341,16 @@ function App(){
               sent_at: p.ts ? new Date(p.ts).toISOString() : new Date().toISOString(),
               updated_at:new Date().toISOString(),
             }, {onConflict:'user_id,profile_url'});
+          } else if(row.kind==='profile_context'){
+            // Enrich ONLY a profile the student already shortlisted — if no matching
+            // row exists yet, this is just a page they browsed past; discard it.
+            const {data:existing} = await client.from('outreach_log').select('id').eq('user_id',u.id).eq('profile_url',p.profileUrl).maybeSingle();
+            if(existing){
+              await client.from('outreach_log').update({
+                context: { aboutText:p.aboutText||'', experienceText:p.experienceText||'', educationText:p.educationText||'', mutualConnectionsRaw:p.mutualConnectionsRaw||'', capturedAt:new Date().toISOString() },
+                updated_at:new Date().toISOString(),
+              }).eq('id', existing.id);
+            }
           } else {
             await client.from('outreach_log').upsert({
               user_id:u.id, profile_url:p.profileUrl,
@@ -279,7 +359,7 @@ function App(){
             }, {onConflict:'user_id,profile_url'});
           }
           consumed.push(row.id);
-        }catch(e){ /* likely the weekly-cap trigger — leave unconsumed, profile stays Shortlisted */ }
+        }catch(e){ /* likely the weekly-cap trigger — leave unconsumed, profile stays in To Contact */ }
       }
       if(consumed.length) await client.from('outreach_inbox').delete().in('id', consumed);
       return consumed.length;
@@ -287,11 +367,23 @@ function App(){
   }
   const doIngest = async () => { if(auth.status==='in' && sb){ await ingest(sb, auth.user); await refreshLog(sb, auth.user); } };
 
-  async function setRowStatus(row, fields){
+  async function updateRow(row, fields){
     if(!sb || auth.status!=='in') return {ok:false, error:'Not signed in'};
     try{
       await sb.from('outreach_log').update({...fields, updated_at:new Date().toISOString()}).eq('id',row.id);
       await refreshLog(sb, auth.user);
+      return {ok:true};
+    }catch(e){ return {ok:false, error:e.message||String(e)}; }
+  }
+
+  // Timeline entry. A 'reply' also flips status (dashboard response-rate counts
+  // off status, not events); coffee_chat/referral/interview/note never touch status.
+  async function logEvent(row, eventType, note){
+    if(!sb || auth.status!=='in') return {ok:false, error:'Not signed in'};
+    try{
+      await sb.from('outreach_events').insert({user_id:auth.user.id, log_id:row.id, event_type:eventType, note:note||null});
+      if(eventType==='reply') await updateRow(row, {status:'replied'});
+      await refreshEvents(sb, auth.user);
       return {ok:true};
     }catch(e){ return {ok:false, error:e.message||String(e)}; }
   }
@@ -352,10 +444,10 @@ function App(){
             <div className="nav">
               {TABS.map(([id,em,lb])=><button key={id} className={tab===id?'on':''} onClick={()=>setTab(id)}><span className="em">{em}</span>{lb}</button>)}
             </div>
-            {tab==='home' && <Home db={db} log={log} setTab={setTab} auth={auth} sbReady={sbReady} onSignIn={()=>setLocalOnly(false)}/>}
-            {tab==='shortlist' && <Shortlist db={db} log={log} auth={auth} sbReady={sbReady} doIngest={doIngest} setRowStatus={setRowStatus} onSignIn={()=>setLocalOnly(false)}/>}
+            {tab==='home' && <Home db={db} log={log} events={events} communityStats={communityStats} cfg={cfg} setTab={setTab} auth={auth} sbReady={sbReady} onSignIn={()=>setLocalOnly(false)} updateRow={updateRow}/>}
+            {tab==='shortlist' && <Shortlist db={db} log={log} cfg={cfg} auth={auth} sbReady={sbReady} doIngest={doIngest} updateRow={updateRow} onSignIn={()=>setLocalOnly(false)}/>}
             {tab==='templates' && <Templates db={db} patch={patch} cfg={cfg}/>}
-            {tab==='log' && <Log db={db} patch={patch} log={log} auth={auth} sb={sb}/>}
+            {tab==='log' && <Log db={db} patch={patch} log={log} events={events} auth={auth} sb={sb} updateRow={updateRow} logEvent={logEvent}/>}
             {tab==='settings' && <Settings db={db} patch={patch} cfg={cfg} setCfg={setCfg} auth={auth} sb={sb} signOut={signOut}/>}
           </>}
 
@@ -436,52 +528,102 @@ function SetupCard({cfg,setCfg,onLocal}){
 }
 
 /* ============================ Home ============================ */
-function Home({db,log,setTab,auth,sbReady,onSignIn}){
+function Home({db,log,events,communityStats,cfg,setTab,auth,sbReady,onSignIn,updateRow}){
   const signedIn = auth.status==='in';
   const sentCount = sentThisWeek(log);
-  const shortlisted = log.filter(r=>r.status==='shortlisted').length;
-  const pct = Math.min(100, Math.round(100*sentCount/100));
   const nextReset = new Date(weekStartUTC()+7*864e5);
+
+  const candidates = log.filter(r=>r.status==='to_contact'||r.status==='deferred');
+  const bestTen = candidates.map(r=>({row:r, ...computeScore(r, db.settings.targetCompanies)}))
+    .sort((a,b)=>b.score-a.score).slice(0,10);
+
+  const everSent = log.filter(r=>r.status==='sent'||r.status==='replied').length;
+  const replied = log.filter(r=>r.status==='replied').length;
+  const responseRate = everSent ? Math.round(100*replied/everSent) : 0;
+  const coffeeChats = events.filter(e=>e.event_type==='coffee_chat').length;
+  const referrals = events.filter(e=>e.event_type==='referral').length;
+  const interviews = events.filter(e=>e.event_type==='interview').length;
+
+  const followUpDays = db.settings.followUpDays||7;
+  const repliedLogIds = new Set(events.filter(e=>e.event_type==='reply').map(e=>e.log_id));
+  const needsFollowUp = log.filter(r=>r.status==='sent' && !repliedLogIds.has(r.id) && r.sent_at && (now()-new Date(r.sent_at).getTime())>followUpDays*864e5);
+
   return <div style={{display:'flex',flexDirection:'column',gap:16}}>
     {sbReady && !signedIn && <div className="panel pad" style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-      <div><b>You're in guest mode.</b> <span className="note">Sign in with your @mit.edu email to start your outreach log and weekly cap.</span></div>
+      <div><b>You're in guest mode.</b> <span className="note">Sign in with your @mit.edu email to see your ranked contacts and start tracking.</span></div>
       <button className="btn sm" onClick={onSignIn}>Sign in</button></div>}
+
+    <div className="panel pad">
+      <div className="ph"><div><h2>🎯 Today's Best {bestTen.length||10} People to Contact</h2><div className="sub">Ranked by relevance — target companies, shared school, mutual connections, recency.</div></div>
+        <button className="btn ghost sm" onClick={()=>setTab('shortlist')}>Open Shortlist →</button></div>
+      {!signedIn
+        ? <div className="empty"><div className="big">🎯</div>Sign in to see your ranked queue.</div>
+        : bestTen.length===0
+          ? <div className="empty"><div className="big">🎯</div>Nothing to rank yet. Shortlist some profiles with the extension, then come back.</div>
+          : <div className="list">{bestTen.map(({row,reasons},i)=><div key={row.id} className="row">
+              <div className="tag" style={{fontSize:16,fontWeight:800,color:'var(--brand)'}}>{i+1}</div>
+              <div className="grow">
+                <div className="t">{row.name||row.profile_url}</div>
+                <div className="m">{row.title||''}{row.company?` · ${row.company}`:''}</div>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:6}}>{reasons.map((r,j)=><span key={j} className="chip">{r}</span>)}</div>
+              </div>
+              <button className="iconbtn" onClick={()=>window.open(row.profile_url,'_blank','noopener')}>view</button>
+            </div>)}</div>}
+      <div className="note" style={{marginTop:10}}>Add target companies in Settings to sharpen this ranking.</div>
+    </div>
+
     <div className="grid3">
       <Stat k="Sent this week" v={sentCount} sub="/ 100" d={`resets ${fmtDate(nextReset.getTime())} 00:00 UTC`}/>
-      <Stat k="Shortlisted" v={shortlisted} d="waiting for a message"/>
-      <Stat k="Templates" v={db.templates.length} d="ready to use"/>
+      <Stat k="Response rate" v={`${responseRate}%`} d={`${replied} of ${everSent} replied`}/>
+      <Stat k="Coffee chats" v={coffeeChats} d={`${referrals} referrals · ${interviews} interviews`}/>
     </div>
-    <div className="panel pad">
-      <div className="ph"><div><h2>Weekly cap</h2><div className="sub">100 sends per week, tracked from your outreach log.</div></div></div>
-      <div className="scorebar"><i style={{width:`${pct}%`}}></i></div>
-      <div className="note">{sentCount>=100 ? 'Cap reached — new sends resume after the reset. Shortlisted profiles stay put.' : `${100-sentCount} left this week.`}</div>
-    </div>
-    <div className="grid2">
-      <div className="panel pad">
-        <div className="ph"><div><h2>Start here</h2><div className="sub">The outreach workflow.</div></div></div>
-        <div className="list">
-          <Quick em="📋" t="Shortlist" m="Draft a message and open the profile for profiles the extension sent over." on={()=>setTab('shortlist')}/>
-          <Quick em="✉️" t="Templates" m="Write reusable messages with {{firstName}}/{{company}}." on={()=>setTab('templates')}/>
-          <Quick em="📊" t="Log" m="See every profile's status and sync it to your Google Sheet." on={()=>setTab('log')}/>
-        </div>
-      </div>
-      <div className="panel pad">
-        <div className="ph"><div><h2>Extension</h2><div className="sub">The other half of the workflow.</div></div></div>
-        <div className="note" style={{marginBottom:10}}>Install the MIghTy LinkedIn Outreach extension (<span className="mono">extension/INSTALL.md</span>) to shortlist profiles as you browse and auto-log confirmed sends. It never clicks Connect/Message for you — you always do that yourself.</div>
-        <div className="bluebox">Human-in-the-loop by design: LinkedIn's terms don't allow automating sends, and doing so risks your own account being restricted.</div>
-      </div>
-    </div>
+
+    {needsFollowUp.length>0 && <div className="panel pad">
+      <div className="ph"><div><h2>⏰ Needs a follow-up</h2><div className="sub">No reply after {followUpDays} days.</div></div></div>
+      <div className="list">{needsFollowUp.map(r=><FollowUpRow key={r.id} row={r} cfg={cfg} updateRow={updateRow}/>)}</div>
+    </div>}
+
+    <CommunityPanel db={db} communityStats={communityStats} setTab={setTab}/>
   </div>;
 }
-function Quick({em,t,m,on}){ return <div className="row" onClick={on} style={{cursor:'pointer'}}>
-  <div style={{fontSize:22}}>{em}</div><div className="grow"><div className="t">{t}</div><div className="m">{m}</div></div>
-  <span className="iconbtn">go →</span></div>; }
+function FollowUpRow({row,cfg,updateRow}){
+  const [busy,setBusy]=useState(false);
+  const daysAgo = Math.round((now()-new Date(row.sent_at).getTime())/864e5);
+  async function generateAndCopy(){
+    setBusy(true);
+    try{
+      const draft = await llm(cfg,
+        'You are helping an MIT Sloan Fellows MBA student follow up on LinkedIn after no reply. Keep it brief, low-pressure, not a repeat of the original. Return only the message.',
+        `Contact: ${row.name||row.profile_url}, ${row.title||''} at ${row.company||''}.\nOriginal message sent ${daysAgo} days ago: "${row.message_sent||row.ai_draft||'(not recorded)'}"`);
+      try{ await navigator.clipboard.writeText(draft.trim()); }catch(e){}
+      window.open(row.profile_url,'_blank','noopener');
+    }catch(e){ alert(e.message||String(e)); }
+    setBusy(false);
+  }
+  return <div className="row">
+    <div className="grow"><div className="t">{row.name||row.profile_url}</div><div className="m">Sent {daysAgo}d ago, no reply yet</div></div>
+    <button className="btn sm" onClick={generateAndCopy} disabled={busy}>{busy?<Dots/>:'✨ Draft follow-up + open'}</button>
+  </div>;
+}
+function CommunityPanel({db,communityStats,setTab}){
+  return <div className="panel pad">
+    <div className="ph"><div><h2>🌐 Community insights</h2><div className="sub">Opt-in, anonymous, aggregated across Sloan Fellows — never names or messages.</div></div></div>
+    {!db.settings.communityOptIn
+      ? <div className="bluebox">Opt in from Settings to see (and contribute to) cross-cohort outreach trends. Nothing is shown until at least 3 students have contributed to a company.</div>
+      : communityStats.length===0
+        ? <div className="empty"><div className="big">🌐</div>No company has reached 3 contributing students yet — check back as more Fellows opt in.</div>
+        : <div className="list">{communityStats.slice(0,8).map(c=><div key={c.company} className="row">
+            <div className="grow"><div className="t">{c.company}</div>
+              <div className="m">{bucketCount(c.contributor_count)} students · {bucketCount(c.outreach_count)} outreach · {bucketCount(c.reply_count)} replies · {bucketCount(c.coffee_chat_count)} coffee chats · {bucketCount(c.interview_count)} interviews</div></div>
+          </div>)}</div>}
+  </div>;
+}
 
 /* ============================ Shortlist ============================ */
-function Shortlist({db,log,auth,sbReady,doIngest,setRowStatus,onSignIn}){
+function Shortlist({db,log,cfg,auth,sbReady,doIngest,updateRow,onSignIn}){
   const [checking,setChecking]=useState(false);
   const signedIn = auth.status==='in';
-  const rows = log.filter(r=>r.status==='shortlisted'||r.status==='deferred')
+  const rows = log.filter(r=>r.status==='to_contact'||r.status==='deferred')
     .sort((a,b)=>new Date(a.shortlisted_at)-new Date(b.shortlisted_at));
   const capReached = sentThisWeek(log)>=100;
 
@@ -495,30 +637,48 @@ function Shortlist({db,log,auth,sbReady,doIngest,setRowStatus,onSignIn}){
   return <div style={{display:'flex',flexDirection:'column',gap:16}}>
     {capReached && <div className="warnbox">Weekly cap of 100 reached — "Mark Sent" is disabled until the reset. Everything below stays right where it is.</div>}
     <div className="panel pad">
-      <div className="ph"><div><h2>📋 Shortlist</h2><div className="sub">{rows.length} waiting · pick a template, copy the message, open the profile.</div></div>
+      <div className="ph"><div><h2>📋 Shortlist</h2><div className="sub">{rows.length} waiting · generate a grounded draft or pick a template, then copy + open.</div></div>
         <button className="btn ghost sm" onClick={async()=>{setChecking(true); await doIngest(); setChecking(false);}} disabled={checking}>{checking?<Dots/>:'↻ Check for new profiles'}</button></div>
       {rows.length===0
         ? <div className="empty"><div className="big">📋</div>Nothing shortlisted yet. Use the extension on a LinkedIn search-results page, then come back and hit "Check for new profiles."</div>
-        : <div className="list">{rows.map(r=><ShortlistRow key={r.id} row={r} templates={db.templates} capReached={capReached} setRowStatus={setRowStatus}/>)}</div>}
+        : <div className="list">{rows.map(r=><ShortlistRow key={r.id} row={r} templates={db.templates} cfg={cfg} capReached={capReached} updateRow={updateRow}/>)}</div>}
     </div>
   </div>;
 }
-function ShortlistRow({row,templates,capReached,setRowStatus}){
+function ShortlistRow({row,templates,cfg,capReached,updateRow}){
   const [tplId,setTplId]=useState(templates[0]?.id||'');
+  const [objective,setObjective]=useState('coffee_chat');
   const [busy,setBusy]=useState(false); const [err,setErr]=useState(null);
+  const [generating,setGenerating]=useState(false);
   const tpl = templates.find(t=>t.id===tplId) || templates[0];
+  const mode = llmMode(cfg);
+
   async function copyAndOpen(){
-    if(!tpl) return;
-    const msg = renderTemplate(tpl.body, row);
+    const msg = row.ai_draft || (tpl && renderTemplate(tpl.body, row));
+    if(!msg) return;
     try{ await navigator.clipboard.writeText(msg); }catch(e){}
     window.open(row.profile_url,'_blank','noopener');
   }
   async function act(fields){
     setBusy(true); setErr(null);
-    const r = await setRowStatus(row, fields);
+    const r = await updateRow(row, fields);
     if(!r.ok) setErr(r.error);
     setBusy(false);
   }
+  async function generate(){
+    if(mode==='none'||!row.context) return;
+    setGenerating(true); setErr(null);
+    try{
+      const ctx = row.context;
+      const result = await llmJSON(cfg,
+        'You are helping an MIT Sloan Fellows MBA student network professionally on LinkedIn. Given a contact\'s profile context and the student\'s outreach objective, produce a brief and a first-touch message. Be specific, use real details from the context, never invent facts not present in it. Keep the message under 120 words, no generic flattery.',
+        `Objective: ${objective}\nContact: ${row.name||''}, ${row.title||''} at ${row.company||''}\nProfile context:\nAbout: ${ctx.aboutText||''}\nExperience: ${ctx.experienceText||''}\nEducation: ${ctx.educationText||''}\nMutual connections (raw, may be imprecise): ${ctx.mutualConnectionsRaw||''}\n\nReturn JSON: {"careerSummary": string, "sharedConnectionNote": string|null, "conversationStarters": string[3], "whyContactReasons": string[2-3], "draftMessage": string}`);
+      const {draftMessage, ...briefing} = result;
+      await updateRow(row, {briefing, ai_draft:draftMessage});
+    }catch(e){ setErr(e.message||String(e)); }
+    setGenerating(false);
+  }
+
   return <div className="row" style={{flexDirection:'column',alignItems:'stretch',gap:8}}>
     <div style={{display:'flex',alignItems:'center',gap:12}}>
       <div className="grow">
@@ -526,13 +686,33 @@ function ShortlistRow({row,templates,capReached,setRowStatus}){
         <div className="m">{row.title||''}{row.company?` · ${row.company}`:''}</div>
         <a className="linkurl" href={row.profile_url} target="_blank" rel="noopener">{row.profile_url}</a>
       </div>
-      {templates.length>1 && <select className="inp" style={{width:'auto'}} value={tplId} onChange={e=>setTplId(e.target.value)}>
+      {!row.ai_draft && templates.length>1 && <select className="inp" style={{width:'auto'}} value={tplId} onChange={e=>setTplId(e.target.value)}>
         {templates.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
       </select>}
-      <button className="btn sm" onClick={copyAndOpen} disabled={!tpl}>Copy message + Open profile</button>
+      <button className="btn sm" onClick={copyAndOpen} disabled={!row.ai_draft && !tpl}>Copy message + Open profile</button>
     </div>
+
+    {row.briefing && <div className="okbox">
+      <div><b>Career summary:</b> {row.briefing.careerSummary}</div>
+      {row.briefing.sharedConnectionNote && <div style={{marginTop:6}}><b>Shared connection:</b> {row.briefing.sharedConnectionNote}</div>}
+      {row.briefing.whyContactReasons?.length>0 && <div style={{marginTop:6}}><b>Why contact:</b> {row.briefing.whyContactReasons.join(' · ')}</div>}
+      {row.briefing.conversationStarters?.length>0 && <div style={{marginTop:6}}><b>Conversation starters:</b><ul style={{margin:'4px 0 0',paddingLeft:18}}>{row.briefing.conversationStarters.map((s,i)=><li key={i}>{s}</li>)}</ul></div>}
+    </div>}
+
+    <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+      {mode!=='none' && <>
+        <select className="inp" style={{width:'auto'}} value={objective} onChange={e=>setObjective(e.target.value)}>
+          {OBJECTIVES.map(([k,l])=><option key={k} value={k}>{l}</option>)}
+        </select>
+        <button className="iconbtn" onClick={generate} disabled={generating||!row.context} title={!row.context?'Open this profile with the extension installed first, to capture context':''}>
+          {generating?<Dots/>:row.briefing?'✨ Regenerate briefing & draft':'✨ Generate briefing & draft'}
+        </button>
+        {!row.context && <span className="note">Open this profile (extension installed) to capture context first.</span>}
+      </>}
+    </div>
+
     <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-      <button className="iconbtn" onClick={()=>act({status:'sent',sent_at:new Date().toISOString()})} disabled={busy||capReached}>Mark Sent</button>
+      <button className="iconbtn" onClick={()=>act({status:'sent',sent_at:new Date().toISOString(),message_sent:row.ai_draft||(tpl&&renderTemplate(tpl.body,row))||null})} disabled={busy||capReached}>Mark Sent</button>
       <button className="iconbtn" onClick={()=>act({status:'deferred'})} disabled={busy}>Defer</button>
       <button className="iconbtn" onClick={()=>act({status:'do_not_contact'})} disabled={busy}>Do Not Contact</button>
     </div>
@@ -597,11 +777,11 @@ function Templates({db,patch,cfg}){
 }
 
 /* ============================ Log ============================ */
-function Log({db,patch,log,auth,sb}){
+function Log({db,patch,log,events,auth,sb,updateRow,logEvent}){
   const [filter,setFilter]=useState('all');
   const [syncBusy,setSyncBusy]=useState(false); const [syncMsg,setSyncMsg]=useState(null);
   const signedIn = auth.status==='in';
-  const FILTERS=[['all','All'],['shortlisted','Shortlisted'],['sent','Sent'],['replied','Replied'],['deferred','Deferred'],['do_not_contact','Do Not Contact']];
+  const FILTERS=[['all','All'],['to_contact','To Contact'],['sent','Sent'],['replied','Replied'],['deferred','Deferred'],['do_not_contact','Do Not Contact']];
   const rows = log.filter(r=>filter==='all'||r.status===filter);
 
   async function syncNow(){
@@ -632,15 +812,50 @@ function Log({db,patch,log,auth,sb}){
       <div className="seg" style={{marginBottom:12}}>{FILTERS.map(([k,l])=><button key={k} className={filter===k?'on':''} onClick={()=>setFilter(k)}>{l}</button>)}</div>
       {rows.length===0
         ? <div className="empty"><div className="big">📊</div>Nothing here yet.</div>
-        : <div className="list">{rows.map(r=><div key={r.id} className="row">
-            <div className="grow">
-              <div className="t">{r.name||r.profile_url}</div>
-              <div className="m">{r.title||''}{r.company?` · ${r.company}`:''} · <span className="tag">{r.status}</span></div>
-              <a className="linkurl" href={r.profile_url} target="_blank" rel="noopener">{r.profile_url}</a>
-            </div>
-            <span className="tag">{rel(new Date(r.updated_at).getTime())}</span>
-          </div>)}</div>}
+        : <div className="list">{rows.map(r=><LogRow key={r.id} row={r} events={events.filter(e=>e.log_id===r.id)} logEvent={logEvent}/>)}</div>}
     </div>
+  </div>;
+}
+const EVENT_TYPES = [
+  ['connection_request','Connection request'],['first_message','First message'],['reply','Reply'],
+  ['coffee_chat','Coffee chat'],['referral','Referral'],['interview','Interview'],['note','Note'],
+];
+function LogRow({row,events,logEvent}){
+  const [open,setOpen]=useState(false);
+  const [busy,setBusy]=useState(false);
+  const [noteType,setNoteType]=useState(null);
+  const [noteText,setNoteText]=useState('');
+  async function add(eventType, note){
+    setBusy(true);
+    await logEvent(row, eventType, note);
+    setBusy(false); setNoteType(null); setNoteText('');
+  }
+  return <div className="row" style={{flexDirection:'column',alignItems:'stretch',gap:8}}>
+    <div style={{display:'flex',alignItems:'center',gap:12}}>
+      <div className="grow">
+        <div className="t">{row.name||row.profile_url}</div>
+        <div className="m">{row.title||''}{row.company?` · ${row.company}`:''} · <span className="tag">{row.status}</span></div>
+        <a className="linkurl" href={row.profile_url} target="_blank" rel="noopener">{row.profile_url}</a>
+      </div>
+      <span className="tag">{rel(new Date(row.updated_at).getTime())}</span>
+      <button className="iconbtn" onClick={()=>setOpen(o=>!o)}>{open?'hide':'timeline'} ({events.length})</button>
+    </div>
+    {open && <div style={{paddingTop:8,borderTop:'1px solid var(--line2)'}}>
+      {events.length>0 && <div className="list" style={{marginBottom:10}}>{events.map(e=><div key={e.id} className="row" style={{padding:'8px 10px'}}>
+        <div className="grow"><span className="badge">{EVENT_TYPES.find(t=>t[0]===e.event_type)?.[1]||e.event_type}</span>
+          {e.note && <span className="m" style={{marginLeft:8}}>{e.note}</span>}</div>
+        <span className="tag">{fmtDate(new Date(e.occurred_at).getTime())}</span>
+      </div>)}</div>}
+      <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+        {EVENT_TYPES.map(([k,l])=> k==='note'
+          ? <button key={k} className="iconbtn" onClick={()=>setNoteType(noteType==='note'?null:'note')} disabled={busy}>+ {l}</button>
+          : <button key={k} className="iconbtn" onClick={()=>add(k)} disabled={busy}>+ {l}</button>)}
+      </div>
+      {noteType==='note' && <div style={{display:'flex',gap:8,marginTop:8}}>
+        <input className="inp" value={noteText} onChange={e=>setNoteText(e.target.value)} placeholder="Quick note…"/>
+        <button className="btn sm" onClick={()=>add('note',noteText.trim())} disabled={!noteText.trim()||busy}>Save</button>
+      </div>}
+    </div>}
   </div>;
 }
 
@@ -704,6 +919,26 @@ function Settings({db,patch,cfg,setCfg,auth,sb,signOut}){
           </div>
         </details>
       </div>
+    </div>
+
+    <div className="panel pad">
+      <div className="ph"><div><h2>Ranking & follow-ups</h2><div className="sub">Powers "Today's Best 10" and follow-up reminders.</div></div></div>
+      <label className="fld">Target companies (comma-separated)</label>
+      <input className="inp" defaultValue={db.settings.targetCompanies.join(', ')}
+        onBlur={e=>patch('settings', s=>({...s, targetCompanies: e.target.value.split(',').map(x=>x.trim()).filter(Boolean)}))}
+        placeholder="McKinsey, Bain, Amazon"/>
+      <div style={{height:10}}/><label className="fld">Follow-up reminder after (days)</label>
+      <input className="inp" type="number" min={1} max={60} style={{width:120}} value={db.settings.followUpDays}
+        onChange={e=>patch('settings', s=>({...s, followUpDays: parseInt(e.target.value,10)||7}))}/>
+    </div>
+
+    <div className="panel pad">
+      <div className="ph"><div><h2>Community insights</h2><div className="sub">Opt-in, anonymous, aggregated.</div></div></div>
+      <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}}>
+        <input type="checkbox" checked={db.settings.communityOptIn} onChange={e=>patch('settings', s=>({...s, communityOptIn: e.target.checked}))}/>
+        <span>Contribute my outreach activity to anonymous cross-cohort insights</span>
+      </label>
+      <div className="note" style={{marginTop:10}}>Only aggregated counts by company are ever shared (e.g. "12 students reached out to McKinsey") — never your name, messages, or individual activity. A company only appears once at least 3 students have contributed, and every number shown is bucketed (1-2 / 3-5 / 6-10 / 10+), never exact, so no single student's outcome can be identified.</div>
     </div>
 
     <div className="panel pad">

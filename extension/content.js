@@ -4,7 +4,11 @@
 // student themselves navigated to:
 //   1. Shortlist visible search-result cards (student checks boxes, clicks one button).
 //   2. Optionally pre-fill a drafted message into a compose box (only on explicit click).
-//   3. Passively OBSERVE the real Send/Connect click (never calls .click() ourselves)
+//   3. Passively read a profile page's About/Experience/Education text to enrich a
+//      contact's briefing — but ONLY if that profile is already on the student's
+//      shortlist; the app discards this for anyone not already added, so nothing
+//      is retained for a profile the student merely browsed past.
+//   4. Passively OBSERVE the real Send/Connect click (never calls .click() ourselves)
 //      and log a confirmed send.
 //
 // LinkedIn's DOM changes without notice and isn't verifiable from this dev
@@ -18,6 +22,10 @@ const SELECTORS = {
   composeBox: 'div.msg-form__contenteditable, div[role="textbox"][contenteditable="true"]',
   sendButton: 'button.msg-form__send-button, button[aria-label*="Send" i]',
   connectButton: 'button[aria-label*="Connect" i], button[aria-label^="Invite"]',
+  profileAbout: '#about ~ .display-flex .inline-show-more-text, section.summary .inline-show-more-text',
+  profileExperience: '#experience ~ .pvs-list__container, section.experience-section',
+  profileEducation: '#education ~ .pvs-list__container, section.education-section',
+  mutualConnections: 'a[href*="facetNetwork"] span, .entity-result__simple-insight-text, .member-insights',
 };
 
 function send(type, extra) {
@@ -122,7 +130,34 @@ function wireComposeFill() {
   box.parentElement && box.parentElement.insertBefore(fillBtn, box);
 }
 
-/* ---------- 3. passive send/connect observer (never triggers a click) ---------- */
+/* ---------- 3. profile-page context capture (foreground, passive read only) ----------
+   Fires on any profile page the student opens. Reads only what's already
+   rendered — no scrolling automation, no expanding hidden sections, no
+   navigation. The web app DISCARDS this for any profile not already on the
+   student's shortlist, so nothing is retained for someone just browsed past. */
+const PROFILE_PAGE_RE = /^\/in\/[^\/]+\/?$/;
+function textOf(selector) {
+  return Array.from(document.querySelectorAll(selector))
+    .map(el => (el.textContent || '').trim()).filter(Boolean).join(' ').replace(/\s+/g, ' ').slice(0, 2000);
+}
+let lastContextUrl = '';
+function captureProfileContext() {
+  if (!PROFILE_PAGE_RE.test(location.pathname)) return;
+  const profileUrl = normProfileUrl(location.href);
+  if (profileUrl === lastContextUrl) return;
+  lastContextUrl = profileUrl;
+  const payload = {
+    profileUrl,
+    aboutText: textOf(SELECTORS.profileAbout),
+    experienceText: textOf(SELECTORS.profileExperience),
+    educationText: textOf(SELECTORS.profileEducation),
+    mutualConnectionsRaw: textOf(SELECTORS.mutualConnections),
+  };
+  if (!payload.aboutText && !payload.experienceText && !payload.educationText) return; // page likely hasn't rendered yet
+  send('pushInbox', { kind: 'profile_context', payload });
+}
+
+/* ---------- 4. passive send/connect observer (never triggers a click) ---------- */
 function wireSendObserver() {
   if (document.documentElement.dataset.mightySendObserver) return;
   document.documentElement.dataset.mightySendObserver = '1';
@@ -140,7 +175,7 @@ function scan() {
   if (location.href === lastUrl) return;
   lastUrl = location.href;
   setTimeout(() => {
-    try { renderCardCheckboxes(); wireComposeFill(); wireSendObserver(); }
+    try { renderCardCheckboxes(); wireComposeFill(); captureProfileContext(); wireSendObserver(); }
     catch (e) { /* selectors likely drifted — see SELECTORS comment above */ }
   }, 1200); // let LinkedIn's SPA render
 }

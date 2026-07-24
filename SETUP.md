@@ -7,7 +7,7 @@ Open `index.html` as a Claude artifact, or host it (GitHub Pages). Works immedia
 
 ## Turn on accounts + the outreach log (Supabase)
 1. Create a free project at [supabase.com](https://supabase.com).
-2. **SQL Editor → New query** → paste all of [`supabase-setup.sql`](supabase-setup.sql) → **Run**. This creates the per-user settings table, the outreach inbox + log tables, row-level security, the weekly-cap trigger, and the `@mit.edu`-only sign-up rule.
+2. **SQL Editor → New query** → paste all of [`supabase-setup.sql`](supabase-setup.sql) → **Run**. This creates the per-user settings table, the outreach inbox/log/events tables, the community-stats table, row-level security, the weekly-cap trigger, and the `@mit.edu`-only sign-up rule.
 3. **Authentication → Providers → Email**: enabled, **Confirm email ON**.
 4. **Authentication → URL Configuration → Site URL**: your GitHub Pages URL.
 5. In MIghTy → **Settings → Account & sync → Supabase backend config**: paste your **Project URL** and **anon public key** (Project Settings → API). These are public/safe — RLS protects the data.
@@ -40,6 +40,23 @@ $$);
 ```
 This mode loops every student who has a Sheet ID configured, using the service role key (never expose that key client-side).
 
+## Turn on anonymous community insights (optional)
+Aggregates opted-in students' outreach by company (counts only — never names or messages) into a `community_stats` table any signed-in student can read. Requires no secrets, just the function deployed and scheduled:
+```
+supabase functions new community-stats   # then replace its index.ts with edge-community-stats.ts
+supabase functions deploy community-stats
+```
+```sql
+-- enable once: extensions pg_cron + pg_net (Database → Extensions)
+select cron.schedule('mighty-community-stats','0 6 * * *', $$
+  select net.http_post(
+    url:='https://<project-ref>.functions.supabase.co/community-stats',
+    headers:=jsonb_build_object('Authorization','Bearer <your-service-role-key>')
+  );
+$$);
+```
+It only writes a company's row once **at least 3 distinct students** have opted in and contributed to it (Settings → Community insights), and the app displays every number bucketed rather than exact — so no aggregate can be traced back to one student.
+
 ## The weekly cap (100 sends/week)
 Enforced in the UI (the "Mark Sent" button disables once you hit 100) and backed by a Postgres trigger as a safety net. The week is Monday 00:00 UTC → the next Monday 00:00 UTC, the same for every student regardless of timezone. A profile that's over cap simply stays "Shortlisted" until the reset — nothing is ever dropped.
 
@@ -50,6 +67,7 @@ See [`extension/INSTALL.md`](extension/INSTALL.md). It's human-in-the-loop by de
 `./deploy.sh` copies `~/mighty.html` → `index.html`, commits, and pushes (add a GitHub remote first).
 
 ## Scope
-- **Stores only what you put in** — templates, shortlisted profiles, messages sent, and status.
+- **Stores only what you put in** — templates, shortlisted profiles, profile context, messages sent, status, and the events you log (coffee chats, referrals, interviews, notes).
 - **No LinkedIn password, ever.** The extension reads pages through your own logged-in browser session and only observes clicks you make — it never simulates one.
 - Sign-up is restricted to `@mit.edu` addresses, same as the rest of MIghTy.
+- Community insights are opt-in and aggregate-only — see above.
