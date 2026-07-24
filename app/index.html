@@ -959,6 +959,46 @@ function CommunityInsights({communityStats}){
   </div>;
 }
 /* ============================ Settings ============================ */
+// Reads the AI Gateway's own ledger (RLS-scoped to the signed-in user) to show
+// how many assists they've used today/this month and the estimated spend. All
+// queries fail soft — if the gateway tables aren't deployed yet, it just shows
+// a hint instead of an error.
+function AiUsagePanel({sb, auth}){
+  const [u,setU]=useState(undefined); // undefined=loading, null=unavailable, obj=data
+  useEffect(()=>{
+    if(!sb || auth.status!=='in'){ setU(null); return; }
+    (async()=>{
+      try{
+        const d=new Date(); const dayStart=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate())).toISOString();
+        const monthStart=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),1)).toISOString();
+        const [cfgR,dayR,monthCntR,monthCostR]=await Promise.all([
+          sb.from('ai_config').select('*').eq('id',1).maybeSingle(),
+          sb.from('ai_call_log').select('id',{count:'exact',head:true}).eq('cache_hit',false).gte('created_at',dayStart),
+          sb.from('ai_call_log').select('id',{count:'exact',head:true}).eq('cache_hit',false).gte('created_at',monthStart),
+          sb.from('ai_call_log').select('est_cost_usd').gte('created_at',monthStart),
+        ]);
+        if(cfgR.error && /relation|does not exist/i.test(cfgR.error.message||'')){ setU(null); return; }
+        const cfg=cfgR.data||{free_daily_assists:30,free_monthly_assists:400,user_monthly_budget_usd:15};
+        const monthCost=(monthCostR.data||[]).reduce((s,r)=>s+Number(r.est_cost_usd||0),0);
+        setU({day:dayR.count||0, month:monthCntR.count||0, cost:monthCost, cfg});
+      }catch(e){ setU(null); }
+    })();
+  },[sb,auth.status]);
+
+  if(u===undefined) return <div className="panel pad"><div className="note">Loading usage…</div></div>;
+  if(u===null) return <div className="panel pad"><div className="note">AI usage will appear here once the AI Gateway is deployed. It tracks your assists per day and month, and estimated cost.</div></div>;
+  const Bar=({label,used,cap})=>{ const pct=Math.min(100,Math.round(100*used/Math.max(1,cap))); return <div style={{marginBottom:12}}>
+    <div style={{display:'flex',justifyContent:'space-between',fontSize:12.5,marginBottom:5}}><span className="note">{label}</span><span style={{fontWeight:600}}>{used} / {cap}</span></div>
+    <div className="scorebar"><i style={{width:pct+'%'}}></i></div></div>; };
+  return <div className="panel pad">
+    <Bar label="Assists today" used={u.day} cap={u.cfg.free_daily_assists}/>
+    <Bar label="Assists this month" used={u.month} cap={u.cfg.free_monthly_assists}/>
+    <div style={{display:'flex',justifyContent:'space-between',fontSize:12.5,paddingTop:6,borderTop:'1px solid var(--line)',marginTop:4}}>
+      <span className="note">Estimated cost this month</span><span style={{fontWeight:700}}>${u.cost.toFixed(2)} <span className="note" style={{fontWeight:400}}>/ ${Number(u.cfg.user_monthly_budget_usd).toFixed(0)} budget</span></span>
+    </div>
+    <div className="note" style={{marginTop:10}}>Repeat requests are served from cache for free. Drafting and briefings use one assist; heavier features use more. Limits keep the shared AI budget sustainable.</div>
+  </div>;
+}
 function Settings({db,patch,auth,sb,signOut,setTab}){
   const [saEmail,setSaEmail]=useState(null); const [saErr,setSaErr]=useState(null); const [saBusy,setSaBusy]=useState(false); const [copied,setCopied]=useState(false);
   const [syncBusy,setSyncBusy]=useState(false); const [syncMsg,setSyncMsg]=useState(null);
@@ -996,12 +1036,19 @@ function Settings({db,patch,auth,sb,signOut,setTab}){
       </div>)}
     </div>
 
+    <div className="tag" style={{margin:'26px 0 10px'}}>AI usage</div>
+    <AiUsagePanel sb={sb} auth={auth}/>
+
     <div className="tag" style={{margin:'26px 0 10px'}}>Ranking &amp; follow-ups</div>
     <div className="panel pad">
       <label className="fld">Target companies (comma-separated)</label>
       <input className="inp" defaultValue={db.settings.targetCompanies.join(', ')}
         onBlur={e=>patch('settings', s=>({...s, targetCompanies: e.target.value.split(',').map(x=>x.trim()).filter(Boolean)}))}
         placeholder="McKinsey, Bain, Amazon"/>
+      <div style={{height:10}}/><label className="fld">Target roles (comma-separated)</label>
+      <input className="inp" defaultValue={(db.settings.targetRoles||[]).join(', ')}
+        onBlur={e=>patch('settings', s=>({...s, targetRoles: e.target.value.split(',').map(x=>x.trim()).filter(Boolean)}))}
+        placeholder="Product Manager, Consultant, Investor"/>
       <div style={{height:10}}/><label className="fld">Follow-up reminder after (days)</label>
       <input className="inp" type="number" min={1} max={60} style={{width:120}} value={db.settings.followUpDays}
         onChange={e=>patch('settings', s=>({...s, followUpDays: parseInt(e.target.value,10)||7}))}/>
