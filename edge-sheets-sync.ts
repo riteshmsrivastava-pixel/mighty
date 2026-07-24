@@ -21,7 +21,7 @@ const SERVICE_ROLE_KEY    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SERVICE_ACCOUNT     = JSON.parse(Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON")!);
 
 const SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
-const HEADER_ROW = ["Profile URL","Name","Title","Company","Status","Message","Shortlisted At","Sent At","Updated At"];
+const HEADER_ROW = ["Profile URL","Name","Title","Company","Status","Priority","Message","Shortlisted At","Contacted At","Updated At"];
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -94,7 +94,7 @@ async function sheetsAppend(token: string, sheetId: string, tabName: string, row
 }
 
 function rowValues(r: any) {
-  return [r.profile_url, r.name||"", r.title||"", r.company||"", r.status, r.message_sent||"", r.shortlisted_at||"", r.sent_at||"", r.updated_at||""];
+  return [r.profile_url, r.name||"", r.title||"", r.company||"", r.status, r.priority||"", r.message_sent||"", r.shortlisted_at||"", r.contacted_at||"", r.updated_at||""];
 }
 
 /* ---------- core sync: one user's outreach_log -> their Sheet ---------- */
@@ -110,14 +110,14 @@ async function syncUserToSheet(rows: any[], sheetId: string, tabName: string) {
   colA.forEach((url, i) => { if (i > 0 && url) existing.set(url, i + 1); }); // row 1 is header
 
   if (colA.length === 0) {
-    await sheetsUpdate(token, sheetId, `${tabName}!A1:I1`, [HEADER_ROW]);
+    await sheetsUpdate(token, sheetId, `${tabName}!A1:J1`, [HEADER_ROW]);
   }
 
   const updates: { range: string, values: unknown[][] }[] = [];
   const appends: unknown[][] = [];
   for (const r of rows) {
     const rowNum = existing.get(r.profile_url);
-    if (rowNum) updates.push({ range: `${tabName}!A${rowNum}:I${rowNum}`, values: [rowValues(r)] });
+    if (rowNum) updates.push({ range: `${tabName}!A${rowNum}:J${rowNum}`, values: [rowValues(r)] });
     else appends.push(rowValues(r));
   }
   if (updates.length) await sheetsBatchUpdate(token, sheetId, updates);

@@ -1,6 +1,11 @@
 // MIghTy — LinkedIn Outreach · popup
 // Status + auth surface only. Shortlisting, templates, and the log all live
 // in the MIghTy web app — this popup doesn't duplicate that UI.
+//
+// Same baked-in Supabase project as index.html (see SETUP.md) — students
+// only ever enter their @mit.edu email + password, never a URL or key.
+const SUPABASE_URL = 'https://hplyyywdftnvjajyncvj.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_e_oCwuz3Qlko5N3Xl8ZwxA_zQijz_u8';
 
 const $ = id => document.getElementById(id);
 
@@ -27,7 +32,7 @@ async function render() {
   if (connected) {
     try {
       const res = await fetch(
-        `${sb.url}/rest/v1/outreach_log?user_id=eq.${encodeURIComponent(sb.userId||'')}&status=eq.sent&sent_at=gte.${new Date(weekStartUTC()).toISOString()}&select=id`,
+        `${sb.url}/rest/v1/outreach_log?status=eq.contacted&contacted_at=gte.${new Date(weekStartUTC()).toISOString()}&select=id`,
         { headers: { apikey: sb.anonKey, Authorization: `Bearer ${sb.accessToken}` } }
       );
       if (res.ok) { const rows = await res.json(); $('weekCount').textContent = `${rows.length}/100`; }
@@ -36,18 +41,18 @@ async function render() {
 }
 
 $('sbSignin').onclick = async () => {
-  const url = $('sbUrl').value.trim().replace(/\/$/, ''), anonKey = $('sbKey').value.trim();
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) { $('sbStatus').textContent = '✕ Extension not configured yet — see SETUP.md.'; return; }
   const email = $('sbEmail').value.trim(), password = $('sbPass').value;
   $('sbStatus').textContent = 'Signing in…';
   try {
-    const r = await fetch(`${url}/auth/v1/token?grant_type=password`, {
-      method: 'POST', headers: { apikey: anonKey, 'content-type': 'application/json' },
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, 'content-type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
     const j = await r.json();
     if (!r.ok || !j.access_token) throw new Error(j.error_description || j.msg || 'sign-in failed');
     const s = await get('settings'); const settings = s.settings || {};
-    settings.sb = { url, anonKey, accessToken: j.access_token, refreshToken: j.refresh_token, email, userId: j.user && j.user.id };
+    settings.sb = { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY, accessToken: j.access_token, refreshToken: j.refresh_token, email, userId: j.user && j.user.id };
     await set({ settings });
     $('sbStatus').textContent = '✓ Connected.';
     $('sbPass').value = '';

@@ -3,119 +3,148 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MIghTy · LinkedIn outreach</title>
+<title>MIghTy · Networking copilot</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --card:#FFFDF9; --card2:#FBF6EC; --line:#E7DECB; --line2:#EAE1CE; --grid:#F0E7D6; --inp:#FCF8F0; --seg:#EDE4D2; --chip:#F4EEE1;
-  --ink:#2A2320; --sub:#73685B; --sub2:#8A7F72; --mute:#9A8E7E; --mute2:#A2978A;
-  --brand:#A31F34; --brand2:#8A1828; --bsoft:#FBE6E2;
-  --green:#5F7A4E; --green2:#4F6B3E; --gsoft:#E7EDDD;
-  --terra:#C8703D; --terra2:#A05A26; --tsoft:#F2E7D4;
-  --blue:#3A6B8A; --bluesoft:#E1EBF1;
-  --fh:'Bricolage Grotesque',system-ui,sans-serif; --fb:'Hanken Grotesk',system-ui,sans-serif; --fm:'Space Mono',monospace;
-  --shadow:0 2px 8px rgba(80,55,30,.06); --shadowL:0 12px 40px rgba(80,55,30,.14);
+  --bg:#FAFAF8; --bg2:#F6F5F1; --card:#FFFFFF; --card2:#FBFAF8; --line:rgba(0,0,0,.07); --line2:rgba(0,0,0,.05); --inp:#FFFFFF; --chip:#F1F0EC;
+  --ink:#1F1E1B; --sub:#57544C; --sub2:#6E6B64; --mute:#8A867C; --mute2:#A8A49B;
+  --brand:#4661D8; --brand2:#3B53C4; --bsoft:#E7EDFB;
+  --green:#3E9C78; --green2:#1F6F54; --gsoft:#E2F1EC;
+  --terra:#C2410C; --terra2:#A34E37; --tsoft:#FBEAE6;
+  --amber:#B08A25; --asoft:#F7EEDF;
+  --fh:'Instrument Sans',-apple-system,'Segoe UI',sans-serif; --fb:'Instrument Sans',-apple-system,'Segoe UI',sans-serif; --fm:ui-monospace,'SF Mono',Menlo,monospace;
+  --shadow:0 1px 2px rgba(0,0,0,.05); --shadowL:0 24px 80px rgba(0,0,0,.16);
+  --radius:12px;
 }
 *{box-sizing:border-box;}
-html,body{margin:0;padding:0;}
-body{font-family:var(--fb);color:var(--ink);-webkit-font-smoothing:antialiased;min-height:100vh;
-  background:radial-gradient(120% 90% at 100% 0%, #F3ECDC 0%, #EBE2D0 55%, #E7DDC9 100%);background-attachment:fixed;}
+html,body{margin:0;padding:0;height:100%;}
+body{font-family:var(--fb);color:var(--ink);-webkit-font-smoothing:antialiased;background:var(--bg);}
 ::selection{background:var(--brand);color:#fff;}
 ::-webkit-scrollbar{width:9px;height:9px;}
-::-webkit-scrollbar-thumb{background:#D8CCB6;border-radius:99px;border:2px solid #EFE7D8;}
-.wrap{max-width:1180px;margin:0 auto;padding:clamp(12px,2.2vw,26px);}
+::-webkit-scrollbar-thumb{background:#DDDAD3;border-radius:99px;}
 h1,h2,h3{font-family:var(--fh);letter-spacing:-.015em;margin:0;}
 .mono{font-family:var(--fm);}
 button{font-family:var(--fb);cursor:pointer;}
 input,textarea,select{font-family:var(--fb);color:var(--ink);}
 textarea{resize:vertical;}
-a{color:var(--brand2);}
+a{color:var(--brand);text-decoration:none;} a:hover{text-decoration:underline;}
 
-.head{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;
-  padding:14px clamp(14px,2vw,22px);margin-bottom:16px;background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);}
-.brandrow{display:flex;align-items:center;gap:13px;}
-.logo{width:50px;height:50px;border-radius:15px;background:linear-gradient(150deg,#B83A30,#8A1828);display:flex;align-items:center;justify-content:center;
-  font-family:var(--fh);font-weight:800;font-size:21px;color:#FFF6EC;box-shadow:0 4px 12px rgba(150,40,32,.32);}
-.brand-name{font-family:var(--fh);font-weight:800;font-size:clamp(20px,2.6vw,26px);line-height:1;}
-.brand-name b{color:var(--brand);}
-.brand-sub{font-size:12px;color:var(--sub);margin-top:4px;}
-.acct{display:flex;align-items:center;gap:10px;}
-.statusdot{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:999px;font-weight:600;font-size:12px;}
-.statusdot i{width:7px;height:7px;border-radius:50%;}
-.st-ok{background:var(--gsoft);color:var(--green2);} .st-ok i{background:var(--green);box-shadow:0 0 0 3px rgba(95,122,78,.18);}
-.st-warn{background:var(--tsoft);color:var(--terra2);} .st-warn i{background:var(--terra);box-shadow:0 0 0 3px rgba(200,112,61,.18);}
-.st-blue{background:var(--bluesoft);color:var(--blue);} .st-blue i{background:var(--blue);box-shadow:0 0 0 3px rgba(58,107,138,.18);}
+.app{display:flex;height:100vh;overflow:hidden;}
+.rail{width:224px;flex:none;display:flex;flex-direction:column;border-right:1px solid var(--line);background:var(--bg2);padding:16px 10px 12px;}
+.rail-brand{display:flex;align-items:center;gap:8px;padding:4px 10px 18px;}
+.rail-logo{width:24px;height:24px;border-radius:7px;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:700;font-size:12px;}
+.rail-name{font-weight:700;font-size:15px;letter-spacing:-.01em;}
+.rail-nav{display:flex;flex-direction:column;gap:2px;}
+.rail-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;cursor:pointer;color:var(--sub);font-weight:500;font-size:13.5px;}
+.rail-item:hover{background:#EFEDE8;}
+.rail-item.on{background:var(--card);color:var(--ink);font-weight:600;box-shadow:var(--shadow);}
+.rail-sp{flex:1;}
+.rail-acct{display:flex;align-items:center;gap:9px;padding:12px 10px 4px;margin-top:8px;border-top:1px solid var(--line);}
+.rail-avatar{width:28px;height:28px;border-radius:99px;background:var(--bsoft);color:var(--brand2);display:grid;place-items:center;font-weight:600;font-size:11px;flex:none;}
 
-.nav{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;}
-.nav button{padding:9px 14px;border-radius:12px;border:1px solid transparent;background:transparent;color:var(--sub);font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:7px;}
-.nav button:hover{background:var(--chip);color:var(--ink);}
-.nav button.on{background:var(--card);color:var(--brand);border-color:var(--line);box-shadow:var(--shadow);}
-.nav .em{font-size:15px;}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;}
+.topbar{height:56px;flex:none;display:flex;align-items:center;gap:12px;padding:0 26px;border-bottom:1px solid var(--line);}
+.topbar h2{font-size:15px;font-weight:600;}
+.content{flex:1;overflow-y:auto;position:relative;}
+.page{max-width:1100px;margin:0 auto;padding:28px 30px 60px;}
+.page.wide{max-width:1280px;}
 
-.panel{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);}
-.pad{padding:clamp(16px,2vw,24px);}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);}
+.pad{padding:20px 22px;}
 .ph{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
-.ph h2{font-size:19px;} .ph .sub{font-size:12.5px;color:var(--sub);margin-top:3px;}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.ph h2{font-size:17px;} .ph .sub{font-size:12.5px;color:var(--sub);margin-top:3px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
-@media(max-width:820px){.grid2,.grid3{grid-template-columns:1fr;}}
+@media(max-width:900px){.grid2,.grid3{grid-template-columns:1fr;}}
 
 label.fld{display:block;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--mute);margin:0 0 6px;}
-.inp,textarea.inp,select.inp{width:100%;padding:11px 13px;border-radius:12px;border:1px solid var(--line);background:var(--inp);font-size:14px;outline:none;}
+.inp,textarea.inp,select.inp{width:100%;padding:9px 13px;border-radius:9px;border:1px solid rgba(0,0,0,.12);background:var(--inp);font-size:13.5px;outline:none;}
 .inp:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--bsoft);}
-textarea.inp{line-height:1.5;}
-.btn{display:inline-flex;align-items:center;gap:8px;justify-content:center;padding:11px 17px;border-radius:13px;border:1px solid var(--brand2);background:linear-gradient(150deg,#B83A30,#8A1828);color:#FFF6EC;font-weight:700;font-size:13.5px;box-shadow:0 3px 10px rgba(150,40,32,.22);}
-.btn:hover{filter:brightness(1.05);} .btn:disabled{opacity:.5;cursor:not-allowed;filter:none;}
-.btn.ghost{background:var(--card);color:var(--ink);border-color:var(--line);box-shadow:var(--shadow);}
-.btn.ghost:hover{background:#F8F2E6;}
-.btn.sm{padding:7px 12px;font-size:12.5px;border-radius:10px;}
-.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:var(--chip);font-size:12px;font-weight:600;color:var(--sub);border:1px solid var(--line2);}
-.chip.pick{cursor:pointer;} .chip.pick.on{background:var(--bsoft);color:var(--brand2);border-color:#F0CFC9;}
-.tag{font-family:var(--fm);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute2);}
-.badge{font-family:var(--fm);font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;padding:3px 7px;border-radius:7px;background:var(--chip);color:var(--sub2);border:1px solid var(--line2);}
-.badge.login{background:var(--bluesoft);color:var(--blue);border-color:#C9DCE7;}
+.btn{display:inline-flex;align-items:center;gap:7px;justify-content:center;padding:9px 15px;border-radius:8px;border:none;background:var(--brand);color:#fff;font-weight:600;font-size:13px;}
+.btn:hover{filter:brightness(1.06);} .btn:disabled{opacity:.5;cursor:not-allowed;filter:none;}
+.btn.ghost{background:var(--card);color:var(--ink);border:1px solid rgba(0,0,0,.13);}
+.btn.ghost:hover{background:var(--bg2);}
+.btn.sm{padding:6px 11px;font-size:12.5px;border-radius:7px;}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;background:var(--chip);font-size:11.5px;font-weight:600;color:var(--sub);}
+.pill{font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:99px;white-space:nowrap;}
+.dot{width:7px;height:7px;border-radius:99px;flex:none;display:inline-block;}
+.tag{font-family:var(--fm);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);}
 
-.kpi{background:var(--card2);border:1px solid var(--line2);border-radius:16px;padding:15px 16px;}
-.kpi .k{font-family:var(--fm);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute2);margin-bottom:7px;}
-.kpi .v{font-family:var(--fh);font-weight:800;font-size:30px;line-height:1;}
-.kpi .v small{font-size:13px;color:var(--mute2);font-weight:600;font-family:var(--fb);}
-.kpi .d{font-size:12px;color:var(--sub);margin-top:6px;}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:15px 16px;box-shadow:var(--shadow);}
+.kpi .k{font-size:11.5px;color:var(--sub);font-weight:500;margin-bottom:5px;}
+.kpi .v{font-family:var(--fh);font-weight:700;font-size:24px;line-height:1;}
+.kpi .v small{font-size:12.5px;color:var(--mute);font-weight:500;font-family:var(--fb);}
+.kpi .d{font-size:11.5px;color:var(--mute);margin-top:6px;}
 
 .empty{text-align:center;padding:34px 18px;color:var(--mute);}
-.empty .big{font-size:30px;margin-bottom:8px;}
+.empty .big{font-size:28px;margin-bottom:8px;}
 
 .typing{display:inline-flex;gap:4px;align-items:center;}
 .typing i{width:6px;height:6px;border-radius:50%;background:var(--mute);animation:bl 1.2s infinite;}
 .typing i:nth-child(2){animation-delay:.2s;} .typing i:nth-child(3){animation-delay:.4s;}
 @keyframes bl{0%,60%,100%{opacity:.25;}30%{opacity:1;}}
 
-.scorebar{height:8px;border-radius:99px;background:var(--seg);overflow:hidden;margin:8px 0;}
-.scorebar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#C8703D,#5F7A4E);}
+.scorebar{height:8px;border-radius:99px;background:var(--chip);overflow:hidden;}
+.scorebar i{display:block;height:100%;border-radius:99px;background:var(--brand);}
 
-.list{display:flex;flex-direction:column;gap:9px;}
-.row{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line2);border-radius:14px;background:var(--card2);}
+.list{display:flex;flex-direction:column;gap:8px;}
+.row{display:flex;align-items:center;gap:12px;padding:11px 13px;border:1px solid var(--line);border-radius:10px;background:var(--card2);}
 .row .grow{flex:1;min-width:0;}
-.row .t{font-weight:700;font-size:14px;}
+.row .t{font-weight:600;font-size:13.5px;}
 .row .m{font-size:12px;color:var(--sub);margin-top:2px;}
-.iconbtn{border:1px solid var(--line);background:var(--card);border-radius:9px;padding:6px 9px;font-size:12px;color:var(--sub);}
-.iconbtn:hover{background:#F8F2E6;color:var(--ink);}
+.iconbtn{border:1px solid rgba(0,0,0,.1);background:var(--card);border-radius:8px;padding:6px 9px;font-size:11.5px;color:var(--sub);}
+.iconbtn:hover{background:var(--bg2);color:var(--ink);}
 .iconbtn:disabled{opacity:.4;cursor:not-allowed;}
-.divider{height:1px;background:var(--line2);margin:16px 0;}
+.divider{height:1px;background:var(--line);margin:16px 0;}
 .note{font-size:12px;color:var(--sub);line-height:1.5;}
-.warnbox{background:var(--tsoft);border:1px solid #E7C9A8;border-radius:13px;padding:12px 14px;font-size:12.5px;color:var(--terra2);line-height:1.5;}
-.okbox{background:var(--gsoft);border:1px solid #C9D8B6;border-radius:13px;padding:12px 14px;font-size:12.5px;color:var(--green2);line-height:1.5;}
-.bluebox{background:var(--bluesoft);border:1px solid #C9DCE7;border-radius:13px;padding:12px 14px;font-size:12.5px;color:var(--blue);line-height:1.5;}
-.foot{text-align:center;font-size:11.5px;color:var(--mute2);margin:22px 0 8px;line-height:1.6;}
-.seg{display:inline-flex;background:var(--seg);border-radius:11px;padding:3px;gap:3px;flex-wrap:wrap;}
-.seg button{border:none;background:transparent;padding:7px 13px;border-radius:9px;font-weight:600;font-size:12.5px;color:var(--sub);}
+.warnbox{background:var(--tsoft);border:1px solid rgba(163,78,55,.2);border-radius:10px;padding:11px 13px;font-size:12.5px;color:var(--terra2);line-height:1.5;}
+.okbox{background:var(--gsoft);border:1px solid rgba(31,111,84,.2);border-radius:10px;padding:11px 13px;font-size:12.5px;color:var(--green2);line-height:1.5;}
+.bluebox{background:var(--bsoft);border:1px solid rgba(70,97,216,.18);border-radius:10px;padding:11px 13px;font-size:12.5px;color:var(--brand2);line-height:1.5;}
+.foot{text-align:center;font-size:11px;color:var(--mute2);margin:22px 0 4px;line-height:1.6;}
+.seg{display:inline-flex;background:var(--chip);border-radius:9px;padding:3px;gap:2px;flex-wrap:wrap;}
+.seg button{border:none;background:transparent;padding:6px 12px;border-radius:7px;font-weight:600;font-size:12px;color:var(--sub);}
 .seg button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow);}
 
-.overlay{position:fixed;inset:0;background:rgba(60,45,25,.34);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:50;padding:18px;}
-.modal{background:var(--card);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadowL);width:100%;max-width:430px;padding:24px;}
-.linkurl{font-size:11.5px;color:var(--blue);word-break:break-all;text-decoration:none;}
-.linkurl:hover{text-decoration:underline;}
+.avatar{border-radius:99px;display:grid;place-items:center;font-weight:600;flex:none;}
+.linkurl{font-size:11.5px;color:var(--brand);word-break:break-all;text-decoration:none;}
+
+/* People table */
+.ptable{width:100%;border-collapse:collapse;font-size:13px;}
+.ptable th{text-align:left;font-size:10.5px;font-weight:600;color:var(--mute);text-transform:uppercase;letter-spacing:.05em;padding:9px 10px;border-bottom:1px solid var(--line);background:var(--card2);}
+.ptable td{padding:10px;border-top:1px solid var(--line2);vertical-align:middle;}
+.ptable tr.body-row{cursor:pointer;}
+.ptable tr.body-row:hover td{background:var(--bg2);}
+
+/* Pipeline */
+.pipeline-wrap{flex:1;display:flex;gap:11px;overflow-x:auto;padding-bottom:8px;min-height:0;}
+.pcol{width:230px;flex:none;background:var(--bg2);border-radius:11px;padding:9px;display:flex;flex-direction:column;gap:8px;max-height:100%;}
+.pcol-head{display:flex;align-items:center;gap:7px;padding:2px 4px;}
+.pcol-cards{display:flex;flex-direction:column;gap:7px;overflow-y:auto;min-height:50px;}
+.pcard{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:11px;cursor:grab;box-shadow:var(--shadow);}
+.pcard:hover{border-color:rgba(0,0,0,.16);}
+.pcard.drag-over{outline:2px dashed var(--brand);}
+.pdrop{border:1.5px dashed rgba(0,0,0,.14);border-radius:9px;padding:14px 8px;text-align:center;color:var(--mute2);font-size:11.5px;}
+
+/* Drawer */
+.overlay{position:fixed;inset:0;background:rgba(20,18,15,.32);z-index:40;}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:520px;max-width:92vw;background:var(--card);z-index:41;box-shadow:var(--shadowL);display:flex;flex-direction:column;}
+.drawer-tabs{display:flex;border-bottom:1px solid var(--line);margin-top:16px;}
+.drawer-tab{padding:9px 2px;margin-right:22px;font-weight:600;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;color:var(--mute);}
+.drawer-tab.on{color:var(--ink);border-color:var(--brand);}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(20,18,15,.4);z-index:50;display:grid;place-items:center;padding:24px;}
+.modal{width:640px;max-width:100%;background:var(--card);border-radius:14px;box-shadow:var(--shadowL);display:flex;flex-direction:column;overflow:hidden;}
+
+/* Extension preview */
+.browser-frame{border-radius:10px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.3);background:#2b2d30;}
+.browser-bar{height:38px;display:flex;align-items:center;gap:7px;padding:0 12px;background:#2b2d30;}
+.browser-dot{width:11px;height:11px;border-radius:50%;}
+.browser-url{flex:1;height:24px;border-radius:12px;background:#3c3e42;margin-left:10px;display:flex;align-items:center;padding:0 12px;color:#c9c9c9;font-size:11.5px;font-family:var(--fm);}
+.browser-body{background:#F4F2EF;min-height:420px;}
 </style>
 </head>
 <body>
@@ -132,9 +161,15 @@ textarea.inp{line-height:1.5;}
 <script type="text/babel" data-presets="react-classic">
 const {useState,useEffect,useRef,useMemo} = React;
 
+/* ============================ deployer config ============================
+   Filled in ONCE by whoever deploys MIghTy (see SETUP.md) — students never
+   see or touch this. Anon keys are safe to ship in client code; row-level
+   security is what actually protects the data. */
+const SUPABASE_URL = 'https://hplyyywdftnvjajyncvj.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_e_oCwuz3Qlko5N3Xl8ZwxA_zQijz_u8';
+
 /* ============================ persistence ============================ */
-const DB_KEY  = 'mighty_v1';    // synced app data (cloud + local cache) — templates + settings only
-const CFG_KEY = 'mighty_cfg';   // device-local config — NEVER synced (keys live here)
+const DB_KEY = 'mighty_v2'; // synced app data — templates + settings only
 const DEFAULT = {
   templates: [
     { id:'starter', name:'Intro — Sloan Fellow', body:"Hi {{firstName}}, I'm an MIT Sloan Fellow exploring {{company}} and would love to hear about your path there. Would you be open to a quick chat?" },
@@ -156,13 +191,6 @@ function shape(d){
 }
 function loadDB(){ try{ return shape(JSON.parse(localStorage.getItem(DB_KEY))); }catch(e){ return shape(); } }
 
-const CFG_DEFAULT = { apiKey:'', model:'claude-sonnet-4-6', supabaseUrl:'', supabaseKey:'' };
-function loadCfg(){
-  let c; try{ c = {...CFG_DEFAULT, ...(JSON.parse(localStorage.getItem(CFG_KEY))||{})}; }catch(e){ c={...CFG_DEFAULT}; }
-  return c;
-}
-function saveCfg(c){ localStorage.setItem(CFG_KEY, JSON.stringify(c)); }
-
 const uid = () => Math.random().toString(36).slice(2,10);
 const now = () => Date.now();
 const fmtDate = ts => new Date(ts).toLocaleDateString(undefined,{month:'short',day:'numeric'});
@@ -171,58 +199,54 @@ const rel = ts => { if(!ts) return 'never'; const s=(now()-ts)/1000;
   if(s<86400) return Math.floor(s/3600)+'h ago'; return Math.floor(s/86400)+'d ago'; };
 const MIT_RE = /@([a-z0-9-]+\.)*mit\.edu$/i;
 
-// Week = Monday 00:00 UTC through the next Monday 00:00 UTC, fixed for everyone.
-// Must match the Postgres trigger's date_trunc('week', ...) definition exactly.
 function weekStartUTC(ts = now()){
   const d = new Date(ts);
   const day = d.getUTCDay();
   const diff = day===0 ? -6 : 1-day;
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()+diff);
 }
-function sentThisWeek(log){
+function contactedThisWeek(log){
   const ws = weekStartUTC();
-  return (log||[]).filter(r=>r.status==='sent' && r.sent_at && new Date(r.sent_at).getTime()>=ws).length;
+  return (log||[]).filter(r=>r.contacted_at && new Date(r.contacted_at).getTime()>=ws).length;
 }
 function addOffset(ts, amount, unit){
   const ms = unit==='weeks' ? 7*864e5 : unit==='months' ? 30*864e5 : 864e5;
   return new Date(ts + (amount||0)*ms).toISOString();
 }
-// Honest, transparent relationship strength — recency decay + interaction count +
-// reciprocity, all from data that already exists. No fabricated probabilities.
-function computeStrength(row, rowEvents){
-  const ts = [row.sent_at, row.shortlisted_at, ...rowEvents.map(e=>e.occurred_at)].filter(Boolean).map(t=>new Date(t).getTime());
-  const lastContact = ts.length ? Math.max(...ts) : null;
-  const daysSince = lastContact!=null ? Math.max(0,(now()-lastContact)/864e5) : null;
-  const recency = lastContact!=null ? Math.pow(0.5, daysSince/45) : 0; // 45-day half-life
-  const interactionScore = Math.min(rowEvents.length,6)/6; // diminishing returns past 6 touches
-  const reciprocated = row.status==='replied' || rowEvents.some(e=>e.event_type==='reply');
-  const score = 50*recency + 30*interactionScore + (reciprocated?20:0);
-  const pips = Math.max(0, Math.min(5, Math.round(score/20)));
-  const reasons = [lastContact!=null?`Last spoke ${Math.round(daysSince)}d ago`:'No contact yet',
-    `${rowEvents.length} interaction${rowEvents.length===1?'':'s'}`, ...(reciprocated?['They replied']:[])];
-  return { score, pips, reasons };
+function bucketCount(n){
+  n = n||0;
+  if(n<=0) return '0'; if(n<=2) return '1-2'; if(n<=5) return '3-5'; if(n<=10) return '6-10'; return '10+';
 }
 function renderTemplate(body, row){
   const firstName = (row.name||'').trim().split(/\s+/)[0] || 'there';
   return (body||'').replaceAll('{{firstName}}', firstName).replaceAll('{{company}}', row.company||'your company');
 }
 
-// Never show a raw count from community_stats — bucket it, even above the
-// k-anonymity floor, so a small aggregate can't be reverse-engineered to one student.
-function bucketCount(n){
-  n = n||0;
-  if(n<=0) return '0';
-  if(n<=2) return '1-2';
-  if(n<=5) return '3-5';
-  if(n<=10) return '6-10';
-  return '10+';
+/* ============================ pipeline model ============================ */
+const PIPELINE_STAGES = ['prospect','ready_to_contact','contacted','replied','coffee_chat','referral','interview','offer'];
+const STAGE_META = {
+  prospect:{label:'Prospects', bg:'#F1F0EC', fg:'#6E6B64', dot:'#B8B4AA'},
+  ready_to_contact:{label:'Ready to Contact', bg:'#EAEEF6', fg:'#4A5878', dot:'#8A9AC0'},
+  contacted:{label:'Contacted', bg:'#E7EDFB', fg:'#3B55B8', dot:'#5F7BD6'},
+  replied:{label:'Replied', bg:'#E2F1EC', fg:'#1F6F54', dot:'#3E9C78'},
+  coffee_chat:{label:'Coffee Chat', bg:'#F7EEDF', fg:'#8A6320', dot:'#C99B3F'},
+  referral:{label:'Referral', bg:'#EFE9F8', fg:'#6A4FB6', dot:'#9B82D6'},
+  interview:{label:'Interview', bg:'#FBEAE6', fg:'#A34E37', dot:'#D08066'},
+  offer:{label:'Offer', bg:'#E4F2E4', fg:'#2E7D32', dot:'#5AA85E'},
+  do_not_contact:{label:'Do Not Contact', bg:'#F1F0EC', fg:'#8A867C', dot:'#C9C6BE'},
+};
+const PRIORITY_META = { high:{label:'High', dot:'#C2410C'}, medium:{label:'Medium', dot:'#B08A25'}, low:{label:'Low', dot:'#A8A49B'} };
+const AVATAR_PALETTE = [['#DCE7F8','#3B55B8'],['#F3E5DC','#8A5A2B'],['#E3EFE3','#3D7A42'],['#EFE3F0','#8A4E96'],['#F8E8E4','#B05C43'],['#E4EFF2','#2F7A8A']];
+function avatarFor(row){
+  const [bg,fg] = AVATAR_PALETTE[(row.id||0)%6];
+  const init = (row.name||row.profile_url||'?').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  return {bg,fg,init};
 }
 
-// Transparent, client-side relevance scoring for "Today's Best 10" — every
-// term is explainable as a human-readable reason, nothing is a black box.
+// Transparent, client-side relevance scoring for ranking who to contact next —
+// every term is explainable, nothing is a fabricated probability.
 function computeScore(row, targetCompanies){
-  const reasons = [];
-  let score = 0;
+  const reasons = []; let score = 0;
   const ctx = row.context || {};
   if(row.company && (targetCompanies||[]).some(c=>c.trim().toLowerCase()===row.company.trim().toLowerCase())){
     score += 40; reasons.push(`Target company: ${row.company}`);
@@ -232,10 +256,8 @@ function computeScore(row, targetCompanies){
     const n = Math.min(parseInt(mutualMatch[1],10)||0, 3);
     if(n>0){ score += 15*(n/3); reasons.push(`${mutualMatch[1]} mutual connection${mutualMatch[1]==='1'?'':'s'}`); }
   }
-  if(/sloan|\bmit\b/i.test(`${ctx.educationText||''} ${ctx.aboutText||''}`)){
-    score += 15; reasons.push('MIT / Sloan connection');
-  }
-  if(row.status==='deferred'){ score += 10; reasons.push('Previously deferred — resurfacing'); }
+  if(/sloan|\bmit\b/i.test(`${ctx.educationText||''} ${ctx.aboutText||''}`)){ score += 15; reasons.push('MIT / Sloan connection'); }
+  if(row.priority==='high'){ score += 10; reasons.push('High priority'); }
   const daysAgo = Math.max(0, (now()-new Date(row.shortlisted_at).getTime())/864e5);
   const recency = Math.max(0, 1-daysAgo/30);
   score += 10*recency;
@@ -244,77 +266,117 @@ function computeScore(row, targetCompanies){
   return { score, reasons: reasons.slice(0,4) };
 }
 
-/* ============================ LLM layer (optional — template polish only) ============================ */
-const inArtifact = () => typeof window!=='undefined' && window.claude && typeof window.claude.complete==='function';
-function llmMode(cfg){ if(inArtifact()) return 'artifact'; if(cfg && cfg.apiKey) return 'api'; return 'none'; }
-async function llm(cfg, system, user, maxTokens=600){
-  const mode = llmMode(cfg);
-  if(mode==='artifact') return await window.claude.complete(`${system}\n\n———\n${user}`);
-  if(mode==='api'){
-    const res = await fetch('https://api.anthropic.com/v1/messages',{ method:'POST',
-      headers:{ 'content-type':'application/json','x-api-key':cfg.apiKey,
-        'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
-      body: JSON.stringify({ model:cfg.model||'claude-sonnet-4-6', max_tokens:maxTokens, system, messages:[{role:'user',content:user}] }) });
-    if(!res.ok){ const t=await res.text(); throw new Error(`API ${res.status}: ${t.slice(0,300)}`); }
-    const data = await res.json(); return (data.content||[]).map(c=>c.text||'').join('');
-  }
-  throw new Error('No Claude connection. Add your Anthropic API key in Settings, or run this as a Claude artifact.');
-}
-async function llmJSON(cfg, system, user, maxTokens=900){
-  const text = await llm(cfg, system+'\n\nRespond with ONLY valid JSON, no prose, no markdown fences.', user, maxTokens);
-  return JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}')+1));
+// Honest relationship strength — recency decay + interaction count + reciprocity.
+function computeStrength(row, rowEvents){
+  const ts = [row.contacted_at, row.shortlisted_at, ...rowEvents.map(e=>e.occurred_at)].filter(Boolean).map(t=>new Date(t).getTime());
+  const lastContact = ts.length ? Math.max(...ts) : null;
+  const daysSince = lastContact!=null ? Math.max(0,(now()-lastContact)/864e5) : null;
+  const recency = lastContact!=null ? Math.pow(0.5, daysSince/45) : 0;
+  const interactionScore = Math.min(rowEvents.length,6)/6;
+  const reciprocated = row.status!=='prospect' && row.status!=='ready_to_contact' && row.status!=='contacted' || rowEvents.some(e=>e.event_type==='reply');
+  const score = 50*recency + 30*interactionScore + (reciprocated?20:0);
+  const pips = Math.max(0, Math.min(5, Math.round(score/20)));
+  const reasons = [lastContact!=null?`Last spoke ${Math.round(daysSince)}d ago`:'No contact yet',
+    `${rowEvents.length} interaction${rowEvents.length===1?'':'s'}`, ...(reciprocated?['They replied']:[])];
+  return { score, pips, reasons };
 }
 
-const OBJECTIVES = [
-  ['coffee_chat','Coffee chat'],['informational_interview','Informational interview'],
-  ['alumni_connection','Alumni connection'],['referral','Referral'],['follow_up','Follow-up'],
-];
+// Single "what's next" label per contact — feeds Dashboard priorities, People's
+// Next-action column, and the Drawer callout. Nothing fabricated: every branch
+// is a plain rule over real status/timing data.
+function suggestedNextAction(row, rowEvents, followUpDays){
+  followUpDays = followUpDays||7;
+  switch(row.status){
+    case 'prospect': case 'ready_to_contact':
+      return { label:'Message for the first time', urgent:false, action:'contact' };
+    case 'contacted': {
+      const replied = rowEvents.some(e=>e.event_type==='reply');
+      if(replied) return { label:'Propose a coffee chat', urgent:false, action:'coffee' };
+      const days = row.contacted_at ? Math.round((now()-new Date(row.contacted_at).getTime())/864e5) : 0;
+      if(days > followUpDays) return { label:`Follow up — no reply in ${days}d`, urgent:true, action:'followup' };
+      return { label:'Waiting for reply', urgent:false, action:null };
+    }
+    case 'replied':
+      return { label:'Propose a coffee chat', urgent:false, action:'coffee' };
+    case 'coffee_chat': {
+      const chats = rowEvents.filter(e=>e.event_type==='coffee_chat').sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at));
+      const last = chats[0];
+      if(last?.suggested_next_touch && new Date(last.suggested_next_touch).getTime()<now())
+        return { label:'Send a thank-you / next touch', urgent:true, action:'thanks' };
+      return { label:'Send a thank-you note', urgent:false, action:'thanks' };
+    }
+    case 'referral': return { label:'Check in on referral status', urgent:false, action:null };
+    case 'interview': return { label:'Prep for interview / check in', urgent:false, action:null };
+    case 'offer': return { label:'Say thank you', urgent:false, action:'thanks' };
+    default: return null;
+  }
+}
+
+/* ============================ AI layer — shared backend proxy ============================
+   Every student's AI calls route through the ai-proxy Edge Function, authenticated
+   by their own Supabase session — no one ever sees or manages an API key.
+   Running as a Claude artifact (window.claude.complete) is the one exception,
+   used for the builder's own testing, not the deployed student experience. */
+const inArtifact = () => typeof window!=='undefined' && window.claude && typeof window.claude.complete==='function';
+function llmMode(sb, auth){ if(inArtifact()) return 'artifact'; if(sb && auth && auth.status==='in') return 'proxy'; return 'none'; }
+async function llm(sb, auth, system, user, maxTokens=700){
+  if(inArtifact()) return await window.claude.complete(`${system}\n\n———\n${user}`);
+  if(!sb || !auth || auth.status!=='in') throw new Error('Sign in to use AI features.');
+  const {data,error} = await sb.functions.invoke('ai-proxy', {body:{system,user,maxTokens}});
+  if(error) throw error;
+  if(!data || data.ok===false) throw new Error((data&&(data.message||data.error))||'AI request failed.');
+  return data.text;
+}
+async function llmJSON(sb, auth, system, user, maxTokens=900){
+  const text = await llm(sb, auth, system+'\n\nRespond with ONLY valid JSON, no prose, no markdown fences.', user, maxTokens);
+  return JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}')+1));
+}
+const OBJECTIVES = [['coffee_chat','Coffee chat'],['follow_up','Follow-up'],['thank_you','Thank you'],['referral_ask','Referral ask'],['recruiter_intro','Recruiter intro']];
+const TONES = ['Friendly','Professional','Warm','Concise'];
 
 /* ============================ atoms ============================ */
 function Dots(){ return <span className="typing"><i></i><i></i><i></i></span>; }
 function Stat({k,v,sub,d}){ return <div className="kpi"><div className="k">{k}</div><div className="v">{v}{sub&&<small> {sub}</small>}</div>{d&&<div className="d">{d}</div>}</div>; }
-function Pips({n}){ return <span style={{letterSpacing:'1px'}}>{[0,1,2,3,4].map(i=><span key={i} style={{color:i<n?'var(--brand)':'var(--line2)'}}>●</span>)}</span>; }
-function MiniBar({v,max}){ const pct=Math.min(100,Math.round(100*v/Math.max(1,max)));
-  return <div className="scorebar" style={{margin:'6px 0 0'}}><i style={{width:`${pct}%`}}></i></div>; }
+function Pips({n}){ return <span style={{letterSpacing:'1px'}}>{[0,1,2,3,4].map(i=><span key={i} style={{color:i<n?'var(--brand)':'var(--chip)'}}>●</span>)}</span>; }
+function MiniBar({v,max}){ const pct=Math.min(100,Math.round(100*v/Math.max(1,max))); return <div className="scorebar" style={{marginTop:6}}><i style={{width:`${pct}%`}}></i></div>; }
+function Avatar({row,size}){ const av=avatarFor(row); size=size||32; return <div className="avatar" style={{width:size,height:size,background:av.bg,color:av.fg,fontSize:size*0.38}}>{av.init}</div>; }
+function StagePill({status}){ const m=STAGE_META[status]||STAGE_META.prospect; return <span className="pill" style={{background:m.bg,color:m.fg}}>{m.label}</span>; }
+function PriorityDot({priority}){ const m=PRIORITY_META[priority]||PRIORITY_META.medium; return <span style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:12.5,color:'var(--sub)'}}><span className="dot" style={{background:m.dot}}></span>{m.label}</span>; }
 
 /* ============================ App shell ============================ */
 function App(){
   const [db,setDb] = useState(loadDB);
-  const [cfg,setCfgState] = useState(loadCfg);
-  const [tab,setTab] = useState('home');
+  const [tab,setTab] = useState('dashboard');
   const [sb,setSb] = useState(null);
   const [auth,setAuth] = useState({status:'loading', user:null});
-  const [localOnly,setLocalOnly] = useState(false);
   const [log,setLog] = useState([]);
   const [events,setEvents] = useState([]);
+  const [tasks,setTasks] = useState([]);
   const [communityStats,setCommunityStats] = useState([]);
+  const [drawerId,setDrawerId] = useState(null);
+  const [drawerTab,setDrawerTab] = useState('briefing');
+  const [draftFor,setDraftFor] = useState(null); // row id, or null
   const lastSync = useRef(null);
   const saveTimer = useRef(null);
 
-  const setCfg = (p) => setCfgState(c=>{ const n={...c,...p}; saveCfg(n); return n; });
   const patch = (slice, val) => setDb(d=>({...d,[slice]: typeof val==='function'? val(d[slice]):{...d[slice],...val}}));
 
-  // build supabase client when creds present
   useEffect(()=>{
-    if(cfg.supabaseUrl && cfg.supabaseKey && window.supabase){
-      try{ setSb(window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseKey)); }
-      catch(e){ setSb(null); setAuth({status:'guest',user:null}); }
-    } else { setSb(null); setAuth({status:'guest',user:null}); }
-  },[cfg.supabaseUrl, cfg.supabaseKey]);
+    if(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase){
+      try{ setSb(window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)); }catch(e){ setSb(null); }
+    }
+  },[]);
 
-  // auth session + listener
   useEffect(()=>{
-    if(!sb){ return; }
+    if(!sb){ setAuth({status:'unconfigured',user:null}); return; }
     let sub;
-    const onUser = (u)=>{ setAuth({status:u?'in':'out', user:u}); if(u) pull(sb,u); else { setLog([]); setEvents([]); } };
+    const onUser = (u)=>{ setAuth({status:u?'in':'out', user:u}); if(u) pull(sb,u); else { setLog([]); setEvents([]); setTasks([]); } };
     sb.auth.getSession().then(({data})=>onUser(data.session?.user||null));
     const r = sb.auth.onAuthStateChange((_e,session)=>onUser(session?.user||null));
     sub = r.data?.subscription;
     return ()=>{ sub&&sub.unsubscribe(); };
   },[sb]);
 
-  // Community insights are public-read (RLS: select using(true)) — fetch whenever
-  // a backend is connected, independent of whether this student has signed in.
   useEffect(()=>{
     if(!sb) { setCommunityStats([]); return; }
     sb.from('community_stats').select('*').order('outreach_count',{ascending:false}).then(({data})=>setCommunityStats(data||[]),()=>{});
@@ -326,28 +388,19 @@ function App(){
       if(data && data.data){ const s=shape(data.data); lastSync.current=JSON.stringify(s); setDb(s); }
       else { const s=loadDB(); lastSync.current=JSON.stringify(s);
         await client.from('user_data').upsert({user_id:u.id, data:s, updated_at:new Date().toISOString()}); }
-    }catch(e){ /* stay on local cache */ }
+    }catch(e){}
     await ingest(client,u);
     await refreshLog(client,u);
     await refreshEvents(client,u);
+    await refreshTasks(client,u);
   }
+  async function refreshLog(client,u){ try{ const {data} = await client.from('outreach_log').select('*').eq('user_id',u.id).order('updated_at',{ascending:false}); setLog(data||[]); }catch(e){} }
+  async function refreshEvents(client,u){ try{ const {data} = await client.from('outreach_events').select('*').eq('user_id',u.id).order('occurred_at',{ascending:true}); setEvents(data||[]); }catch(e){} }
+  async function refreshTasks(client,u){ try{ const {data} = await client.from('tasks').select('*').eq('user_id',u.id).order('created_at',{ascending:false}); setTasks(data||[]); }catch(e){} }
 
-  async function refreshLog(client,u){
-    try{
-      const {data} = await client.from('outreach_log').select('*').eq('user_id',u.id).order('updated_at',{ascending:false});
-      setLog(data||[]);
-    }catch(e){ /* keep whatever we had */ }
-  }
-
-  async function refreshEvents(client,u){
-    try{
-      const {data} = await client.from('outreach_events').select('*').eq('user_id',u.id).order('occurred_at',{ascending:false});
-      setEvents(data||[]);
-    }catch(e){ /* keep whatever we had */ }
-  }
-
-  // Pull whatever the extension pushed (shortlisted profiles / confirmed sends),
-  // merge each into the permanent outreach_log, then clear the consumed inbox rows.
+  // Drain whatever the extension pushed. profile_context is discarded unless a
+  // matching row already exists — the privacy boundary: nothing is retained
+  // for a profile the student didn't deliberately shortlist.
   async function ingest(client, u){
     try{
       const {data,error} = await client.from('outreach_inbox').select('id,kind,payload').eq('user_id',u.id).order('created_at',{ascending:true});
@@ -358,14 +411,15 @@ function App(){
         if(!p.profileUrl){ consumed.push(row.id); continue; }
         try{
           if(row.kind==='sent_confirmation'){
-            await client.from('outreach_log').upsert({
-              user_id:u.id, profile_url:p.profileUrl, status:'sent',
-              sent_at: p.ts ? new Date(p.ts).toISOString() : new Date().toISOString(),
-              updated_at:new Date().toISOString(),
-            }, {onConflict:'user_id,profile_url'});
+            const {data:existing} = await client.from('outreach_log').select('id,status').eq('user_id',u.id).eq('profile_url',p.profileUrl).maybeSingle();
+            const nowIso = new Date().toISOString();
+            if(existing){
+              await client.from('outreach_log').update({status:'contacted', contacted_at:nowIso, updated_at:nowIso}).eq('id',existing.id);
+              await client.from('outreach_events').insert({user_id:u.id, log_id:existing.id, event_type:'stage_change', note:`Moved from ${existing.status} to contacted`, extracted:{from:existing.status,to:'contacted'}});
+            } else {
+              await client.from('outreach_log').upsert({user_id:u.id, profile_url:p.profileUrl, status:'contacted', contacted_at:nowIso, updated_at:nowIso}, {onConflict:'user_id,profile_url'});
+            }
           } else if(row.kind==='profile_context'){
-            // Enrich ONLY a profile the student already shortlisted — if no matching
-            // row exists yet, this is just a page they browsed past; discard it.
             const {data:existing} = await client.from('outreach_log').select('id').eq('user_id',u.id).eq('profile_url',p.profileUrl).maybeSingle();
             if(existing){
               await client.from('outreach_log').update({
@@ -375,13 +429,11 @@ function App(){
             }
           } else {
             await client.from('outreach_log').upsert({
-              user_id:u.id, profile_url:p.profileUrl,
-              name:p.name||null, title:p.title||null, company:p.company||null,
-              updated_at:new Date().toISOString(),
+              user_id:u.id, profile_url:p.profileUrl, name:p.name||null, title:p.title||null, company:p.company||null, updated_at:new Date().toISOString(),
             }, {onConflict:'user_id,profile_url'});
           }
           consumed.push(row.id);
-        }catch(e){ /* likely the weekly-cap trigger — leave unconsumed, profile stays in To Contact */ }
+        }catch(e){ /* likely the weekly-cap trigger — leave unconsumed, retried next ingest */ }
       }
       if(consumed.length) await client.from('outreach_inbox').delete().in('id', consumed);
       return consumed.length;
@@ -391,17 +443,9 @@ function App(){
 
   async function updateRow(row, fields){
     if(!sb || auth.status!=='in') return {ok:false, error:'Not signed in'};
-    try{
-      await sb.from('outreach_log').update({...fields, updated_at:new Date().toISOString()}).eq('id',row.id);
-      await refreshLog(sb, auth.user);
-      return {ok:true};
-    }catch(e){ return {ok:false, error:e.message||String(e)}; }
+    try{ await sb.from('outreach_log').update({...fields, updated_at:new Date().toISOString()}).eq('id',row.id); await refreshLog(sb, auth.user); return {ok:true}; }
+    catch(e){ return {ok:false, error:e.message||String(e)}; }
   }
-
-  // Timeline entry. A 'reply' also flips status (dashboard response-rate counts
-  // off status, not events); coffee_chat/referral/interview/note never touch status.
-  // `extra` carries structured extraction (coffee-chat facts/suggested_next_touch) —
-  // there's no update policy on outreach_events, so it must be set at insert time.
   async function logEvent(row, eventType, note, extra={}){
     if(!sb || auth.status!=='in') return {ok:false, error:'Not signed in'};
     try{
@@ -411,87 +455,99 @@ function App(){
       return {ok:true};
     }catch(e){ return {ok:false, error:e.message||String(e)}; }
   }
+  async function changeStage(row, toStatus){
+    const fields = {status:toStatus};
+    if(toStatus==='contacted' && !row.contacted_at) fields.contacted_at = new Date().toISOString();
+    const r = await updateRow(row, fields);
+    if(r.ok) await logEvent(row, 'stage_change', `Moved from ${row.status} to ${toStatus}`, {extracted:{from:row.status,to:toStatus}});
+    return r;
+  }
+  async function addTask(label, due_date, log_id){
+    if(!sb || auth.status!=='in') return;
+    await sb.from('tasks').insert({user_id:auth.user.id, label, due_date:due_date||null, log_id:log_id||null});
+    await refreshTasks(sb, auth.user);
+  }
+  async function toggleTask(t){
+    if(!sb || auth.status!=='in') return;
+    await sb.from('tasks').update({done:!t.done, completed_at: !t.done? new Date().toISOString(): null}).eq('id',t.id);
+    await refreshTasks(sb, auth.user);
+  }
+  async function deleteTask(t){
+    if(!sb || auth.status!=='in') return;
+    await sb.from('tasks').delete().eq('id',t.id);
+    await refreshTasks(sb, auth.user);
+  }
 
-  // persist locally always; push to cloud when signed in & changed
   useEffect(()=>{
     const s = JSON.stringify(db);
     localStorage.setItem(DB_KEY, s);
     if(auth.status==='in' && sb && s!==lastSync.current){
       lastSync.current = s;
       clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(()=>{
-        sb.from('user_data').upsert({user_id:auth.user.id, data:db, updated_at:new Date().toISOString()})
-          .then(()=>{},()=>{});
-      },1200);
+      saveTimer.current = setTimeout(()=>{ sb.from('user_data').upsert({user_id:auth.user.id, data:db, updated_at:new Date().toISOString()}).then(()=>{},()=>{}); },1200);
     }
   },[db]);
 
-  // re-pull on window focus (cross-device freshness, and picks up anything the extension just pushed)
   useEffect(()=>{
     if(auth.status!=='in'||!sb) return;
     const f=()=>pull(sb,auth.user); window.addEventListener('focus',f); return ()=>window.removeEventListener('focus',f);
   },[auth.status, sb]);
 
-  const mode = llmMode(cfg);
-  const sbReady = !!sb;
-  const TABS = [
-    ['home','🏠','Home'],['shortlist','📋','Shortlist'],['templates','✉️','Templates'],
-    ['log','📊','Log'],['settings','⚙️','Settings'],
-  ];
-
   async function signOut(){ if(sb){ await sb.auth.signOut(); } }
 
-  return <div className="wrap">
-    <div className="head">
-      <div className="brandrow">
-        <div className="logo">Mi</div>
-        <div><div className="brand-name"><b>MI</b>gh<b>T</b>y</div>
-          <div className="brand-sub">LinkedIn outreach · Sloan Fellows</div></div>
+  const RAIL = [
+    ['dashboard','⬜','Dashboard'],['people','◔','People'],['pipeline','▤','Pipeline'],
+    ['tasks','☑','Tasks'],['insights','▲','Insights'],['settings','⚙','Settings'],
+  ];
+  const TITLES = {dashboard:'Dashboard',people:'People',pipeline:'Pipeline',tasks:'Tasks',insights:'Insights',settings:'Settings',templates:'Templates',extpreview:'Extension preview'};
+  const drawerRow = drawerId!=null ? log.find(r=>r.id===drawerId) : null;
+  const draftRow = draftFor!=null ? log.find(r=>r.id===draftFor) : null;
+
+  if(auth.status==='loading') return <div style={{display:'grid',placeItems:'center',height:'100vh'}}><div className="empty"><div className="big">⏳</div>Loading…</div></div>;
+  if(auth.status==='unconfigured') return <div style={{display:'grid',placeItems:'center',height:'100vh',padding:24}}>
+    <div className="panel pad" style={{maxWidth:420,textAlign:'center'}}><h2>MIghTy isn't set up yet</h2>
+      <p className="note" style={{marginTop:10}}>The deployer needs to add a Supabase project URL + anon key to <span className="mono">index.html</span> — see SETUP.md.</p></div></div>;
+  if(auth.status!=='in') return <Gate sb={sb}/>;
+
+  return <div className="app">
+    <div className="rail">
+      <div className="rail-brand"><div className="rail-logo">M</div><div className="rail-name">MIghTy</div></div>
+      <div className="rail-nav">
+        {RAIL.map(([id,em,lb])=><div key={id} className={'rail-item'+(tab===id?' on':'')} onClick={()=>setTab(id)}><span style={{width:15,textAlign:'center'}}>{em}</span>{lb}</div>)}
       </div>
-      <div className="acct">
-        {mode==='none'
-          ? <button className="statusdot st-warn" onClick={()=>setTab('settings')}><i></i>No Claude — optional</button>
-          : <span className="statusdot st-ok"><i></i>{mode==='artifact'?'Artifact':'Claude on'}</span>}
-        {auth.status==='in'
-          ? <><span className="statusdot st-blue"><i></i>{auth.user.email}</span><button className="iconbtn" onClick={signOut}>sign out</button></>
-          : localOnly
-            ? <button className="btn sm" onClick={()=>setLocalOnly(false)}>Sign in</button>
-            : null}
+      <div className="rail-sp"/>
+      <div className={'rail-item'+(tab==='extpreview'?' on':'')} onClick={()=>setTab('extpreview')}><span style={{width:15,textAlign:'center'}}>▭</span>Extension preview</div>
+      <div className="rail-acct">
+        <div className="rail-avatar">{(auth.user.email||'?')[0].toUpperCase()}</div>
+        <div style={{minWidth:0}}><div style={{fontWeight:600,fontSize:12.5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{auth.user.email}</div>
+          <div onClick={signOut} style={{fontSize:11,color:'var(--mute)',cursor:'pointer'}}>sign out</div></div>
       </div>
     </div>
 
-    {auth.status==='loading'
-      ? <div className="panel pad"><div className="empty"><div className="big">⏳</div>Loading…</div></div>
-      : (auth.status!=='in' && !localOnly)
-        ? <Gate sb={sb} cfg={cfg} setCfg={setCfg} onLocal={()=>setLocalOnly(true)}/>
-        : <>
-            <div className="nav">
-              {TABS.map(([id,em,lb])=><button key={id} className={tab===id?'on':''} onClick={()=>setTab(id)}><span className="em">{em}</span>{lb}</button>)}
-            </div>
-            {tab==='home' && <Home db={db} log={log} events={events} communityStats={communityStats} cfg={cfg} setTab={setTab} auth={auth} sbReady={sbReady} onSignIn={()=>setLocalOnly(false)} updateRow={updateRow}/>}
-            {tab==='shortlist' && <Shortlist db={db} log={log} events={events} cfg={cfg} auth={auth} sbReady={sbReady} doIngest={doIngest} updateRow={updateRow} onSignIn={()=>setLocalOnly(false)}/>}
-            {tab==='templates' && <Templates db={db} patch={patch} cfg={cfg}/>}
-            {tab==='log' && <Log db={db} patch={patch} log={log} events={events} cfg={cfg} auth={auth} sb={sb} updateRow={updateRow} logEvent={logEvent}/>}
-            {tab==='settings' && <Settings db={db} patch={patch} cfg={cfg} setCfg={setCfg} auth={auth} sb={sb} signOut={signOut}/>}
-          </>}
-
-    <div className="foot">
-      MIghTy · {auth.status==='in'?'signed in — work syncs across your devices':localOnly?'local mode — templates saved in this browser only':'sign in with your @mit.edu email to begin'}.<br/>
-      Not affiliated with or endorsed by MIT or LinkedIn. You always click Connect/Send yourself — the extension only reads pages you opened and logs sends you made.
+    <div className="main">
+      <div className="topbar"><h2>{TITLES[tab]}</h2></div>
+      <div className="content">
+        {tab==='dashboard' && <Dashboard db={db} log={log} events={events} communityStats={communityStats} sb={sb} auth={auth} setTab={setTab} setDrawerId={setDrawerId} setDraftFor={setDraftFor}/>}
+        {tab==='people' && <People db={db} log={log} events={events} doIngest={doIngest} setDrawerId={setDrawerId}/>}
+        {tab==='pipeline' && <Pipeline log={log} changeStage={changeStage}/>}
+        {tab==='tasks' && <Tasks tasks={tasks} log={log} addTask={addTask} toggleTask={toggleTask} deleteTask={deleteTask} setDrawerId={setDrawerId}/>}
+        {tab==='insights' && <Insights log={log} events={events} communityStats={communityStats}/>}
+        {tab==='settings' && <Settings db={db} patch={patch} auth={auth} sb={sb} signOut={signOut} setTab={setTab}/>}
+        {tab==='templates' && <Templates db={db} patch={patch} sb={sb} auth={auth} setTab={setTab}/>}
+        {tab==='extpreview' && <ExtensionPreview/>}
+      </div>
     </div>
+
+    {drawerRow && <PersonDrawer row={drawerRow} rowEvents={events.filter(e=>e.log_id===drawerRow.id)} db={db} sb={sb} auth={auth}
+      drawerTab={drawerTab} setDrawerTab={setDrawerTab} onClose={()=>setDrawerId(null)}
+      updateRow={updateRow} logEvent={logEvent} changeStage={changeStage} openDraft={()=>setDraftFor(drawerRow.id)}/>}
+    {draftRow && <DraftModal row={draftRow} sb={sb} auth={auth} updateRow={updateRow} changeStage={changeStage} onClose={()=>setDraftFor(null)}/>}
   </div>;
 }
 
 /* ============================ Login gate ============================ */
-function Gate({sb,cfg,setCfg,onLocal}){
-  return <div style={{display:'flex',justifyContent:'center',padding:'10px 0 4px'}}>
-    <div style={{width:'100%',maxWidth:460}}>
-      {sb ? <LoginCard sb={sb} onLocal={onLocal}/> : <SetupCard cfg={cfg} setCfg={setCfg} onLocal={onLocal}/>}
-    </div>
-  </div>;
-}
-function LoginCard({sb,onLocal}){
-  const [mode,setMode]=useState('in');   // in | up | reset
+function Gate({sb}){
+  const [mode,setMode]=useState('in');
   const [email,setEmail]=useState(''); const [pw,setPw]=useState('');
   const [busy,setBusy]=useState(false); const [msg,setMsg]=useState(null); const [err,setErr]=useState(null);
   async function go(){
@@ -505,265 +561,359 @@ function LoginCard({sb,onLocal}){
         setMsg('Account created. Check your @mit.edu inbox for a confirmation link, then sign in.'); setMode('in');
       } else if(mode==='in'){
         const {error}=await sb.auth.signInWithPassword({email:email.trim(),password:pw});
-        if(error) throw error; /* auth listener flips the gate */
+        if(error) throw error;
       } else {
         const {error}=await sb.auth.resetPasswordForEmail(email.trim(),{redirectTo:location.href});
         if(error) throw error; setMsg('Password reset link sent to your inbox.');
       }
     }catch(e){ setErr(e.message||String(e)); } finally{ setBusy(false); }
   }
-  return <div className="modal">
-    <div className="ph"><h2>{mode==='up'?'Create account':mode==='reset'?'Reset password':'Sign in to MIghTy'}</h2></div>
-    <div className="bluebox" style={{marginBottom:14}}>Only <b>@mit.edu</b> email addresses can register. Your outreach log syncs privately to your account — isolated per user, and is what the weekly cap and Google Sheet sync are computed from.</div>
-    <label className="fld">MIT email</label>
-    <input className="inp" value={email} onChange={e=>setEmail(e.target.value)} placeholder="kerberos@mit.edu" autoFocus/>
-    {mode!=='reset' && <><div style={{height:10}}/><label className="fld">Password</label>
-      <input className="inp" type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')go();}} placeholder="••••••••"/></>}
-    <div style={{marginTop:16}}><button className="btn" style={{width:'100%'}} onClick={go} disabled={busy}>
-      {busy?<Dots/>:mode==='up'?'Create account':mode==='reset'?'Send reset link':'Sign in'}</button></div>
-    {msg && <div className="okbox" style={{marginTop:12}}>{msg}</div>}
-    {err && <div className="warnbox" style={{marginTop:12}}>{err}</div>}
-    <div className="divider"/>
-    <div style={{display:'flex',justifyContent:'space-between',fontSize:12.5}}>
-      {mode==='in' ? <>
-        <a style={{cursor:'pointer'}} onClick={()=>setMode('up')}>Create account</a>
-        <a style={{cursor:'pointer'}} onClick={()=>setMode('reset')}>Forgot password?</a></>
-        : <a style={{cursor:'pointer'}} onClick={()=>setMode('in')}>← Back to sign in</a>}
+  return <div style={{display:'grid',placeItems:'center',height:'100vh',background:'var(--bg)',padding:24}}>
+    <div className="panel pad" style={{width:400,maxWidth:'100%'}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16}}>
+        <div className="rail-logo">M</div><div style={{fontWeight:700,fontSize:17}}>MIghTy</div>
+      </div>
+      <h2 style={{fontSize:18,marginBottom:4}}>{mode==='up'?'Create account':mode==='reset'?'Reset password':'Sign in'}</h2>
+      <div className="note" style={{marginBottom:14}}>Your MIT Sloan Fellows networking copilot. Sign in with your <span className="mono">@mit.edu</span> email.</div>
+      <label className="fld">MIT email</label>
+      <input className="inp" value={email} onChange={e=>setEmail(e.target.value)} placeholder="kerberos@mit.edu" autoFocus/>
+      {mode!=='reset' && <><div style={{height:10}}/><label className="fld">Password</label>
+        <input className="inp" type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')go();}} placeholder="••••••••"/></>}
+      <div style={{marginTop:16}}><button className="btn" style={{width:'100%'}} onClick={go} disabled={busy}>
+        {busy?<Dots/>:mode==='up'?'Create account':mode==='reset'?'Send reset link':'Sign in'}</button></div>
+      {msg && <div className="okbox" style={{marginTop:12}}>{msg}</div>}
+      {err && <div className="warnbox" style={{marginTop:12}}>{err}</div>}
+      <div className="divider"/>
+      <div style={{display:'flex',justifyContent:'space-between',fontSize:12.5}}>
+        {mode==='in' ? <><a style={{cursor:'pointer'}} onClick={()=>setMode('up')}>Create account</a><a style={{cursor:'pointer'}} onClick={()=>setMode('reset')}>Forgot password?</a></>
+          : <a style={{cursor:'pointer'}} onClick={()=>setMode('in')}>← Back to sign in</a>}
+      </div>
     </div>
-    {onLocal && <div style={{textAlign:'center',marginTop:14}}>
-      <a style={{cursor:'pointer',fontSize:12,color:'var(--mute)'}} onClick={onLocal}>Use without an account (local only) →</a></div>}
   </div>;
 }
-function SetupCard({cfg,setCfg,onLocal}){
-  const [show,setShow]=useState(false);
-  return <div className="modal">
-    <div className="ph"><h2>Set up MIghTy</h2></div>
-    <div className="bluebox" style={{marginBottom:14}}>Connect a Supabase project to turn on <b>@mit.edu</b> sign-in, the outreach log, and the weekly cap. One-time, by whoever runs the app — steps in <span className="mono">SETUP.md</span>.</div>
-    <label className="fld">Supabase project URL</label>
-    <input className="inp" value={cfg.supabaseUrl} onChange={e=>setCfg({supabaseUrl:e.target.value})} placeholder="https://xxxx.supabase.co"/>
-    <div style={{height:10}}/><label className="fld">Anon public key</label>
-    <div style={{display:'flex',gap:8}}>
-      <input className="inp" type={show?'text':'password'} value={cfg.supabaseKey} onChange={e=>setCfg({supabaseKey:e.target.value})} placeholder="eyJhbGci…"/>
-      <button className="btn ghost sm" onClick={()=>setShow(v=>!v)}>{show?'hide':'show'}</button></div>
-    <div className="note" style={{marginTop:10}}>Public keys — safe in the browser; row-level security protects the data. As soon as these are valid, the sign-in screen appears.</div>
-    <div className="divider"/>
-    <a style={{cursor:'pointer',fontSize:12.5}} onClick={onLocal}>Continue without an account (local only, this browser) →</a>
-  </div>;
-}
-
-/* ============================ Home ============================ */
-function Home({db,log,events,communityStats,cfg,setTab,auth,sbReady,onSignIn,updateRow}){
-  const signedIn = auth.status==='in';
-  const sentCount = sentThisWeek(log);
-  const nextReset = new Date(weekStartUTC()+7*864e5);
-
-  const everSent = log.filter(r=>r.status==='sent'||r.status==='replied').length;
-  const replied = log.filter(r=>r.status==='replied').length;
-  const responseRate = everSent ? Math.round(100*replied/everSent) : 0;
-  const coffeeChatsTotal = events.filter(e=>e.event_type==='coffee_chat').length;
-  const referrals = events.filter(e=>e.event_type==='referral').length;
-  const interviews = events.filter(e=>e.event_type==='interview').length;
-  const coffeeChatsThisWeek = events.filter(e=>e.event_type==='coffee_chat' && new Date(e.occurred_at).getTime()>=weekStartUTC()).length;
-
+/* ============================ Dashboard ============================ */
+function Dashboard({db,log,events,communityStats,sb,auth,setTab,setDrawerId,setDraftFor}){
+  const candidates = log.filter(r=>r.status==='prospect'||r.status==='ready_to_contact');
+  const scored = candidates.map(r=>({row:r, kind:'contact', label:'Message for the first time', ...computeScore(r, db.settings.targetCompanies)}));
   const followUpDays = db.settings.followUpDays||7;
-  const repliedLogIds = new Set(events.filter(e=>e.event_type==='reply').map(e=>e.log_id));
-  const needsFollowUp = log.filter(r=>r.status==='sent' && !repliedLogIds.has(r.id) && r.sent_at && (now()-new Date(r.sent_at).getTime())>followUpDays*864e5);
+  const repliedIds = new Set(events.filter(e=>e.event_type==='reply').map(e=>e.log_id));
+  const overdue = log.filter(r=>r.status==='contacted' && !repliedIds.has(r.id) && r.contacted_at && (now()-new Date(r.contacted_at).getTime())>followUpDays*864e5)
+    .map(r=>{ const days=Math.round((now()-new Date(r.contacted_at).getTime())/864e5);
+      return {row:r, kind:'followup', label:`Follow up — no reply in ${days}d`, score:Math.min(100,50+(days-followUpDays)*3), reasons:[`Sent ${days}d ago`]}; });
+  const priorities = [...scored, ...overdue].sort((a,b)=>b.score-a.score).slice(0,3);
 
-  // One ranked "what to do next" queue — either a fresh contact worth reaching
-  // out to, or an existing one overdue for a follow-up. Same transparent
-  // reasoning idiom either way, no fabricated stats.
-  const toContact = log.filter(r=>r.status==='to_contact'||r.status==='deferred')
-    .map(r=>({row:r, action:'contact', label:'Message for the first time', ...computeScore(r, db.settings.targetCompanies)}));
-  const overdue = needsFollowUp.map(r=>{
-    const daysOver = Math.round((now()-new Date(r.sent_at).getTime())/864e5);
-    return { row:r, action:'followup', label:`Follow up — no reply in ${daysOver}d`,
-      score: Math.min(100, 50+(daysOver-followUpDays)*3), reasons:[`Sent ${daysOver}d ago`] };
-  });
-  const queue = [...toContact, ...overdue].sort((a,b)=>b.score-a.score).slice(0,10);
+  const buckets = ['prospect','ready_to_contact','contacted','replied','coffee_chat','referral','interview','offer'];
+  const reach = st => log.filter(r=>{
+    if(r.status==='do_not_contact') return false;
+    const i=buckets.indexOf(r.status), j=buckets.indexOf(st);
+    return i>=j;
+  }).length;
+  const funnel = [
+    ['Saved', log.filter(r=>r.status!=='do_not_contact').length],
+    ['Contacted', reach('contacted')],['Replied', reach('replied')],['Coffee chats', reach('coffee_chat')],
+    ['Referrals', reach('referral')],['Interviews', reach('interview')],['Offers', reach('offer')],
+  ];
+  const maxFunnel = Math.max(1, funnel[0][1]);
 
-  return <div style={{display:'flex',flexDirection:'column',gap:16}}>
-    {sbReady && !signedIn && <div className="panel pad" style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-      <div><b>You're in guest mode.</b> <span className="note">Sign in with your @mit.edu email to see your ranked contacts and start tracking.</span></div>
-      <button className="btn sm" onClick={onSignIn}>Sign in</button></div>}
+  const weekContacted = contactedThisWeek(log);
+  const weekReplies = events.filter(e=>e.event_type==='reply' && new Date(e.occurred_at).getTime()>=weekStartUTC()).length;
+  const weekChats = events.filter(e=>e.event_type==='coffee_chat' && new Date(e.occurred_at).getTime()>=weekStartUTC()).length;
+  const weekRate = weekContacted ? Math.round(100*weekReplies/weekContacted) : 0;
 
-    {signedIn && <div className="grid3">
-      <div className="kpi"><div className="k">Contacted this week</div><div className="v">{sentCount}<small> / 100</small></div><MiniBar v={sentCount} max={100}/></div>
-      <div className="kpi"><div className="k">Coffee chats this week</div><div className="v">{coffeeChatsThisWeek}</div><MiniBar v={coffeeChatsThisWeek} max={5}/></div>
-      <div className="kpi"><div className="k">Follow-ups overdue</div><div className="v" style={{color:needsFollowUp.length>0?'var(--terra)':'inherit'}}>{needsFollowUp.length}</div><MiniBar v={needsFollowUp.length} max={5}/></div>
-    </div>}
+  const hour = new Date().getHours(), tod = hour<12?'morning':hour<18?'afternoon':'evening';
+  const first = (auth.user.email||'').split('@')[0];
 
-    <div className="panel pad">
-      <div className="ph"><div><h2>🎯 What to do next</h2><div className="sub">Ranked — new people worth reaching out to, or overdue follow-ups, whichever matters more right now.</div></div>
-        <button className="btn ghost sm" onClick={()=>setTab('shortlist')}>Open Shortlist →</button></div>
-      {!signedIn
-        ? <div className="empty"><div className="big">🎯</div>Sign in to see your ranked queue.</div>
-        : queue.length===0
-          ? <div className="empty"><div className="big">🎯</div>Nothing to act on yet. Shortlist some profiles with the extension, then come back.</div>
-          : <div className="list">{queue.map((item,i)=><AdvisorRow key={item.row.id+item.action} item={item} rank={i+1} cfg={cfg} updateRow={updateRow} setTab={setTab}/>)}</div>}
-      <div className="note" style={{marginTop:10}}>Add target companies in Settings to sharpen this ranking.</div>
-    </div>
+  return <div className="page">
+    <div style={{fontSize:24,fontWeight:700,letterSpacing:'-.02em'}}>Good {tod}{first?`, ${first}`:''}</div>
+    <div className="note" style={{marginTop:4,fontSize:13.5}}>{priorities.length ? `${priorities.length} thing${priorities.length!==1?'s':''} worth doing today.` : 'Nothing urgent — check People to shortlist more contacts.'}</div>
 
-    <div className="grid3">
-      <Stat k="Sent this week" v={sentCount} sub="/ 100" d={`resets ${fmtDate(nextReset.getTime())} 00:00 UTC`}/>
-      <Stat k="Response rate" v={`${responseRate}%`} d={`${replied} of ${everSent} replied`}/>
-      <Stat k="Coffee chats" v={coffeeChatsTotal} d={`${referrals} referrals · ${interviews} interviews`}/>
-    </div>
+    <div className="tag" style={{margin:'28px 0 10px'}}>Today's priorities</div>
+    {priorities.length===0
+      ? <div className="panel pad"><div className="empty" style={{padding:'20px'}}><div className="big">✓</div>All caught up.</div></div>
+      : <div className="grid3">{priorities.map((p,i)=><div key={p.row.id+p.kind} className="panel pad" style={{display:'flex',flexDirection:'column',gap:7}}>
+          <span className="chip" style={{alignSelf:'flex-start',background:p.kind==='followup'?'var(--tsoft)':'var(--bsoft)',color:p.kind==='followup'?'var(--terra2)':'var(--brand2)'}}>{p.kind==='followup'?'Follow-up due':'New contact'}</span>
+          <div style={{fontWeight:600,fontSize:14.5}}>{p.row.name||p.row.profile_url}</div>
+          <div className="note">{p.label}</div>
+          <div style={{flex:1}}/>
+          <button className="btn ghost sm" style={{alignSelf:'flex-start'}} onClick={()=>p.kind==='followup'?setDraftFor(p.row.id):setDrawerId(p.row.id)}>{p.kind==='followup'?'Draft follow-up':'Open profile'}</button>
+        </div>)}</div>}
 
-    <CommunityPanel db={db} communityStats={communityStats} setTab={setTab}/>
-  </div>;
-}
-function AdvisorRow({item,rank,cfg,updateRow,setTab}){
-  const {row,action,label,reasons} = item;
-  const [busy,setBusy]=useState(false);
-  async function generateFollowUpAndCopy(){
-    setBusy(true);
-    const daysAgo = Math.round((now()-new Date(row.sent_at).getTime())/864e5);
-    try{
-      const draft = await llm(cfg,
-        'You are helping an MIT Sloan Fellows MBA student follow up on LinkedIn after no reply. Keep it brief, low-pressure, not a repeat of the original. Return only the message.',
-        `Contact: ${row.name||row.profile_url}, ${row.title||''} at ${row.company||''}.\nOriginal message sent ${daysAgo} days ago: "${row.message_sent||row.ai_draft||'(not recorded)'}"`);
-      try{ await navigator.clipboard.writeText(draft.trim()); }catch(e){}
-      window.open(row.profile_url,'_blank','noopener');
-    }catch(e){ alert(e.message||String(e)); }
-    setBusy(false);
-  }
-  return <div className="row">
-    <div className="tag" style={{fontSize:16,fontWeight:800,color:'var(--brand)'}}>{rank}</div>
-    <div className="grow">
-      <div className="t">{row.name||row.profile_url}</div>
-      <div className="m">{row.title||''}{row.company?` · ${row.company}`:''}</div>
-      <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:6}}>
-        <span className="chip" style={{background:action==='followup'?'var(--tsoft)':'var(--chip)',color:action==='followup'?'var(--terra2)':'var(--sub)'}}>{label}</span>
-        {reasons.map((r,j)=><span key={j} className="chip">{r}</span>)}
+    <div className="grid2" style={{marginTop:30,alignItems:'start'}}>
+      <div>
+        <div className="tag" style={{marginBottom:10}}>Networking progress</div>
+        <div className="panel pad">
+          {funnel.map(([label,val])=><div key={label} style={{display:'grid',gridTemplateColumns:'96px 1fr 36px',gap:12,alignItems:'center',padding:'6px 0'}}>
+            <div className="note">{label}</div>
+            <div style={{height:16,borderRadius:5,background:'var(--chip)',overflow:'hidden'}}><div style={{height:'100%',width:`${Math.max(3,Math.round(100*val/maxFunnel))}%`,background:'var(--brand)',borderRadius:5}}></div></div>
+            <div style={{fontWeight:700,textAlign:'right',fontSize:13}}>{val}</div>
+          </div>)}
+        </div>
+      </div>
+      <div style={{display:'flex',flexDirection:'column',gap:14}}>
+        <div>
+          <div className="tag" style={{marginBottom:10}}>This week</div>
+          <div className="panel pad">
+            {[['Contacted',weekContacted],['Replies',weekReplies],['Response rate',weekRate+'%'],['Coffee chats',weekChats]].map(([l,v])=>
+              <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid var(--line2)'}}><span className="note">{l}</span><span style={{fontWeight:700,fontSize:14}}>{v}</span></div>)}
+          </div>
+        </div>
+        <div>
+          <div className="tag" style={{marginBottom:10}}>Quick actions</div>
+          <div className="panel pad" style={{padding:6}}>
+            {[['Search alumni',()=>setTab('people')],['Open the extension',()=>setTab('extpreview')],['Review pipeline',()=>setTab('pipeline')],['Add a task',()=>setTab('tasks')]].map(([l,go])=>
+              <div key={l} className="row" style={{border:'none',background:'transparent',padding:'9px 10px',cursor:'pointer'}} onClick={go}><span style={{fontSize:13.5,fontWeight:500}}>{l}</span><span style={{marginLeft:'auto',color:'var(--mute)'}}>→</span></div>)}
+          </div>
+        </div>
       </div>
     </div>
-    {action==='followup'
-      ? <button className="btn sm" onClick={generateFollowUpAndCopy} disabled={busy}>{busy?<Dots/>:'✨ Draft follow-up + open'}</button>
-      : <button className="iconbtn" onClick={()=>setTab('shortlist')}>open in Shortlist</button>}
   </div>;
 }
-function CommunityPanel({db,communityStats,setTab}){
+
+/* ============================ People ============================ */
+function People({db,log,events,doIngest,setDrawerId}){
+  const [q,setQ]=useState(''); const [checking,setChecking]=useState(false);
+  const ql = q.toLowerCase();
+  const rows = log.filter(r=>!ql || `${r.name} ${r.company} ${r.title}`.toLowerCase().includes(ql));
+  return <div className="page wide">
+    <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:16}}>
+      <input className="inp" style={{width:320}} value={q} onChange={e=>setQ(e.target.value)} placeholder="Search people, companies…"/>
+      <div className="note">{rows.length} of {log.length} people</div>
+      <div style={{flex:1}}/>
+      <button className="btn ghost sm" onClick={async()=>{setChecking(true); await doIngest(); setChecking(false);}} disabled={checking}>{checking?<Dots/>:'↻ Check for new profiles'}</button>
+    </div>
+    <div className="panel" style={{overflow:'auto'}}>
+      {log.length===0
+        ? <div className="empty"><div className="big">◔</div>Nobody yet. Shortlist profiles with the extension, then hit "Check for new profiles."</div>
+        : <table className="ptable"><thead><tr><th>Name</th><th>Company</th><th>Role</th><th>Status</th><th>Priority</th><th>Last activity</th><th>Next action</th></tr></thead>
+          <tbody>{rows.map(r=>{
+            const na = suggestedNextAction(r, events.filter(e=>e.log_id===r.id), db.settings.followUpDays);
+            return <tr key={r.id} className="body-row" onClick={()=>setDrawerId(r.id)}>
+              <td><div style={{display:'flex',alignItems:'center',gap:9}}><Avatar row={r}/><div style={{minWidth:0}}><div style={{fontWeight:600,fontSize:13,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.name||r.profile_url}</div></div></div></td>
+              <td>{r.company||''}</td>
+              <td style={{color:'var(--sub)'}}>{r.title||''}</td>
+              <td><StagePill status={r.status}/></td>
+              <td><PriorityDot priority={r.priority}/></td>
+              <td className="note">{rel(new Date(r.updated_at).getTime())}</td>
+              <td style={{color:'var(--brand)',fontWeight:500,fontSize:12.5}}>{na?na.label:'—'}</td>
+            </tr>;
+          })}</tbody>
+        </table>}
+    </div>
+  </div>;
+}
+
+/* ============================ Pipeline ============================ */
+function Pipeline({log,changeStage}){
+  const [filter,setFilter]=useState('All');
+  const [dragId,setDragId]=useState(null);
+  const companies = ['All', ...Array.from(new Set(log.map(r=>r.company).filter(Boolean)))];
+  const pool = filter==='All' ? log : log.filter(r=>r.company===filter);
+  return <div className="page wide" style={{height:'100%',display:'flex',flexDirection:'column'}}>
+    <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:14}}>
+      {companies.map(c=><button key={c} className="btn sm" style={{background:filter===c?'var(--ink)':'var(--card)',color:filter===c?'#fff':'var(--sub)',border:'1px solid '+(filter===c?'var(--ink)':'rgba(0,0,0,.12)')}} onClick={()=>setFilter(c)}>{c}</button>)}
+      <div style={{flex:1}}/>
+      <div className="note">Drag cards as relationships progress</div>
+    </div>
+    <div className="pipeline-wrap">
+      {PIPELINE_STAGES.map(st=>{
+        const meta = STAGE_META[st];
+        const cards = pool.filter(r=>r.status===st);
+        return <div key={st} className="pcol" onDragOver={e=>e.preventDefault()} onDrop={()=>{ if(dragId!=null){ const row=log.find(r=>r.id===dragId); if(row && row.status!==st) changeStage(row, st); setDragId(null); } }}>
+          <div className="pcol-head"><span className="dot" style={{background:meta.dot}}></span><span style={{fontWeight:600,fontSize:13}}>{meta.label}</span><span className="note">{cards.length}</span></div>
+          <div className="pcol-cards">
+            {cards.map(r=><div key={r.id} className="pcard" draggable onDragStart={()=>setDragId(r.id)}>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <Avatar row={r} size={24}/>
+                <div style={{fontWeight:600,fontSize:12.5,flex:1,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.name||r.profile_url}</div>
+                <span className="dot" style={{background:PRIORITY_META[r.priority]?.dot}}></span>
+              </div>
+              <div className="note" style={{marginTop:5}}>{r.title||''}{r.company?` · ${r.company}`:''}</div>
+            </div>)}
+            {cards.length===0 && <div className="pdrop">Drop here</div>}
+          </div>
+        </div>;
+      })}
+    </div>
+  </div>;
+}
+
+/* ============================ Tasks ============================ */
+function Tasks({tasks,log,addTask,toggleTask,deleteTask,setDrawerId}){
+  const [newTask,setNewTask]=useState('');
+  const todayStr = new Date().toISOString().slice(0,10);
+  function submit(e){
+    if(e.key==='Enter' && newTask.trim()){ addTask(newTask.trim(), todayStr, null); setNewTask(''); }
+  }
+  const groups = [
+    ['Today', tasks.filter(t=>!t.done && t.due_date===todayStr)],
+    ['This week', tasks.filter(t=>!t.done && t.due_date && t.due_date!==todayStr)],
+    ['No due date', tasks.filter(t=>!t.done && !t.due_date)],
+    ['Done', tasks.filter(t=>t.done)],
+  ].filter(([,items])=>items.length>0);
+  return <div className="page" style={{maxWidth:660}}>
+    <input className="inp" value={newTask} onChange={e=>setNewTask(e.target.value)} onKeyDown={submit} placeholder='Add a task and press Enter — e.g. "Thank-you note to Priya"'/>
+    {groups.length===0 && <div className="empty" style={{marginTop:20}}><div className="big">☑</div>No tasks yet.</div>}
+    {groups.map(([name,items])=><div key={name} style={{marginTop:26}}>
+      <div className="tag" style={{marginBottom:8}}>{name}</div>
+      <div className="list">{items.map(t=>{ const person = t.log_id ? log.find(r=>r.id===t.log_id) : null;
+        return <div key={t.id} className="row">
+          <div onClick={()=>toggleTask(t)} style={{width:18,height:18,flex:'none',borderRadius:99,border:'1.5px solid '+(t.done?'var(--brand)':'rgba(0,0,0,.25)'),background:t.done?'var(--brand)':'transparent',display:'grid',placeItems:'center',cursor:'pointer',color:'#fff',fontSize:11}}>{t.done?'✓':''}</div>
+          <div className="grow"><div style={{fontWeight:500,fontSize:13.5,color:t.done?'var(--mute)':'var(--ink)',textDecoration:t.done?'line-through':'none'}}>{t.label}</div>
+            {t.sub && <div className="note">{t.sub}</div>}</div>
+          {person && <div className="chip" style={{cursor:'pointer'}} onClick={()=>setDrawerId(person.id)}>{person.name||person.profile_url}</div>}
+          <button className="iconbtn" onClick={()=>deleteTask(t)}>✕</button>
+        </div>; })}</div>
+    </div>)}
+  </div>;
+}
+
+/* ============================ Insights ============================ */
+function Insights({log,events,communityStats}){
+  const everContacted = log.filter(r=>r.status!=='prospect'&&r.status!=='ready_to_contact'&&r.status!=='do_not_contact').length;
+  const replied = log.filter(r=>['replied','coffee_chat','referral','interview','offer'].includes(r.status)).length;
+  const responseRate = everContacted ? Math.round(100*replied/everContacted) : 0;
+  const coffeeChats = events.filter(e=>e.event_type==='coffee_chat').length;
+  const referrals = log.filter(r=>['referral','interview','offer'].includes(r.status)).length;
+  const interviews = log.filter(r=>['interview','offer'].includes(r.status)).length;
+  const stats = [
+    {v:responseRate+'%', l:'Response rate', n:`${replied} of ${everContacted} replied`},
+    {v:coffeeChats, l:'Coffee chats', n:'Logged in Timeline'},
+    {v:referrals, l:'Referrals', n:'Reached referral stage or beyond'},
+    {v:interviews, l:'Interviews', n:'Reached interview stage or beyond'},
+  ];
+  const companyMap = {};
+  log.forEach(r=>{ if(!r.company) return; const c=companyMap[r.company]=companyMap[r.company]||{contacts:0,replies:0}; c.contacts++; if(['replied','coffee_chat','referral','interview','offer'].includes(r.status)) c.replies++; });
+  const coBars = Object.entries(companyMap).sort((a,b)=>b[1].contacts-a[1].contacts).slice(0,6);
+  const maxCo = Math.max(1, ...coBars.map(([,c])=>c.contacts));
+  const weekBuckets = Array.from({length:8},(_,i)=>{ const start = weekStartUTC(now()-((7-i))*7*864e5); return log.filter(r=>r.contacted_at && weekStartUTC(new Date(r.contacted_at).getTime())===start).length; });
+  const maxWeek = Math.max(1, ...weekBuckets);
+
+  return <div className="page">
+    <div className="grid3" style={{gridTemplateColumns:'repeat(4,1fr)'}}>
+      {stats.map(s=><div key={s.l} className="panel pad"><div style={{fontSize:22,fontWeight:700}}>{s.v}</div><div className="note" style={{fontWeight:500,marginTop:3}}>{s.l}</div><div className="note" style={{marginTop:5}}>{s.n}</div></div>)}
+    </div>
+    <div className="grid2" style={{marginTop:14}}>
+      <div className="panel pad">
+        <div style={{fontWeight:600,fontSize:14}}>Networking by company</div>
+        <div style={{marginTop:12}}>{coBars.length===0 && <div className="note">No company data yet.</div>}
+          {coBars.map(([name,c])=><div key={name} style={{display:'grid',gridTemplateColumns:'76px 1fr',gap:10,alignItems:'center',padding:'6px 0'}}>
+            <div className="note">{name}</div>
+            <div><div style={{height:12,borderRadius:4,background:'var(--chip)',overflow:'hidden'}}><div style={{height:'100%',width:`${Math.round(100*c.contacts/maxCo)}%`,background:'var(--brand)',borderRadius:4}}></div></div>
+              <div className="note" style={{marginTop:3}}>{c.contacts} contacts · {c.replies} replies</div></div>
+          </div>)}</div>
+      </div>
+      <div className="panel pad" style={{display:'flex',flexDirection:'column'}}>
+        <div style={{fontWeight:600,fontSize:14}}>Weekly activity</div>
+        <div className="note">Contacted per week</div>
+        <div style={{flex:1,display:'flex',alignItems:'flex-end',gap:9,paddingTop:16,minHeight:130}}>
+          {weekBuckets.map((v,i)=><div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:5,justifyContent:'flex-end'}}>
+            <div style={{fontSize:11,fontWeight:600}}>{v}</div>
+            <div style={{width:'100%',maxWidth:28,height:Math.round(v/maxWeek*90)+6,borderRadius:'5px 5px 2px 2px',background:i===7?'var(--brand)':'var(--chip)'}}></div>
+            <div style={{fontSize:10,color:'var(--mute)'}}>W{i+1}</div>
+          </div>)}
+        </div>
+      </div>
+    </div>
+    <div style={{marginTop:14}}><CommunityInsights communityStats={communityStats}/></div>
+  </div>;
+}
+function CommunityInsights({communityStats}){
   return <div className="panel pad">
-    <div className="ph"><div><h2>🌐 Community insights</h2><div className="sub">Opt-in, anonymous, aggregated across Sloan Fellows — never names or messages.</div></div></div>
-    {!db.settings.communityOptIn
-      ? <div className="bluebox">Opt in from Settings to see (and contribute to) cross-cohort outreach trends. Nothing is shown until at least 3 students have contributed to a company.</div>
-      : communityStats.length===0
-        ? <div className="empty"><div className="big">🌐</div>No company has reached 3 contributing students yet — check back as more Fellows opt in.</div>
-        : <div className="list">{communityStats.slice(0,8).map(c=><div key={c.company} className="row">
-            <div className="grow"><div className="t">{c.company}</div>
-              <div className="m">{bucketCount(c.contributor_count)} students · {bucketCount(c.outreach_count)} outreach · {bucketCount(c.reply_count)} replies · {bucketCount(c.coffee_chat_count)} coffee chats · {bucketCount(c.interview_count)} interviews</div></div>
-          </div>)}</div>}
+    <div className="ph"><div><h2>Community insights</h2><div className="sub">Opt-in, anonymous, aggregated across Sloan Fellows — never names or messages.</div></div></div>
+    {communityStats.length===0
+      ? <div className="empty"><div className="big">🌐</div>No company has reached 3 contributing students yet, or you haven't opted in (Settings).</div>
+      : <div className="list">{communityStats.slice(0,8).map(c=><div key={c.company} className="row">
+          <div className="grow"><div className="t">{c.company}</div>
+            <div className="m">{bucketCount(c.contributor_count)} students · {bucketCount(c.outreach_count)} outreach · {bucketCount(c.reply_count)} replies · {bucketCount(c.coffee_chat_count)} coffee chats · {bucketCount(c.interview_count)} interviews</div></div>
+        </div>)}</div>}
   </div>;
 }
-
-/* ============================ Shortlist ============================ */
-function Shortlist({db,log,events,cfg,auth,sbReady,doIngest,updateRow,onSignIn}){
-  const [checking,setChecking]=useState(false);
-  const signedIn = auth.status==='in';
-  const rows = log.filter(r=>r.status==='to_contact'||r.status==='deferred')
-    .sort((a,b)=>new Date(a.shortlisted_at)-new Date(b.shortlisted_at));
-  const capReached = sentThisWeek(log)>=100;
-
-  if(!signedIn){
-    return <div className="panel pad">
-      <div className="empty"><div className="big">📋</div>Sign in with your @mit.edu email to see profiles the extension shortlists.
-        {sbReady && <div style={{marginTop:12}}><button className="btn sm" onClick={onSignIn}>Sign in</button></div>}</div>
-    </div>;
+/* ============================ Settings ============================ */
+function Settings({db,patch,auth,sb,signOut,setTab}){
+  const [saEmail,setSaEmail]=useState(null); const [saErr,setSaErr]=useState(null); const [saBusy,setSaBusy]=useState(false); const [copied,setCopied]=useState(false);
+  const [syncBusy,setSyncBusy]=useState(false); const [syncMsg,setSyncMsg]=useState(null);
+  function exportData(){ const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='mighty-backup.json'; a.click(); }
+  async function fetchServiceEmail(){
+    if(!sb) return; setSaBusy(true); setSaErr(null);
+    try{ const {data,error} = await sb.functions.invoke('sheets-sync', {body:{action:'whoami'}}); if(error) throw error; setSaEmail(data.email); }
+    catch(e){ setSaErr(e.message||String(e)); } setSaBusy(false);
   }
-
-  return <div style={{display:'flex',flexDirection:'column',gap:16}}>
-    {capReached && <div className="warnbox">Weekly cap of 100 reached — "Mark Sent" is disabled until the reset. Everything below stays right where it is.</div>}
-    <div className="panel pad">
-      <div className="ph"><div><h2>📋 Shortlist</h2><div className="sub">{rows.length} waiting · generate a grounded draft or pick a template, then copy + open.</div></div>
-        <button className="btn ghost sm" onClick={async()=>{setChecking(true); await doIngest(); setChecking(false);}} disabled={checking}>{checking?<Dots/>:'↻ Check for new profiles'}</button></div>
-      {rows.length===0
-        ? <div className="empty"><div className="big">📋</div>Nothing shortlisted yet. Use the extension on a LinkedIn search-results page, then come back and hit "Check for new profiles."</div>
-        : <div className="list">{rows.map(r=><ShortlistRow key={r.id} row={r} rowEvents={events.filter(e=>e.log_id===r.id)} templates={db.templates} cfg={cfg} capReached={capReached} updateRow={updateRow}/>)}</div>}
-    </div>
-  </div>;
-}
-function ShortlistRow({row,rowEvents,templates,cfg,capReached,updateRow}){
-  const [tplId,setTplId]=useState(templates[0]?.id||'');
-  const [objective,setObjective]=useState('coffee_chat');
-  const [busy,setBusy]=useState(false); const [err,setErr]=useState(null);
-  const [generating,setGenerating]=useState(false);
-  const tpl = templates.find(t=>t.id===tplId) || templates[0];
-  const mode = llmMode(cfg);
-
-  async function copyAndOpen(){
-    const msg = row.ai_draft || (tpl && renderTemplate(tpl.body, row));
-    if(!msg) return;
-    try{ await navigator.clipboard.writeText(msg); }catch(e){}
-    window.open(row.profile_url,'_blank','noopener');
-  }
-  async function act(fields){
-    setBusy(true); setErr(null);
-    const r = await updateRow(row, fields);
-    if(!r.ok) setErr(r.error);
-    setBusy(false);
-  }
-  async function generate(){
-    if(mode==='none'||!row.context) return;
-    setGenerating(true); setErr(null);
+  async function syncNow(){
+    if(!sb) return; setSyncBusy(true); setSyncMsg(null);
     try{
-      const ctx = row.context;
-      const result = await llmJSON(cfg,
-        'You are helping an MIT Sloan Fellows MBA student network professionally on LinkedIn. Given a contact\'s profile context and the student\'s outreach objective, produce a brief and a first-touch message. Be specific, use real details from the context, never invent facts not present in it. Keep the message under 120 words, no generic flattery.',
-        `Objective: ${objective}\nContact: ${row.name||''}, ${row.title||''} at ${row.company||''}\nProfile context:\nAbout: ${ctx.aboutText||''}\nExperience: ${ctx.experienceText||''}\nEducation: ${ctx.educationText||''}\nMutual connections (raw, may be imprecise): ${ctx.mutualConnectionsRaw||''}\n\nReturn JSON: {"careerSummary": string, "sharedConnectionNote": string|null, "conversationStarters": string[3], "whyContactReasons": string[2-3], "draftMessage": string}`);
-      const {draftMessage, ...briefing} = result;
-      await updateRow(row, {briefing, ai_draft:draftMessage});
-    }catch(e){ setErr(e.message||String(e)); }
-    setGenerating(false);
+      const {data,error} = await sb.functions.invoke('sheets-sync', {body:{action:'sync', sheetId:db.settings.sheets.sheetId, tabName:db.settings.sheets.tabName}});
+      if(error) throw error;
+      if(data.ok){ setSyncMsg({ok:true, text:`Synced — ${data.updated||0} updated, ${data.appended||0} added.`}); patch('settings', s=>({...s, sheets:{...s.sheets, lastSyncedAt:now(), lastError:null}})); }
+      else { setSyncMsg({ok:false, text:data.message||data.error}); patch('settings', s=>({...s, sheets:{...s.sheets, lastError:data.message||data.error}})); }
+    }catch(e){ setSyncMsg({ok:false, text:e.message||String(e)}); }
+    setSyncBusy(false);
   }
+  function copyEmail(){ if(!saEmail) return; navigator.clipboard?.writeText(saEmail).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),1500);},()=>{}); }
+  function parseSheetId(input){ const m=(input||'').match(/\/d\/([a-zA-Z0-9-_]+)/); return m?m[1]:(input||'').trim(); }
 
-  return <div className="row" style={{flexDirection:'column',alignItems:'stretch',gap:8}}>
-    <div style={{display:'flex',alignItems:'center',gap:12}}>
-      <div className="grow">
-        <div className="t">{row.name || row.profile_url}{row.status==='deferred' && <span className="badge" style={{marginLeft:6}}>deferred</span>}</div>
-        <div className="m">{row.title||''}{row.company?` · ${row.company}`:''}</div>
-        {row.status==='deferred' && rowEvents.length>0 && (()=>{ const s=computeStrength(row,rowEvents); return <div style={{marginTop:2}}><Pips n={s.pips}/> <span className="note" style={{marginLeft:6}}>{s.reasons[0]}</span></div>; })()}
-        <a className="linkurl" href={row.profile_url} target="_blank" rel="noopener">{row.profile_url}</a>
+  const rows = [
+    {t:'Account', d:auth.user.email, action:'Sign out', go:signOut},
+    {t:'Message templates', d:`${db.templates.length} saved`, action:'Edit', go:()=>setTab('templates')},
+    {t:'Export your data', d:'Contacts, notes and messages — yours anytime', action:'Export CSV/JSON', go:exportData},
+    {t:'Privacy', d:'Notes and drafts are private to you; nothing is ever sent without your click', action:'Learn more', go:()=>alert('MIghTy stores only what you put in. AI calls go through a shared proxy so no student needs an API key — your prompts are not used to train models. See the Log/Timeline for your full activity history.')},
+  ];
+
+  return <div className="page">
+    <div className="panel">
+      {rows.map((r,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:14,padding:'16px 20px',borderBottom:i<rows.length-1?'1px solid var(--line)':'none'}}>
+        <div style={{flex:1}}><div style={{fontWeight:600,fontSize:14}}>{r.t}</div><div className="note" style={{marginTop:3}}>{r.d}</div></div>
+        <button className="btn ghost sm" onClick={r.go}>{r.action}</button>
+      </div>)}
+    </div>
+
+    <div className="tag" style={{margin:'26px 0 10px'}}>Ranking &amp; follow-ups</div>
+    <div className="panel pad">
+      <label className="fld">Target companies (comma-separated)</label>
+      <input className="inp" defaultValue={db.settings.targetCompanies.join(', ')}
+        onBlur={e=>patch('settings', s=>({...s, targetCompanies: e.target.value.split(',').map(x=>x.trim()).filter(Boolean)}))}
+        placeholder="McKinsey, Bain, Amazon"/>
+      <div style={{height:10}}/><label className="fld">Follow-up reminder after (days)</label>
+      <input className="inp" type="number" min={1} max={60} style={{width:120}} value={db.settings.followUpDays}
+        onChange={e=>patch('settings', s=>({...s, followUpDays: parseInt(e.target.value,10)||7}))}/>
+    </div>
+
+    <div className="tag" style={{margin:'26px 0 10px'}}>Community insights</div>
+    <div className="panel pad">
+      <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}}>
+        <input type="checkbox" checked={db.settings.communityOptIn} onChange={e=>patch('settings', s=>({...s, communityOptIn: e.target.checked}))}/>
+        <span>Contribute my outreach activity to anonymous cross-cohort insights</span>
+      </label>
+      <div className="note" style={{marginTop:10}}>Only aggregated counts by company are ever shared — never your name, messages, or individual activity. A company only appears once at least 3 students have contributed, and every number is bucketed, never exact.</div>
+    </div>
+
+    <div className="tag" style={{margin:'26px 0 10px'}}>Google Sheets sync</div>
+    <div className="panel pad">
+      <label className="fld">Google Sheet ID or URL</label>
+      <input className="inp" value={db.settings.sheets.sheetId} onChange={e=>patch('settings', s=>({...s, sheets:{...s.sheets, sheetId:parseSheetId(e.target.value)}}))} placeholder="Paste the Sheet URL — the ID is extracted automatically"/>
+      <div style={{height:10}}/><label className="fld">Tab name</label>
+      <input className="inp" value={db.settings.sheets.tabName} onChange={e=>patch('settings', s=>({...s, sheets:{...s.sheets, tabName:e.target.value}}))} placeholder="MIghTy Outreach"/>
+      <div style={{marginTop:12,display:'flex',gap:9,alignItems:'center',flexWrap:'wrap'}}>
+        <button className="btn ghost sm" onClick={fetchServiceEmail} disabled={saBusy}>{saBusy?<Dots/>:'Get service-account email'}</button>
+        {saEmail && <span className="chip">{saEmail}<button className="iconbtn" style={{padding:'2px 7px',marginLeft:6}} onClick={copyEmail}>{copied?'✓':'copy'}</button></span>}
+        <button className="btn sm" onClick={syncNow} disabled={syncBusy||!db.settings.sheets.sheetId}>{syncBusy?<Dots/>:'⇪ Sync now'}</button>
       </div>
-      {!row.ai_draft && templates.length>1 && <select className="inp" style={{width:'auto'}} value={tplId} onChange={e=>setTplId(e.target.value)}>
-        {templates.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
-      </select>}
-      <button className="btn sm" onClick={copyAndOpen} disabled={!row.ai_draft && !tpl}>Copy message + Open profile</button>
+      {saErr && <div className="warnbox" style={{marginTop:10}}>{saErr}</div>}
+      {syncMsg && <div className={syncMsg.ok?'okbox':'warnbox'} style={{marginTop:10}}>{syncMsg.text}</div>}
+      {db.settings.sheets.lastSyncedAt && <div className="note" style={{marginTop:6}}>Last synced {rel(db.settings.sheets.lastSyncedAt)}</div>}
+      <div className="note" style={{marginTop:10}}>Share your Sheet with that email (Editor access) before syncing.</div>
     </div>
 
-    {row.briefing && <div className="okbox">
-      <div><b>Career summary:</b> {row.briefing.careerSummary}</div>
-      {row.briefing.sharedConnectionNote && <div style={{marginTop:6}}><b>Shared connection:</b> {row.briefing.sharedConnectionNote}</div>}
-      {row.briefing.whyContactReasons?.length>0 && <div style={{marginTop:6}}><b>Why contact:</b> {row.briefing.whyContactReasons.join(' · ')}</div>}
-      {row.briefing.conversationStarters?.length>0 && <div style={{marginTop:6}}><b>Conversation starters:</b><ul style={{margin:'4px 0 0',paddingLeft:18}}>{row.briefing.conversationStarters.map((s,i)=><li key={i}>{s}</li>)}</ul></div>}
-    </div>}
-
-    <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
-      {mode!=='none' && <>
-        <select className="inp" style={{width:'auto'}} value={objective} onChange={e=>setObjective(e.target.value)}>
-          {OBJECTIVES.map(([k,l])=><option key={k} value={k}>{l}</option>)}
-        </select>
-        <button className="iconbtn" onClick={generate} disabled={generating||!row.context} title={!row.context?'Open this profile with the extension installed first, to capture context':''}>
-          {generating?<Dots/>:row.briefing?'✨ Regenerate briefing & draft':'✨ Generate briefing & draft'}
-        </button>
-        {!row.context && <span className="note">Open this profile (extension installed) to capture context first.</span>}
-      </>}
-    </div>
-
-    <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-      <button className="iconbtn" onClick={()=>act({status:'sent',sent_at:new Date().toISOString(),message_sent:row.ai_draft||(tpl&&renderTemplate(tpl.body,row))||null})} disabled={busy||capReached}>Mark Sent</button>
-      <button className="iconbtn" onClick={()=>act({status:'deferred'})} disabled={busy}>Defer</button>
-      <button className="iconbtn" onClick={()=>act({status:'do_not_contact'})} disabled={busy}>Do Not Contact</button>
-    </div>
-    {err && <div className="warnbox">{err}</div>}
+    <div className="tag" style={{margin:'26px 0 10px'}}>Extension</div>
+    <div className="panel pad"><div className="note">Load <span className="mono">extension/</span> unpacked at <span className="mono">chrome://extensions</span> — it signs in with the same account automatically once connected. Full steps in <span className="mono">extension/INSTALL.md</span>.</div></div>
   </div>;
 }
 
-/* ============================ Templates ============================ */
-function Templates({db,patch,cfg}){
-  const [editing,setEditing]=useState(null); // template id being edited, or 'new'
+/* ============================ Templates (sub-view) ============================ */
+function Templates({db,patch,sb,auth,setTab}){
+  const [editing,setEditing]=useState(null);
   const [name,setName]=useState(''); const [body,setBody]=useState('');
   const [polishing,setPolishing]=useState(false);
-  const mode = llmMode(cfg);
+  const mode = llmMode(sb,auth);
 
   function startNew(){ setEditing('new'); setName(''); setBody(''); }
   function startEdit(t){ setEditing(t.id); setName(t.name); setBody(t.body); }
@@ -779,106 +929,57 @@ function Templates({db,patch,cfg}){
   async function polish(){
     if(mode==='none'||!body.trim()) return;
     setPolishing(true);
-    try{
-      const out = await llm(cfg,
-        'Tighten this LinkedIn outreach message: warm, specific, under 400 characters, keep any {{firstName}}/{{company}} placeholders exactly as written. Return only the revised message, no preamble.',
-        body);
-      setBody(out.trim());
-    }catch(e){ /* leave body as-is */ }
-    setPolishing(false);
+    try{ const out = await llm(sb, auth, 'Tighten this LinkedIn outreach message: warm, specific, under 400 characters, keep any {{firstName}}/{{company}} placeholders exactly as written. Return only the revised message, no preamble.', body); setBody(out.trim()); }
+    catch(e){} setPolishing(false);
   }
 
-  return <div className="panel pad">
-    <div className="ph"><div><h2>✉️ Templates</h2><div className="sub">Use <span className="mono">{'{{firstName}}'}</span> and <span className="mono">{'{{company}}'}</span> — filled in per profile.</div></div>
-      {editing===null && <button className="btn sm" onClick={startNew}>＋ New template</button>}</div>
-
-    {editing!==null && <div className="row" style={{flexDirection:'column',alignItems:'stretch',gap:10,marginBottom:14}}>
-      <label className="fld">Name</label>
-      <input className="inp" value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Intro — alumni outreach"/>
-      <label className="fld">Message</label>
-      <textarea className="inp" rows={4} value={body} onChange={e=>setBody(e.target.value)} placeholder="Hi {{firstName}}, ..."/>
-      <div style={{display:'flex',gap:8,alignItems:'center'}}>
-        <button className="btn sm" onClick={save} disabled={!name.trim()||!body.trim()}>Save</button>
-        <button className="btn ghost sm" onClick={()=>setEditing(null)}>Cancel</button>
-        {mode!=='none' && <button className="iconbtn" onClick={polish} disabled={polishing||!body.trim()}>{polishing?<Dots/>:'✨ AI polish'}</button>}
-      </div>
-    </div>}
-
-    {db.templates.length===0 && editing===null
-      ? <div className="empty"><div className="big">✉️</div>No templates yet. Add one to start drafting.</div>
-      : <div className="list">{db.templates.map(t=><div key={t.id} className="row">
-          <div className="grow"><div className="t">{t.name}</div><div className="m">{t.body}</div></div>
-          <button className="iconbtn" onClick={()=>startEdit(t)}>edit</button>
-          <button className="iconbtn" onClick={()=>remove(t.id)}>✕</button>
-        </div>)}</div>}
-  </div>;
-}
-
-/* ============================ Log ============================ */
-function Log({db,patch,log,events,cfg,auth,sb,updateRow,logEvent}){
-  const [filter,setFilter]=useState('all');
-  const [syncBusy,setSyncBusy]=useState(false); const [syncMsg,setSyncMsg]=useState(null);
-  const signedIn = auth.status==='in';
-  const FILTERS=[['all','All'],['to_contact','To Contact'],['sent','Sent'],['replied','Replied'],['deferred','Deferred'],['do_not_contact','Do Not Contact']];
-  const rows = log.filter(r=>filter==='all'||r.status===filter);
-
-  async function syncNow(){
-    if(!sb) return;
-    setSyncBusy(true); setSyncMsg(null);
-    try{
-      const {data,error} = await sb.functions.invoke('sheets-sync', {body:{action:'sync', sheetId:db.settings.sheets.sheetId, tabName:db.settings.sheets.tabName}});
-      if(error) throw error;
-      if(data.ok){
-        setSyncMsg({ok:true, text:`Synced — ${data.updated||0} updated, ${data.appended||0} added.`});
-        patch('settings', s=>({...s, sheets:{...s.sheets, lastSyncedAt:now(), lastError:null}}));
-      } else {
-        setSyncMsg({ok:false, text:data.message||data.error});
-        patch('settings', s=>({...s, sheets:{...s.sheets, lastError:data.message||data.error}}));
-      }
-    }catch(e){ setSyncMsg({ok:false, text:e.message||String(e)}); }
-    setSyncBusy(false);
-  }
-
-  if(!signedIn) return <div className="panel pad"><div className="empty"><div className="big">📊</div>Sign in to see your outreach log.</div></div>;
-
-  return <div style={{display:'flex',flexDirection:'column',gap:16}}>
+  return <div className="page">
+    <button className="iconbtn" style={{marginBottom:14}} onClick={()=>setTab('settings')}>← Settings</button>
     <div className="panel pad">
-      <div className="ph"><div><h2>📊 Log</h2><div className="sub">{log.length} profile{log.length!==1?'s':''} tracked{db.settings.sheets.lastSyncedAt?` · last synced ${rel(db.settings.sheets.lastSyncedAt)}`:''}</div></div>
-        <button className="btn sm" onClick={syncNow} disabled={syncBusy||!db.settings.sheets.sheetId}>{syncBusy?<Dots/>:'⇪ Sync to Google Sheet'}</button></div>
-      {!db.settings.sheets.sheetId && <div className="note" style={{marginBottom:10}}>Add your Google Sheet ID in Settings to enable sync.</div>}
-      {syncMsg && <div className={syncMsg.ok?'okbox':'warnbox'} style={{marginBottom:12}}>{syncMsg.text}</div>}
-      <div className="seg" style={{marginBottom:12}}>{FILTERS.map(([k,l])=><button key={k} className={filter===k?'on':''} onClick={()=>setFilter(k)}>{l}</button>)}</div>
-      {rows.length===0
-        ? <div className="empty"><div className="big">📊</div>Nothing here yet.</div>
-        : <div className="list">{rows.map(r=><LogRow key={r.id} row={r} events={events.filter(e=>e.log_id===r.id)} cfg={cfg} logEvent={logEvent}/>)}</div>}
+      <div className="ph"><div><h2>Templates</h2><div className="sub">Use <span className="mono">{'{{firstName}}'}</span> and <span className="mono">{'{{company}}'}</span> — filled in per profile.</div></div>
+        {editing===null && <button className="btn sm" onClick={startNew}>＋ New template</button>}</div>
+      {editing!==null && <div className="row" style={{flexDirection:'column',alignItems:'stretch',gap:10,marginBottom:14}}>
+        <label className="fld">Name</label>
+        <input className="inp" value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Intro — alumni outreach"/>
+        <label className="fld">Message</label>
+        <textarea className="inp" rows={4} value={body} onChange={e=>setBody(e.target.value)} placeholder="Hi {{firstName}}, ..."/>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          <button className="btn sm" onClick={save} disabled={!name.trim()||!body.trim()}>Save</button>
+          <button className="btn ghost sm" onClick={()=>setEditing(null)}>Cancel</button>
+          {mode!=='none' && <button className="iconbtn" onClick={polish} disabled={polishing||!body.trim()}>{polishing?<Dots/>:'✨ AI polish'}</button>}
+        </div>
+      </div>}
+      {db.templates.length===0 && editing===null
+        ? <div className="empty"><div className="big">✉</div>No templates yet.</div>
+        : <div className="list">{db.templates.map(t=><div key={t.id} className="row">
+            <div className="grow"><div className="t">{t.name}</div><div className="m">{t.body}</div></div>
+            <button className="iconbtn" onClick={()=>startEdit(t)}>edit</button>
+            <button className="iconbtn" onClick={()=>remove(t.id)}>✕</button>
+          </div>)}</div>}
     </div>
   </div>;
 }
-const EVENT_TYPES = [
-  ['connection_request','Connection request'],['first_message','First message'],['reply','Reply'],
-  ['coffee_chat','Coffee chat'],['referral','Referral'],['interview','Interview'],['note','Note'],
-];
-function LogRow({row,events,cfg,logEvent}){
-  const [open,setOpen]=useState(false);
-  const [busy,setBusy]=useState(false);
-  const [noteType,setNoteType]=useState(null); // null | 'note' | 'coffee_chat'
-  const [noteText,setNoteText]=useState('');
-  const [extractErr,setExtractErr]=useState(null);
-  const mode = llmMode(cfg);
-  const strength = computeStrength(row, events);
 
-  async function add(eventType, note, extra){
-    setBusy(true);
-    await logEvent(row, eventType, note, extra);
-    setBusy(false); setNoteType(null); setNoteText(''); setExtractErr(null);
-  }
+/* ============================ PersonDrawer ============================ */
+function PersonDrawer({row,rowEvents,db,sb,auth,drawerTab,setDrawerTab,onClose,updateRow,logEvent,changeStage,openDraft}){
+  const [notes,setNotes]=useState(row.notes||'');
+  const notesTimer = useRef(null);
+  useEffect(()=>{ setNotes(row.notes||''); },[row.id]);
+  function onNotesChange(v){ setNotes(v); clearTimeout(notesTimer.current); notesTimer.current=setTimeout(()=>updateRow(row,{notes:v}),900); }
+
+  const na = suggestedNextAction(row, rowEvents, db.settings.followUpDays);
+  const briefing = row.briefing || {};
+
+  const [noteType,setNoteType]=useState(null); const [noteText,setNoteText]=useState(''); const [busy,setBusy]=useState(false); const [extractErr,setExtractErr]=useState(null);
+  const mode = llmMode(sb,auth);
+  async function add(eventType, note, extra){ setBusy(true); await logEvent(row, eventType, note, extra); setBusy(false); setNoteType(null); setNoteText(''); }
   async function addCoffeeChatWithExtraction(){
     if(mode==='none'){ await add('coffee_chat', noteText.trim()); return; }
     setBusy(true); setExtractErr(null);
     try{
-      const r = await llmJSON(cfg,
-        'You are helping an MIT Sloan Fellows MBA student capture structured notes right after a real coffee chat. Extract only what the notes actually state or clearly imply — never invent personal details or promises not mentioned. Suggest a next-touch timing as a relative offset, not a calendar date.',
-        `Contact: ${row.name||row.profile_url}, ${row.title||''} at ${row.company||''}.\nStudent's notes from the coffee chat:\n${noteText.trim()}\n\nReturn JSON: {"personalDetails": string[], "promises": string[], "nextTouch": {"amount": number, "unit": "days"|"weeks"|"months", "justification": string}}`);
+      const r = await llmJSON(sb, auth,
+        'You are helping an MIT Sloan Fellows MBA student capture structured notes right after a real coffee chat. Extract only what the notes actually state or clearly imply — never invent. Suggest a next-touch timing as a relative offset, not a calendar date.',
+        `Contact: ${row.name||row.profile_url}, ${row.title||''} at ${row.company||''}.\nStudent's notes:\n${noteText.trim()}\n\nReturn JSON: {"personalDetails": string[], "promises": string[], "nextTouch": {"amount": number, "unit": "days"|"weeks"|"months", "justification": string}}`);
       const extracted = { personalDetails:r.personalDetails||[], promises:r.promises||[], nextTouchJustification:r.nextTouch?.justification||'' };
       const suggested_next_touch = r.nextTouch ? addOffset(now(), r.nextTouch.amount, r.nextTouch.unit) : null;
       await logEvent(row, 'coffee_chat', noteText.trim(), { extracted, suggested_next_touch });
@@ -886,167 +987,228 @@ function LogRow({row,events,cfg,logEvent}){
     }catch(e){ setExtractErr(e.message||String(e)); }
     setBusy(false);
   }
-  return <div className="row" style={{flexDirection:'column',alignItems:'stretch',gap:8}}>
-    <div style={{display:'flex',alignItems:'center',gap:12}}>
-      <div className="grow">
-        <div className="t">{row.name||row.profile_url}</div>
-        <div className="m">{row.title||''}{row.company?` · ${row.company}`:''} · <span className="tag">{row.status}</span></div>
-        <div style={{marginTop:4}}><Pips n={strength.pips}/> <span className="note" style={{marginLeft:6}}>{strength.reasons.join(' · ')}</span></div>
-        <a className="linkurl" href={row.profile_url} target="_blank" rel="noopener">{row.profile_url}</a>
-      </div>
-      <span className="tag">{rel(new Date(row.updated_at).getTime())}</span>
-      <button className="iconbtn" onClick={()=>setOpen(o=>!o)}>{open?'hide':'timeline'} ({events.length})</button>
-    </div>
-    {open && <div style={{paddingTop:8,borderTop:'1px solid var(--line2)'}}>
-      {events.length>0 && <div className="list" style={{marginBottom:10}}>{events.map(e=><div key={e.id} className="row" style={{padding:'8px 10px',flexDirection:'column',alignItems:'stretch',gap:4}}>
-        <div style={{display:'flex',alignItems:'center'}}>
-          <div className="grow"><span className="badge">{EVENT_TYPES.find(t=>t[0]===e.event_type)?.[1]||e.event_type}</span>
-            {e.note && !e.extracted && <span className="m" style={{marginLeft:8}}>{e.note}</span>}</div>
-          <span className="tag">{fmtDate(new Date(e.occurred_at).getTime())}</span>
+
+  const EVENT_TYPES = [['connection_request','Connection request'],['first_message','First message'],['reply','Reply'],['coffee_chat','Coffee chat'],['referral','Referral'],['interview','Interview'],['note','Note']];
+
+  return <>
+    <div className="overlay" onClick={onClose}/>
+    <div className="drawer">
+      <div style={{padding:'22px 24px 0',flex:'none'}}>
+        <div style={{display:'flex',alignItems:'flex-start',gap:14}}>
+          <Avatar row={row} size={52}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:19,fontWeight:700}}>{row.name||row.profile_url}</div>
+            <div className="note" style={{marginTop:2}}>{row.title||''}{row.company?` · ${row.company}`:''}</div>
+            {briefing.school && <div className="note">{briefing.school}{briefing.gradYear?` MBA ${briefing.gradYear}`:''}</div>}
+          </div>
+          <div className="iconbtn" onClick={onClose} style={{cursor:'pointer'}}>✕</div>
         </div>
-        {e.extracted && <div className="m" style={{marginLeft:2}}>
-          {e.extracted.personalDetails?.length>0 && <div><b>Mentioned:</b> {e.extracted.personalDetails.join(' · ')}</div>}
-          {e.extracted.promises?.length>0 && <div><b>Promised:</b> {e.extracted.promises.join(' · ')}</div>}
-          {e.suggested_next_touch && <div><b>Next touch:</b> {fmtDate(new Date(e.suggested_next_touch).getTime())}{e.extracted.nextTouchJustification?` — ${e.extracted.nextTouchJustification}`:''}</div>}
+        <div style={{display:'flex',alignItems:'center',gap:10,marginTop:12}}>
+          <StagePill status={row.status}/><PriorityDot priority={row.priority}/>
+        </div>
+        {na && <div className="bluebox" style={{display:'flex',alignItems:'center',gap:12,marginTop:14}}>
+          <div style={{flex:1}}><div className="tag">Suggested next step</div><div style={{fontWeight:600,fontSize:13.5,marginTop:3}}>{na.label}</div></div>
+          <button className="btn sm" onClick={openDraft}>Draft it</button>
         </div>}
-      </div>)}</div>}
-      <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-        {EVENT_TYPES.map(([k,l])=> (k==='note'||k==='coffee_chat')
-          ? <button key={k} className="iconbtn" onClick={()=>setNoteType(noteType===k?null:k)} disabled={busy}>+ {l}</button>
-          : <button key={k} className="iconbtn" onClick={()=>add(k)} disabled={busy}>+ {l}</button>)}
-      </div>
-      {noteType==='note' && <div style={{display:'flex',gap:8,marginTop:8}}>
-        <input className="inp" value={noteText} onChange={e=>setNoteText(e.target.value)} placeholder="Quick note…"/>
-        <button className="btn sm" onClick={()=>add('note',noteText.trim())} disabled={!noteText.trim()||busy}>Save</button>
-      </div>}
-      {noteType==='coffee_chat' && <div style={{marginTop:8}}>
-        <textarea className="inp" rows={3} value={noteText} onChange={e=>setNoteText(e.target.value)} placeholder="What did you talk about? Any personal details, promises, next steps…"/>
-        <div style={{display:'flex',gap:8,marginTop:8,alignItems:'center'}}>
-          {mode!=='none' && <button className="btn sm" onClick={addCoffeeChatWithExtraction} disabled={!noteText.trim()||busy}>{busy?<Dots/>:'✨ Extract details & save'}</button>}
-          <button className="btn ghost sm" onClick={()=>add('coffee_chat',noteText.trim())} disabled={!noteText.trim()||busy}>Save note only</button>
+        <div style={{display:'flex',gap:8,marginTop:14,flexWrap:'wrap'}}>
+          <button className="btn ghost sm" onClick={openDraft}>Draft message</button>
+          <button className="btn ghost sm" onClick={()=>changeStage(row,'coffee_chat')}>Mark coffee chat</button>
+          <button className="btn ghost sm" onClick={openDraft}>Follow up</button>
+          <button className="btn ghost sm" onClick={()=>setDrawerTab('notes')}>Add note</button>
         </div>
-        {extractErr && <div className="warnbox" style={{marginTop:8}}>{extractErr}</div>}
-      </div>}
-    </div>}
+        <div className="drawer-tabs">
+          {['briefing','timeline','notes'].map(t=><div key={t} className={'drawer-tab'+(drawerTab===t?' on':'')} onClick={()=>setDrawerTab(t)}>{t[0].toUpperCase()+t.slice(1)}</div>)}
+        </div>
+      </div>
+      <div style={{flex:1,overflowY:'auto',padding:'18px 24px 36px'}}>
+        {drawerTab==='briefing' && <>
+          {!briefing.careerSummary
+            ? <div className="empty"><div className="big">✨</div>No briefing yet. Open <span className="mono">Draft message</span> to generate one from this profile's context.</div>
+            : <>
+              <div className="tag" style={{color:'var(--brand)'}}>✦ AI briefing · always editable via Draft message</div>
+              <div className="tag" style={{margin:'16px 0 6px'}}>Summary</div>
+              <div className="note" style={{fontSize:13.5,color:'var(--ink)'}}>{briefing.careerSummary}</div>
+              {briefing.sharedConnectionNote && <><div className="tag" style={{margin:'14px 0 6px'}}>Shared connection</div><div className="note" style={{fontSize:13.5,color:'var(--ink)'}}>{briefing.sharedConnectionNote}</div></>}
+              {briefing.conversationStarters?.length>0 && <><div className="tag" style={{margin:'14px 0 8px'}}>Conversation starters</div>
+                <div className="list">{briefing.conversationStarters.map((s,i)=><div key={i} className="row" style={{background:'var(--card2)'}}><div className="m">{s}</div></div>)}</div></>}
+              {briefing.whyContactReasons?.length>0 && <><div className="tag" style={{margin:'14px 0 6px'}}>Why contact</div><div className="note" style={{fontSize:13.5,color:'var(--ink)'}}>{briefing.whyContactReasons.join(' · ')}</div></>}
+            </>}
+        </>}
+        {drawerTab==='timeline' && <>
+          {rowEvents.length===0
+            ? <div className="empty"><div className="big">◷</div>No history yet.</div>
+            : <div style={{display:'flex',flexDirection:'column'}}>{rowEvents.map((e,i)=><div key={e.id} style={{display:'flex',gap:14}}>
+                <div style={{display:'flex',flexDirection:'column',alignItems:'center',flex:'none',width:10}}>
+                  <div style={{width:9,height:9,borderRadius:99,background:i===rowEvents.length-1?'var(--brand)':'var(--chip)',marginTop:4}}></div>
+                  {i<rowEvents.length-1 && <div style={{width:2,flex:1,background:'var(--line)',marginTop:4}}></div>}
+                </div>
+                <div style={{paddingBottom:18,flex:1}}>
+                  <div style={{display:'flex',alignItems:'baseline',gap:10}}><div style={{fontWeight:600,fontSize:13.5}}>{EVENT_TYPES.find(t=>t[0]===e.event_type)?.[1]||e.event_type}</div><div className="note">{fmtDate(new Date(e.occurred_at).getTime())}</div></div>
+                  {e.note && !e.extracted && <div className="note" style={{marginTop:3}}>{e.note}</div>}
+                  {e.extracted && <div className="note" style={{marginTop:3}}>
+                    {e.extracted.personalDetails?.length>0 && <div><b>Mentioned:</b> {e.extracted.personalDetails.join(' · ')}</div>}
+                    {e.extracted.promises?.length>0 && <div><b>Promised:</b> {e.extracted.promises.join(' · ')}</div>}
+                    {e.suggested_next_touch && <div><b>Next touch:</b> {fmtDate(new Date(e.suggested_next_touch).getTime())}</div>}
+                  </div>}
+                </div>
+              </div>)}</div>}
+          <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:14}}>
+            {EVENT_TYPES.map(([k,l])=> (k==='note'||k==='coffee_chat')
+              ? <button key={k} className="iconbtn" onClick={()=>setNoteType(noteType===k?null:k)} disabled={busy}>+ {l}</button>
+              : <button key={k} className="iconbtn" onClick={()=>add(k)} disabled={busy}>+ {l}</button>)}
+          </div>
+          {noteType==='note' && <div style={{display:'flex',gap:8,marginTop:8}}>
+            <input className="inp" value={noteText} onChange={e=>setNoteText(e.target.value)} placeholder="Quick note…"/>
+            <button className="btn sm" onClick={()=>add('note',noteText.trim())} disabled={!noteText.trim()||busy}>Save</button>
+          </div>}
+          {noteType==='coffee_chat' && <div style={{marginTop:8}}>
+            <textarea className="inp" rows={3} value={noteText} onChange={e=>setNoteText(e.target.value)} placeholder="What did you talk about?"/>
+            <div style={{display:'flex',gap:8,marginTop:8}}>
+              {mode!=='none' && <button className="btn sm" onClick={addCoffeeChatWithExtraction} disabled={!noteText.trim()||busy}>{busy?<Dots/>:'✨ Extract details & save'}</button>}
+              <button className="btn ghost sm" onClick={()=>add('coffee_chat',noteText.trim())} disabled={!noteText.trim()||busy}>Save note only</button>
+            </div>
+            {extractErr && <div className="warnbox" style={{marginTop:8}}>{extractErr}</div>}
+          </div>}
+        </>}
+        {drawerTab==='notes' && <>
+          <textarea className="inp" style={{minHeight:220,lineHeight:1.6}} value={notes} onChange={e=>onNotesChange(e.target.value)} placeholder="Jot anything — it's just for you."/>
+          <div className="note" style={{marginTop:8}}>Saved automatically. Feeds future briefings and drafts.</div>
+        </>}
+      </div>
+    </div>
+  </>;
+}
+
+/* ============================ DraftModal ============================ */
+function DraftModal({row,sb,auth,updateRow,changeStage,onClose}){
+  const [objective,setObjective]=useState('coffee_chat');
+  const [tone,setTone]=useState('Friendly');
+  const [shorter,setShorter]=useState(false);
+  const [personal,setPersonal]=useState(false);
+  const [text,setText]=useState(row.ai_draft||'');
+  const [busy,setBusy]=useState(false); const [err,setErr]=useState(null); const [copied,setCopied]=useState(false);
+  const mode = llmMode(sb,auth);
+
+  async function generate(){
+    if(mode==='none') return;
+    setBusy(true); setErr(null);
+    try{
+      const ctx = row.context||{}; const br = row.briefing||{};
+      const result = await llmJSON(sb, auth,
+        'You are helping an MIT Sloan Fellows MBA student write a real LinkedIn outreach message. Ground it in the given context — never invent facts not present in it. Follow the objective, tone, and length instructions exactly.',
+        `Objective: ${objective}. Tone: ${tone}. Length: ${shorter?'under 60 words':'under 120 words'}. Personalization: ${personal?'heavily reference specific shared details from the context':'lightly reference context'}.\nContact: ${row.name||''}, ${row.title||''} at ${row.company||''}\nContext — About: ${ctx.aboutText||''} Experience: ${ctx.experienceText||''} Education: ${ctx.educationText||''} Mutual: ${ctx.mutualConnectionsRaw||''}\nExisting briefing — Summary: ${br.careerSummary||''} Shared: ${br.sharedConnectionNote||''}\n\nReturn JSON: {"draftMessage": string}`);
+      setText(result.draftMessage||''); await updateRow(row, {ai_draft: result.draftMessage||'', status: row.status==='prospect'?'ready_to_contact':row.status});
+    }catch(e){ setErr(e.message||String(e)); }
+    setBusy(false);
+  }
+  async function copyAndOpen(){
+    try{ await navigator.clipboard.writeText(text); }catch(e){}
+    await updateRow(row, {message_sent:text});
+    window.open(row.profile_url,'_blank','noopener');
+    setCopied(true); setTimeout(()=>setCopied(false),1500);
+  }
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+
+  return <div className="modal-overlay" onClick={onClose}>
+    <div className="modal" onClick={e=>e.stopPropagation()}>
+      <div style={{display:'flex',alignItems:'center',gap:10,padding:'18px 22px 0'}}>
+        <div><span style={{fontWeight:700,fontSize:16}}>Draft message</span><span className="note"> · to {row.name||row.profile_url}{row.company?`, ${row.company}`:''}</span></div>
+        <div style={{flex:1}}/><div className="iconbtn" style={{cursor:'pointer'}} onClick={onClose}>✕</div>
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:8,padding:'14px 22px 0',flexWrap:'wrap'}}>
+        <select className="inp" style={{width:'auto'}} value={objective} onChange={e=>setObjective(e.target.value)}>
+          {OBJECTIVES.map(([k,l])=><option key={k} value={k}>{l}</option>)}
+        </select>
+        <div style={{width:1,height:20,background:'var(--line)'}}></div>
+        {TONES.map(t=><button key={t} className="btn sm" style={{background:tone===t?'var(--ink)':'var(--card)',color:tone===t?'#fff':'var(--sub)',border:'1px solid '+(tone===t?'var(--ink)':'rgba(0,0,0,.12)')}} onClick={()=>setTone(t)}>{t}</button>)}
+      </div>
+      <div style={{padding:'14px 22px 0'}}>
+        <textarea className="inp" style={{minHeight:220,lineHeight:1.6}} value={text} onChange={e=>setText(e.target.value)} placeholder={mode==='none'?'Sign in to generate a draft, or write one yourself.':'Click Regenerate to draft with AI…'}/>
+        <div className="note" style={{marginTop:6}}>{words} words · nothing is sent until you click — you're always in control</div>
+        {err && <div className="warnbox" style={{marginTop:8}}>{err}</div>}
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:8,padding:'16px 22px 18px',flexWrap:'wrap'}}>
+        {mode!=='none' && <button className="btn ghost sm" onClick={generate} disabled={busy}>{busy?<Dots/>:'↻ Regenerate'}</button>}
+        <button className="btn sm" style={{background:shorter?'var(--ink)':'var(--card)',color:shorter?'#fff':'var(--ink)',border:'1px solid '+(shorter?'var(--ink)':'rgba(0,0,0,.13)')}} onClick={()=>{setShorter(s=>!s);}}>Shorter</button>
+        <button className="btn sm" style={{background:personal?'var(--ink)':'var(--card)',color:personal?'#fff':'var(--ink)',border:'1px solid '+(personal?'var(--ink)':'rgba(0,0,0,.13)')}} onClick={()=>{setPersonal(p=>!p);}}>More personal</button>
+        <div style={{flex:1}}/>
+        <button className="btn sm" onClick={copyAndOpen} disabled={!text.trim()}>{copied?'Copied ✓':'Copy & open LinkedIn'}</button>
+      </div>
+    </div>
   </div>;
 }
 
-/* ============================ Settings ============================ */
-function Settings({db,patch,cfg,setCfg,auth,sb,signOut}){
-  const art=inArtifact(); const [show,setShow]=useState(false); const [showKey,setShowKey]=useState(false);
-  const [saEmail,setSaEmail]=useState(null); const [saErr,setSaErr]=useState(null); const [saBusy,setSaBusy]=useState(false);
-  const [copied,setCopied]=useState(false);
-  function wipeLocal(){ if(confirm('Erase MIghTy templates/settings in THIS browser? If you are signed in, your cloud copy remains and re-syncs on next load.')){ localStorage.removeItem(DB_KEY); location.reload(); } }
-  function exportData(){ const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='mighty-backup.json'; a.click(); }
-  const sbReady=!!(cfg.supabaseUrl&&cfg.supabaseKey);
-
-  async function fetchServiceEmail(){
-    if(!sb) return;
-    setSaBusy(true); setSaErr(null);
-    try{
-      const {data,error} = await sb.functions.invoke('sheets-sync', {body:{action:'whoami'}});
-      if(error) throw error;
-      setSaEmail(data.email);
-    }catch(e){ setSaErr(e.message||String(e)); }
-    setSaBusy(false);
-  }
-  function copyEmail(){ if(!saEmail) return; navigator.clipboard?.writeText(saEmail).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),1500);},()=>{}); }
-  function parseSheetId(input){ const m=(input||'').match(/\/d\/([a-zA-Z0-9-_]+)/); return m?m[1]:(input||'').trim(); }
-
-  return <div style={{display:'flex',flexDirection:'column',gap:16}}>
-    <div className="grid2">
-      <div className="panel pad">
-        <div className="ph"><div><h2>⚙️ Claude connection</h2><div className="sub">Optional — used only for AI-polished templates.</div></div></div>
-        {art ? <div className="okbox">✅ Running inside a Claude artifact — using <span className="mono">window.claude.complete</span>. No API key needed.</div>
-          : <><div className="note" style={{marginBottom:12}}>Add your Anthropic API key — stored only in this browser, sent directly to Anthropic.</div>
-            <label className="fld">Anthropic API key</label>
-            <div style={{display:'flex',gap:8}}><input className="inp" type={showKey?'text':'password'} value={cfg.apiKey} onChange={e=>setCfg({apiKey:e.target.value})} placeholder="sk-ant-…"/>
-              <button className="btn ghost sm" onClick={()=>setShowKey(v=>!v)}>{showKey?'hide':'show'}</button></div>
-            <div style={{height:12}}/><label className="fld">Model</label>
-            <select className="inp" value={cfg.model} onChange={e=>setCfg({model:e.target.value})}>
-              <option value="claude-sonnet-4-6">Claude Sonnet 4.6 — fast, cheap (recommended)</option>
-              <option value="claude-opus-4-8">Claude Opus 4.8 — sharpest</option>
-              <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 — cheapest</option>
-            </select>
-            <div className="note" style={{marginTop:10}}>Key at <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a>.</div></>}
+/* ============================ ExtensionPreview (static, illustrative) ============================ */
+function ExtensionPreview(){
+  const [mode,setMode]=useState('profile');
+  return <div className="page wide">
+    <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:18}}>
+      <div className="note">How MIghTy shows up inside LinkedIn:</div>
+      <div className="seg">
+        <button className={mode==='search'?'on':''} onClick={()=>setMode('search')}>Search results</button>
+        <button className={mode==='profile'?'on':''} onClick={()=>setMode('profile')}>Profile sidebar</button>
       </div>
-      <div className="panel pad">
-        <div className="ph"><div><h2>Account & sync</h2><div className="sub">Cloud save + the outreach log.</div></div></div>
-        {auth.status==='in'
-          ? <div className="okbox">✅ Signed in as <b>{auth.user.email}</b>. Your work syncs automatically.
-              <div style={{marginTop:10}}><button className="btn ghost sm" onClick={signOut}>Sign out</button></div></div>
-          : sbReady
-            ? <div className="bluebox">Backend connected. Use <b>Sign in</b> (top right) to create your @mit.edu account and turn on sync.</div>
-            : <div className="note">Not connected yet — add your Supabase project below to enable accounts + the outreach log. Until then MIghTy runs in guest mode (templates only, this browser).</div>}
-        <div style={{height:14}}/>
-        <details>
-          <summary style={{cursor:'pointer',fontWeight:600,fontSize:13.5}}>Supabase backend config {sbReady?'✓':''}</summary>
-          <div style={{marginTop:12}}>
-            <label className="fld">Project URL</label>
-            <input className="inp" value={cfg.supabaseUrl} onChange={e=>setCfg({supabaseUrl:e.target.value})} placeholder="https://xxxx.supabase.co"/>
-            <div style={{height:10}}/><label className="fld">Anon public key</label>
-            <div style={{display:'flex',gap:8}}><input className="inp" type={show?'text':'password'} value={cfg.supabaseKey} onChange={e=>setCfg({supabaseKey:e.target.value})} placeholder="eyJhbGci…"/>
-              <button className="btn ghost sm" onClick={()=>setShow(v=>!v)}>{show?'hide':'show'}</button></div>
-            <div className="note" style={{marginTop:10}}>These are public keys (safe in the browser) — your data is protected by row-level security. Run the setup SQL once in your Supabase project.</div>
+    </div>
+    <div className="browser-frame" style={{maxWidth:1000,margin:'0 auto'}}>
+      <div className="browser-bar">
+        <div className="browser-dot" style={{background:'#ff5f57'}}></div><div className="browser-dot" style={{background:'#febc2e'}}></div><div className="browser-dot" style={{background:'#28c840'}}></div>
+        <div className="browser-url">{mode==='profile'?'linkedin.com/in/sarah-chen-pm':'linkedin.com/search/results/people'}</div>
+      </div>
+      <div className="browser-body" style={{display:'flex'}}>
+        {mode==='profile' ? <>
+          <div style={{flex:1,padding:'22px',overflow:'auto'}}>
+            <div style={{maxWidth:560,margin:'0 auto',background:'#fff',borderRadius:10,border:'1px solid rgba(0,0,0,.08)',overflow:'hidden'}}>
+              <div style={{height:80,background:'#DCE2EC'}}></div>
+              <div style={{padding:'0 22px 20px'}}>
+                <div style={{width:70,height:70,borderRadius:99,background:'#DCE7F8',color:'#3B55B8',display:'grid',placeItems:'center',fontWeight:700,fontSize:22,border:'3px solid #fff',marginTop:-35}}>SC</div>
+                <div style={{fontSize:18,fontWeight:700,marginTop:8}}>Sarah Chen</div>
+                <div className="note" style={{marginTop:2}}>Product Manager at Amazon · ex-Deloitte · MIT Sloan MBA</div>
+                <div style={{display:'flex',gap:8,marginTop:12}}>
+                  <button className="btn sm" style={{background:'#3D5C9E',borderRadius:99}}>Connect</button>
+                  <button className="btn ghost sm" style={{borderRadius:99,color:'#3D5C9E',borderColor:'#3D5C9E'}}>Message</button>
+                </div>
+                <div style={{fontWeight:600,marginTop:18,fontSize:13.5}}>About</div>
+                <div className="note" style={{marginTop:6}}>Building shopping experiences at Amazon. Before that, three years advising retail clients at Deloitte.</div>
+              </div>
+            </div>
           </div>
-        </details>
+          <div style={{width:290,flex:'none',borderLeft:'1px solid rgba(0,0,0,.08)',background:'#fff',padding:16,overflow:'auto'}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}><div className="rail-logo" style={{width:16,height:16,fontSize:9}}>M</div><div style={{fontWeight:700,fontSize:12.5}}>MIghTy</div><div style={{flex:1}}/><span className="pill" style={{background:'var(--gsoft)',color:'var(--green2)'}}>Saved</span></div>
+            <div style={{display:'flex',alignItems:'baseline',gap:8}}><div style={{fontSize:22,fontWeight:700,color:'var(--brand)'}}>Strong match</div></div>
+            <div className="note" style={{marginTop:2}}>Same school · career switcher · active poster</div>
+            <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:14,paddingTop:12,borderTop:'1px solid var(--line)'}}>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:12}}><span className="note">Status</span><StagePill status="contacted"/></div>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:12}}><span className="note">Last interaction</span><span>Message sent</span></div>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:12}}><span className="note">Next action</span><span style={{color:'var(--brand)'}}>Follow up today</span></div>
+            </div>
+            <div style={{marginTop:12,background:'var(--card2)',border:'1px solid var(--line)',borderRadius:9,padding:'10px 11px'}}>
+              <div className="tag">Your notes</div>
+              <div className="note" style={{marginTop:5}}>Met her on the Sloan PM panel in March — mentors career switchers.</div>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:14}}>
+              <button className="btn sm">Draft follow-up</button>
+              <button className="btn ghost sm">Open in MIghTy</button>
+            </div>
+          </div>
+        </> : <div style={{flex:1,padding:'22px',overflow:'auto'}}>
+          <div style={{maxWidth:600,margin:'0 auto'}}>
+            <div className="note" style={{marginBottom:10}}>412 results · <b>MIT Sloan</b> · <b>Bain &amp; Company</b></div>
+            <div className="list">
+              {[['Grace Liu','Consultant at Bain & Company · MIT Sloan ’23','92%'],['Omar Sheikh','Sr. Associate Consultant at Bain · MIT Sloan ’22','88%'],['Jenna Wolfe','Consultant at Bain & Company · MIT Sloan ’24','84%']].map(([n,l,s])=>
+                <div key={n} className="row" style={{background:'#fff'}}>
+                  <input type="checkbox" defaultChecked/>
+                  <Avatar row={{id:1,name:n}} size={34}/>
+                  <div className="grow"><div className="t">{n}</div><div className="m">{l}</div></div>
+                  <div style={{textAlign:'right'}}><div style={{fontWeight:700,color:'var(--brand)'}}>{s}</div><div className="note">Strong alumni match</div></div>
+                </div>)}
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:12,background:'var(--ink)',color:'#fff',borderRadius:10,padding:'10px 14px',marginTop:12}}>
+              <div className="rail-logo" style={{width:16,height:16,fontSize:9}}>M</div><div style={{flex:1,fontSize:13}}>3 people selected</div>
+              <button className="btn sm">Save to MIghTy</button>
+            </div>
+          </div>
+        </div>}
       </div>
-    </div>
-
-    <div className="panel pad">
-      <div className="ph"><div><h2>Ranking & follow-ups</h2><div className="sub">Powers "Today's Best 10" and follow-up reminders.</div></div></div>
-      <label className="fld">Target companies (comma-separated)</label>
-      <input className="inp" defaultValue={db.settings.targetCompanies.join(', ')}
-        onBlur={e=>patch('settings', s=>({...s, targetCompanies: e.target.value.split(',').map(x=>x.trim()).filter(Boolean)}))}
-        placeholder="McKinsey, Bain, Amazon"/>
-      <div style={{height:10}}/><label className="fld">Follow-up reminder after (days)</label>
-      <input className="inp" type="number" min={1} max={60} style={{width:120}} value={db.settings.followUpDays}
-        onChange={e=>patch('settings', s=>({...s, followUpDays: parseInt(e.target.value,10)||7}))}/>
-    </div>
-
-    <div className="panel pad">
-      <div className="ph"><div><h2>Community insights</h2><div className="sub">Opt-in, anonymous, aggregated.</div></div></div>
-      <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}}>
-        <input type="checkbox" checked={db.settings.communityOptIn} onChange={e=>patch('settings', s=>({...s, communityOptIn: e.target.checked}))}/>
-        <span>Contribute my outreach activity to anonymous cross-cohort insights</span>
-      </label>
-      <div className="note" style={{marginTop:10}}>Only aggregated counts by company are ever shared (e.g. "12 students reached out to McKinsey") — never your name, messages, or individual activity. A company only appears once at least 3 students have contributed, and every number shown is bucketed (1-2 / 3-5 / 6-10 / 10+), never exact, so no single student's outcome can be identified.</div>
-    </div>
-
-    <div className="panel pad">
-      <div className="ph"><div><h2>Google Sheets sync</h2><div className="sub">Your outreach log mirrors to a Sheet you own.</div></div></div>
-      {auth.status!=='in' ? <div className="note">Sign in first — the Sheet sync reads your outreach log, which is per-account.</div> : <>
-        <label className="fld">Google Sheet ID or URL</label>
-        <input className="inp" value={db.settings.sheets.sheetId} onChange={e=>patch('settings', s=>({...s, sheets:{...s.sheets, sheetId:parseSheetId(e.target.value)}}))} placeholder="Paste the Sheet URL — the ID is extracted automatically"/>
-        <div style={{height:10}}/><label className="fld">Tab name</label>
-        <input className="inp" value={db.settings.sheets.tabName} onChange={e=>patch('settings', s=>({...s, sheets:{...s.sheets, tabName:e.target.value}}))} placeholder="MIghTy Outreach"/>
-        <div style={{marginTop:12,display:'flex',gap:9,alignItems:'center',flexWrap:'wrap'}}>
-          <button className="btn ghost sm" onClick={fetchServiceEmail} disabled={saBusy}>{saBusy?<Dots/>:'Get service-account email'}</button>
-          {saEmail && <span className="chip">{saEmail}<button className="iconbtn" style={{padding:'2px 7px'}} onClick={copyEmail}>{copied?'✓':'copy'}</button></span>}
-        </div>
-        {saErr && <div className="warnbox" style={{marginTop:10}}>{saErr}</div>}
-        {db.settings.sheets.lastError && <div className="warnbox" style={{marginTop:10}}>Last sync error: {db.settings.sheets.lastError}</div>}
-        <div className="note" style={{marginTop:10}}>Share your Sheet with that email (Editor access) before syncing — otherwise the sync will fail with "not_shared." Do the actual sync from the <b>Log</b> tab.</div>
-      </>}
-    </div>
-
-    <div className="panel pad">
-      <div className="ph"><div><h2>Extension</h2><div className="sub">Install once per device.</div></div></div>
-      <div className="note">Load <span className="mono">extension/</span> unpacked at <span className="mono">chrome://extensions</span>, then connect it to this same Supabase project + your @mit.edu login. Full steps in <span className="mono">extension/INSTALL.md</span>.</div>
-    </div>
-
-    <div className="panel pad">
-      <div className="ph"><div><h2>Your data</h2><div className="sub">{auth.status==='in'?'Templates/settings synced; outreach log lives server-side.':'In this browser only (guest mode).'}</div></div></div>
-      <div className="grid3" style={{gap:12}}>
-        <Stat k="Templates" v={db.templates.length}/>
-        <Stat k="Logged profiles" v={auth.status==='in' ? '—' : 0} d={auth.status==='in' ? 'see the Log tab' : 'sign in to track'}/>
-      </div>
-      <div style={{display:'flex',gap:9,marginTop:16,flexWrap:'wrap'}}>
-        <button className="btn ghost sm" onClick={exportData}>⤓ Export templates (.json)</button>
-        <button className="btn ghost sm" onClick={wipeLocal} style={{color:'var(--brand2)',borderColor:'#E7C2BD'}}>Erase local copy</button>
-      </div>
-      <div className="divider"/>
-      <div className="note"><b>Privacy:</b> MIghTy stores your templates, settings, and outreach log (profiles you shortlisted, messages sent, status). No LinkedIn password is ever stored — the extension acts only in your own logged-in browser session, and never clicks Connect/Message for you.</div>
     </div>
   </div>;
 }
