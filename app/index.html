@@ -802,6 +802,44 @@ function DailyCopilot({db, log, events, tasks, sb, auth, setDrawerId}){
   </div>;
 }
 
+/* ============================ Find people (Discover) ============================
+   Search the way you think. You type a natural request ("strategy tech companies
+   around me"); MIghTy rewrites it into tight LinkedIn-search keywords via the AI
+   gateway, opens Google scoped to public profiles, and the extension reads that
+   results page so you can import the ones you pick. We never auto-search or
+   scrape at scale — the student runs the search. */
+function FindPeople({sb, auth}){
+  const [q,setQ]=useState(''); const [busy,setBusy]=useState(false); const [lastKw,setLastKw]=useState(null);
+  const mode = llmMode(sb,auth);
+  const EX=['strategy tech companies near me','MIT Sloan alumni in AI','healthcare VCs in New York','product managers at Stripe','climate startup founders in Europe'];
+  function openGoogle(keywords){ window.open('https://www.google.com/search?q='+encodeURIComponent('site:linkedin.com/in '+keywords),'_blank','noopener'); }
+  async function go(){
+    const query=q.trim(); if(!query) return;
+    if(mode==='none'){ setLastKw(query); openGoogle(query); return; }
+    setBusy(true);
+    try{
+      const kw = await llm(sb, auth, 'tagging',
+        'You turn a natural-language request to find people into a short set of LinkedIn profile search keywords: role/title, company, industry, and location. Keep real company and place names. Convert phrases like "tech companies" to "technology". Drop filler like "around me"/"near me" unless a specific place is named. Output ONLY the keywords on one line — no punctuation, quotes, or explanation.',
+        query, 60);
+      const clean=(kw||query).trim().replace(/[\n"]/g,' ').replace(/\s+/g,' ');
+      setLastKw(clean); openGoogle(clean);
+    }catch(e){ setLastKw(query); openGoogle(query); }
+    setBusy(false);
+  }
+  return <div className="panel pad">
+    <div style={{fontWeight:700,fontSize:15,marginBottom:4}}>🔎 Find people anywhere</div>
+    <div className="note" style={{marginBottom:12,fontSize:12.5,lineHeight:1.5}}>Describe who you're looking for in plain words. MIghTy turns it into a smart search and opens Google — with the extension installed, import the results in one click.</div>
+    <div style={{display:'flex',gap:8}}>
+      <input className="inp" value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') go(); }} placeholder="e.g. strategy people at tech companies in Boston"/>
+      <button className="btn" onClick={go} disabled={busy||!q.trim()}>{busy?<Dots/>:(mode!=='none'?'✨ Search':'Search →')}</button>
+    </div>
+    {lastKw && <div className="note" style={{marginTop:8,fontSize:12}}>Searching LinkedIn profiles for: <b style={{color:'var(--ink)'}}>{lastKw}</b> · <a href={'https://www.google.com/search?q='+encodeURIComponent('site:linkedin.com/in '+lastKw)} target="_blank" rel="noopener noreferrer">reopen</a></div>}
+    <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:10}}>
+      {EX.map(ex=><span key={ex} onClick={()=>setQ(ex)} className="chip" style={{cursor:'pointer',background:'var(--card)',border:'1px solid var(--line)'}}>{ex}</span>)}
+    </div>
+  </div>;
+}
+
 /* ============================ Dashboard ============================ */
 function Dashboard({db,log,events,tasks,communityStats,sb,auth,setTab,setDrawerId,setDraftFor}){
   const candidates = log.filter(r=>r.status==='prospect'||r.status==='ready_to_contact');
@@ -839,6 +877,8 @@ function Dashboard({db,log,events,tasks,communityStats,sb,auth,setTab,setDrawerI
     <div className="note" style={{marginTop:4,fontSize:13.5}}>{priorities.length ? `${priorities.length} thing${priorities.length!==1?'s':''} worth doing today.` : 'Nothing urgent — check People to shortlist more contacts.'}</div>
 
     <div style={{marginTop:20}}><DailyCopilot db={db} log={log} events={events} tasks={tasks} sb={sb} auth={auth} setDrawerId={setDrawerId}/></div>
+
+    <div style={{marginTop:14}}><FindPeople sb={sb} auth={auth}/></div>
 
     <div className="tag" style={{margin:'28px 0 10px'}}>Today's priorities</div>
     {priorities.length===0

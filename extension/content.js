@@ -398,15 +398,110 @@ function wireSendObserver() {
   }, true);
 }
 
+/* ---------- 5. "Search anywhere" import from a Google results page ----------
+   The student runs a normal Google search (MIghTy's "Find people" box opens
+   one scoped to LinkedIn profiles). On the results page they're already viewing,
+   this reads the visible LinkedIn profile links + titles and offers one-click
+   bulk import. We never automate the search or scrape at scale — we only read
+   the page the student opened themselves, same human-in-the-loop boundary. */
+function extractGoogleProfiles() {
+  const seen = new Set(), out = [];
+  for (const a of document.querySelectorAll('a[href*="linkedin.com/in/"]')) {
+    let href = a.href;
+    if (/\/url\?/.test(href)) { try { href = new URL(href).searchParams.get('q') || href; } catch (e) {} }
+    if (!/linkedin\.com\/in\//.test(href)) continue;
+    const url = normProfileUrl(href);
+    if (seen.has(url)) continue;
+    let card = a;
+    for (let i = 0; i < 5 && card.parentElement; i++) { card = card.parentElement; if (card.querySelector('h3')) break; }
+    const h3 = card.querySelector('h3');
+    let title = ((h3 && h3.textContent) || a.textContent || '').trim();
+    title = title.replace(/\s*[|·]?\s*LinkedIn\s*$/i, '').replace(/\s*[.…]+\s*$/, '').trim();
+    const parts = title.split(/\s+[-–—]\s+/);
+    const name = (parts[0] || '').trim();
+    if (!name || name.length > 60 || /^https?:/i.test(name)) continue;
+    const headline = parts.slice(1).join(' - ').trim();
+    seen.add(url);
+    out.push({ profileUrl: url, name, title: headline, company: companyFromTitle(headline) });
+  }
+  return out;
+}
+let gPanel = null;
+async function renderGoogleImportPanel() {
+  const profiles = extractGoogleProfiles();
+  if (!profiles.length) { if (gPanel) { gPanel.remove(); gPanel = null; } return; }
+  const r = await fetchLogCached();
+  const signedIn = r && r.ok;
+  const tracked = new Set(signedIn ? r.log.map(x => x.profile_url) : []);
+
+  if (gPanel && document.body.contains(gPanel)) gPanel.remove();
+  gPanel = document.createElement('div');
+  gPanel.id = 'mighty-google-panel';
+  gPanel.style.cssText = 'position:fixed;top:76px;right:16px;width:320px;max-height:78vh;overflow:auto;z-index:99999;'
+    + 'background:#fff;border:1px solid rgba(0,0,0,.16);box-shadow:0 12px 40px rgba(0,0,0,.2);'
+    + "font:13px 'Archivo',-apple-system,system-ui,sans-serif;color:#201e1d;padding:14px;";
+  gPanel.innerHTML = mightyBrandHead(`<span style="font-size:11px;font-weight:700;color:#605d5d;background:#eae7e7;padding:3px 9px;">${profiles.length} found</span>`);
+
+  if (!signedIn) {
+    const note = document.createElement('div'); note.style.cssText = 'color:#605d5d;font-size:12.5px;';
+    note.textContent = 'Sign in to the MIghTy extension to import these profiles.';
+    gPanel.appendChild(note); document.body.appendChild(gPanel); return;
+  }
+
+  const checks = new Map();
+  const list = document.createElement('div'); list.style.cssText = 'display:flex;flex-direction:column;gap:2px;margin-bottom:10px;';
+  profiles.forEach(p => {
+    const already = tracked.has(p.profileUrl);
+    const row = document.createElement('label');
+    row.style.cssText = 'display:flex;gap:9px;align-items:flex-start;padding:7px 4px;border-bottom:1px solid #f0eded;cursor:pointer;';
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !already; cb.disabled = already;
+    cb.style.cssText = 'margin-top:2px;flex:none;'; checks.set(p.profileUrl, cb);
+    const info = document.createElement('div'); info.style.cssText = 'min-width:0;flex:1;';
+    info.innerHTML = `<div style="font-weight:700;font-size:12.5px;">${esc(p.name)}</div>`
+      + `<div style="font-size:11px;color:#605d5d;line-height:1.3;max-height:28px;overflow:hidden;">${esc(p.title || p.company)}</div>`
+      + (already ? `<div style="font-size:10px;color:#ec3013;font-weight:700;margin-top:2px;">Already in MIghTy</div>` : '');
+    row.append(cb, info); list.appendChild(row);
+  });
+  gPanel.appendChild(list);
+
+  const btn = document.createElement('button');
+  const selectable = profiles.filter(p => !tracked.has(p.profileUrl));
+  btn.textContent = `Import ${selectable.length} to MIghTy`;
+  btn.style.cssText = `background:${ACCENT};color:#fff;border:none;padding:9px 12px;font-weight:800;font-size:13px;cursor:pointer;width:100%;font-family:inherit;`;
+  btn.disabled = selectable.length === 0;
+  btn.onclick = async () => {
+    const chosen = profiles.filter(p => { const c = checks.get(p.profileUrl); return c && c.checked && !c.disabled; });
+    if (!chosen.length) return;
+    btn.textContent = 'Importing…'; btn.disabled = true;
+    let ok = 0;
+    for (const p of chosen) {
+      const res = await send('saveProfile', { payload: { profileUrl: p.profileUrl, name: p.name, title: p.title, company: p.company } });
+      if (res && res.ok) { ok++; const c = checks.get(p.profileUrl); if (c) c.disabled = true; }
+    }
+    btn.textContent = `Imported ${ok} ✓`;
+    setTimeout(() => renderGoogleImportPanel(), 1200);
+  };
+  gPanel.appendChild(btn);
+  const foot = document.createElement('div'); foot.style.cssText = 'font-size:10.5px;color:#7d7979;margin-top:8px;';
+  foot.textContent = 'Imported people land in your pipeline as prospects, ready to score and draft.';
+  gPanel.appendChild(foot);
+  document.body.appendChild(gPanel);
+}
+
 /* ---------- wiring: re-scan on the student's own SPA navigation ---------- */
+const IS_LINKEDIN = /(^|\.)linkedin\.com$/i.test(location.hostname);
+const IS_GOOGLE = /(^|\.)google\./i.test(location.hostname);
 let lastUrl = '';
 function scan() {
   if (location.href === lastUrl) return;
   lastUrl = location.href;
   setTimeout(() => {
-    try { renderCardCheckboxes(); wireComposeFill(); captureProfileContext(); renderProfileSidebar(); wireSendObserver(); }
+    try {
+      if (IS_LINKEDIN) { renderCardCheckboxes(); wireComposeFill(); captureProfileContext(); renderProfileSidebar(); wireSendObserver(); }
+      else if (IS_GOOGLE) { renderGoogleImportPanel(); }
+    }
     catch (e) { /* selectors likely drifted — see SELECTORS comment above */ }
-  }, 1200); // let LinkedIn's SPA render
+  }, 1200); // let the SPA render
 }
 
 scan();
