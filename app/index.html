@@ -333,16 +333,19 @@ function suggestedNextAction(row, rowEvents, followUpDays){
    used for the builder's own testing, not the deployed student experience. */
 const inArtifact = () => typeof window!=='undefined' && window.claude && typeof window.claude.complete==='function';
 function llmMode(sb, auth){ if(inArtifact()) return 'artifact'; if(sb && auth && auth.status==='in') return 'proxy'; return 'none'; }
-async function llm(sb, auth, system, user, maxTokens=700){
+// `feature` names the workload (draft_message, profile_briefing, coffee_extract,
+// daily_plan, …) — the AI Gateway routes it to the right model, caches it, and
+// bills it against the budgets. See edge-ai-proxy.ts FEATURES for the registry.
+async function llm(sb, auth, feature, system, user, maxTokens=700){
   if(inArtifact()) return await window.claude.complete(`${system}\n\n———\n${user}`);
   if(!sb || !auth || auth.status!=='in') throw new Error('Sign in to use AI features.');
-  const {data,error} = await sb.functions.invoke('ai-proxy', {body:{system,user,maxTokens}});
+  const {data,error} = await sb.functions.invoke('ai-proxy', {body:{feature,system,user,maxTokens}});
   if(error) throw error;
   if(!data || data.ok===false) throw new Error((data&&(data.message||data.error))||'AI request failed.');
   return data.text;
 }
-async function llmJSON(sb, auth, system, user, maxTokens=900){
-  const text = await llm(sb, auth, system+'\n\nRespond with ONLY valid JSON, no prose, no markdown fences.', user, maxTokens);
+async function llmJSON(sb, auth, feature, system, user, maxTokens=900){
+  const text = await llm(sb, auth, feature, system+'\n\nRespond with ONLY valid JSON, no prose, no markdown fences.', user, maxTokens);
   return JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}')+1));
 }
 const OBJECTIVES = [['coffee_chat','Coffee chat'],['follow_up','Follow-up'],['thank_you','Thank you'],['referral_ask','Referral ask'],['recruiter_intro','Recruiter intro']];
@@ -949,7 +952,7 @@ function Templates({db,patch,sb,auth,setTab}){
   async function polish(){
     if(mode==='none'||!body.trim()) return;
     setPolishing(true);
-    try{ const out = await llm(sb, auth, 'Tighten this LinkedIn outreach message: warm, specific, under 400 characters, keep any {{firstName}}/{{company}} placeholders exactly as written. Return only the revised message, no preamble.', body); setBody(out.trim()); }
+    try{ const out = await llm(sb, auth, 'draft_message', 'Tighten this LinkedIn outreach message: warm, specific, under 400 characters, keep any {{firstName}}/{{company}} placeholders exactly as written. Return only the revised message, no preamble.', body); setBody(out.trim()); }
     catch(e){} setPolishing(false);
   }
 
@@ -1002,7 +1005,7 @@ function PersonDrawer({row,rowEvents,db,sb,auth,drawerTab,setDrawerTab,onClose,u
     if(mode==='none'){ await add('coffee_chat', noteText.trim()); return; }
     setBusy(true); setExtractErr(null);
     try{
-      const r = await llmJSON(sb, auth,
+      const r = await llmJSON(sb, auth, 'coffee_extract',
         'You are helping an MIT Sloan Fellows MBA student capture structured notes right after a real coffee chat. Extract only what the notes actually state or clearly imply — never invent. Suggest a next-touch timing as a relative offset, not a calendar date.',
         `Contact: ${displayName(row)}, ${row.title||''} at ${row.company||''}.\nStudent's notes:\n${noteText.trim()}\n\nReturn JSON: {"personalDetails": string[], "promises": string[], "nextTouch": {"amount": number, "unit": "days"|"weeks"|"months", "justification": string}}`);
       const extracted = { personalDetails:r.personalDetails||[], promises:r.promises||[], nextTouchJustification:r.nextTouch?.justification||'' };
@@ -1129,7 +1132,7 @@ function DraftModal({row,sb,auth,updateRow,changeStage,onClose}){
     setBusy(true); setErr(null);
     try{
       const ctx = row.context||{}; const br = row.briefing||{};
-      const result = await llmJSON(sb, auth,
+      const result = await llmJSON(sb, auth, 'draft_message',
         'You are helping an MIT Sloan Fellows MBA student write a real LinkedIn outreach message. Ground it in the given context — never invent facts not present in it. Follow the objective, tone, and length instructions exactly.',
         `Objective: ${objective}. Tone: ${tone}. Length: ${shorter?'under 60 words':'under 120 words'}. Personalization: ${personal?'heavily reference specific shared details from the context':'lightly reference context'}.\nContact: ${row.name||''}, ${row.title||''} at ${row.company||''}\nContext — About: ${ctx.aboutText||''} Experience: ${ctx.experienceText||''} Education: ${ctx.educationText||''} Mutual: ${ctx.mutualConnectionsRaw||''}\nExisting briefing — Summary: ${br.careerSummary||''} Shared: ${br.sharedConnectionNote||''}\n\nReturn JSON: {"draftMessage": string}`);
       setText(result.draftMessage||''); await updateRow(row, {ai_draft: result.draftMessage||'', status: row.status==='prospect'?'ready_to_contact':row.status});

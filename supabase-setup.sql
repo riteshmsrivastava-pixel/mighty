@@ -238,6 +238,101 @@ begin
 end;
 $$;
 
+-- 6b-ii. AI GATEWAY — cost visibility + guardrails.
+--   Every Claude call routes through the ai-proxy Edge Function, which:
+--     · routes each feature to the cheapest capable model (Haiku/Sonnet/Opus),
+--     · reuses a cached answer when the same input was seen before,
+--     · logs user/feature/model/tokens/estimated-cost/latency/cache for every call,
+--     · enforces per-user daily + monthly assist caps, a per-user monthly $ cap,
+--       and a company-wide daily $ budget (over budget → downgrade or refuse).
+--   The knobs live in ai_config so you can retune them without redeploying.
+
+-- Tunable budget knobs (single row). Edit these values live in the SQL editor.
+create table if not exists public.ai_config (
+  id                       int primary key default 1 check (id = 1),
+  daily_company_budget_usd numeric not null default 20,   -- G7: whole-cohort daily ceiling
+  free_daily_assists       int     not null default 30,   -- G3: per-user/day (non-cached calls)
+  free_monthly_assists     int     not null default 400,  -- G4: per-user/month
+  user_monthly_budget_usd  numeric not null default 15    -- G6: per-user/month $ ceiling
+);
+insert into public.ai_config (id) values (1) on conflict (id) do nothing;
+alter table public.ai_config enable row level security;
+-- readable by any signed-in user (the app shows "assists left"); only service role writes.
+drop policy if exists "aicfg select" on public.ai_config;
+create policy "aicfg select" on public.ai_config for select using (auth.role() = 'authenticated');
+
+-- One row per Claude call — the gateway's ledger. cache_hit rows cost $0.
+create table if not exists public.ai_call_log (
+  id            bigint generated always as identity primary key,
+  user_id       uuid not null references auth.users(id) on delete cascade,
+  feature       text not null,
+  model         text not null,
+  tier          text,
+  input_tokens  int  not null default 0,
+  output_tokens int  not null default 0,
+  est_cost_usd  numeric not null default 0,
+  cache_hit     boolean not null default false,
+  latency_ms    int,
+  created_at    timestamptz not null default now()
+);
+create index if not exists ai_call_log_user_time on public.ai_call_log (user_id, created_at);
+create index if not exists ai_call_log_time on public.ai_call_log (created_at);
+alter table public.ai_call_log enable row level security;
+drop policy if exists "acl select own" on public.ai_call_log;
+create policy "acl select own" on public.ai_call_log for select using (auth.uid() = user_id);
+-- no insert/update/delete policy — only the service-role edge function writes.
+
+-- Content-addressed answer cache (G2). Keyed by a hash of feature+model+prompt;
+-- the gateway reads/writes this with the service-role key (bypasses RLS).
+create table if not exists public.ai_cache (
+  cache_key  text primary key,
+  feature    text,
+  model      text,
+  response   text not null,
+  hits       int  not null default 0,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz
+);
+alter table public.ai_cache enable row level security;
+-- no policies at all — service role only.
+
+-- Single round-trip precheck: current usage counters + budgets + config, so the
+-- gateway makes one DB call before deciding whether/how to run a request.
+create or replace function public.ai_precheck(p_user_id uuid)
+returns json
+language sql
+security definer
+as $$
+  select json_build_object(
+    'day_count',        (select count(*) from public.ai_call_log
+                           where user_id = p_user_id and cache_hit = false
+                             and created_at >= date_trunc('day',   now() at time zone 'utc')),
+    'month_count',      (select count(*) from public.ai_call_log
+                           where user_id = p_user_id and cache_hit = false
+                             and created_at >= date_trunc('month', now() at time zone 'utc')),
+    'user_month_cost',  coalesce((select sum(est_cost_usd) from public.ai_call_log
+                           where user_id = p_user_id
+                             and created_at >= date_trunc('month', now() at time zone 'utc')), 0),
+    'company_day_cost', coalesce((select sum(est_cost_usd) from public.ai_call_log
+                           where created_at >= date_trunc('day', now() at time zone 'utc')), 0),
+    'config',           (select row_to_json(c) from public.ai_config c where id = 1)
+  );
+$$;
+
+-- Append a call to the ledger (service role only).
+create or replace function public.ai_record_call(
+  p_user_id uuid, p_feature text, p_model text, p_tier text,
+  p_in int, p_out int, p_cost numeric, p_cache_hit boolean, p_latency int)
+returns void
+language sql
+security definer
+as $$
+  insert into public.ai_call_log
+    (user_id, feature, model, tier, input_tokens, output_tokens, est_cost_usd, cache_hit, latency_ms)
+  values
+    (p_user_id, p_feature, p_model, p_tier, p_in, p_out, p_cost, p_cache_hit, p_latency);
+$$;
+
 -- 6c. Tasks — a lightweight standalone to-do list. Genuinely independent of
 --     outreach_log (a task doesn't have to be about a specific contact), but
 --     can optionally link to one (`log_id`) so the Drawer/People/Pipeline can

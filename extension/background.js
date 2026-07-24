@@ -154,7 +154,7 @@ async function patchNotes(logId, notes) {
 // Calls the shared ai-proxy Edge Function directly — same auth pattern as
 // pushInbox, so the docked sidebar can draft a follow-up without opening the
 // web app. No API key here either; the proxy holds it server-side.
-async function generateDraft(system, user, maxTokens) {
+async function generateDraft(system, user, maxTokens, feature) {
   const { settings = {} } = await chrome.storage.local.get('settings');
   const sb = settings.sb;
   if (!sb || !sb.url || !sb.accessToken) return { ok: false, error: 'not_signed_in' };
@@ -162,7 +162,7 @@ async function generateDraft(system, user, maxTokens) {
     const res = await fetch(`${sb.url}/functions/v1/ai-proxy`, {
       method: 'POST',
       headers: { apikey: sb.anonKey, Authorization: `Bearer ${sb.accessToken}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ system, user, maxTokens: maxTokens || 700 }),
+      body: JSON.stringify({ feature: feature || 'draft_message', system, user, maxTokens: maxTokens || 700 }),
     });
     const data = await res.json();
     if (!res.ok || data.ok === false) return { ok: false, error: data.message || data.error || 'ai_failed' };
