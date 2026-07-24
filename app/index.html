@@ -556,7 +556,7 @@ function App(){
       <div className="topbar"><h2>{TITLES[tab]}</h2></div>
       <div className="content">
         {tab==='dashboard' && <Dashboard db={db} log={log} events={events} tasks={tasks} communityStats={communityStats} sb={sb} auth={auth} setTab={setTab} setDrawerId={setDrawerId} setDraftFor={setDraftFor}/>}
-        {tab==='people' && <People db={db} log={log} events={events} doIngest={doIngest} setDrawerId={setDrawerId}/>}
+        {tab==='people' && <People db={db} log={log} events={events} doIngest={doIngest} setDrawerId={setDrawerId} sb={sb} auth={auth}/>}
         {tab==='pipeline' && <Pipeline log={log} changeStage={changeStage}/>}
         {tab==='tasks' && <Tasks tasks={tasks} log={log} addTask={addTask} toggleTask={toggleTask} deleteTask={deleteTask} setDrawerId={setDrawerId}/>}
         {tab==='insights' && <Insights log={log} events={events} communityStats={communityStats}/>}
@@ -883,17 +883,67 @@ function Dashboard({db,log,events,tasks,communityStats,sb,auth,setTab,setDrawerI
 }
 
 /* ============================ People ============================ */
-function People({db,log,events,doIngest,setDrawerId}){
+function People({db,log,events,doIngest,setDrawerId,sb,auth}){
   const [q,setQ]=useState(''); const [checking,setChecking]=useState(false);
+  const [ai,setAi]=useState(null); const [aiBusy,setAiBusy]=useState(false); const [aiErr,setAiErr]=useState(null);
+  const mode = llmMode(sb,auth);
   const ql = q.toLowerCase();
-  const rows = log.filter(r=>!ql || `${r.name} ${r.company} ${r.title}`.toLowerCase().includes(ql));
+  // When an AI answer is showing, the query is a question (not a name filter),
+  // so keep the full table below instead of filtering it to nothing.
+  const rows = ai ? log : log.filter(r=>!ql || `${r.name} ${r.company} ${r.title}`.toLowerCase().includes(ql));
+
+  // Semantic "ask your network" — Claude reasons over a compact index of the
+  // student's own contacts (name/role/company/notes/briefing/profile snippets)
+  // and returns which ones match a natural-language question, with why. Grounded
+  // strictly in the index; no fabricated people. Routed through the gateway's
+  // network_search feature.
+  async function askNetwork(){
+    if(mode==='none' || !q.trim()) return;
+    setAiBusy(true); setAiErr(null); setAi(null);
+    try{
+      const index = log.slice(0,120).map(r=>{
+        const ctx=r.context||{}, br=r.briefing||{};
+        const bits=[`#${r.id} ${displayName(r)}`, r.title, r.company, r.status];
+        if(br.careerSummary) bits.push('brief:'+String(br.careerSummary).slice(0,160));
+        if(r.notes) bits.push('notes:'+String(r.notes).slice(0,160));
+        if(ctx.aboutText) bits.push('profile:'+String(ctx.aboutText).slice(0,220));
+        return bits.filter(Boolean).join(' | ');
+      }).join('\n');
+      const r = await llmJSON(sb, auth, 'network_search',
+        'You are a semantic search over an MIT Sloan Fellows MBA student\'s own saved contacts. Given a question and an indexed list of contacts, return the contacts that genuinely match. Use ONLY the provided index — never invent people or facts. If nothing matches, return an empty list.',
+        `Question: ${q.trim()}\n\nContacts (one per line, prefixed with #id):\n${index}\n\nReturn JSON: {"matches": [{"id": number, "why": string (under 15 words)}]}. Ranked best-first, at most 12.`);
+      setAi(r.matches||[]);
+    }catch(e){ setAiErr(e.message||String(e)); }
+    setAiBusy(false);
+  }
+  const aiRows = ai ? ai.map(m=>({m, r:log.find(x=>x.id===m.id)})).filter(x=>x.r) : null;
+
   return <div className="page wide">
-    <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:16}}>
-      <input className="inp" style={{width:320}} value={q} onChange={e=>setQ(e.target.value)} placeholder="Search people, companies…"/>
+    <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:12}}>
+      <input className="inp" style={{width:360}} value={q} onChange={e=>setQ(e.target.value)}
+        onKeyDown={e=>{ if(e.key==='Enter' && mode!=='none') askNetwork(); }}
+        placeholder="Search names, or ask: who works in healthcare?"/>
+      {mode!=='none' && <button className="btn sm" onClick={askNetwork} disabled={aiBusy||!q.trim()}>{aiBusy?<Dots/>:'✨ Ask'}</button>}
       <div className="note">{rows.length} of {log.length} people</div>
       <div style={{flex:1}}/>
       <button className="btn ghost sm" onClick={async()=>{setChecking(true); await doIngest(); setChecking(false);}} disabled={checking}>{checking?<Dots/>:'↻ Check for new profiles'}</button>
     </div>
+
+    {aiErr && <div className="warnbox" style={{marginBottom:12}}>{aiErr}</div>}
+    {aiRows && <div className="panel pad" style={{marginBottom:14}}>
+      <div className="ph" style={{marginBottom:aiRows.length?12:0}}>
+        <div><h2 style={{fontSize:15}}>✨ Answering: "{q.trim()}"</h2><div className="sub">{aiRows.length} match{aiRows.length===1?'':'es'} from your network</div></div>
+        <button className="btn ghost sm" onClick={()=>{setAi(null);}}>Clear</button>
+      </div>
+      {aiRows.length===0
+        ? <div className="note">No one in your saved contacts matches that. Try saving more people, or rephrasing.</div>
+        : <div className="list">{aiRows.map(({m,r})=><div key={r.id} className="row" style={{cursor:'pointer'}} onClick={()=>setDrawerId(r.id)}>
+            <Avatar row={r} size={34}/>
+            <div className="grow"><div className="t">{displayName(r)}</div><div className="m">{r.title||''}{r.company?` · ${r.company}`:''}</div></div>
+            <div style={{maxWidth:260,textAlign:'right',fontSize:12.5,color:'var(--brand2)'}}>{m.why}</div>
+          </div>)}</div>}
+    </div>}
+
     <div className="panel" style={{overflow:'auto'}}>
       {log.length===0
         ? <div className="empty"><div className="big">◔</div>Nobody yet. Shortlist profiles with the extension, then hit "Check for new profiles."</div>

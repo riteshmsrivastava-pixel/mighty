@@ -61,6 +61,7 @@ const FEATURES: Record<string, FeatureDef> = {
   relationship_health: { model: MODELS.sonnet, tier: "medium", cache: true  },
   intro_suggestion:    { model: MODELS.sonnet, tier: "medium", cache: false },
   followup_timing:     { model: MODELS.sonnet, tier: "low",    cache: false },
+  network_search:      { model: MODELS.sonnet, tier: "medium", cache: false },
   // Tier 3 — rare, heavy, Opus.
   deep_network_report: { model: MODELS.opus,   tier: "high",   cache: true  },
 };
