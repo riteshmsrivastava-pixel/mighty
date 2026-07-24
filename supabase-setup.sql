@@ -416,6 +416,23 @@ create trigger enforce_weekly_send_cap_trg
   before insert or update on public.outreach_log
   for each row execute function public.enforce_weekly_send_cap();
 
+-- 8. Waitlist — captures interest from the public pricing page (Builder upgrade,
+--    Teams). Anyone may INSERT (submit their email); nobody can read it back via
+--    the API. You read entries in SQL:  select * from public.waitlist order by created_at desc;
+create table if not exists public.waitlist (
+  id         bigint generated always as identity primary key,
+  email      text not null,
+  plan       text,   -- 'builder' | 'teams' | null
+  source     text,   -- where they signed up from
+  created_at timestamptz not null default now()
+);
+alter table public.waitlist enable row level security;
+drop policy if exists "wl insert public" on public.waitlist;
+create policy "wl insert public" on public.waitlist
+  for insert to anon, authenticated
+  with check (email is not null and length(email) between 3 and 200);
+-- no select/update/delete policy — entries are visible only via the service role / SQL editor.
+
 -- ============================================================
 -- Also in the dashboard (not SQL):
 --   • Authentication → Providers → Email: ENABLED, "Confirm email" ON

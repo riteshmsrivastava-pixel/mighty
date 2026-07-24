@@ -91,7 +91,7 @@ html{scroll-behavior:smooth}
         <li><span class="chk">✓</span>Community insights</li>
       </ul>
       <div style="flex:1"></div>
-      <a class="btn btn-primary" href="mailto:hello@yourmighty.com?subject=Upgrade%20to%20Builder" style="text-decoration:none;justify-content:center;background:#fff;color:var(--color-text)">Upgrade to Builder</a>
+      <button class="btn btn-primary" data-waitlist="builder" style="justify-content:center;background:#fff;color:var(--color-text)">Upgrade to Builder</button>
     </div>
 
     <div class="plan">
@@ -105,10 +105,62 @@ html{scroll-behavior:smooth}
         <li><span class="chk">✓</span>Admin controls</li>
       </ul>
       <div style="flex:1"></div>
-      <a class="btn btn-secondary" href="mailto:hello@yourmighty.com?subject=MIghTy%20Teams%20waitlist" style="text-decoration:none;justify-content:center">Join waitlist</a>
+      <button class="btn btn-secondary" data-waitlist="teams" style="justify-content:center">Join waitlist</button>
     </div>
   </div>
 </div>
+
+<!-- WAITLIST DIALOG -->
+<div class="dialog-backdrop" id="wlBackdrop" style="display:none;z-index:50">
+  <div class="dialog" style="width:min(420px,100%)">
+    <div class="dialog-title" id="wlTitle">Join the waitlist</div>
+    <div class="dialog-body" id="wlBody">Leave your email and we'll be in touch when it's ready.</div>
+    <div class="field"><label for="wlEmail">Email</label><input class="input" id="wlEmail" type="email" placeholder="you@example.com" autocomplete="email"></div>
+    <div id="wlMsg" style="font-size:13px;min-height:18px"></div>
+    <div class="dialog-actions">
+      <button class="btn btn-secondary" id="wlCancel">Cancel</button>
+      <button class="btn btn-primary" id="wlSubmit">Join</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+(function(){
+  // Same baked publishable creds as the app — safe in client code; RLS lets the
+  // public INSERT into waitlist but never read it.
+  var SUPABASE_URL='https://hplyyywdftnvjajyncvj.supabase.co';
+  var SUPABASE_ANON_KEY='sb_publishable_e_oCwuz3Qlko5N3Xl8ZwxA_zQijz_u8';
+  var sb=null; try{ sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY); }catch(e){}
+  var plan=null;
+  var $=function(id){return document.getElementById(id);};
+  function open(p){
+    plan=p;
+    $('wlTitle').textContent = p==='teams' ? 'Join the Teams waitlist' : 'Get notified about Builder';
+    $('wlBody').textContent = p==='teams'
+      ? "Teams is coming soon. Leave your email and we'll reach out."
+      : "Builder isn't open for self-serve upgrades yet. Leave your email and we'll let you know.";
+    $('wlMsg').textContent=''; $('wlMsg').style.color=''; $('wlEmail').value='';
+    $('wlSubmit').disabled=false; $('wlSubmit').textContent='Join';
+    $('wlBackdrop').style.display='grid'; setTimeout(function(){$('wlEmail').focus();},50);
+  }
+  function close(){ $('wlBackdrop').style.display='none'; }
+  document.querySelectorAll('[data-waitlist]').forEach(function(b){ b.addEventListener('click',function(){ open(b.getAttribute('data-waitlist')); }); });
+  $('wlCancel').addEventListener('click',close);
+  $('wlBackdrop').addEventListener('click',function(e){ if(e.target===$('wlBackdrop')) close(); });
+  $('wlEmail').addEventListener('keydown',function(e){ if(e.key==='Enter') $('wlSubmit').click(); });
+  $('wlSubmit').addEventListener('click',async function(){
+    var email=($('wlEmail').value||'').trim();
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ $('wlMsg').style.color='var(--color-accent)'; $('wlMsg').textContent='Please enter a valid email.'; return; }
+    if(!sb){ $('wlMsg').style.color='var(--color-accent)'; $('wlMsg').textContent='Something went wrong. Email hello@yourmighty.com instead.'; return; }
+    $('wlSubmit').disabled=true; $('wlSubmit').textContent='Joining…';
+    var res=await sb.from('waitlist').insert({email:email, plan:plan, source:'pricing'});
+    if(res.error){ $('wlSubmit').disabled=false; $('wlSubmit').textContent='Join'; $('wlMsg').style.color='var(--color-accent)'; $('wlMsg').textContent='Could not save right now — try again, or email hello@yourmighty.com.'; return; }
+    $('wlMsg').style.color='var(--color-accent)'; $('wlMsg').textContent="You're on the list. We'll be in touch."; $('wlSubmit').textContent='Done'; $('wlSubmit').disabled=true;
+    setTimeout(close,1600);
+  });
+})();
+</script>
 
 <!-- COMPARISON TABLE -->
 <div class="wrap" style="padding:56px 32px 8px">
