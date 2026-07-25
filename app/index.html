@@ -491,6 +491,20 @@ function App(){
     try{ await sb.from('outreach_log').update({...fields, updated_at:new Date().toISOString()}).eq('id',row.id); await refreshLog(sb, auth.user); return {ok:true}; }
     catch(e){ return {ok:false, error:e.message||String(e)}; }
   }
+  // Import people discovered via web search straight into the pipeline as
+  // prospects (upsert, so re-importing someone is a no-op). RLS scopes to the user.
+  async function addPeople(people){
+    if(!sb || auth.status!=='in' || !people || !people.length) return {added:0};
+    let added=0;
+    for(const p of people){
+      try{
+        await sb.from('outreach_log').upsert({ user_id:auth.user.id, profile_url:p.profileUrl, name:p.name||null, title:p.title||null, company:p.company||null, updated_at:new Date().toISOString() }, {onConflict:'user_id,profile_url'});
+        added++;
+      }catch(e){ /* likely the weekly-cap trigger or a dup — skip */ }
+    }
+    await refreshLog(sb, auth.user);
+    return {added};
+  }
   async function logEvent(row, eventType, note, extra={}){
     if(!sb || auth.status!=='in') return {ok:false, error:'Not signed in'};
     try{
@@ -573,7 +587,7 @@ function App(){
     <div className="main">
       <div className="topbar"><h2>{TITLES[tab]}</h2></div>
       <div className="content">
-        {tab==='dashboard' && <Dashboard db={db} patch={patch} log={log} events={events} tasks={tasks} communityStats={communityStats} sb={sb} auth={auth} setTab={setTab} setDrawerId={setDrawerId} setDraftFor={setDraftFor}/>}
+        {tab==='dashboard' && <Dashboard db={db} patch={patch} log={log} events={events} tasks={tasks} communityStats={communityStats} sb={sb} auth={auth} addPeople={addPeople} setTab={setTab} setDrawerId={setDrawerId} setDraftFor={setDraftFor}/>}
         {tab==='people' && <People db={db} log={log} events={events} doIngest={doIngest} setDrawerId={setDrawerId} sb={sb} auth={auth}/>}
         {tab==='pipeline' && <Pipeline log={log} changeStage={changeStage}/>}
         {tab==='tasks' && <Tasks tasks={tasks} log={log} addTask={addTask} toggleTask={toggleTask} deleteTask={deleteTask} setDrawerId={setDrawerId}/>}
@@ -832,20 +846,21 @@ function DailyCopilot({db, log, events, tasks, sb, auth, setDrawerId}){
 }
 
 /* ============================ Find people (Discover) ============================
-   Search the way you think. You type a natural request ("strategy tech companies
-   around me"); MIghTy rewrites it into tight LinkedIn-search keywords via the AI
-   gateway, opens Google scoped to public profiles, and the extension reads that
-   results page so you can import the ones you pick. We never auto-search or
-   scrape at scale — the student runs the search. */
-function FindPeople({sb, auth, db, patch}){
-  const [q,setQ]=useState(''); const [busy,setBusy]=useState(false); const [lastKw,setLastKw]=useState(null);
+   You type a natural request ("strategy tech companies near me"); MIghTy resolves
+   "near me" to your city, rewrites it into tight keywords via the AI gateway, and
+   runs an official Google Programmable Search (server-side, quota'd, never HTML
+   scraping) scoped to public LinkedIn profiles. Results come back INTO the app as
+   a selectable list you import into your pipeline with one click. If web search
+   isn't configured, it falls back to opening Google for the extension to capture. */
+function FindPeople({sb, auth, db, patch, addPeople, setTab}){
+  const [q,setQ]=useState(''); const [busy,setBusy]=useState(false);
+  const [results,setResults]=useState(null); const [sel,setSel]=useState(new Set());
+  const [msg,setMsg]=useState(null); const [lastKw,setLastKw]=useState('');
   const mode = llmMode(sb,auth);
   const EX=['strategy tech companies near me','MIT Sloan alumni in AI','healthcare VCs in New York','product managers at Stripe','climate startup founders in Europe'];
   const NEARME=/\b(near|around|close to)\s+me\b|\bnearby\b|\bmy area\b/i;
-  function openGoogle(keywords){ window.open('https://www.google.com/search?q='+encodeURIComponent('site:linkedin.com/in '+keywords),'_blank','noopener'); }
+  const tracked = new Set(); // filled from db? we compare on import
   function localClean(query){ const kw=goalKeywords(query); return kw.length ? kw.join(' ') : query; }
-  // "near me" → the user's city. Ask once and remember it; if they skip, default
-  // to the USA. Returns the query with the near-me phrase replaced by a place.
   function resolveLocation(query){
     if(!NEARME.test(query)) return query;
     let loc = (db && db.settings.homeLocation || '').trim();
@@ -856,37 +871,82 @@ function FindPeople({sb, auth, db, patch}){
     if(!loc) loc = 'United States';
     return query.replace(NEARME,'').replace(/\s+/g,' ').trim()+' '+loc;
   }
-  async function go(){
-    const raw=q.trim(); if(!raw) return;
-    const query=resolveLocation(raw);
-    if(mode==='none'){ const c=localClean(query); setLastKw(c); openGoogle(c); return; }
-    setBusy(true);
+  async function keywords(raw){
+    const located = resolveLocation(raw);
+    if(mode==='none') return localClean(located);
     try{
       const kw = await llm(sb, auth, 'tagging',
         'You turn a natural-language request to find people into a short set of LinkedIn profile search keywords: role/title, company, industry, and location. Keep real company and place names exactly. Convert phrases like "tech companies" to "technology". Output ONLY the keywords on one line — no punctuation, quotes, or explanation.',
-        query, 60);
+        located, 60);
       const clean=(kw||'').trim().replace(/[\n"]/g,' ').replace(/\s+/g,' ');
-      const final = clean.length>1 ? clean : localClean(query);
-      setLastKw(final); openGoogle(final);
-    }catch(e){ const c=localClean(query); setLastKw(c); openGoogle(c); }
+      return clean.length>1 ? clean : localClean(located);
+    }catch(e){ return localClean(located); }
+  }
+  async function go(){
+    const raw=q.trim(); if(!raw || busy) return;
+    setBusy(true); setMsg(null); setResults(null); setSel(new Set());
+    const kw = await keywords(raw); setLastKw(kw);
+    try{
+      const {data,error} = await sb.functions.invoke('people-search', {body:{query:kw}});
+      if(error) throw error;
+      if(data && data.ok){
+        setResults(data.people||[]);
+        setSel(new Set((data.people||[]).map(p=>p.profileUrl)));
+      } else if(data && data.error==='not_configured'){
+        // web search not set up — fall back to opening Google for the extension
+        window.open('https://www.google.com/search?q='+encodeURIComponent('site:linkedin.com/in '+kw),'_blank','noopener');
+        setMsg({t:'Opened Google in a new tab. Set up web search (see SETUP.md) to get results right here.'});
+      } else { setMsg({t:(data&&data.message)||'Search failed.', err:true}); }
+    }catch(e){ setMsg({t:e.message||String(e), err:true}); }
     setBusy(false);
   }
+  const toggle=url=>setSel(s=>{ const n=new Set(s); n.has(url)?n.delete(url):n.add(url); return n; });
+  async function importSel(){
+    if(!results) return;
+    const chosen=results.filter(p=>sel.has(p.profileUrl));
+    if(!chosen.length) return;
+    setBusy(true);
+    const {added}=await addPeople(chosen);
+    setBusy(false); setResults(null); setSel(new Set());
+    setMsg({t:`Added ${added} ${added===1?'person':'people'} to your pipeline.`, go:true});
+  }
+
   return <div className="panel pad">
     <div style={{fontWeight:700,fontSize:15,marginBottom:4}}>🔎 Find people anywhere</div>
-    <div className="note" style={{marginBottom:12,fontSize:12.5,lineHeight:1.5}}>Describe who you're looking for in plain words. MIghTy turns it into a smart search and opens Google — with the extension installed, import the results in one click.</div>
+    <div className="note" style={{marginBottom:12,fontSize:12.5,lineHeight:1.5}}>Describe who you're looking for in plain words. MIghTy turns it into a smart search and finds matching LinkedIn profiles for you to add.</div>
     <div style={{display:'flex',gap:8}}>
-      <input className="inp" value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') go(); }} placeholder="e.g. strategy people at tech companies in Boston"/>
-      <button className="btn" onClick={go} disabled={busy||!q.trim()}>{busy?<Dots/>:(mode!=='none'?'✨ Search':'Search →')}</button>
+      <input className="inp" value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') go(); }} placeholder="e.g. strategy people at tech companies near me"/>
+      <button className="btn" onClick={go} disabled={busy||!q.trim()}>{busy?<Dots/>:'✨ Search'}</button>
     </div>
-    {lastKw && <div className="note" style={{marginTop:8,fontSize:12}}>Searching LinkedIn profiles for: <b style={{color:'var(--ink)'}}>{lastKw}</b> · <a href={'https://www.google.com/search?q='+encodeURIComponent('site:linkedin.com/in '+lastKw)} target="_blank" rel="noopener noreferrer">reopen</a></div>}
-    <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:10}}>
+
+    {msg && <div className={msg.err?'warnbox':'okbox'} style={{marginTop:10}}>{msg.t}{msg.go && <> <a style={{cursor:'pointer',fontWeight:700}} onClick={()=>setTab('people')}>View in People →</a></>}</div>}
+
+    {results && <div style={{marginTop:12}}>
+      {lastKw && <div className="note" style={{fontSize:12,marginBottom:8}}>Results for <b style={{color:'var(--ink)'}}>{lastKw}</b></div>}
+      {results.length===0
+        ? <div className="note">No LinkedIn profiles matched. Try different words.</div>
+        : <>
+          <div className="list">{results.map(p=>{ const on=sel.has(p.profileUrl);
+            return <label key={p.profileUrl} className="row" style={{cursor:'pointer',alignItems:'flex-start'}}>
+              <input type="checkbox" checked={on} onChange={()=>toggle(p.profileUrl)} style={{marginTop:3}}/>
+              <div className="grow"><div className="t">{p.name}</div><div className="m">{p.title||p.company||'LinkedIn profile'}</div></div>
+              <a className="linkurl" href={p.profileUrl} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()}>↗</a>
+            </label>; })}</div>
+          <div style={{display:'flex',gap:10,marginTop:12,alignItems:'center'}}>
+            <button className="btn" onClick={importSel} disabled={busy||sel.size===0}>{busy?<Dots/>:`Add ${sel.size} to People`}</button>
+            <a className="note" style={{cursor:'pointer'}} onClick={()=>{setResults(null);setSel(new Set());}}>Clear</a>
+          </div>
+        </>}
+    </div>}
+
+    {!results && <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:10}}>
       {EX.map(ex=><span key={ex} onClick={()=>setQ(ex)} className="chip" style={{cursor:'pointer',background:'var(--card)',border:'1px solid var(--line)'}}>{ex}</span>)}
-    </div>
+    </div>}
   </div>;
 }
 
 /* ============================ Dashboard ============================ */
-function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,setTab,setDrawerId,setDraftFor}){
+function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,addPeople,setTab,setDrawerId,setDraftFor}){
   const candidates = log.filter(r=>r.status==='prospect'||r.status==='ready_to_contact');
   const scored = candidates.map(r=>({row:r, kind:'contact', label:'Message for the first time', ...computeScore(r, db.settings.targetCompanies, db.settings.goal)}));
   const followUpDays = db.settings.followUpDays||7;
@@ -923,7 +983,7 @@ function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,setTab,setD
 
     <div style={{marginTop:20}}><DailyCopilot db={db} log={log} events={events} tasks={tasks} sb={sb} auth={auth} setDrawerId={setDrawerId}/></div>
 
-    <div style={{marginTop:14}}><FindPeople sb={sb} auth={auth} db={db} patch={patch}/></div>
+    <div style={{marginTop:14}}><FindPeople sb={sb} auth={auth} db={db} patch={patch} addPeople={addPeople} setTab={setTab}/></div>
 
     <div className="tag" style={{margin:'28px 0 10px'}}>Today's priorities</div>
     {priorities.length===0
