@@ -68,6 +68,26 @@ async function profilePhotoDataUrl() {
     return (res && res.ok && res.dataUrl) ? res.dataUrl : '';
   } catch (e) { return ''; }
 }
+// Location lives only in the RENDERED page — LinkedIn ships it via JS, so a
+// background fetch of the HTML can't see it (verified). Read it here instead,
+// while the student is actually looking at the profile.
+function profileLocation(name) {
+  const nameH = [...document.querySelectorAll('h1,h2')].find(h => h.textContent.trim() === name);
+  let card = nameH;
+  for (let i = 0; i < 8 && card && card.parentElement; i++) {
+    card = card.parentElement;
+    if (card.querySelector('img[src*="profile-displayphoto"]')) break;
+  }
+  if (!card) return '';
+  const LOC = /^[A-Z][A-Za-zÀ-ÿ.'\- ]{1,40}(?:,\s*[A-Za-zÀ-ÿ.'\- ]{2,40}){1,2}$/;
+  const bad = /followers|connections|mutual|Contact info|·|Message|More|Follow|School|University/i;
+  const leaves = [...card.querySelectorAll('div,span,p')].filter(el => el.children.length === 0);
+  for (const el of leaves) {
+    const t = el.textContent.trim();
+    if (t.length > 3 && t.length < 60 && LOC.test(t) && !bad.test(t)) return t;
+  }
+  return '';
+}
 function profileHeadline(name) {
   const nameH = [...document.querySelectorAll('h1,h2')].find(h => h.textContent.trim() === name);
   if (!nameH) return '';
@@ -279,6 +299,7 @@ function captureProfileContext() {
     experienceText: '',
     educationText: '',
     mutualConnectionsRaw: mutualText(),
+    location: profileLocation(profileName()),
   };
   send('pushInbox', { kind: 'profile_context', payload });
 }
@@ -383,6 +404,7 @@ async function renderProfileSidebar() {
   const liveHeadline = profileHeadline(liveName);
   const liveCompany = companyFromTitle(liveHeadline);
   const livePhoto = profilePhotoUrl();
+  const liveLocation = profileLocation(liveName);
 
   if (!row) {
     const why = whyThisPerson(`${liveHeadline} ${liveName} ${liveCompany}`, r);
@@ -418,7 +440,7 @@ async function renderProfileSidebar() {
     btn.onclick = async () => {
       btn.textContent = 'Saving…';
       const avatarData = await profilePhotoDataUrl();
-      const res = await send('saveProfile', { payload: { profileUrl, name: liveName, title: liveHeadline, company: liveCompany, avatarUrl: avatarData || livePhoto } });
+      const res = await send('saveProfile', { payload: { profileUrl, name: liveName, title: liveHeadline, company: liveCompany, avatarUrl: avatarData || livePhoto, location: liveLocation } });
       if (res && res.ok) { renderProfileSidebar(); return; }
       btn.textContent = 'Saved ✓'; btn.disabled = true;
     };
@@ -456,7 +478,7 @@ async function renderProfileSidebar() {
       let avatarToSave = row.avatar_url;
       if (avatarStale) { const d = await profilePhotoDataUrl(); if (d) { patch.avatar_url = d; avatarToSave = d; } }
       if (!Object.keys(patch).length) return;
-      await send('saveProfile', { payload: { profileUrl, name: row.name || liveName, title: row.title || liveHeadline, company: row.company || liveCompany, avatarUrl: avatarToSave } });
+      await send('saveProfile', { payload: { profileUrl, name: row.name || liveName, title: row.title || liveHeadline, company: row.company || liveCompany, avatarUrl: avatarToSave, location: ((row.context||{}).location) || liveLocation } });
       Object.assign(row, patch); // keep the warm cache row consistent
     })();
   }

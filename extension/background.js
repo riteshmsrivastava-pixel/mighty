@@ -114,6 +114,9 @@ async function saveProfile(payload) {
       title: payload.title || null,
       company: payload.company || null,
       avatar_url: payload.avatarUrl || null,
+      // Location only exists in the rendered page, so carry it through here
+      // into the same context blob the web app reads.
+      ...(payload.location ? { context: { location: payload.location, source: 'profile' } } : {}),
       updated_at: new Date().toISOString(),
     }),
   });

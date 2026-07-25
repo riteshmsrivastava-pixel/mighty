@@ -674,12 +674,20 @@ function App(){
               await client.from('outreach_log').upsert({user_id:u.id, profile_url:p.profileUrl, status:'contacted', contacted_at:nowIso, updated_at:nowIso}, {onConflict:'user_id,profile_url'});
             }
           } else if(row.kind==='profile_context'){
-            const {data:existing} = await client.from('outreach_log').select('id').eq('user_id',u.id).eq('profile_url',p.profileUrl).maybeSingle();
+            const {data:existing} = await client.from('outreach_log').select('id,context').eq('user_id',u.id).eq('profile_url',p.profileUrl).maybeSingle();
             if(existing){
-              await client.from('outreach_log').update({
-                context: { aboutText:p.aboutText||'', experienceText:p.experienceText||'', educationText:p.educationText||'', mutualConnectionsRaw:p.mutualConnectionsRaw||'', capturedAt:new Date().toISOString() },
-                updated_at:new Date().toISOString(),
-              }).eq('id', existing.id);
+              // MERGE rather than replace — this row may already carry location,
+              // education and reach captured from the search snippet, and a blind
+              // overwrite would silently throw all of that away.
+              const prev = existing.context || {};
+              const next = { ...prev,
+                aboutText:p.aboutText||prev.aboutText||'',
+                experienceText:p.experienceText||prev.experienceText||'',
+                educationText:p.educationText||prev.educationText||'',
+                mutualConnectionsRaw:p.mutualConnectionsRaw||prev.mutualConnectionsRaw||'',
+                capturedAt:new Date().toISOString() };
+              if(p.location) next.location = p.location;  // only the rendered page has this
+              await client.from('outreach_log').update({ context: next, updated_at:new Date().toISOString() }).eq('id', existing.id);
             }
           } else {
             await client.from('outreach_log').upsert({
