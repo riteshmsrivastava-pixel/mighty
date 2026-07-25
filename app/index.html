@@ -290,6 +290,19 @@ function Logo({size=24}){
     <circle cx="16.5" cy="13" r="7.5" fill="var(--peach)" fillOpacity="0.85"/>
   </svg>;
 }
+// Lucide-style line icons for the sidebar (stroke = currentColor).
+function NavIcon({name}){
+  const P = {
+    home: <><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.7V20h14V9.7"/></>,
+    people: <><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c0-3 2.5-5.2 5.5-5.2S14.5 17 14.5 20"/><path d="M16 5.2a3.2 3.2 0 0 1 0 6"/><path d="M18.5 20c0-2.2-.8-3.9-2-4.8"/></>,
+    pipeline: <><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="11" rx="1"/><rect x="17" y="4" width="4" height="7" rx="1"/></>,
+    tasks: <><path d="M4 12.5l3.5 3.5L20 5.5"/><path d="M4 19h10"/></>,
+    intelligence: <><path d="M3 12h3l2.5-7 4 14 2.5-7H21"/></>,
+    settings: <><circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.4M12 18.6V21M3 12h2.4M18.6 12H21M5.6 5.6l1.7 1.7M16.7 16.7l1.7 1.7M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7"/></>,
+    extension: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9.5h18"/></>,
+  };
+  return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{flex:'none'}}>{P[name]}</svg>;
+}
 
 // Transparent, client-side relevance scoring for ranking who to contact next —
 // every term is explainable, nothing is a fabricated probability.
@@ -615,10 +628,11 @@ function App(){
   async function signOut(){ if(sb){ await sb.auth.signOut(); } window.location.href = '../'; }
 
   const RAIL = [
-    ['dashboard','⬜','Dashboard'],['people','◔','People'],['pipeline','▤','Pipeline'],
-    ['tasks','☑','Tasks'],['insights','▲','Insights'],['settings','⚙','Settings'],
+    ['dashboard','home','Home'],['people','people','Relationships'],['pipeline','pipeline','Pipeline'],
+    ['tasks','tasks','Tasks'],['insights','intelligence','Intelligence'],['settings','settings','Settings'],
   ];
-  const TITLES = {dashboard:'Dashboard',people:'People',pipeline:'Pipeline',tasks:'Tasks',insights:'Insights',settings:'Settings',templates:'Templates',extpreview:'Extension preview'};
+  const TITLES = {dashboard:'Home',people:'Relationships',pipeline:'Pipeline',tasks:'Tasks',insights:'Intelligence',settings:'Settings',templates:'Message templates',extpreview:'Extension preview'};
+  const SUBTITLES = {dashboard:'What should I do today?',people:'Everyone you know',pipeline:'Where everyone is in your journey',tasks:"What you've promised",insights:'What you might be missing',settings:'How Mighty works for you'};
   const drawerRow = drawerId!=null ? log.find(r=>r.id===drawerId) : null;
   const draftRow = draftFor!=null ? log.find(r=>r.id===draftFor) : null;
 
@@ -633,10 +647,10 @@ function App(){
     <div className="rail">
       <div className="rail-brand"><Logo size={24}/><div className="rail-name">Mighty</div></div>
       <div className="rail-nav">
-        {RAIL.map(([id,em,lb])=><div key={id} className={'rail-item'+(tab===id?' on':'')} onClick={()=>setTab(id)}><span style={{width:15,textAlign:'center'}}>{em}</span>{lb}</div>)}
+        {RAIL.map(([id,ic,lb])=><div key={id} className={'rail-item'+(tab===id?' on':'')} onClick={()=>setTab(id)}><NavIcon name={ic}/>{lb}</div>)}
       </div>
       <div className="rail-sp"/>
-      <div className={'rail-item'+(tab==='extpreview'?' on':'')} onClick={()=>setTab('extpreview')}><span style={{width:15,textAlign:'center'}}>▭</span>Extension preview</div>
+      <div className={'rail-item'+(tab==='extpreview'?' on':'')} onClick={()=>setTab('extpreview')}><NavIcon name="extension"/>Extension</div>
       <div className="rail-acct">
         <div className="rail-avatar">{(auth.user.email||'?')[0].toUpperCase()}</div>
         <div style={{minWidth:0}}><div style={{fontWeight:600,fontSize:12.5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{auth.user.email}</div>
@@ -645,7 +659,7 @@ function App(){
     </div>
 
     <div className="main">
-      <div className="topbar"><h2>{TITLES[tab]}</h2></div>
+      <div className="topbar"><h2>{TITLES[tab]}</h2>{SUBTITLES[tab] && <span className="note" style={{color:'var(--mute2)',fontSize:13.5}}>{SUBTITLES[tab]}</span>}</div>
       <div className="content">
         {tab==='dashboard' && <Dashboard db={db} patch={patch} log={log} events={events} tasks={tasks} communityStats={communityStats} sb={sb} auth={auth} addPeople={addPeople} setTab={setTab} setDrawerId={setDrawerId} setDraftFor={setDraftFor}/>}
         {tab==='people' && <People db={db} log={log} events={events} doIngest={doIngest} setDrawerId={setDrawerId} sb={sb} auth={auth} deletePeople={deletePeople}/>}
