@@ -1971,18 +1971,24 @@ function AiUsagePanel({sb, auth}){
     (async()=>{
       try{
         const d=new Date(); const monthStart=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),1)).toISOString();
-        const [cfgR,planR,monthCntR,monthCostR]=await Promise.all([
+        const dayStart=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate())).toISOString();
+        const [cfgR,planR,monthCntR,monthRowsR]=await Promise.all([
           sb.from('ai_config').select('*').eq('id',1).maybeSingle(),
           sb.from('user_plans').select('plan').maybeSingle(),
           sb.from('ai_call_log').select('id',{count:'exact',head:true}).eq('cache_hit',false).gte('created_at',monthStart),
-          sb.from('ai_call_log').select('est_cost_usd').gte('created_at',monthStart),
+          sb.from('ai_call_log').select('feature,est_cost_usd,cache_hit,created_at').gte('created_at',monthStart),
         ]);
         if(cfgR.error && /relation|does not exist/i.test(cfgR.error.message||'')){ setU(null); return; }
         const cfg=cfgR.data||{explorer_monthly_assists:25,builder_monthly_assists:300,user_monthly_budget_usd:15};
         const plan=(planR.data&&planR.data.plan)||'explorer';
         const cap = plan==='leader' ? null : plan==='builder' ? Number(cfg.builder_monthly_assists||300) : Number(cfg.explorer_monthly_assists||25);
-        const monthCost=(monthCostR.data||[]).reduce((s,r)=>s+Number(r.est_cost_usd||0),0);
-        setU({month:monthCntR.count||0, cost:monthCost, plan, cap, cfg});
+        const rows=monthRowsR.data||[];
+        const monthCost=rows.reduce((s,r)=>s+Number(r.est_cost_usd||0),0);
+        const todayCost=rows.filter(r=>r.created_at>=dayStart).reduce((s,r)=>s+Number(r.est_cost_usd||0),0);
+        const byFeat={}; rows.forEach(r=>{ const f=r.feature||'other'; byFeat[f]=byFeat[f]||{cost:0,n:0}; byFeat[f].cost+=Number(r.est_cost_usd||0); byFeat[f].n++; });
+        const cached=rows.filter(r=>r.cache_hit).length;
+        const feats=Object.entries(byFeat).map(([f,v])=>({f,...v})).sort((a,b)=>b.cost-a.cost).slice(0,5);
+        setU({month:monthCntR.count||0, cost:monthCost, today:todayCost, feats, cached, calls:rows.length, budget:Number(cfg.user_monthly_budget_usd||15), plan, cap, cfg});
       }catch(e){ setU(null); }
     })();
   },[sb,auth.status]);
@@ -1992,19 +1998,39 @@ function AiUsagePanel({sb, auth}){
   const PLAN_LABEL={explorer:'Explorer',builder:'Builder',leader:'Leader'};
   const pct = u.cap==null ? 0 : Math.min(100,Math.round(100*u.month/Math.max(1,u.cap)));
   const nearLimit = u.cap!=null && u.month/u.cap >= 0.8;
+  const FEAT_LABEL={draft_message:'Drafts',profile_briefing:'Briefings',daily_plan:'Daily plan',coffee_extract:'Note extraction',meeting_prep:'Meeting prep',relationship_health:'Health',network_search:'Ask Mighty',tagging:'Search keywords'};
+  const budgetPct=Math.min(100,Math.round(100*u.cost/Math.max(0.01,u.budget)));
   return <div className="panel pad">
-    <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
+    <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
       <span className="pill" style={{background:'var(--bsoft)',color:'var(--brand2)'}}>{PLAN_LABEL[u.plan]||u.plan} plan</span>
       <div style={{flex:1}}/>
       {u.plan!=='leader' && <a className="btn ghost sm" href="../pricing/" target="_blank" rel="noopener noreferrer" style={{textDecoration:'none'}}>{u.plan==='explorer'?'Upgrade':'Change plan'}</a>}
     </div>
-    <div style={{marginBottom:12}}>
-      <div style={{display:'flex',justifyContent:'space-between',fontSize:12.5,marginBottom:5}}><span className="note">Mighty Assists this month</span>
-        <span style={{fontWeight:600}}>{u.month}{u.cap!=null?` / ${u.cap}`:' · unlimited'}</span></div>
-      {u.cap!=null && <div className="scorebar"><i style={{width:pct+'%'}}></i></div>}
+    {/* Spend, front and centre */}
+    <div style={{display:'flex',alignItems:'flex-end',gap:24,marginBottom:12}}>
+      <div>
+        <div className="tag" style={{color:'var(--brand2)'}}>Spent this month</div>
+        <div style={{fontFamily:'var(--fh)',fontWeight:600,fontSize:38,letterSpacing:'-.04em',lineHeight:1}}>${u.cost.toFixed(2)}</div>
+        <div className="note" style={{marginTop:3}}>of ${u.budget.toFixed(2)} budget · ${u.today.toFixed(2)} today</div>
+      </div>
+      <div style={{flex:1}}/>
+      <div style={{textAlign:'right'}}>
+        <div style={{fontFamily:'var(--fh)',fontWeight:600,fontSize:20}}>{u.calls}</div>
+        <div className="note">AI calls{u.cached?` · ${u.cached} free (cached)`:''}</div>
+      </div>
     </div>
-    <div style={{display:'flex',justifyContent:'space-between',fontSize:12.5,paddingTop:6,borderTop:'1px solid var(--line)',marginTop:4}}>
-      <span className="note">Estimated cost this month</span><span style={{fontWeight:700}}>${u.cost.toFixed(2)}</span>
+    <div className="scorebar" style={{marginBottom:14}}><i style={{width:budgetPct+'%',background:budgetPct>=80?'var(--terra)':'var(--brand)'}}></i></div>
+    {u.feats.length>0 && <div style={{marginBottom:12}}>
+      <div className="tag" style={{marginBottom:8}}>Where it went</div>
+      {u.feats.map(f=><div key={f.f} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,padding:'5px 0',fontSize:13}}>
+        <span>{FEAT_LABEL[f.f]||f.f}</span>
+        <span className="note" style={{marginLeft:'auto',marginRight:10}}>{f.n}×</span>
+        <span style={{fontWeight:600,minWidth:56,textAlign:'right'}}>${f.cost.toFixed(4)}</span>
+      </div>)}
+    </div>}
+    <div style={{display:'flex',justifyContent:'space-between',fontSize:12.5,paddingTop:8,borderTop:'1px solid var(--line)'}}>
+      <span className="note">Mighty Assists this month</span>
+      <span style={{fontWeight:600}}>{u.month}{u.cap!=null?` / ${u.cap}`:' · unlimited'}</span>
     </div>
     {nearLimit
       ? <div className="warnbox" style={{marginTop:12}}>You're close to this month's assist limit. {u.plan==='explorer'?'Upgrade to Builder for 300/month, or ':''}it resets on the 1st. Your contacts, notes and drafts always stay available.</div>
