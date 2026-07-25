@@ -121,11 +121,11 @@ label.fld{display:block;font-size:12.5px;font-weight:500;letter-spacing:.02em;te
 .ptable tr.body-row:hover td{background:var(--card2);}
 
 /* Pipeline */
-.pipeline-wrap{flex:1;display:flex;gap:16px;overflow-x:auto;padding-bottom:8px;min-height:0;}
-.pcol{width:236px;flex:none;background:var(--bg2);border-radius:var(--radius);padding:16px 14px;display:flex;flex-direction:column;gap:12px;max-height:100%;}
+.pipeline-wrap{flex:1;display:flex;align-items:flex-start;gap:16px;overflow-x:auto;padding-bottom:8px;min-height:0;}
+.pcol{width:246px;flex:none;background:var(--bg2);border-radius:var(--radius);padding:16px 14px;display:flex;flex-direction:column;gap:12px;min-height:150px;max-height:calc(100vh - 190px);}
 .pcol-head{display:flex;align-items:center;gap:8px;padding:0 4px;}
-.pcol-cards{display:flex;flex-direction:column;gap:10px;overflow-y:auto;min-height:50px;}
-.pcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;cursor:grab;box-shadow:0 6px 16px -12px rgba(27,26,31,.3);}
+.pcol-cards{display:flex;flex-direction:column;gap:10px;overflow-y:auto;min-height:40px;}
+.pcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;cursor:grab;box-shadow:0 4px 12px -10px rgba(27,26,31,.3);}
 .pcard:hover{border-color:var(--brand);}
 .pcard.drag-over{outline:2px dashed var(--brand);}
 .pdrop{border:1.5px dashed rgba(27,26,31,.15);border-radius:16px;padding:20px 12px;text-align:center;color:var(--mute2);font-size:13px;}
@@ -1570,14 +1570,18 @@ function Pipeline({log,events,followUpDays,changeStage}){
         return <div key={st} className="pcol" onDragOver={e=>e.preventDefault()} onDrop={()=>{ if(dragId!=null){ const row=log.find(r=>r.id===dragId); if(row && row.status!==st) changeStage(row, st); setDragId(null); } }}>
           <div className="pcol-head"><span className="dot" style={{background:meta.dot}}></span><span style={{fontWeight:600,fontSize:13}}>{stageLabel(st)}</span><span className="note">{cards.length}</span></div>
           <div className="pcol-cards">
-            {cards.map(r=><div key={r.id} className="pcard" draggable onDragStart={()=>setDragId(r.id)}>
-              <PersonHover row={r} evs={(events||[]).filter(e=>e.log_id===r.id)} followUpDays={followUpDays}
-                style={{display:'flex',alignItems:'center',gap:9}}>
-                <Avatar row={r} size={28}/>
-                <div style={{fontWeight:600,fontSize:13,flex:1,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{displayName(r)}</div>
-                <span className="dot" style={{background:PRIORITY_META[r.priority]?.dot}}></span>
+            {cards.map(r=>{ const na=suggestedNextAction(r,(events||[]).filter(e=>e.log_id===r.id),followUpDays);
+              return <div key={r.id} className="pcard" draggable onDragStart={()=>setDragId(r.id)}>
+              <PersonHover row={r} evs={(events||[]).filter(e=>e.log_id===r.id)} followUpDays={followUpDays} style={{display:'block'}}>
+                <div style={{display:'flex',alignItems:'center',gap:9}}>
+                  <Avatar row={r} size={30}/>
+                  <div style={{fontWeight:600,fontSize:13.5,flex:1,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{displayName(r)}</div>
+                  <span className="dot" style={{background:PRIORITY_META[r.priority]?.dot}}></span>
+                </div>
+                {(r.title||r.company) && <div className="note" style={{fontSize:12,marginTop:7,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.title||r.company}</div>}
+                {na && <div style={{fontSize:11.5,marginTop:8,color:'var(--brand2)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>→ {na.label}</div>}
               </PersonHover>
-            </div>)}
+            </div>; })}
             {cards.length===0 && <div className="pdrop">Drop here</div>}
           </div>
         </div>;
