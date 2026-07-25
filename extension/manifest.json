@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MIghTy — LinkedIn Outreach",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Shortlist LinkedIn profiles, see real match scores and a docked context panel, and log confirmed sends back to your MIghTy account. Never clicks Connect/Message for you.",
   "permissions": ["storage"],
   "host_permissions": [
@@ -13,6 +13,9 @@
   "background": { "service_worker": "background.js" },
   "content_scripts": [
     { "matches": ["https://*.linkedin.com/*", "https://www.google.com/search*"], "js": ["scoring.js", "content.js"], "run_at": "document_idle" }
+  ],
+  "web_accessible_resources": [
+    { "resources": ["icons/*.png"], "matches": ["https://*.linkedin.com/*", "https://www.google.com/*"] }
   ],
   "icons": { "16": "icons/logo-16.png", "32": "icons/logo-32.png", "48": "icons/logo-48.png", "128": "icons/logo-128.png" },
   "action": {
