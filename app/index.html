@@ -744,7 +744,7 @@ function App(){
         {tab==='dashboard' && <Dashboard db={db} patch={patch} log={log} events={events} tasks={tasks} communityStats={communityStats} sb={sb} auth={auth} addPeople={addPeople} setTab={setTab} setDrawerId={setDrawerId} setDraftFor={setDraftFor}/>}
         {tab==='people' && <People db={db} log={log} events={events} doIngest={doIngest} setDrawerId={setDrawerId} sb={sb} auth={auth} deletePeople={deletePeople}/>}
         {tab==='pipeline' && <Pipeline log={log} changeStage={changeStage}/>}
-        {tab==='tasks' && <Tasks tasks={tasks} log={log} addTask={addTask} toggleTask={toggleTask} deleteTask={deleteTask} setDrawerId={setDrawerId}/>}
+        {tab==='tasks' && <Tasks tasks={tasks} log={log} events={events} db={db} addTask={addTask} toggleTask={toggleTask} deleteTask={deleteTask} setDrawerId={setDrawerId}/>}
         {tab==='insights' && <Insights log={log} events={events} tasks={tasks} db={db} communityStats={communityStats} setDrawerId={setDrawerId}/>}
         {tab==='settings' && <Settings db={db} patch={patch} auth={auth} sb={sb} signOut={signOut} setTab={setTab}/>}
         {tab==='templates' && <Templates db={db} patch={patch} sb={sb} auth={auth} setTab={setTab}/>}
@@ -1366,11 +1366,66 @@ function Pipeline({log,changeStage}){
 }
 
 /* ============================ Tasks ============================ */
-function Tasks({tasks,log,addTask,toggleTask,deleteTask,setDrawerId}){
+// Tasks — what you've committed to. Most of this list should NOT be typed by
+// hand: promises you made in a coffee chat, follow-ups that have gone quiet and
+// next-touch dates you agreed to are already sitting in your timeline, so Mighty
+// surfaces them and you just accept. Everything here traces to a real record.
+function surfacedTasks(log, events, tasks, followUpDays){
+  const out = [];
+  const taken = new Set((tasks||[]).map(t=>String(t.label||'').trim().toLowerCase()));
+  const byId = new Map(log.map(r=>[r.id,r]));
+  const repliedIds = new Set(events.filter(e=>e.event_type==='reply').map(e=>e.log_id));
+  const push = o => { if(!taken.has(o.label.trim().toLowerCase())) out.push(o); };
+
+  // 1. Promises you made, extracted from coffee-chat notes.
+  events.forEach(e=>{
+    const person = byId.get(e.log_id); if(!person) return;
+    ((e.extracted||{}).promises||[]).forEach(p=>{
+      if(!p) return;
+      push({key:'p'+e.id+p, label:String(p), why:`You promised ${displayName(person)}`, person, when:new Date(e.occurred_at).getTime(), kind:'promise'});
+    });
+  });
+  // 2. Next touch you agreed to, now due.
+  events.forEach(e=>{
+    if(!e.suggested_next_touch) return;
+    const person = byId.get(e.log_id); if(!person) return;
+    if(new Date(e.suggested_next_touch).getTime() > now()) return;
+    push({key:'n'+e.id, label:`Reconnect with ${displayName(person)}`, why:'Next touch you planned is due', person, when:new Date(e.suggested_next_touch).getTime(), kind:'touch'});
+  });
+  // 3. Follow-ups that have gone quiet.
+  log.forEach(r=>{
+    if(r.status!=='contacted' || repliedIds.has(r.id) || !r.contacted_at) return;
+    const days = Math.round((now()-new Date(r.contacted_at).getTime())/864e5);
+    if(days <= followUpDays) return;
+    push({key:'f'+r.id, label:`Follow up with ${displayName(r)}`, why:`No reply in ${days} days`, person:r, when:new Date(r.contacted_at).getTime(), kind:'followup'});
+  });
+  // 4. Thank-you after a recent coffee chat.
+  log.forEach(r=>{
+    if(r.status!=='coffee_chat') return;
+    const chat = events.filter(e=>e.log_id===r.id && e.event_type==='coffee_chat').sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at))[0];
+    if(!chat) return;
+    const days = Math.round((now()-new Date(chat.occurred_at).getTime())/864e5);
+    if(days > 14) return;
+    push({key:'t'+r.id, label:`Send ${displayName(r)} a thank-you note`, why:`Coffee chat ${days===0?'today':days+'d ago'}`, person:r, when:new Date(chat.occurred_at).getTime(), kind:'thanks'});
+  });
+  const rank = {promise:0, followup:1, touch:2, thanks:3};
+  return out.sort((a,b)=> (rank[a.kind]-rank[b.kind]) || (a.when-b.when));
+}
+
+function Tasks({tasks,log,events,db,addTask,toggleTask,deleteTask,setDrawerId}){
   const [newTask,setNewTask]=useState('');
+  const [adding,setAdding]=useState(null);
   const todayStr = new Date().toISOString().slice(0,10);
   function submit(e){
     if(e.key==='Enter' && newTask.trim()){ addTask(newTask.trim(), todayStr, null); setNewTask(''); }
+  }
+  const surfaced = surfacedTasks(log, events||[], tasks, db?.settings?.followUpDays||7);
+  const KIND = {promise:{t:'Promise', c:'var(--terra2)', bg:'var(--tsoft)'}, followup:{t:'Follow-up', c:'var(--brand2)', bg:'var(--bsoft)'},
+                touch:{t:'Reconnect', c:'var(--brand2)', bg:'var(--bsoft)'}, thanks:{t:'Thank-you', c:'var(--green2)', bg:'var(--gsoft)'}};
+  async function accept(s){
+    setAdding(s.key);
+    await addTask(s.label, todayStr, s.person?s.person.id:null);
+    setAdding(null);
   }
   const groups = [
     ['Today', tasks.filter(t=>!t.done && t.due_date===todayStr)],
@@ -1378,15 +1433,32 @@ function Tasks({tasks,log,addTask,toggleTask,deleteTask,setDrawerId}){
     ['No due date', tasks.filter(t=>!t.done && !t.due_date)],
     ['Done', tasks.filter(t=>t.done)],
   ].filter(([,items])=>items.length>0);
-  return <div className="page" style={{maxWidth:660}}>
-    <input className="inp" value={newTask} onChange={e=>setNewTask(e.target.value)} onKeyDown={submit} placeholder='Add a task and press Enter — e.g. "Thank-you note to Priya"'/>
-    {groups.length===0 && <div className="empty" style={{marginTop:20}}><div className="big">☑</div>No tasks yet.</div>}
-    {groups.map(([name,items])=><div key={name} style={{marginTop:26}}>
+
+  return <div className="page" style={{maxWidth:720}}>
+    {/* Surfaced by Mighty — the 90% you shouldn't have to type */}
+    <div className="tag" style={{marginBottom:8}}>Surfaced for you</div>
+    {surfaced.length===0
+      ? <div className="panel pad"><div className="note">Nothing outstanding. Log a coffee chat and Mighty pulls the promises you made straight out of your notes.</div></div>
+      : <div className="list">{surfaced.map(s=>{ const m=KIND[s.kind]||KIND.promise; return <div key={s.key} className="row" style={{background:m.bg,border:'none'}}>
+          <div className="grow" style={{minWidth:0}}>
+            <div style={{fontSize:11,fontWeight:500,letterSpacing:'.08em',textTransform:'uppercase',color:m.c}}>{m.t}</div>
+            <div style={{fontWeight:500,fontSize:14,marginTop:3}}>{s.label}</div>
+            <div className="note" style={{marginTop:2}}>{s.why}</div>
+          </div>
+          {s.person && <div className="chip" style={{cursor:'pointer',background:'rgba(255,255,255,.75)'}} onClick={()=>setDrawerId(s.person.id)}>{displayName(s.person)}</div>}
+          <button className="btn sm" disabled={adding===s.key} onClick={()=>accept(s)}>{adding===s.key?<Dots/>:'Add'}</button>
+        </div>; })}</div>}
+
+    {/* Your own list */}
+    <div className="tag" style={{margin:'28px 0 8px'}}>Your tasks</div>
+    <input className="inp" value={newTask} onChange={e=>setNewTask(e.target.value)} onKeyDown={submit} placeholder='Add one yourself and press Enter'/>
+    {groups.length===0 && <div className="note" style={{marginTop:12}}>Nothing here yet — accept something above, or add your own.</div>}
+    {groups.map(([name,items])=><div key={name} style={{marginTop:22}}>
       <div className="tag" style={{marginBottom:8}}>{name}</div>
       <div className="list">{items.map(t=>{ const person = t.log_id ? log.find(r=>r.id===t.log_id) : null;
         return <div key={t.id} className="row">
-          <div onClick={()=>toggleTask(t)} style={{width:18,height:18,flex:'none',borderRadius:0,border:'1.5px solid '+(t.done?'var(--brand)':'rgba(0,0,0,.25)'),background:t.done?'var(--brand)':'transparent',display:'grid',placeItems:'center',cursor:'pointer',color:'#fff',fontSize:11}}>{t.done?'✓':''}</div>
-          <div className="grow"><div style={{fontWeight:500,fontSize:13.5,color:t.done?'var(--mute)':'var(--ink)',textDecoration:t.done?'line-through':'none'}}>{t.label}</div>
+          <div onClick={()=>toggleTask(t)} style={{width:20,height:20,flex:'none',borderRadius:7,border:'1.5px solid '+(t.done?'var(--brand)':'rgba(27,26,31,.2)'),background:t.done?'var(--brand)':'transparent',display:'grid',placeItems:'center',cursor:'pointer',color:'#fff',fontSize:11}}>{t.done?'✓':''}</div>
+          <div className="grow"><div style={{fontWeight:500,fontSize:14,color:t.done?'var(--mute)':'var(--ink)',textDecoration:t.done?'line-through':'none'}}>{t.label}</div>
             {t.sub && <div className="note">{t.sub}</div>}</div>
           {person && <div className="chip" style={{cursor:'pointer'}} onClick={()=>setDrawerId(person.id)}>{displayName(person)}</div>}
           <button className="iconbtn" onClick={()=>deleteTask(t)}>✕</button>
