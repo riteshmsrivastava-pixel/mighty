@@ -195,6 +195,8 @@ const DEFAULT = {
     currentRole: '', currentCompany: '', yearsExperience: '', linkedinUrl: '',
     followUpDays: 7,
     communityOptIn: false,
+    pipeline: 'job_search', // which stage vocabulary the funnel uses
+    stageLabels: {},        // optional per-stage label overrides
     onboardedAt: null,      // set once the first-run setup is finished/skipped
   },
 };
@@ -214,7 +216,8 @@ function shape(d){
       industries: arr(sd.industries, []),
       skills: arr(sd.skills, []),
       interests: arr(sd.interests, []),
-      networkingStyle: arr(sd.networkingStyle, []) } };
+      networkingStyle: arr(sd.networkingStyle, []),
+      stageLabels: (sd.stageLabels && typeof sd.stageLabels==='object') ? sd.stageLabels : {} } };
 }
 function loadDB(){ try{ return shape(JSON.parse(localStorage.getItem(DB_KEY))); }catch(e){ return shape(); } }
 
@@ -276,6 +279,33 @@ const STAGE_META = {
   offer:{label:'Offer', bg:'#5B4BC4', fg:'#FFFFFF', dot:'#EDEAFE'},
   do_not_contact:{label:'Do Not Contact', bg:'#F4F3F1', fg:'#A29EAC', dot:'#D7D3D3'},
 };
+/* ---- Pipeline templates ----------------------------------------------------
+   A relationship funnel is the same eight ordered steps whichever game you're
+   playing — only the vocabulary changes. So a template RELABELS the existing
+   stages instead of forking the schema: no migration, no risk to saved data,
+   and switching templates can never strand a contact in a stage that stopped
+   existing. Any single label can also be overridden. */
+const PIPELINE_TEMPLATES = {
+  job_search:  { label:'Job search',  hint:'Prospect → Coffee chat → Interview → Offer',
+    stages:{prospect:'Prospects', ready_to_contact:'Ready to Contact', contacted:'Contacted', replied:'Replied', coffee_chat:'Coffee Chat', referral:'Referral', interview:'Interview', offer:'Offer'} },
+  sales:       { label:'Sales',       hint:'Lead → Discovery → Proposal → Customer',
+    stages:{prospect:'Leads', ready_to_contact:'Qualified', contacted:'Contacted', replied:'Engaged', coffee_chat:'Discovery', referral:'Proposal', interview:'Negotiation', offer:'Customer'} },
+  fundraising: { label:'Fundraising', hint:'Research → Warm intro → Partner meeting → Investment',
+    stages:{prospect:'Research', ready_to_contact:'Ready to Reach', contacted:'Warm Intro', replied:'Responded', coffee_chat:'Meeting', referral:'Partner Meeting', interview:'Diligence', offer:'Investment'} },
+  networking:  { label:'Networking',  hint:'Saved → Conversation → Relationship → Advocate',
+    stages:{prospect:'Saved', ready_to_contact:'Ready to Reach', contacted:'Contacted', replied:'Conversation', coffee_chat:'Coffee Chat', referral:'Relationship', interview:'Champion', offer:'Advocate'} },
+};
+// Mirrored from settings by App so any component can label a stage without
+// threading settings through props.
+let ACTIVE_PIPELINE = 'job_search';
+let STAGE_OVERRIDES = {};
+function setActivePipeline(p, overrides){ ACTIVE_PIPELINE = PIPELINE_TEMPLATES[p] ? p : 'job_search'; STAGE_OVERRIDES = overrides || {}; }
+function stageLabel(status){
+  if(STAGE_OVERRIDES && STAGE_OVERRIDES[status]) return STAGE_OVERRIDES[status];
+  if(status==='do_not_contact') return 'Do Not Contact';
+  const t = PIPELINE_TEMPLATES[ACTIVE_PIPELINE];
+  return (t && t.stages[status]) || (STAGE_META[status]||{}).label || status;
+}
 const PRIORITY_META = { high:{label:'High', dot:'#5B4BC4'}, medium:{label:'Medium', dot:'#8C8898'}, low:{label:'Low', dot:'#BAB6BC'} };
 const AVATAR_PALETTE = [['#EDEAFE','#4C3EB0'],['#FDEDEB','#B5675A'],['#E9F1EC','#4B7A5E'],['#E6EAF2','#4A5B7A'],['#F0EEF9','#6B5FB0'],['#FBF3E2','#8C7A50']];
 function avatarFor(row){
@@ -389,13 +419,13 @@ function suggestedNextAction(row, rowEvents, followUpDays){
       return { label:'Message for the first time', urgent:false, action:'contact' };
     case 'contacted': {
       const replied = rowEvents.some(e=>e.event_type==='reply');
-      if(replied) return { label:'Propose a coffee chat', urgent:false, action:'coffee' };
+      if(replied) return { label:`Move to ${stageLabel('coffee_chat')}`, urgent:false, action:'coffee' };
       const days = row.contacted_at ? Math.round((now()-new Date(row.contacted_at).getTime())/864e5) : 0;
       if(days > followUpDays) return { label:`Follow up — no reply in ${days}d`, urgent:true, action:'followup' };
       return { label:'Waiting for reply', urgent:false, action:null };
     }
     case 'replied':
-      return { label:'Propose a coffee chat', urgent:false, action:'coffee' };
+      return { label:`Move to ${stageLabel('coffee_chat')}`, urgent:false, action:'coffee' };
     case 'coffee_chat': {
       const chats = rowEvents.filter(e=>e.event_type==='coffee_chat').sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at));
       const last = chats[0];
@@ -403,8 +433,8 @@ function suggestedNextAction(row, rowEvents, followUpDays){
         return { label:'Send a thank-you / next touch', urgent:true, action:'thanks' };
       return { label:'Send a thank-you note', urgent:false, action:'thanks' };
     }
-    case 'referral': return { label:'Check in on referral status', urgent:false, action:null };
-    case 'interview': return { label:'Prep for interview / check in', urgent:false, action:null };
+    case 'referral': return { label:`Check in on ${stageLabel('referral').toLowerCase()}`, urgent:false, action:null };
+    case 'interview': return { label:`Prep for ${stageLabel('interview').toLowerCase()}`, urgent:false, action:null };
     case 'offer': return { label:'Say thank you', urgent:false, action:'thanks' };
     default: return null;
   }
@@ -447,7 +477,7 @@ function Avatar({row,size}){
     {row.avatar_url && <img src={row.avatar_url} alt="" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}} onError={e=>{e.target.style.display='none';}}/>}
   </div>;
 }
-function StagePill({status}){ const m=STAGE_META[status]||STAGE_META.prospect; return <span className="pill" style={{background:m.bg,color:m.fg}}>{m.label}</span>; }
+function StagePill({status}){ const m=STAGE_META[status]||STAGE_META.prospect; return <span className="pill" style={{background:m.bg,color:m.fg}}>{stageLabel(status)}</span>; }
 function PriorityDot({priority}){ const m=PRIORITY_META[priority]||PRIORITY_META.medium; return <span style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:12.5,color:'var(--sub)'}}><span className="dot" style={{background:m.dot}}></span>{m.label}</span>; }
 // "Who is this?" — the most recent real interaction, so a row reads like a
 // relationship, not a database record.
@@ -459,7 +489,7 @@ function relationshipScore(row, evs){
   evs = evs||[];
   const factors = [];
   let score = STAGE_DEPTH[row.status] ?? 0;
-  if(score) factors.push({label:(STAGE_META[row.status]||{}).label||row.status, pts:score});
+  if(score) factors.push({label:stageLabel(row.status), pts:score});
   const replies = evs.filter(e=>e.event_type==='reply').length;
   if(replies){ const p=Math.min(14, replies*7); score+=p; factors.push({label:`${replies} repl${replies===1?'y':'ies'}`, pts:p}); }
   const chats = evs.filter(e=>e.event_type==='coffee_chat').length;
@@ -515,6 +545,8 @@ function App(){
   const saveTimer = useRef(null);
 
   const patch = (slice, val) => setDb(d=>({...d,[slice]: typeof val==='function'? val(d[slice]):{...d[slice],...val}}));
+  // Keep the stage-label resolver in step with settings before anything renders.
+  setActivePipeline(db.settings.pipeline, db.settings.stageLabels);
 
   useEffect(()=>{
     if(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase){
@@ -1315,7 +1347,7 @@ function Pipeline({log,changeStage}){
         const meta = STAGE_META[st];
         const cards = pool.filter(r=>r.status===st);
         return <div key={st} className="pcol" onDragOver={e=>e.preventDefault()} onDrop={()=>{ if(dragId!=null){ const row=log.find(r=>r.id===dragId); if(row && row.status!==st) changeStage(row, st); setDragId(null); } }}>
-          <div className="pcol-head"><span className="dot" style={{background:meta.dot}}></span><span style={{fontWeight:600,fontSize:13}}>{meta.label}</span><span className="note">{cards.length}</span></div>
+          <div className="pcol-head"><span className="dot" style={{background:meta.dot}}></span><span style={{fontWeight:600,fontSize:13}}>{stageLabel(st)}</span><span className="note">{cards.length}</span></div>
           <div className="pcol-cards">
             {cards.map(r=><div key={r.id} className="pcard" draggable onDragStart={()=>setDragId(r.id)}>
               <div style={{display:'flex',alignItems:'center',gap:8}}>
@@ -1685,6 +1717,36 @@ function Settings({db,patch,auth,sb,signOut,setTab}){
       </div>;
     })()}
 
+    <div className="tag" style={{margin:'26px 0 10px'}}>Your pipeline</div>
+    <div className="note" style={{margin:'-4px 0 10px',fontSize:12.5}}>Same eight steps, your vocabulary. Switching is safe — nobody moves, the stages are just renamed.</div>
+    <div className="panel pad">
+      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10}}>
+        {Object.entries(PIPELINE_TEMPLATES).map(([key,t])=>{
+          const on = (db.settings.pipeline||'job_search')===key;
+          return <div key={key} onClick={()=>patch('settings', s=>({...s, pipeline:key, stageLabels:{}}))}
+            style={{cursor:'pointer',padding:'14px 16px',borderRadius:14,border:'1px solid '+(on?'var(--brand)':'var(--line)'),background:on?'var(--bsoft)':'var(--card2)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <span style={{width:15,height:15,borderRadius:99,flex:'none',border:'1.5px solid '+(on?'var(--brand)':'var(--line)'),background:on?'var(--brand)':'transparent',boxShadow:on?'inset 0 0 0 3px #fff':'none'}}/>
+              <span style={{fontWeight:600,fontSize:14,color:on?'var(--brand2)':'var(--ink)'}}>{t.label}</span>
+            </div>
+            <div className="note" style={{marginTop:5,fontSize:12.5}}>{t.hint}</div>
+          </div>;
+        })}
+      </div>
+      <div className="divider"/>
+      <label className="fld">Rename any stage (optional)</label>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10}}>
+        {PIPELINE_STAGES.map(st=><div key={st}>
+          <input className="inp" defaultValue={stageLabel(st)}
+            onBlur={e=>{ const v=e.target.value.trim();
+              patch('settings', s=>{ const sl={...(s.stageLabels||{})};
+                const base=(PIPELINE_TEMPLATES[s.pipeline||'job_search']||{}).stages||{};
+                if(!v || v===base[st]) delete sl[st]; else sl[st]=v;
+                return {...s, stageLabels:sl}; }); }}/>
+        </div>)}
+      </div>
+    </div>
+
     <div className="tag" style={{margin:'26px 0 10px'}}>Community insights</div>
     <div className="panel pad">
       <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}}>
@@ -1898,7 +1960,7 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
         </div>}
         <div style={{display:'flex',gap:8,marginTop:14,flexWrap:'wrap'}}>
           <button className="btn ghost sm" onClick={openDraft}>Draft message</button>
-          <button className="btn ghost sm" onClick={()=>changeStage(row,'coffee_chat')}>Mark coffee chat</button>
+          <button className="btn ghost sm" onClick={()=>changeStage(row,'coffee_chat')}>{`Mark ${stageLabel('coffee_chat').toLowerCase()}`}</button>
           <button className="btn ghost sm" onClick={openDraft}>Follow up</button>
           <button className="btn ghost sm" onClick={()=>setDrawerTab('notes')}>Add note</button>
         </div>
@@ -1934,7 +1996,7 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
               {trail.map((st,i)=>{ const m=STAGE_META[st]; const on=i<=hereIdx; const here=i===hereIdx;
                 return <React.Fragment key={st}>
                   {i>0 && <span style={{color:'var(--mute2)',fontSize:12}}>→</span>}
-                  <span className="pill" style={{background:here?'var(--brand)':on?m.bg:'transparent',color:here?'#fff':on?m.fg:'var(--mute2)',border:on?'none':'1px dashed var(--line)'}}>{m.label}</span>
+                  <span className="pill" style={{background:here?'var(--brand)':on?m.bg:'transparent',color:here?'#fff':on?m.fg:'var(--mute2)',border:on?'none':'1px dashed var(--line)'}}>{stageLabel(st)}</span>
                 </React.Fragment>; })}
             </div>
 
