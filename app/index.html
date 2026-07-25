@@ -452,6 +452,45 @@ function PriorityDot({priority}){ const m=PRIORITY_META[priority]||PRIORITY_META
 // "Who is this?" — the most recent real interaction, so a row reads like a
 // relationship, not a database record.
 const EVENT_LABEL = {reply:'They replied', coffee_chat:'Coffee chat', referral:'Referral', interview:'Interview', offer:'Offer', first_message:'Message sent', connection_request:'Connection request', note:'Note added', stage_change:'Moved forward'};
+// Relationship score — deterministic, explainable, computed from real history
+// only (depth of stage, reciprocity, momentum, recency). No AI, no invention.
+const STAGE_DEPTH = {prospect:0, ready_to_contact:5, contacted:18, replied:34, coffee_chat:50, referral:60, interview:66, offer:72, do_not_contact:0};
+function relationshipScore(row, evs){
+  evs = evs||[];
+  const factors = [];
+  let score = STAGE_DEPTH[row.status] ?? 0;
+  if(score) factors.push({label:(STAGE_META[row.status]||{}).label||row.status, pts:score});
+  const replies = evs.filter(e=>e.event_type==='reply').length;
+  if(replies){ const p=Math.min(14, replies*7); score+=p; factors.push({label:`${replies} repl${replies===1?'y':'ies'}`, pts:p}); }
+  const chats = evs.filter(e=>e.event_type==='coffee_chat').length;
+  if(chats){ const p=Math.min(12, chats*6); score+=p; factors.push({label:`${chats} coffee chat${chats===1?'':'s'}`, pts:p}); }
+  const touches = evs.length;
+  if(touches>2){ const p=Math.min(8, (touches-2)*2); score+=p; factors.push({label:`${touches} interactions`, pts:p}); }
+  const lastT = evs.length ? Math.max(...evs.map(e=>new Date(e.occurred_at).getTime()))
+    : new Date(row.contacted_at||row.shortlisted_at||row.updated_at).getTime();
+  const days = Math.max(0,(now()-lastT)/864e5);
+  const decay = days>180?-22:days>90?-14:days>60?-8:days>30?-3:0;
+  if(decay){ score+=decay; factors.push({label:`Quiet ${Math.round(days)}d`, pts:decay}); }
+  else if(days<=14){ score+=4; factors.push({label:'Recently active', pts:4}); }
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  const label = score>=75?'Strong':score>=50?'Growing':score>=28?'Warm':score>0?'Early':'New';
+  return {score, label, factors};
+}
+// "What Mighty knows" — facts already on file: details/promises extracted from
+// coffee-chat notes, the AI briefing, and your own notes. Never invented.
+function mightyKnows(row, evs){
+  const out = [];
+  (evs||[]).slice().sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at)).forEach(e=>{
+    const x = e.extracted||{};
+    (x.personalDetails||[]).forEach(d=>out.push({kind:'detail', text:d}));
+    (x.promises||[]).forEach(p=>out.push({kind:'promise', text:p}));
+  });
+  const br = row.briefing||{};
+  (br.conversationStarters||[]).slice(0,2).forEach(s=>out.push({kind:'starter', text:s}));
+  if(br.sharedConnectionNote) out.push({kind:'shared', text:br.sharedConnectionNote});
+  const seen=new Set();
+  return out.filter(o=>{ const k=o.text.trim().toLowerCase(); if(!k||seen.has(k)) return false; seen.add(k); return true; }).slice(0,7);
+}
 function lastInteraction(row, evs){
   const ev = (evs||[]).slice().sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at))[0];
   if(ev) return {label: EVENT_LABEL[ev.event_type]||'Updated', when: rel(new Date(ev.occurred_at).getTime())};
@@ -470,7 +509,7 @@ function App(){
   const [tasks,setTasks] = useState([]);
   const [communityStats,setCommunityStats] = useState([]);
   const [drawerId,setDrawerId] = useState(null);
-  const [drawerTab,setDrawerTab] = useState('briefing');
+  const [drawerTab,setDrawerTab] = useState('profile');
   const [draftFor,setDraftFor] = useState(null); // row id, or null
   const lastSync = useRef(null);
   const saveTimer = useRef(null);
@@ -1864,24 +1903,80 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
           <button className="btn ghost sm" onClick={()=>setDrawerTab('notes')}>Add note</button>
         </div>
         <div className="drawer-tabs">
-          {['briefing','prep','timeline','notes'].map(t=><div key={t} className={'drawer-tab'+(drawerTab===t?' on':'')} onClick={()=>setDrawerTab(t)}>{t==='prep'?'AI Prep':t[0].toUpperCase()+t.slice(1)}</div>)}
+          {['profile','prep','timeline','notes'].map(t=><div key={t} className={'drawer-tab'+(drawerTab===t?' on':'')} onClick={()=>setDrawerTab(t)}>{t==='prep'?'AI Prep':t[0].toUpperCase()+t.slice(1)}</div>)}
         </div>
       </div>
       <div style={{flex:1,overflowY:'auto',padding:'18px 24px 36px'}}>
-        {drawerTab==='briefing' && <>
-          <CohortInsight company={row.company} communityStats={communityStats}/>
-          {!briefing.careerSummary
-            ? <div className="empty"><div className="big">✨</div>No briefing yet. Open <span className="mono">Draft message</span> to generate one from this profile's context.</div>
-            : <>
-              <div className="tag" style={{color:'var(--brand)'}}>✦ AI briefing · always editable via Draft message</div>
-              <div className="tag" style={{margin:'16px 0 6px'}}>Summary</div>
+        {drawerTab==='profile' && (()=>{
+          const rs = relationshipScore(row, rowEvents);
+          const knows = mightyKnows(row, rowEvents);
+          const trail = ['prospect','contacted','replied','coffee_chat','referral','interview','offer'];
+          const hereIdx = Math.max(0, trail.indexOf(row.status==='ready_to_contact'?'prospect':row.status));
+          const KIND = {promise:{t:'You promised', c:'var(--terra2)', bg:'var(--tsoft)'}, detail:{t:'About them', c:'var(--brand2)', bg:'var(--bsoft)'},
+                        starter:{t:'Talk about', c:'var(--green2)', bg:'var(--gsoft)'}, shared:{t:'Shared ground', c:'var(--brand2)', bg:'var(--bsoft)'}};
+          const recent = rowEvents.slice().sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at)).slice(0,4).reverse();
+          return <>
+            {/* Relationship score */}
+            <div style={{background:'linear-gradient(150deg, var(--bsoft), var(--psoft))',borderRadius:'var(--radius)',padding:'20px 22px',display:'flex',alignItems:'center',gap:18}}>
+              <div style={{minWidth:0}}>
+                <div className="tag" style={{color:'var(--brand2)'}}>Relationship score</div>
+                <div style={{fontFamily:'var(--fh)',fontWeight:600,fontSize:44,lineHeight:1.05,letterSpacing:'-.04em',marginTop:2}}>{rs.score}</div>
+                <div style={{fontWeight:600,fontSize:15,color:'var(--brand2)'}}>{rs.label}</div>
+              </div>
+              <div style={{flex:1,display:'flex',flexWrap:'wrap',gap:6,alignSelf:'flex-end',justifyContent:'flex-end'}}>
+                {rs.factors.slice(0,4).map((f,i)=><span key={i} className="chip" style={{background:'rgba(255,255,255,.7)',color:f.pts<0?'var(--terra2)':'var(--sub)'}}>{f.label} {f.pts>0?'+':''}{f.pts}</span>)}
+              </div>
+            </div>
+
+            {/* Relationship trail */}
+            <div className="tag" style={{margin:'20px 0 8px'}}>Relationship</div>
+            <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+              {trail.map((st,i)=>{ const m=STAGE_META[st]; const on=i<=hereIdx; const here=i===hereIdx;
+                return <React.Fragment key={st}>
+                  {i>0 && <span style={{color:'var(--mute2)',fontSize:12}}>→</span>}
+                  <span className="pill" style={{background:here?'var(--brand)':on?m.bg:'transparent',color:here?'#fff':on?m.fg:'var(--mute2)',border:on?'none':'1px dashed var(--line)'}}>{m.label}</span>
+                </React.Fragment>; })}
+            </div>
+
+            {/* What Mighty knows */}
+            <div className="tag" style={{margin:'22px 0 8px'}}>Mighty knows</div>
+            {knows.length===0
+              ? <div className="note">Nothing captured yet. Log a coffee chat in <span className="mono">Timeline</span> and Mighty pulls out the details and promises automatically.</div>
+              : <div className="list">{knows.map((k,i)=>{ const m=KIND[k.kind]||KIND.detail; return <div key={i} className="row" style={{background:m.bg,border:'none'}}>
+                  <div className="grow"><div style={{fontSize:11,fontWeight:500,letterSpacing:'.08em',textTransform:'uppercase',color:m.c}}>{m.t}</div>
+                    <div style={{fontSize:13.5,marginTop:3}}>{k.text}</div></div>
+                </div>; })}</div>}
+
+            {/* Briefing summary, if generated */}
+            {briefing.careerSummary && <>
+              <div className="tag" style={{margin:'22px 0 6px'}}>Background</div>
               <div className="note" style={{fontSize:13.5,color:'var(--ink)'}}>{briefing.careerSummary}</div>
-              {briefing.sharedConnectionNote && <><div className="tag" style={{margin:'14px 0 6px'}}>Shared connection</div><div className="note" style={{fontSize:13.5,color:'var(--ink)'}}>{briefing.sharedConnectionNote}</div></>}
-              {briefing.conversationStarters?.length>0 && <><div className="tag" style={{margin:'14px 0 8px'}}>Conversation starters</div>
-                <div className="list">{briefing.conversationStarters.map((s,i)=><div key={i} className="row" style={{background:'var(--card2)'}}><div className="m">{s}</div></div>)}</div></>}
-              {briefing.whyContactReasons?.length>0 && <><div className="tag" style={{margin:'14px 0 6px'}}>Why contact</div><div className="note" style={{fontSize:13.5,color:'var(--ink)'}}>{briefing.whyContactReasons.join(' · ')}</div></>}
+              {briefing.whyContactReasons?.length>0 && <div className="note" style={{marginTop:6}}>{briefing.whyContactReasons.join(' · ')}</div>}
             </>}
-        </>}
+
+            {/* Recent history at a glance */}
+            {recent.length>0 && <>
+              <div className="tag" style={{margin:'22px 0 8px'}}>Recent history</div>
+              <div style={{display:'flex',flexDirection:'column',gap:2}}>
+                {recent.map(e=><div key={e.id} style={{display:'grid',gridTemplateColumns:'14px 1fr auto',gap:12,alignItems:'center',padding:'7px 0'}}>
+                  <span style={{justifySelf:'center',width:8,height:8,borderRadius:99,background:'var(--brand)'}}/>
+                  <span style={{fontSize:13.5}}>{EVENT_LABEL[e.event_type]||e.event_type}{e.note?` — ${String(e.note).slice(0,60)}`:''}</span>
+                  <span className="note">{rel(new Date(e.occurred_at).getTime())}</span>
+                </div>)}
+              </div>
+            </>}
+
+            {/* Ask Mighty */}
+            <div className="tag" style={{margin:'22px 0 8px'}}>Ask Mighty</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+              <button className="btn ghost sm" onClick={openDraft}>How should I reconnect?</button>
+              <button className="btn ghost sm" onClick={()=>setDrawerTab('prep')}>Prepare for a coffee chat</button>
+              <button className="btn ghost sm" onClick={()=>setDrawerTab('prep')}>Is this relationship healthy?</button>
+            </div>
+
+            <div style={{marginTop:20}}><CohortInsight company={row.company} communityStats={communityStats}/></div>
+          </>;
+        })()}
         {drawerTab==='prep' && <>
           {mode==='none'
             ? <div className="empty"><div className="big">✨</div>Sign in to use AI prep.</div>
