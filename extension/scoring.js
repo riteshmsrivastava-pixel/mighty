@@ -2,11 +2,22 @@
 // Ports index.html's computeScore() verbatim. Keep these two in sync — this
 // is the one piece of logic that intentionally lives in two places, since
 // the extension has no bundler/shared-module story with the web app.
-function mightyComputeScore(row, targetCompanies) {
+const MIGHTY_GOAL_STOPWORDS = new Set(['the','a','an','to','in','into','at','for','of','and','or','with','on','my','me','get','got','want','looking','look','find','people','person','someone','who','that','this','break','move','role','job','work','working','company','companies','around','near','new']);
+function mightyGoalKeywords(goal) {
+  return [...new Set((goal || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/)
+    .filter(w => w && !MIGHTY_GOAL_STOPWORDS.has(w) && (w.length >= 3 || ['vc', 'ai', 'pm', 'ux', 'hr'].includes(w))))].slice(0, 8);
+}
+function mightyComputeScore(row, targetCompanies, goal) {
   const reasons = []; let score = 0;
   const ctx = row.context || {};
   if (row.company && (targetCompanies || []).some(c => c.trim().toLowerCase() === row.company.trim().toLowerCase())) {
     score += 40; reasons.push(`Target company: ${row.company}`);
+  }
+  const kws = mightyGoalKeywords(goal);
+  if (kws.length) {
+    const hay = `${row.title || ''} ${row.company || ''} ${ctx.aboutText || ''} ${ctx.experienceText || ''} ${ctx.educationText || ''}`.toLowerCase();
+    const hits = kws.filter(k => hay.includes(k));
+    if (hits.length) { score += Math.min(30, 12 * hits.length); reasons.push(`Matches your goal: ${hits.slice(0, 3).join(', ')}`); }
   }
   const mutualMatch = (ctx.mutualConnectionsRaw || '').match(/(\d+)\s*mutual/i);
   if (mutualMatch) {

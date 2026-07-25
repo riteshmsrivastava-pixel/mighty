@@ -144,7 +144,7 @@ async function decorateCardsWithScores(cards) {
     badge.style.cssText = 'position:absolute;top:8px;right:8px;z-index:10;font:11px -apple-system,system-ui,sans-serif;'
       + 'padding:3px 8px;border-radius:99px;font-weight:700;';
     if (row) {
-      const { score, reasons } = mightyComputeScore(row, r.targetCompanies);
+      const { score, reasons } = mightyComputeScore(row, r.targetCompanies, r.goal);
       badge.style.background = '#E7EDFB'; badge.style.color = '#3B55B8';
       badge.title = reasons.join(' · ');
       badge.textContent = `${score}% · ${mightyMatchLabel(score)}`;
@@ -338,7 +338,7 @@ async function renderProfileSidebar() {
 
   const rowEvents = r.events.filter(e => e.log_id === row.id);
   const next = mightySuggestedNext(row);
-  const { score, reasons } = mightyComputeScore(row, r.targetCompanies);
+  const { score, reasons } = mightyComputeScore(row, r.targetCompanies, r.goal);
   const name = row.name || liveName;
   const headline = row.title || liveHeadline;
   const company = row.company || liveCompany;

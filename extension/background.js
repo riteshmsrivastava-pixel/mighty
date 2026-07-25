@@ -72,10 +72,10 @@ async function fetchLog(force) {
     ]);
     if (!logRes.ok || !eventsRes.ok) return { ok: false, error: 'fetch_failed' };
     const log = await logRes.json(); const events = await eventsRes.json();
-    let targetCompanies = [];
-    try { const ud = await userDataRes.json(); targetCompanies = ud?.[0]?.data?.settings?.targetCompanies || []; } catch (e) {}
-    logCache = { at: Date.now(), log, events, targetCompanies };
-    return { ok: true, log, events, targetCompanies };
+    let targetCompanies = [], goal = '';
+    try { const ud = await userDataRes.json(); const st = ud?.[0]?.data?.settings || {}; targetCompanies = st.targetCompanies || []; goal = st.goal || ''; } catch (e) {}
+    logCache = { at: Date.now(), log, events, targetCompanies, goal };
+    return { ok: true, log, events, targetCompanies, goal };
   } catch (e) { return { ok: false, error: String(e && e.message || e) }; }
 }
 

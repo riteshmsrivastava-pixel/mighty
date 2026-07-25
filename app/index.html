@@ -583,7 +583,7 @@ function App(){
       </div>
     </div>
 
-    {drawerRow && <PersonDrawer row={drawerRow} rowEvents={events.filter(e=>e.log_id===drawerRow.id)} db={db} sb={sb} auth={auth}
+    {drawerRow && <PersonDrawer row={drawerRow} rowEvents={events.filter(e=>e.log_id===drawerRow.id)} db={db} sb={sb} auth={auth} communityStats={communityStats}
       drawerTab={drawerTab} setDrawerTab={setDrawerTab} onClose={()=>setDrawerId(null)}
       updateRow={updateRow} logEvent={logEvent} changeStage={changeStage} openDraft={()=>setDraftFor(drawerRow.id)}/>}
     {draftRow && <DraftModal row={draftRow} sb={sb} auth={auth} updateRow={updateRow} changeStage={changeStage} onClose={()=>setDraftFor(null)}/>}
@@ -841,17 +841,21 @@ function FindPeople({sb, auth}){
   const mode = llmMode(sb,auth);
   const EX=['strategy tech companies near me','MIT Sloan alumni in AI','healthcare VCs in New York','product managers at Stripe','climate startup founders in Europe'];
   function openGoogle(keywords){ window.open('https://www.google.com/search?q='+encodeURIComponent('site:linkedin.com/in '+keywords),'_blank','noopener'); }
+  // Local fallback when AI is unavailable — strip filler ("companies","near me")
+  // so the search is at least clean keywords, even without the gateway.
+  function localClean(query){ const kw=goalKeywords(query); return kw.length ? kw.join(' ') : query; }
   async function go(){
     const query=q.trim(); if(!query) return;
-    if(mode==='none'){ setLastKw(query); openGoogle(query); return; }
+    if(mode==='none'){ const c=localClean(query); setLastKw(c); openGoogle(c); return; }
     setBusy(true);
     try{
       const kw = await llm(sb, auth, 'tagging',
         'You turn a natural-language request to find people into a short set of LinkedIn profile search keywords: role/title, company, industry, and location. Keep real company and place names. Convert phrases like "tech companies" to "technology". Drop filler like "around me"/"near me" unless a specific place is named. Output ONLY the keywords on one line — no punctuation, quotes, or explanation.',
         query, 60);
-      const clean=(kw||query).trim().replace(/[\n"]/g,' ').replace(/\s+/g,' ');
-      setLastKw(clean); openGoogle(clean);
-    }catch(e){ setLastKw(query); openGoogle(query); }
+      const clean=(kw||'').trim().replace(/[\n"]/g,' ').replace(/\s+/g,' ');
+      const final = clean.length>1 ? clean : localClean(query);
+      setLastKw(final); openGoogle(final);
+    }catch(e){ const c=localClean(query); setLastKw(c); openGoogle(c); }
     setBusy(false);
   }
   return <div className="panel pad">
@@ -1359,7 +1363,26 @@ function Templates({db,patch,sb,auth,setTab}){
 }
 
 /* ============================ PersonDrawer ============================ */
-function PersonDrawer({row,rowEvents,db,sb,auth,drawerTab,setDrawerTab,onClose,updateRow,logEvent,changeStage,openDraft}){
+// Anonymous cohort signal for this person's company — the hardest-to-copy moat.
+// Reads the already-loaded community_stats (which the cron only writes once
+// >=3 students have contributed, so a row existing already means k>=3). Every
+// absolute number is bucketed; only the response *rate* is shown as a figure,
+// and only because it's a ratio over >=3 people, never an individual.
+function CohortInsight({company, communityStats}){
+  if(!company) return null;
+  const c = (communityStats||[]).find(x=>x.company && x.company.trim().toLowerCase()===company.trim().toLowerCase());
+  if(!c) return null;
+  const rate = c.outreach_count>0 ? Math.round(100*c.reply_count/c.outreach_count) : null;
+  return <div className="panel pad" style={{background:'var(--card2)',marginBottom:16}}>
+    <div className="tag" style={{color:'var(--brand)'}}>🌐 Cohort insight · {company}</div>
+    {rate!=null && <div style={{margin:'8px 0 4px'}}><span style={{fontWeight:700,fontSize:20}}>{rate}%</span> <span className="note">avg response rate across your cohort</span></div>}
+    <div className="note" style={{fontSize:12.5,lineHeight:1.55}}>
+      {bucketCount(c.contributor_count)} students reached out · {bucketCount(c.reply_count)} got replies · {bucketCount(c.coffee_chat_count)} coffee chats · {bucketCount(c.interview_count)} interviews
+    </div>
+    <div className="note" style={{fontSize:11,marginTop:8,color:'var(--mute2)'}}>Anonymous and aggregated across opted-in Sloan Fellows. Shown only once at least 3 students have contributed.</div>
+  </div>;
+}
+function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDrawerTab,onClose,updateRow,logEvent,changeStage,openDraft}){
   const [notes,setNotes]=useState(row.notes||'');
   const notesTimer = useRef(null);
   useEffect(()=>{ setNotes(row.notes||''); },[row.id]);
@@ -1478,6 +1501,7 @@ function PersonDrawer({row,rowEvents,db,sb,auth,drawerTab,setDrawerTab,onClose,u
       </div>
       <div style={{flex:1,overflowY:'auto',padding:'18px 24px 36px'}}>
         {drawerTab==='briefing' && <>
+          <CohortInsight company={row.company} communityStats={communityStats}/>
           {!briefing.careerSummary
             ? <div className="empty"><div className="big">✨</div>No briefing yet. Open <span className="mono">Draft message</span> to generate one from this profile's context.</div>
             : <>
