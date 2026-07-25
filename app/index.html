@@ -2040,7 +2040,27 @@ function AiUsagePanel({sb, auth}){
 function Settings({db,patch,auth,sb,signOut,setTab}){
   const [saEmail,setSaEmail]=useState(null); const [saErr,setSaErr]=useState(null); const [saBusy,setSaBusy]=useState(false); const [copied,setCopied]=useState(false);
   const [syncBusy,setSyncBusy]=useState(false); const [syncMsg,setSyncMsg]=useState(null);
-  function exportData(){ const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='mighty-backup.json'; a.click(); }
+  const [exporting,setExporting]=useState(false);
+  // Complete export — everything Mighty holds about you, server-side included, so
+  // "your data is yours" is literally true and one click. Local settings plus
+  // every row from every table this account owns (RLS scopes it automatically).
+  async function exportData(){
+    setExporting(true);
+    const bundle = { exportedAt:new Date().toISOString(), app:'Mighty', settings:db.settings, templates:db.templates };
+    if(sb && auth.status==='in'){
+      const pull = async (t)=>{ try{ const {data}=await sb.from(t).select('*'); return data||[]; }catch(e){ return []; } };
+      const [people,events,tasks] = await Promise.all([pull('outreach_log'), pull('outreach_events'), pull('tasks')]);
+      bundle.people = people;       // includes context.memories, briefing, avatars
+      bundle.interactions = events; // full timeline
+      bundle.tasks = tasks;
+      bundle.counts = { people:people.length, interactions:events.length, tasks:tasks.length };
+    }
+    const blob=new Blob([JSON.stringify(bundle,null,2)],{type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download=`mighty-export-${new Date().toISOString().slice(0,10)}.json`; a.click();
+    URL.revokeObjectURL(a.href);
+    setExporting(false);
+  }
   async function fetchServiceEmail(){
     if(!sb) return; setSaBusy(true); setSaErr(null);
     try{ const {data,error} = await sb.functions.invoke('sheets-sync', {body:{action:'whoami'}}); if(error) throw error; setSaEmail(data.email); }
@@ -2062,7 +2082,7 @@ function Settings({db,patch,auth,sb,signOut,setTab}){
   const rows = [
     {t:'Account', d:auth.user.email, action:'Sign out', go:signOut},
     {t:'Message templates', d:`${db.templates.length} saved`, action:'Edit', go:()=>setTab('templates')},
-    {t:'Export your data', d:'Contacts, notes and messages — yours anytime', action:'Export CSV/JSON', go:exportData},
+    {t:'Export everything', d:'People, memories, timeline and tasks — one complete JSON file, yours anytime', action:exporting?'Exporting…':'Export', go:exportData, disabled:exporting},
     {t:'Privacy', d:'Notes and drafts are private to you; nothing is ever sent without your click', action:'Learn more', go:()=>alert('Mighty stores only what you put in. AI calls go through a shared proxy so no student needs an API key — your prompts are not used to train models. See the Log/Timeline for your full activity history.')},
   ];
 
@@ -2070,7 +2090,7 @@ function Settings({db,patch,auth,sb,signOut,setTab}){
     <div className="panel">
       {rows.map((r,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:14,padding:'16px 20px',borderBottom:i<rows.length-1?'1px solid var(--line)':'none'}}>
         <div style={{flex:1}}><div style={{fontWeight:600,fontSize:14}}>{r.t}</div><div className="note" style={{marginTop:3}}>{r.d}</div></div>
-        <button className="btn ghost sm" onClick={r.go}>{r.action}</button>
+        <button className="btn ghost sm" onClick={r.go} disabled={!!r.disabled}>{r.action}</button>
       </div>)}
     </div>
 
