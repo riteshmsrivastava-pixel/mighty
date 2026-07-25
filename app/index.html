@@ -465,6 +465,34 @@ async function llmJSON(sb, auth, feature, system, user, maxTokens=900){
 const OBJECTIVES = [['coffee_chat','Coffee chat'],['follow_up','Follow-up'],['thank_you','Thank you'],['referral_ask','Referral ask'],['recruiter_intro','Recruiter intro']];
 const TONES = ['Friendly','Professional','Warm','Concise'];
 
+// Relationship stated in words. The 0-100 score still drives ranking, but a
+// human reads "New relationship" far faster than "4".
+function relationshipWords(row, evs){
+  const n=(evs||[]).length;
+  switch(row.status){
+    case 'prospect': case 'ready_to_contact': return {icon:'🌱', label:'New relationship', sub:'First interaction pending'};
+    case 'contacted': return {icon:'📤', label:'Reached out', sub:'Waiting to hear back'};
+    case 'replied': return {icon:'💬', label:'In conversation', sub:'They replied'};
+    case 'coffee_chat': return {icon:'☕', label:'Real relationship', sub:`${n} interaction${n===1?'':'s'} logged`};
+    case 'referral': case 'interview': case 'offer': return {icon:'🤝', label:'Strong relationship', sub:`${n} interaction${n===1?'':'s'} logged`};
+    default: return {icon:'○', label:'Not active', sub:''};
+  }
+}
+// The inverse of "Mighty knows" — what you still don't know about someone, and
+// therefore the reason to have another conversation. Anything already captured
+// drops off the list.
+const OPEN_QUESTION_BANK = [
+  ['working',  'What are they working on this year?'],
+  ['mentor',   'Are they open to mentoring?'],
+  ['introduc', 'What does a great introduction look like for them?'],
+  ['touch',    'How do they prefer to stay in touch?'],
+  ['goal',     'What is their biggest professional goal?'],
+];
+function openQuestions(row, evs){
+  const known = (mightyKnows(row, evs).map(k=>k.text).join(' ') + ' ' + (row.notes||'')).toLowerCase();
+  return OPEN_QUESTION_BANK.filter(([probe])=>!known.includes(probe)).map(([,q])=>q);
+}
+
 /* ============================ atoms ============================ */
 function Dots(){ return <span className="typing"><i></i><i></i><i></i></span>; }
 function Stat({k,v,sub,d}){ return <div className="kpi"><div className="k">{k}</div><div className="v">{v}{sub&&<small> {sub}</small>}</div>{d&&<div className="d">{d}</div>}</div>; }
@@ -2058,17 +2086,24 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
                   <div style={{fontSize:19,fontWeight:700}}>{displayName(row)}</div>
                   <span className="iconbtn" style={{cursor:'pointer',fontSize:11,padding:'3px 7px'}} onClick={()=>setEditingName(true)}>✎ Edit</span>
                 </div>}
-            <div className="note" style={{marginTop:2}}>{row.title||''}{row.company?` · ${row.company}`:''}</div>
-            {briefing.school && <div className="note">{briefing.school}{briefing.gradYear?` MBA ${briefing.gradYear}`:''}</div>}
+            {(()=>{ const rw=relationshipWords(row,rowEvents); return <div style={{display:'flex',alignItems:'center',gap:8,marginTop:4}}>
+              <span style={{fontWeight:600,fontSize:14,color:'var(--brand2)'}}>{rw.icon} {rw.label}</span>
+              {rw.sub && <span className="note">· {rw.sub}</span>}
+            </div>; })()}
+            <div className="note" style={{marginTop:3,fontSize:12.5,color:'var(--mute)',maxHeight:34,overflow:'hidden'}}>{row.title||''}{row.company?` · ${row.company}`:''}</div>
             {row.profile_url && <a className="linkurl" href={row.profile_url} target="_blank" rel="noopener noreferrer" style={{display:'inline-block',marginTop:4}}>View on LinkedIn ↗</a>}
           </div>
           <div className="iconbtn" onClick={onClose} style={{cursor:'pointer'}}>✕</div>
         </div>
-        <div style={{display:'flex',alignItems:'center',gap:10,marginTop:12}}>
-          <StagePill status={row.status}/><PriorityDot priority={row.priority}/>
-        </div>
+        {(()=>{ const why=(computeScore(row, db.settings.targetCompanies, profileKeywords(db.settings)).reasons||[]).slice(0,3);
+          if(!why.length) return null;
+          return <div style={{marginTop:12}}>
+            <div className="tag" style={{marginBottom:5}}>Recommended because</div>
+            {why.map((w,i)=><div key={i} style={{fontSize:13,color:'var(--sub)',lineHeight:1.55}}>• {w}</div>)}
+          </div>; })()}
         {na && <div className="bluebox" style={{display:'flex',alignItems:'center',gap:12,marginTop:14}}>
-          <div style={{flex:1}}><div className="tag">Suggested next step</div><div style={{fontWeight:600,fontSize:13.5,marginTop:3}}>{na.label}</div></div>
+          <div style={{flex:1}}><div className="tag">Next best action</div><div style={{fontWeight:600,fontSize:14,marginTop:3}}>{na.label}</div>
+            <div className="note" style={{marginTop:2,fontSize:12}}>About 5 minutes</div></div>
           <button className="btn sm" onClick={openDraft}>Draft it</button>
         </div>}
         <div style={{display:'flex',gap:8,marginTop:14,flexWrap:'wrap'}}>
@@ -2078,7 +2113,7 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
           <button className="btn ghost sm" onClick={()=>setDrawerTab('notes')}>Add note</button>
         </div>
         <div className="drawer-tabs">
-          {['profile','prep','timeline','notes'].map(t=><div key={t} className={'drawer-tab'+(drawerTab===t?' on':'')} onClick={()=>setDrawerTab(t)}>{t==='prep'?'AI Prep':t[0].toUpperCase()+t.slice(1)}</div>)}
+          {['profile','prep','timeline','notes'].map(t=><div key={t} className={'drawer-tab'+(drawerTab===t?' on':'')} onClick={()=>setDrawerTab(t)}>{t==='prep'?'AI Brief':t==='profile'?'Brief':t[0].toUpperCase()+t.slice(1)}</div>)}
         </div>
       </div>
       <div style={{flex:1,overflowY:'auto',padding:'18px 24px 36px'}}>
@@ -2091,20 +2126,15 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
                         starter:{t:'Talk about', c:'var(--green2)', bg:'var(--gsoft)'}, shared:{t:'Shared ground', c:'var(--brand2)', bg:'var(--bsoft)'}};
           const recent = rowEvents.slice().sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at)).slice(0,4).reverse();
           return <>
-            {/* Relationship score */}
-            <div style={{background:'linear-gradient(150deg, var(--bsoft), var(--psoft))',borderRadius:'var(--radius)',padding:'20px 22px',display:'flex',alignItems:'center',gap:18}}>
-              <div style={{minWidth:0}}>
-                <div className="tag" style={{color:'var(--brand2)'}}>Relationship score</div>
-                <div style={{fontFamily:'var(--fh)',fontWeight:600,fontSize:44,lineHeight:1.05,letterSpacing:'-.04em',marginTop:2}}>{rs.score}</div>
-                <div style={{fontWeight:600,fontSize:15,color:'var(--brand2)'}}>{rs.label}</div>
-              </div>
-              <div style={{flex:1,display:'flex',flexWrap:'wrap',gap:6,alignSelf:'flex-end',justifyContent:'flex-end'}}>
-                {rs.factors.slice(0,4).map((f,i)=><span key={i} className="chip" style={{background:'rgba(255,255,255,.7)',color:f.pts<0?'var(--terra2)':'var(--sub)'}}>{f.label} {f.pts>0?'+':''}{f.pts}</span>)}
-              </div>
-            </div>
+            {/* Relationship — in words. The score stays internal for ranking. */}
+            {(()=>{ const rw=relationshipWords(row,rowEvents); return <div style={{background:'linear-gradient(150deg, var(--bsoft), var(--psoft))',borderRadius:'var(--radius)',padding:'18px 22px'}}>
+              <div className="tag" style={{color:'var(--brand2)'}}>Relationship</div>
+              <div style={{fontFamily:'var(--fh)',fontWeight:600,fontSize:24,letterSpacing:'-.03em',marginTop:4}}>{rw.icon} {rw.label}</div>
+              <div className="note" style={{marginTop:2,color:'var(--sub)'}}>{rw.sub}</div>
+            </div>; })()}
 
             {/* Relationship trail */}
-            <div className="tag" style={{margin:'20px 0 8px'}}>Relationship</div>
+            <div className="tag" style={{margin:'20px 0 8px'}}>Journey</div>
             <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
               {trail.map((st,i)=>{ const m=STAGE_META[st]; const on=i<=hereIdx; const here=i===hereIdx;
                 return <React.Fragment key={st}>
@@ -2116,11 +2146,27 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
             {/* What Mighty knows */}
             <div className="tag" style={{margin:'22px 0 8px'}}>Mighty knows</div>
             {knows.length===0
-              ? <div className="note">Nothing captured yet. Log a coffee chat in <span className="mono">Timeline</span> and Mighty pulls out the details and promises automatically.</div>
+              ? <div style={{background:'var(--card2)',border:'1px solid var(--line)',borderRadius:14,padding:'14px 16px'}}>
+                  <div className="note" style={{marginBottom:8}}>After your first real conversation, I'll remember:</div>
+                  {['What they care about','Promises you made','Follow-up dates','Mutual interests','Introductions they offered','Their career goals','Personal details worth remembering']
+                    .map(x=><div key={x} style={{fontSize:13,color:'var(--sub)',lineHeight:1.7}}>✓ {x}</div>)}
+                </div>
               : <div className="list">{knows.map((k,i)=>{ const m=KIND[k.kind]||KIND.detail; return <div key={i} className="row" style={{background:m.bg,border:'none'}}>
                   <div className="grow"><div style={{fontSize:11,fontWeight:500,letterSpacing:'.08em',textTransform:'uppercase',color:m.c}}>{m.t}</div>
                     <div style={{fontSize:13.5,marginTop:3}}>{k.text}</div></div>
                 </div>; })}</div>}
+
+            {/* Open questions — what to learn next */}
+            {(()=>{ const qs=openQuestions(row,rowEvents); if(!qs.length) return null;
+              return <>
+                <div className="tag" style={{margin:'22px 0 8px'}}>Still don't know</div>
+                <div style={{display:'flex',flexDirection:'column',gap:2}}>
+                  {qs.map(q=><div key={q} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 0'}}>
+                    <span style={{width:15,height:15,flex:'none',borderRadius:5,border:'1.5px solid var(--line)'}}/>
+                    <span style={{fontSize:13.5,color:'var(--sub)'}}>{q}</span>
+                  </div>)}
+                </div>
+              </>; })()}
 
             {/* Briefing summary, if generated */}
             {briefing.careerSummary && <>
@@ -2141,12 +2187,18 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
               </div>
             </>}
 
-            {/* Ask Mighty */}
+            {/* Ask Mighty — an input, not a row of pills */}
             <div className="tag" style={{margin:'22px 0 8px'}}>Ask Mighty</div>
-            <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
-              <button className="btn ghost sm" onClick={openDraft}>How should I reconnect?</button>
-              <button className="btn ghost sm" onClick={()=>setDrawerTab('prep')}>Prepare for a coffee chat</button>
-              <button className="btn ghost sm" onClick={()=>setDrawerTab('prep')}>Is this relationship healthy?</button>
+            <input className="inp" placeholder={`Ask anything about ${displayName(row).split(' ')[0]}…`}
+              onKeyDown={e=>{ if(e.key==='Enter' && e.target.value.trim()) setDrawerTab('prep'); }}/>
+            <div className="note" style={{margin:'10px 0 6px',fontSize:12.5}}>Suggested</div>
+            <div style={{display:'flex',flexDirection:'column',gap:2}}>
+              {[['Draft a first message', openDraft],
+                ['Prepare for a coffee chat', ()=>setDrawerTab('prep')],
+                ['What should I ask them?', ()=>setDrawerTab('prep')],
+                [`How could ${displayName(row).split(' ')[0]} help me?`, ()=>setDrawerTab('prep')],
+                [`How could I help ${displayName(row).split(' ')[0]}?`, ()=>setDrawerTab('prep')]].map(([t,fn])=>
+                <div key={t} onClick={fn} style={{fontSize:13.5,color:'var(--brand2)',cursor:'pointer',padding:'6px 0'}}>• {t}</div>)}
             </div>
 
             <div style={{marginTop:20}}><CohortInsight company={row.company} communityStats={communityStats}/></div>
