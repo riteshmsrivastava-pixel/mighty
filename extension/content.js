@@ -199,7 +199,12 @@ function renderCardCheckboxes() {
     if (!selected.length) return;
     btn.textContent = 'Saving…';
     for (const c of selected) {
-      await send('saveProfile', { payload: { profileUrl: c.profileUrl, name: c.name, title: c.title, company: c.company, avatarUrl: c.photo } });
+      // Encode the photo to a self-contained thumbnail first — the raw
+      // licdn.com URL is signed and referrer-locked, so storing it would give
+      // the web app a broken image.
+      let avatar = '';
+      if (c.photo) { try { const enc = await send('encodeAvatar', { url: c.photo }); if (enc && enc.ok) avatar = enc.dataUrl; } catch (e) {} }
+      await send('saveProfile', { payload: { profileUrl: c.profileUrl, name: c.name, title: c.title, company: c.company, avatarUrl: avatar || '' } });
     }
     selected.forEach(c => { const b = c.el.querySelector('.mighty-badge'); if (b) b.remove(); });
     checked.clear();
@@ -608,7 +613,10 @@ async function renderGoogleImportPanel() {
   };
   gPanel.appendChild(btn);
   const foot = document.createElement('div'); foot.style.cssText = 'font-size:10.5px;color:#7d7979;margin-top:8px;';
-  foot.textContent = 'Imported people land in your pipeline as prospects, ready to score and draft.';
+  // Google results carry no profile photos (only a 16px LinkedIn favicon), so
+  // imported people start with initials. The photo fills itself in the first
+  // time you open their profile — we never fetch LinkedIn pages on your behalf.
+  foot.textContent = 'Imported as prospects, ready to score and draft. Photos fill in when you open each profile.';
   gPanel.appendChild(foot);
   document.body.appendChild(gPanel);
 }
