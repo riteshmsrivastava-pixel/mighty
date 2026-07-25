@@ -416,7 +416,7 @@ function suggestedNextAction(row, rowEvents, followUpDays){
   followUpDays = followUpDays||7;
   switch(row.status){
     case 'prospect': case 'ready_to_contact':
-      return { label:'Message for the first time', urgent:false, action:'contact' };
+      return { label:'Send the first message', urgent:false, action:'contact' };
     case 'contacted': {
       const replied = rowEvents.some(e=>e.event_type==='reply');
       if(replied) return { label:`Move to ${stageLabel('coffee_chat')}`, urgent:false, action:'coffee' };
@@ -1250,7 +1250,7 @@ function FindPeople({sb, auth, db, patch, addPeople, setTab}){
 /* ============================ Dashboard ============================ */
 function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,addPeople,setTab,setDrawerId,setDraftFor}){
   const candidates = log.filter(r=>r.status==='prospect'||r.status==='ready_to_contact');
-  const scored = candidates.map(r=>({row:r, kind:'contact', label:'Message for the first time', ...computeScore(r, db.settings.targetCompanies, profileKeywords(db.settings))}));
+  const scored = candidates.map(r=>({row:r, kind:'contact', label:'Send the first message', ...computeScore(r, db.settings.targetCompanies, profileKeywords(db.settings))}));
   const followUpDays = db.settings.followUpDays||7;
   const repliedIds = new Set(events.filter(e=>e.event_type==='reply').map(e=>e.log_id));
   const overdue = log.filter(r=>r.status==='contacted' && !repliedIds.has(r.id) && r.contacted_at && (now()-new Date(r.contacted_at).getTime())>followUpDays*864e5)

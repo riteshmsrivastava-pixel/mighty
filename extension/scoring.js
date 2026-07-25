@@ -37,7 +37,7 @@ function mightyComputeScore(row, targetCompanies, goal) {
 // that needs the full events history; the docked sidebar keeps it simple).
 function mightySuggestedNext(row) {
   switch (row.status) {
-    case 'prospect': case 'ready_to_contact': return 'Message for the first time';
+    case 'prospect': case 'ready_to_contact': return 'Send the first message';
     case 'contacted': return 'Waiting for reply — follow up if it has been a while';
     case 'replied': return 'Propose a coffee chat';
     case 'coffee_chat': return 'Send a thank-you note';
