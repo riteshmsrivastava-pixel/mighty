@@ -128,12 +128,12 @@ function ensurePanel() {
   if (panel && document.body.contains(panel)) return panel;
   panel = document.createElement('div');
   panel.id = 'mighty-shortlist-panel';
-  panel.style.cssText = 'position:fixed;bottom:18px;right:18px;z-index:99999;background:#2A2320;color:#F3ECDC;'
-    + 'font:13px -apple-system,system-ui,sans-serif;padding:10px 14px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.35);'
-    + 'display:flex;align-items:center;gap:10px;';
+  panel.style.cssText = 'position:fixed;bottom:18px;right:18px;z-index:99999;background:#1B1A1F;color:#F4F2EF;'
+    + "font:14px 'Instrument Sans',-apple-system,system-ui,sans-serif;padding:10px 12px 10px 18px;border-radius:999px;box-shadow:0 18px 40px -18px rgba(27,26,31,.5);"
+    + 'display:flex;align-items:center;gap:12px;';
   const btn = document.createElement('button');
-  btn.textContent = 'Send 0 to MIghTy';
-  btn.style.cssText = 'background:#A31F34;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-weight:700;cursor:pointer;';
+  btn.textContent = 'Send 0 to Mighty';
+  btn.style.cssText = "background:#5B4BC4;color:#fff;border:none;border-radius:999px;padding:9px 18px;font-weight:500;font-size:14px;cursor:pointer;font-family:inherit;";
   panel.appendChild(btn);
   document.body.appendChild(panel);
   return panel;
@@ -156,14 +156,14 @@ async function decorateCardsWithScores(cards) {
       + 'padding:3px 8px;border-radius:99px;font-weight:700;';
     if (row) {
       const { score, reasons } = mightyComputeScore(row, r.targetCompanies, r.goal);
-      badge.style.background = '#E7EDFB'; badge.style.color = '#3B55B8';
+      badge.style.background = '#EDEAFE'; badge.style.color = '#4C3EB0';
       badge.title = reasons.join(' · ');
       badge.textContent = `${score}% · ${mightyMatchLabel(score)}`;
     } else {
       const text = (c.title || '') + ' ' + (c.name || '');
       const match = (r.targetCompanies || []).find(co => text.toLowerCase().includes(co.trim().toLowerCase()));
       if (!match) return; // no fabricated score for an untracked stranger
-      badge.style.background = '#F1F0EC'; badge.style.color = '#57544C';
+      badge.style.background = '#F4F3F1'; badge.style.color = '#7B7787';
       badge.textContent = `Target: ${match}`;
     }
     if (getComputedStyle(c.el).position === 'static') c.el.style.position = 'relative';
@@ -184,10 +184,10 @@ function renderCardCheckboxes() {
     const box = document.createElement('input');
     box.type = 'checkbox'; box.className = 'mighty-check';
     box.style.cssText = 'position:absolute;top:8px;left:8px;width:18px;height:18px;z-index:10;';
-    box.title = 'Shortlist in MIghTy';
+    box.title = 'Shortlist in Mighty';
     box.addEventListener('change', () => {
       if (box.checked) checked.add(c.profileUrl); else checked.delete(c.profileUrl);
-      btn.textContent = `Send ${checked.size} to MIghTy`;
+      btn.textContent = `Send ${checked.size} to Mighty`;
     });
     if (getComputedStyle(c.el).position === 'static') c.el.style.position = 'relative';
     c.el.appendChild(box);
@@ -204,7 +204,7 @@ function renderCardCheckboxes() {
     selected.forEach(c => { const b = c.el.querySelector('.mighty-badge'); if (b) b.remove(); });
     checked.clear();
     document.querySelectorAll('.mighty-check').forEach(el => { el.checked = false; });
-    btn.textContent = `Saved ✓ — Send 0 to MIghTy`;
+    btn.textContent = `Saved ✓ — Send 0 to Mighty`;
     decorateCardsWithScores(cards).catch(() => {});
   };
 }
@@ -219,7 +219,7 @@ function wireComposeFill() {
   if (!box || box.dataset.mightyWired) return;
   box.dataset.mightyWired = '1';
   const fillBtn = document.createElement('button');
-  fillBtn.textContent = '✉️ Fill draft from clipboard (MIghTy)';
+  fillBtn.textContent = '✉️ Fill draft from clipboard (Mighty)';
   fillBtn.style.cssText = 'display:block;margin:6px 0;background:#F4EEE1;border:1px solid #E7DECB;border-radius:8px;'
     + 'padding:6px 10px;font-size:12px;cursor:pointer;';
   fillBtn.onclick = async (e) => {
@@ -283,7 +283,13 @@ function captureProfileContext() {
    info for a stranger — that preserves the same discard-if-not-shortlisted
    boundary as profile-context capture). For an untracked profile, only a
    lighter "save?" panel appears. */
-const ACCENT = '#ec3013';
+const ACCENT = '#5B4BC4';       // lilac
+const ACCENT_DEEP = '#4C3EB0';
+const PEACH = '#F2A69B';
+const TINT = '#EDEAFE';
+const INK = '#1B1A1F';
+// Two-overlapping-circles brand mark, inline so it needs no web-accessible asset.
+const MARK_SVG = '<svg width="20" height="20" viewBox="0 0 26 26" fill="none" style="display:block;flex:none"><circle cx="9.5" cy="13" r="7.5" fill="#5B4BC4"></circle><circle cx="16.5" cy="13" r="7.5" fill="#F2A69B" fill-opacity="0.85"></circle></svg>';
 let sidebarEl = null;
 // Profiles we've already auto-enriched this browsing session, so viewing the
 // same sparse profile twice doesn't re-write it while the log cache is warm.
@@ -292,17 +298,17 @@ function ensureSidebar() {
   if (sidebarEl && document.body.contains(sidebarEl)) return sidebarEl;
   sidebarEl = document.createElement('div');
   sidebarEl.id = 'mighty-sidebar';
-  sidebarEl.style.cssText = 'position:fixed;top:70px;right:16px;width:320px;max-height:85vh;overflow:auto;z-index:99998;'
-    + 'background:#fff;border:1px solid rgba(0,0,0,.14);box-shadow:0 12px 40px rgba(0,0,0,.18);'
-    + "font:13px 'Archivo',-apple-system,system-ui,sans-serif;color:#201e1d;padding:16px;";
+  sidebarEl.style.cssText = 'position:fixed;top:70px;right:16px;width:326px;max-height:85vh;overflow:auto;z-index:99998;'
+    + 'background:#fff;border:1px solid rgba(27,26,31,.08);border-radius:20px;box-shadow:0 30px 70px -34px rgba(27,26,31,.32);'
+    + "font:14px 'Instrument Sans',-apple-system,system-ui,sans-serif;color:#1B1A1F;padding:20px;";
   document.body.appendChild(sidebarEl);
   return sidebarEl;
 }
 function esc(s) { return (s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 function mightyBrandHead(rightHtml) {
-  return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-    <img src="${chrome.runtime.getURL('icons/logo-32.png')}" style="width:22px;height:22px;display:block;">
-    <span style="font-weight:800;font-size:15px;">MIghTy</span>
+  return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+    ${MARK_SVG}
+    <span style="font-weight:600;font-size:15px;letter-spacing:-.02em;">Mighty</span>
     <span style="margin-left:auto;">${rightHtml || ''}</span></div>`;
 }
 // A readable "last interaction" label from the most recent event or status.
@@ -330,16 +336,16 @@ async function renderProfileSidebar() {
   const livePhoto = profilePhotoUrl();
 
   if (!row) {
-    el.innerHTML = mightyBrandHead(`<span style="font-size:11px;font-weight:700;color:#605d5d;background:#eae7e7;padding:3px 9px;">Not tracked</span>`)
+    el.innerHTML = mightyBrandHead(`<span style="font-size:11.5px;font-weight:500;color:#7B7787;background:#F4F3F1;padding:4px 11px;border-radius:999px;">Not tracked</span>`)
       + `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
           ${livePhoto ? `<img src="${esc(livePhoto)}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex:none;">` : ''}
-          <div style="min-width:0;"><div style="font-weight:800;font-size:15px;">${esc(liveName) || 'This profile'}</div>
-          <div style="font-size:11.5px;color:#605d5d;line-height:1.35;max-height:32px;overflow:hidden;">${esc(liveHeadline)}</div></div>
+          <div style="min-width:0;"><div style="font-weight:600;font-size:15.5px;">${esc(liveName) || 'This profile'}</div>
+          <div style="font-size:12.5px;color:#7B7787;line-height:1.35;max-height:32px;overflow:hidden;">${esc(liveHeadline)}</div></div>
         </div>
-        <div style="color:#605d5d;margin-bottom:12px;font-size:12.5px;">Not yet tracked in MIghTy. Save it to see match, status, and notes here.</div>`;
+        <div style="color:#7B7787;margin-bottom:14px;font-size:13.5px;line-height:1.5;">Not yet tracked in Mighty. Save it to see match, status, and notes here.</div>`;
     const btn = document.createElement('button');
-    btn.textContent = 'Save to MIghTy';
-    btn.style.cssText = `background:${ACCENT};color:#fff;border:none;padding:9px 12px;font-weight:800;font-size:13px;cursor:pointer;width:100%;font-family:inherit;`;
+    btn.textContent = 'Save to Mighty';
+    btn.style.cssText = `background:${ACCENT};color:#fff;border:none;border-radius:999px;padding:13px 12px;font-weight:500;font-size:14.5px;cursor:pointer;width:100%;font-family:inherit;`;
     btn.onclick = async () => {
       btn.textContent = 'Saving…';
       const avatarData = await profilePhotoDataUrl();
@@ -384,29 +390,31 @@ async function renderProfileSidebar() {
   }
 
   el.innerHTML =
-    mightyBrandHead(`<span style="font-size:11px;font-weight:700;color:#605d5d;background:#eae7e7;padding:3px 9px;">Saved</span>`)
-    + `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+    mightyBrandHead(`<span style="font-size:11.5px;font-weight:500;color:#3E6B52;background:#E9F1EC;padding:4px 11px;border-radius:999px;">Saved</span>`)
+    + `<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
         ${photo ? `<img src="${esc(photo)}" style="width:46px;height:46px;border-radius:50%;object-fit:cover;flex:none;">` : ''}
         <div style="min-width:0;">
-          <div style="font-weight:800;font-size:15px;">${esc(name)}</div>
-          <div style="font-size:11.5px;color:#605d5d;line-height:1.35;max-height:32px;overflow:hidden;">${esc(company || headline)}</div>
+          <div style="font-weight:600;font-size:15.5px;">${esc(name)}</div>
+          <div style="font-size:12.5px;color:#7B7787;line-height:1.35;max-height:32px;overflow:hidden;">${esc(company || headline)}</div>
         </div>
       </div>
-      <div style="font-weight:800;font-size:18px;color:${ACCENT};line-height:1.1;">${mightyMatchLabel(score)}</div>
-      <div style="font-size:11.5px;color:#605d5d;margin-bottom:12px;">${score}%${reasons.length ? ' · ' + esc(reasons.join(' · ')) : ''}</div>
-      <div style="border-top:1px solid rgba(0,0,0,.12);padding-top:11px;display:flex;flex-direction:column;gap:8px;font-size:12.5px;margin-bottom:12px;">
-        <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:#605d5d;">Status</span><span style="font-weight:600;background:#eae7e7;padding:1px 8px;">${esc(statusLabel)}</span></div>
-        <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:#605d5d;">Last interaction</span><span style="font-weight:600;">${esc(lastInteractionLabel(row, rowEvents))}</span></div>
-        <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:#605d5d;">Next action</span><span style="font-weight:700;color:${ACCENT};text-align:right;max-width:170px;">${esc(next || '—')}</span></div>
+      <div style="background:${TINT};border-radius:14px;padding:14px 16px;margin-bottom:14px;">
+        <div style="font-weight:600;font-size:17px;letter-spacing:-.02em;color:${ACCENT_DEEP};line-height:1.15;">${mightyMatchLabel(score)}</div>
+        <div style="font-size:12.5px;color:#413A52;margin-top:3px;">${score}%${reasons.length ? ' · ' + esc(reasons.join(' · ')) : ''}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:11px;font-size:13px;margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:#8C8898;">Status</span><span style="font-weight:500;">${esc(statusLabel)}</span></div>
+        <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:#8C8898;">Last interaction</span><span style="font-weight:500;">${esc(lastInteractionLabel(row, rowEvents))}</span></div>
+        <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:#8C8898;">Next action</span><span style="font-weight:500;color:${ACCENT_DEEP};text-align:right;max-width:170px;">${esc(next || '—')}</span></div>
       </div>`;
 
   // notes
   const notesWrap = document.createElement('div');
-  notesWrap.style.cssText = 'background:#f8f4f4;border:1px solid rgba(0,0,0,.1);padding:9px 10px;margin-bottom:12px;';
-  notesWrap.innerHTML = `<div style="font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7d7979;margin-bottom:5px;">Your notes</div>`;
+  notesWrap.style.cssText = 'background:#FAF9F7;border:1px solid rgba(27,26,31,.07);border-radius:14px;padding:12px 14px;margin-bottom:14px;';
+  notesWrap.innerHTML = `<div style="font-size:11px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:#A29EAC;margin-bottom:6px;">Your notes</div>`;
   const notesBox = document.createElement('textarea');
   notesBox.value = row.notes || ''; notesBox.placeholder = 'Jot anything…';
-  notesBox.style.cssText = 'width:100%;min-height:52px;border:none;background:transparent;padding:0;font:12.5px inherit;color:#201e1d;resize:vertical;outline:none;';
+  notesBox.style.cssText = 'width:100%;min-height:52px;border:none;background:transparent;padding:0;font:13.5px inherit;color:#1B1A1F;resize:vertical;outline:none;';
   let notesTimer;
   notesBox.addEventListener('input', () => { clearTimeout(notesTimer); notesTimer = setTimeout(() => send('patchNotes', { logId: row.id, notes: notesBox.value }), 900); });
   notesWrap.appendChild(notesBox);
@@ -414,12 +422,12 @@ async function renderProfileSidebar() {
 
   // actions
   const draftBtn = document.createElement('button');
-  draftBtn.textContent = row.status === 'prospect' || row.status === 'ready_to_contact' ? 'Draft message' : 'Draft follow-up';
-  draftBtn.style.cssText = `background:${ACCENT};color:#fff;border:none;padding:9px 12px;font-weight:800;font-size:13px;cursor:pointer;width:100%;font-family:inherit;margin-bottom:8px;`;
+  draftBtn.textContent = row.status === 'prospect' || row.status === 'ready_to_contact' ? 'Draft a message' : 'Draft a follow-up';
+  draftBtn.style.cssText = `background:${ACCENT};color:#fff;border:none;border-radius:999px;padding:13px 12px;font-weight:500;font-size:14.5px;cursor:pointer;width:100%;font-family:inherit;margin-bottom:8px;`;
   draftBtn.onclick = () => window.open(`${(r.appUrl || 'https://yourmighty.com/app/')}?open=${row.id}`, '_blank');
   const openBtn = document.createElement('button');
-  openBtn.textContent = 'Open in MIghTy';
-  openBtn.style.cssText = 'background:#fff;color:#201e1d;border:1px solid rgba(0,0,0,.2);padding:9px 12px;font-weight:800;font-size:13px;cursor:pointer;width:100%;font-family:inherit;';
+  openBtn.textContent = 'Open in Mighty';
+  openBtn.style.cssText = 'background:#fff;color:#1B1A1F;border:1px solid rgba(27,26,31,.12);border-radius:999px;padding:13px 12px;font-weight:500;font-size:14.5px;cursor:pointer;width:100%;font-family:inherit;';
   openBtn.onclick = () => window.open('https://yourmighty.com/app/', '_blank');
   el.append(draftBtn, openBtn);
 }
@@ -475,14 +483,14 @@ async function renderGoogleImportPanel() {
   if (gPanel && document.body.contains(gPanel)) gPanel.remove();
   gPanel = document.createElement('div');
   gPanel.id = 'mighty-google-panel';
-  gPanel.style.cssText = 'position:fixed;top:76px;right:16px;width:320px;max-height:78vh;overflow:auto;z-index:99999;'
-    + 'background:#fff;border:1px solid rgba(0,0,0,.16);box-shadow:0 12px 40px rgba(0,0,0,.2);'
-    + "font:13px 'Archivo',-apple-system,system-ui,sans-serif;color:#201e1d;padding:14px;";
-  gPanel.innerHTML = mightyBrandHead(`<span style="font-size:11px;font-weight:700;color:#605d5d;background:#eae7e7;padding:3px 9px;">${profiles.length} found</span>`);
+  gPanel.style.cssText = 'position:fixed;top:76px;right:16px;width:326px;max-height:78vh;overflow:auto;z-index:99999;'
+    + 'background:#fff;border:1px solid rgba(27,26,31,.08);border-radius:20px;box-shadow:0 30px 70px -34px rgba(27,26,31,.32);'
+    + "font:14px 'Instrument Sans',-apple-system,system-ui,sans-serif;color:#1B1A1F;padding:20px;";
+  gPanel.innerHTML = mightyBrandHead(`<span style="font-size:11.5px;font-weight:500;color:#7B7787;background:#F4F3F1;padding:4px 11px;border-radius:999px;">${profiles.length} found</span>`);
 
   if (!signedIn) {
-    const note = document.createElement('div'); note.style.cssText = 'color:#605d5d;font-size:12.5px;';
-    note.textContent = 'Sign in to the MIghTy extension to import these profiles.';
+    const note = document.createElement('div'); note.style.cssText = 'color:#7B7787;font-size:13.5px;line-height:1.5;';
+    note.textContent = 'Sign in to the Mighty extension to import these profiles.';
     gPanel.appendChild(note); document.body.appendChild(gPanel); return;
   }
 
@@ -497,15 +505,15 @@ async function renderGoogleImportPanel() {
     const info = document.createElement('div'); info.style.cssText = 'min-width:0;flex:1;';
     info.innerHTML = `<div style="font-weight:700;font-size:12.5px;">${esc(p.name)}</div>`
       + `<div style="font-size:11px;color:#605d5d;line-height:1.3;max-height:28px;overflow:hidden;">${esc(p.title || p.company)}</div>`
-      + (already ? `<div style="font-size:10px;color:#ec3013;font-weight:700;margin-top:2px;">Already in MIghTy</div>` : '');
+      + (already ? `<div style="font-size:11px;color:${ACCENT_DEEP};font-weight:500;margin-top:2px;">Already in Mighty</div>` : '');
     row.append(cb, info); list.appendChild(row);
   });
   gPanel.appendChild(list);
 
   const btn = document.createElement('button');
   const selectable = profiles.filter(p => !tracked.has(p.profileUrl));
-  btn.textContent = `Import ${selectable.length} to MIghTy`;
-  btn.style.cssText = `background:${ACCENT};color:#fff;border:none;padding:9px 12px;font-weight:800;font-size:13px;cursor:pointer;width:100%;font-family:inherit;`;
+  btn.textContent = `Import ${selectable.length} to Mighty`;
+  btn.style.cssText = `background:${ACCENT};color:#fff;border:none;border-radius:999px;padding:13px 12px;font-weight:500;font-size:14.5px;cursor:pointer;width:100%;font-family:inherit;`;
   btn.disabled = selectable.length === 0;
   btn.onclick = async () => {
     const chosen = profiles.filter(p => { const c = checks.get(p.profileUrl); return c && c.checked && !c.disabled; });

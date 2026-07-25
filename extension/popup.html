@@ -3,38 +3,38 @@
 <head>
 <meta charset="UTF-8">
 <style>
-  :root{ --card:#FFFDF9; --line:#E7DECB; --card2:#FBF6EC; --ink:#2A2320; --sub:#73685B; --mute:#9A8E7E;
-    --brand:#A31F34; --brand2:#8A1828; --green:#5F7A4E; --blue:#3A6B8A; --inp:#FCF8F0; }
+  :root{ --card:#FFFFFF; --line:rgba(27,26,31,.09); --card2:#FCFBFA; --ink:#1B1A1F; --sub:#615E6B; --mute:#8C8898;
+    --brand:#5B4BC4; --brand2:#4C3EB0; --green:#4B7A5E; --blue:#4C3EB0; --inp:#FCFBFA; }
   *{box-sizing:border-box;}
-  body{ width:320px; margin:0; padding:0; font-family:-apple-system,system-ui,sans-serif; color:var(--ink);
-    background:#EFE7D7; font-size:13px; }
-  .wrap{ padding:14px; }
-  .head{ display:flex; align-items:center; gap:9px; margin-bottom:12px; }
-  .logo{ width:30px;height:30px;flex:none; }
-  .logo img{ width:100%;height:100%;display:block; }
-  .title{ font-weight:800; font-size:15px; } .title b{color:var(--brand);}
-  .sub{ font-size:10.5px; color:var(--sub); }
-  .card{ background:var(--card); border:1px solid var(--line); border-radius:13px; padding:11px; margin-bottom:10px; }
+  body{ width:320px; margin:0; padding:0; font-family:'Instrument Sans',-apple-system,system-ui,sans-serif; color:var(--ink);
+    background:#FAF9F7; font-size:14px; }
+  .wrap{ padding:16px; }
+  .head{ display:flex; align-items:center; gap:9px; margin-bottom:14px; }
+  .logo{ width:26px;height:26px;flex:none;display:flex;align-items:center; }
+  .title{ font-weight:600; font-size:16px; letter-spacing:-.02em; } .title b{color:inherit;font-weight:600;}
+  .sub{ font-size:11px; color:var(--mute); }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:10px; }
   button{ font-family:inherit; cursor:pointer; }
-  .btn{ background:linear-gradient(150deg,#B83A30,#8A1828); color:#FFF6EC; border:1px solid var(--brand2);
-    border-radius:9px; padding:8px 12px; font-weight:700; font-size:12.5px; width:100%; }
-  .ghost{ background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:6px 10px; font-size:12px; }
+  .btn{ background:var(--brand); color:#fff; border:none;
+    border-radius:999px; padding:11px 14px; font-weight:500; font-size:14px; width:100%; }
+  .btn:hover{ background:var(--brand2); }
+  .ghost{ background:var(--card); color:var(--ink); border:1px solid rgba(27,26,31,.12); border-radius:999px; padding:9px 14px; font-size:13.5px; }
   .statrow{ display:flex; align-items:center; justify-content:space-between; }
-  .kpi{ font-family:ui-monospace,monospace; font-weight:800; font-size:20px; }
+  .kpi{ font-family:'Figtree',sans-serif; font-weight:600; font-size:22px; letter-spacing:-.03em; }
   .dot{ width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px; }
-  .ok{background:var(--green);} .warn{background:#C8703D;}
-  label{ display:block; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--mute); margin:8px 0 3px; }
-  input{ width:100%; padding:7px 9px; border:1px solid var(--line); border-radius:8px; background:var(--inp); font-size:12.5px; font-family:inherit; }
-  .note{ font-size:10.5px; color:var(--sub); margin-top:6px; line-height:1.4; }
-  .bluebox{ background:#E1EBF1;border:1px solid #C9DCE7;border-radius:9px;padding:8px 10px;font-size:10.5px;color:var(--blue);line-height:1.45;margin-bottom:8px; }
-  a{ color:var(--blue); font-size:11px; }
+  .ok{background:var(--green);} .warn{background:#C08A5A;}
+  label{ display:block; font-size:12px; font-weight:500; text-transform:none; letter-spacing:.02em; color:var(--mute); margin:10px 0 4px; }
+  input{ width:100%; padding:10px 12px; border:1px solid rgba(27,26,31,.12); border-radius:12px; background:var(--inp); font-size:14px; font-family:inherit; }
+  .note{ font-size:12px; color:var(--sub); margin-top:6px; line-height:1.5; }
+  .bluebox{ background:#EDEAFE;border:1px solid rgba(27,26,31,.04);border-radius:12px;padding:10px 12px;font-size:12px;color:var(--brand2);line-height:1.5;margin-bottom:8px; }
+  a{ color:var(--brand); font-size:12px; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="head">
-    <div class="logo"><img src="icons/logo-48.png" alt=""></div>
-    <div><div class="title"><b>MI</b>gh<b>T</b>y · Outreach</div><div class="sub">human-in-the-loop, always</div></div>
+    <div class="logo"><svg width="26" height="26" viewBox="0 0 26 26" fill="none"><circle cx="9.5" cy="13" r="7.5" fill="#5B4BC4"></circle><circle cx="16.5" cy="13" r="7.5" fill="#F2A69B" fill-opacity="0.85"></circle></svg></div>
+    <div><div class="title">Mighty · Outreach</div><div class="sub">human-in-the-loop, always</div></div>
   </div>
 
   <div class="bluebox">This extension never clicks Connect/Message for you. It only reads pages you're already viewing and logs sends you make yourself.</div>
