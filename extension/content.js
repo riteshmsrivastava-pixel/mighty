@@ -274,6 +274,9 @@ function captureProfileContext() {
    lighter "save?" panel appears. */
 const ACCENT = '#ec3013';
 let sidebarEl = null;
+// Profiles we've already auto-enriched this browsing session, so viewing the
+// same sparse profile twice doesn't re-write it while the log cache is warm.
+const enrichedThisSession = new Set();
 function ensureSidebar() {
   if (sidebarEl && document.body.contains(sidebarEl)) return sidebarEl;
   sidebarEl = document.createElement('div');
@@ -344,6 +347,24 @@ async function renderProfileSidebar() {
   const company = row.company || liveCompany;
   const photo = row.avatar_url || livePhoto;
   const statusLabel = row.status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+  // Auto-backfill: many rows were saved before we scraped rich details (or via
+  // search/import paths that capture less), so they show up in the web app with
+  // no name/role/photo. When the student views such a profile, quietly fill the
+  // gaps from what's live on the page — no manual re-save needed. We only ever
+  // ADD to empty fields (never overwrite), and only once per profile per session.
+  if (!enrichedThisSession.has(profileUrl)) {
+    const patch = {};
+    if (!row.name && liveName) patch.name = liveName;
+    if (!row.title && liveHeadline) patch.title = liveHeadline;
+    if (!row.company && liveCompany) patch.company = liveCompany;
+    if (!row.avatar_url && livePhoto) patch.avatar_url = livePhoto;
+    if (Object.keys(patch).length) {
+      enrichedThisSession.add(profileUrl);
+      send('saveProfile', { payload: { profileUrl, name: name, title: headline, company: company, avatarUrl: photo } })
+        .then(() => { Object.assign(row, patch); }); // keep the warm cache row consistent
+    }
+  }
 
   el.innerHTML =
     mightyBrandHead(`<span style="font-size:11px;font-weight:700;color:#605d5d;background:#eae7e7;padding:3px 9px;">Saved</span>`)
