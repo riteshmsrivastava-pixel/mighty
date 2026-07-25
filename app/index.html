@@ -177,6 +177,7 @@ const DEFAULT = {
   settings: {
     sheets: { sheetId:'', tabName:'MIghTy Outreach', lastSyncedAt:null, lastError:null },
     goal: '', // free-text "what are you trying to achieve" — powers the match score + Daily Copilot
+    homeLocation: '', // your city — used to resolve "near me" in Find-people search
     targetCompanies: [],
     targetRoles: [],
     followUpDays: 7,
@@ -572,7 +573,7 @@ function App(){
     <div className="main">
       <div className="topbar"><h2>{TITLES[tab]}</h2></div>
       <div className="content">
-        {tab==='dashboard' && <Dashboard db={db} log={log} events={events} tasks={tasks} communityStats={communityStats} sb={sb} auth={auth} setTab={setTab} setDrawerId={setDrawerId} setDraftFor={setDraftFor}/>}
+        {tab==='dashboard' && <Dashboard db={db} patch={patch} log={log} events={events} tasks={tasks} communityStats={communityStats} sb={sb} auth={auth} setTab={setTab} setDrawerId={setDrawerId} setDraftFor={setDraftFor}/>}
         {tab==='people' && <People db={db} log={log} events={events} doIngest={doIngest} setDrawerId={setDrawerId} sb={sb} auth={auth}/>}
         {tab==='pipeline' && <Pipeline log={log} changeStage={changeStage}/>}
         {tab==='tasks' && <Tasks tasks={tasks} log={log} addTask={addTask} toggleTask={toggleTask} deleteTask={deleteTask} setDrawerId={setDrawerId}/>}
@@ -836,21 +837,33 @@ function DailyCopilot({db, log, events, tasks, sb, auth, setDrawerId}){
    gateway, opens Google scoped to public profiles, and the extension reads that
    results page so you can import the ones you pick. We never auto-search or
    scrape at scale — the student runs the search. */
-function FindPeople({sb, auth}){
+function FindPeople({sb, auth, db, patch}){
   const [q,setQ]=useState(''); const [busy,setBusy]=useState(false); const [lastKw,setLastKw]=useState(null);
   const mode = llmMode(sb,auth);
   const EX=['strategy tech companies near me','MIT Sloan alumni in AI','healthcare VCs in New York','product managers at Stripe','climate startup founders in Europe'];
+  const NEARME=/\b(near|around|close to)\s+me\b|\bnearby\b|\bmy area\b/i;
   function openGoogle(keywords){ window.open('https://www.google.com/search?q='+encodeURIComponent('site:linkedin.com/in '+keywords),'_blank','noopener'); }
-  // Local fallback when AI is unavailable — strip filler ("companies","near me")
-  // so the search is at least clean keywords, even without the gateway.
   function localClean(query){ const kw=goalKeywords(query); return kw.length ? kw.join(' ') : query; }
+  // "near me" → the user's city. Ask once and remember it; if they skip, default
+  // to the USA. Returns the query with the near-me phrase replaced by a place.
+  function resolveLocation(query){
+    if(!NEARME.test(query)) return query;
+    let loc = (db && db.settings.homeLocation || '').trim();
+    if(!loc && patch){
+      loc = (window.prompt('Which city are you based in? Leave blank to search across the USA.')||'').trim();
+      if(loc) patch('settings', s=>({...s, homeLocation:loc}));
+    }
+    if(!loc) loc = 'United States';
+    return query.replace(NEARME,'').replace(/\s+/g,' ').trim()+' '+loc;
+  }
   async function go(){
-    const query=q.trim(); if(!query) return;
+    const raw=q.trim(); if(!raw) return;
+    const query=resolveLocation(raw);
     if(mode==='none'){ const c=localClean(query); setLastKw(c); openGoogle(c); return; }
     setBusy(true);
     try{
       const kw = await llm(sb, auth, 'tagging',
-        'You turn a natural-language request to find people into a short set of LinkedIn profile search keywords: role/title, company, industry, and location. Keep real company and place names. Convert phrases like "tech companies" to "technology". Drop filler like "around me"/"near me" unless a specific place is named. Output ONLY the keywords on one line — no punctuation, quotes, or explanation.',
+        'You turn a natural-language request to find people into a short set of LinkedIn profile search keywords: role/title, company, industry, and location. Keep real company and place names exactly. Convert phrases like "tech companies" to "technology". Output ONLY the keywords on one line — no punctuation, quotes, or explanation.',
         query, 60);
       const clean=(kw||'').trim().replace(/[\n"]/g,' ').replace(/\s+/g,' ');
       const final = clean.length>1 ? clean : localClean(query);
@@ -873,7 +886,7 @@ function FindPeople({sb, auth}){
 }
 
 /* ============================ Dashboard ============================ */
-function Dashboard({db,log,events,tasks,communityStats,sb,auth,setTab,setDrawerId,setDraftFor}){
+function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,setTab,setDrawerId,setDraftFor}){
   const candidates = log.filter(r=>r.status==='prospect'||r.status==='ready_to_contact');
   const scored = candidates.map(r=>({row:r, kind:'contact', label:'Message for the first time', ...computeScore(r, db.settings.targetCompanies, db.settings.goal)}));
   const followUpDays = db.settings.followUpDays||7;
@@ -910,7 +923,7 @@ function Dashboard({db,log,events,tasks,communityStats,sb,auth,setTab,setDrawerI
 
     <div style={{marginTop:20}}><DailyCopilot db={db} log={log} events={events} tasks={tasks} sb={sb} auth={auth} setDrawerId={setDrawerId}/></div>
 
-    <div style={{marginTop:14}}><FindPeople sb={sb} auth={auth}/></div>
+    <div style={{marginTop:14}}><FindPeople sb={sb} auth={auth} db={db} patch={patch}/></div>
 
     <div className="tag" style={{margin:'28px 0 10px'}}>Today's priorities</div>
     {priorities.length===0
@@ -1274,6 +1287,10 @@ function Settings({db,patch,auth,sb,signOut,setTab}){
       <input className="inp" defaultValue={(db.settings.targetRoles||[]).join(', ')}
         onBlur={e=>patch('settings', s=>({...s, targetRoles: e.target.value.split(',').map(x=>x.trim()).filter(Boolean)}))}
         placeholder="Product Manager, Consultant, Investor"/>
+      <div style={{height:10}}/><label className="fld">Your city (used when you search "near me")</label>
+      <input className="inp" defaultValue={db.settings.homeLocation||''}
+        onBlur={e=>patch('settings', s=>({...s, homeLocation: e.target.value.trim()}))}
+        placeholder="Boston" style={{maxWidth:280}}/>
       <div style={{height:10}}/><label className="fld">Follow-up reminder after (days)</label>
       <input className="inp" type="number" min={1} max={60} style={{width:120}} value={db.settings.followUpDays}
         onChange={e=>patch('settings', s=>({...s, followUpDays: parseInt(e.target.value,10)||7}))}/>
