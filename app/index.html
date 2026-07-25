@@ -573,20 +573,68 @@ function relationshipScore(row, evs){
   const label = score>=75?'Strong':score>=50?'Growing':score>=28?'Warm':score>0?'Early':'New';
   return {score, label, factors};
 }
-// "What Mighty knows" — facts already on file: details/promises extracted from
-// coffee-chat notes, the AI briefing, and your own notes. Never invented.
-function mightyKnows(row, evs){
-  const out = [];
+/* ---- Memory records ---------------------------------------------------------
+   A memory is a single durable, typed, SOURCED, confidence-scored fact about a
+   person. This is the product's moat, so it's first-class: every memory carries
+   where it came from and how sure we are, a user can correct it (which pins it
+   at 100% and permanently outranks the model), and it can expire. Stored as an array on
+   outreach_log.context.memories — per-person, no migration, RLS already covers
+   it; promote to its own table only if cross-person memory search is needed. */
+const MEM_TYPES = {
+  interest:  {bucket:'detail',  t:'Cares about'},
+  personal:  {bucket:'detail',  t:'About them'},
+  fact:      {bucket:'detail',  t:'Fact'},
+  preference:{bucket:'detail',  t:'Prefers'},
+  event:     {bucket:'detail',  t:'Happening'},
+  context:   {bucket:'detail',  t:'Context'},
+  promise:   {bucket:'promise', t:'You promised'},
+  their_promise:{bucket:'their',t:'They promised'},
+  starter:   {bucket:'starter', t:'Talk about'},
+  shared:    {bucket:'shared',  t:'Shared ground'},
+};
+function memConfidence(c){
+  c = (c==null?0.7:c);
+  if(c>=0.75) return {level:'green', color:'#4B7A5E', label:'Confident'};
+  if(c>=0.5)  return {level:'amber', color:'#8C7A50', label:'Likely'};
+  return {level:'red', color:'#B5675A', label:'Unsure'};
+}
+function memList(row){ const m=(row.context||{}).memories; return Array.isArray(m)?m:[]; }
+// Persist the memory array back onto the person, merging into context.
+function writeMemories(row, updateRow, arr){
+  return updateRow(row, { context: { ...(row.context||{}), memories: arr } });
+}
+function newMemory(o){
+  return { id:'m'+Math.random().toString(36).slice(2,9)+Date.now().toString(36),
+    type:o.type||'personal', value:String(o.value||'').trim(),
+    confidence:o.confidence==null?0.7:o.confidence,
+    sourceLabel:o.sourceLabel||'You', sourceKind:o.sourceKind||'user',
+    visibility:o.visibility||'normal', permanent:!!o.permanent, expiresAt:o.expiresAt||null,
+    pinned:!!o.pinned, createdAt:Date.now(), updatedAt:Date.now() };
+}
+// Unified read: real memory records first, then legacy coffee-chat extractions
+// and briefing hints that predate the memory model — shown but not editable, so
+// nothing already captured disappears. New writes always go to real records.
+function personMemories(row, evs){
+  const out = [], seen = new Set();
+  const push = m => { const k=(m.value||'').trim().toLowerCase(); if(!k||seen.has(k)) return; seen.add(k); out.push(m); };
+  // 1. Real records (skip expired)
+  memList(row).forEach(m=>{ if(m.expiresAt && new Date(m.expiresAt).getTime()<now() && !m.permanent) return; push(m); });
+  // 2. Legacy extractions from the timeline
   (evs||[]).slice().sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at)).forEach(e=>{
-    const x = e.extracted||{};
-    (x.personalDetails||[]).forEach(d=>out.push({kind:'detail', text:d}));
-    (x.promises||[]).forEach(p=>out.push({kind:'promise', text:p}));
+    const x=e.extracted||{}; const src=`Coffee chat, ${fmtDate(new Date(e.occurred_at).getTime())}`;
+    (x.personalDetails||[]).forEach(d=>push({id:'ev'+e.id+d, type:'personal', value:d, confidence:0.7, sourceLabel:src, sourceKind:'coffee_chat', legacy:true}));
+    (x.promises||[]).forEach(p=>push({id:'evp'+e.id+p, type:'promise', value:p, confidence:0.7, sourceLabel:src, sourceKind:'coffee_chat', legacy:true}));
   });
-  const br = row.briefing||{};
-  (br.conversationStarters||[]).slice(0,2).forEach(s=>out.push({kind:'starter', text:s}));
-  if(br.sharedConnectionNote) out.push({kind:'shared', text:br.sharedConnectionNote});
-  const seen=new Set();
-  return out.filter(o=>{ const k=o.text.trim().toLowerCase(); if(!k||seen.has(k)) return false; seen.add(k); return true; }).slice(0,7);
+  // 3. Briefing hints
+  const br=row.briefing||{};
+  (br.conversationStarters||[]).slice(0,2).forEach(s=>push({id:'br'+s, type:'starter', value:s, confidence:0.6, sourceLabel:'AI briefing', sourceKind:'briefing', legacy:true}));
+  if(br.sharedConnectionNote) push({id:'brs', type:'shared', value:br.sharedConnectionNote, confidence:0.6, sourceLabel:'AI briefing', sourceKind:'briefing', legacy:true});
+  // pinned first, then by confidence
+  return out.sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0) || (b.confidence||0)-(a.confidence||0));
+}
+// Back-compat shim: older callers want {kind,text}.
+function mightyKnows(row, evs){
+  return personMemories(row, evs).map(m=>({kind:(MEM_TYPES[m.type]||{}).bucket||'detail', text:m.value})).slice(0,9);
 }
 function lastInteraction(row, evs){
   const ev = (evs||[]).slice().sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at))[0];
@@ -2168,6 +2216,7 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
   const briefing = row.briefing || {};
 
   const [noteType,setNoteType]=useState(null); const [noteText,setNoteText]=useState(''); const [busy,setBusy]=useState(false); const [extractErr,setExtractErr]=useState(null);
+  const [addingMem,setAddingMem]=useState(false); const [memDraft,setMemDraft]=useState(''); const [editMemId,setEditMemId]=useState(null);
   const mode = llmMode(sb,auth);
   async function add(eventType, note, extra){ setBusy(true); await logEvent(row, eventType, note, extra); setBusy(false); setNoteType(null); setNoteText(''); }
   async function addCoffeeChatWithExtraction(){
@@ -2175,11 +2224,24 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
     setBusy(true); setExtractErr(null);
     try{
       const r = await llmJSON(sb, auth, 'coffee_extract',
-        'You are helping an MIT Sloan Fellows MBA student capture structured notes right after a real coffee chat. Extract only what the notes actually state or clearly imply — never invent. Suggest a next-touch timing as a relative offset, not a calendar date.',
-        `Contact: ${displayName(row)}, ${row.title||''} at ${row.company||''}.\nStudent's notes:\n${noteText.trim()}\n\nReturn JSON: {"personalDetails": string[], "promises": string[], "nextTouch": {"amount": number, "unit": "days"|"weeks"|"months", "justification": string}}`);
-      const extracted = { personalDetails:r.personalDetails||[], promises:r.promises||[], nextTouchJustification:r.nextTouch?.justification||'' };
+        'You are helping an MIT Sloan Fellows MBA student capture structured memory right after a real coffee chat. Extract only what the notes state or clearly imply — never invent. For each memory give a type and a confidence 0-1 (how clearly the note supports it). Separate promises the STUDENT made from promises the OTHER PERSON made. Suggest a next-touch timing as a relative offset, not a calendar date.',
+        `Contact: ${displayName(row)}, ${row.title||''} at ${row.company||''}.\nStudent's notes:\n${noteText.trim()}\n\nReturn JSON: {"memories": [{"type": "interest"|"personal"|"preference"|"fact"|"event", "value": string, "confidence": number}], "yourPromises": string[], "theirPromises": string[], "nextTouch": {"amount": number, "unit": "days"|"weeks"|"months", "justification": string}}`);
+      const yourP = r.yourPromises||r.promises||[];
+      const theirP = r.theirPromises||[];
+      const mems = Array.isArray(r.memories)?r.memories:[];
+      // Timeline event keeps the flat shape (surfaced Tasks + timeline read it).
+      const extracted = { personalDetails:mems.map(m=>m.value), promises:yourP, theirPromises:theirP, nextTouchJustification:r.nextTouch?.justification||'' };
       const suggested_next_touch = r.nextTouch ? addOffset(now(), r.nextTouch.amount, r.nextTouch.unit) : null;
       await logEvent(row, 'coffee_chat', noteText.trim(), { extracted, suggested_next_touch });
+      // First-class memory records, with type + confidence + source.
+      const src = `Coffee chat, ${fmtDate(now())}`;
+      const fresh = [
+        ...mems.map(m=>newMemory({type:m.type||'personal', value:m.value, confidence:m.confidence, sourceLabel:src, sourceKind:'coffee_chat'})),
+        ...yourP.map(p=>newMemory({type:'promise', value:p, confidence:0.9, sourceLabel:src, sourceKind:'coffee_chat'})),
+        ...theirP.map(p=>newMemory({type:'their_promise', value:p, confidence:0.9, sourceLabel:src, sourceKind:'coffee_chat'})),
+      ].filter(m=>m.value);
+      if(fresh.length){ const existing=memList(row); const seen=new Set(existing.map(m=>m.value.trim().toLowerCase()));
+        await writeMemories(row, updateRow, [...existing, ...fresh.filter(m=>!seen.has(m.value.trim().toLowerCase()))]); }
       setNoteType(null); setNoteText('');
     }catch(e){ setExtractErr(e.message||String(e)); }
     setBusy(false);
@@ -2281,11 +2343,9 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
       <div style={{flex:1,overflowY:'auto',padding:'18px 24px 36px'}}>
         {drawerTab==='profile' && (()=>{
           const rs = relationshipScore(row, rowEvents);
-          const knows = mightyKnows(row, rowEvents);
+          const memories = personMemories(row, rowEvents);
           const trail = ['prospect','contacted','replied','coffee_chat','referral','interview','offer'];
           const hereIdx = Math.max(0, trail.indexOf(row.status==='ready_to_contact'?'prospect':row.status));
-          const KIND = {promise:{t:'You promised', c:'var(--terra2)', bg:'var(--tsoft)'}, detail:{t:'About them', c:'var(--brand2)', bg:'var(--bsoft)'},
-                        starter:{t:'Talk about', c:'var(--green2)', bg:'var(--gsoft)'}, shared:{t:'Shared ground', c:'var(--brand2)', bg:'var(--bsoft)'}};
           const recent = rowEvents.slice().sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at)).slice(0,4).reverse();
           return <>
             {/* Relationship — in words. The score stays internal for ranking. */}
@@ -2305,18 +2365,49 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
                 </React.Fragment>; })}
             </div>
 
-            {/* What Mighty knows */}
-            <div className="tag" style={{margin:'22px 0 8px'}}>Mighty knows</div>
-            {knows.length===0
+            {/* What Mighty knows — first-class memory records */}
+            <div style={{display:'flex',alignItems:'center',margin:'22px 0 8px'}}>
+              <div className="tag">Mighty knows</div><div style={{flex:1}}/>
+              <span className="iconbtn" style={{cursor:'pointer',fontSize:11.5,padding:'4px 9px'}} onClick={()=>setAddingMem(v=>!v)}>＋ Add</span>
+            </div>
+            {addingMem && <div style={{display:'flex',gap:8,marginBottom:10}}>
+              <input className="inp" autoFocus placeholder="Something you know about them…" value={memDraft}
+                onChange={e=>setMemDraft(e.target.value)}
+                onKeyDown={e=>{ if(e.key==='Enter'&&memDraft.trim()){ writeMemories(row, updateRow, [...memList(row), newMemory({type:'personal', value:memDraft.trim(), confidence:1, sourceLabel:'You', sourceKind:'user'})]); setMemDraft(''); setAddingMem(false);} if(e.key==='Escape'){setMemDraft('');setAddingMem(false);} }}/>
+            </div>}
+            {memories.length===0 && !addingMem
               ? <div style={{background:'var(--card2)',border:'1px solid var(--line)',borderRadius:14,padding:'14px 16px'}}>
                   <div className="note" style={{marginBottom:8}}>After your first real conversation, I'll remember:</div>
-                  {['What they care about','Promises you made','Follow-up dates','Mutual interests','Introductions they offered','Their career goals','Personal details worth remembering']
+                  {['What they care about','Promises you made — and promises they made you','Follow-up dates','Mutual interests','Introductions they offered','Their career goals','Personal details worth remembering']
                     .map(x=><div key={x} style={{fontSize:13,color:'var(--sub)',lineHeight:1.7}}>✓ {x}</div>)}
                 </div>
-              : <div className="list">{knows.map((k,i)=>{ const m=KIND[k.kind]||KIND.detail; return <div key={i} className="row" style={{background:m.bg,border:'none'}}>
-                  <div className="grow"><div style={{fontSize:11,fontWeight:500,letterSpacing:'.08em',textTransform:'uppercase',color:m.c}}>{m.t}</div>
-                    <div style={{fontSize:13.5,marginTop:3}}>{k.text}</div></div>
-                </div>; })}</div>}
+              : <div className="list">{memories.map(m=>{ const meta=MEM_TYPES[m.type]||MEM_TYPES.personal;
+                  const bg={promise:'var(--tsoft)',their:'var(--gsoft)',detail:'var(--bsoft)',starter:'var(--gsoft)',shared:'var(--bsoft)'}[meta.bucket]||'var(--bsoft)';
+                  const conf=memConfidence(m.confidence); const editing=editMemId===m.id;
+                  return <div key={m.id} className="row" style={{background:bg,border:'none',alignItems:'flex-start'}}>
+                    <span title={conf.label} style={{width:8,height:8,marginTop:6,flex:'none',borderRadius:99,background:conf.color}}/>
+                    <div className="grow" style={{minWidth:0}}>
+                      <div style={{display:'flex',alignItems:'center',gap:6}}>
+                        <span style={{fontSize:11,fontWeight:500,letterSpacing:'.07em',textTransform:'uppercase',color:conf.color}}>{meta.t}</span>
+                        {m.pinned && <span style={{fontSize:10}}>📌</span>}
+                      </div>
+                      {editing
+                        ? <input className="inp" autoFocus defaultValue={m.value} style={{marginTop:4,fontSize:13.5,padding:'6px 9px'}}
+                            onKeyDown={e=>{ if(e.key==='Enter'){ const v=e.target.value.trim();
+                              writeMemories(row, updateRow, memList(row).map(x=>x.id===m.id?{...x,value:v,confidence:1,sourceKind:'user',sourceLabel:'You',updatedAt:Date.now()}:x)); setEditMemId(null);
+                            } if(e.key==='Escape') setEditMemId(null); }}/>
+                        : <div style={{fontSize:13.5,marginTop:3}}>{m.value}</div>}
+                      <div style={{display:'flex',alignItems:'center',gap:8,marginTop:5}}>
+                        <span className="note" style={{fontSize:11}}>{m.sourceLabel||'Unknown source'}</span>
+                        {!m.legacy && <>
+                          <span style={{color:'var(--mute2)'}}>·</span>
+                          <span style={{fontSize:11,color:'var(--brand2)',cursor:'pointer'}} onClick={()=>setEditMemId(editing?null:m.id)}>Edit</span>
+                          <span style={{fontSize:11,color:'var(--brand2)',cursor:'pointer'}} onClick={()=>writeMemories(row, updateRow, memList(row).map(x=>x.id===m.id?{...x,pinned:!x.pinned,permanent:!x.pinned||x.permanent}:x))}>{m.pinned?'Unpin':'Pin'}</span>
+                          <span style={{fontSize:11,color:'var(--mute)',cursor:'pointer'}} onClick={()=>writeMemories(row, updateRow, memList(row).filter(x=>x.id!==m.id))}>Delete</span>
+                        </>}
+                      </div>
+                    </div>
+                  </div>; })}</div>}
 
             {/* Open questions — what to learn next */}
             {(()=>{ const qs=openQuestions(row,rowEvents); if(!qs.length) return null;
