@@ -807,7 +807,7 @@ function App(){
       <div className="topbar"><h2>{TITLES[tab]}</h2>{SUBTITLES[tab] && <span className="note" style={{color:'var(--mute2)',fontSize:13.5}}>{SUBTITLES[tab]}</span>}</div>
       <div className="content">
         {tab==='dashboard' && <Dashboard db={db} patch={patch} log={log} events={events} tasks={tasks} communityStats={communityStats} sb={sb} auth={auth} addPeople={addPeople} setTab={setTab} setDrawerId={setDrawerId} setDraftFor={setDraftFor}/>}
-        {tab==='people' && <People db={db} log={log} events={events} doIngest={doIngest} setDrawerId={setDrawerId} sb={sb} auth={auth} deletePeople={deletePeople}/>}
+        {tab==='people' && <People db={db} log={log} events={events} doIngest={doIngest} setDrawerId={setDrawerId} sb={sb} auth={auth} deletePeople={deletePeople} updateRow={updateRow}/>}
         {tab==='pipeline' && <Pipeline log={log} events={events} followUpDays={db.settings.followUpDays} changeStage={changeStage}/>}
         {tab==='tasks' && <Tasks tasks={tasks} log={log} events={events} db={db} addTask={addTask} toggleTask={toggleTask} deleteTask={deleteTask} setDrawerId={setDrawerId}/>}
         {tab==='insights' && <Insights log={log} events={events} tasks={tasks} db={db} communityStats={communityStats} setDrawerId={setDrawerId}/>}
@@ -1177,7 +1177,20 @@ function FindPeople({sb, auth, db, patch, addPeople, setTab}){
   }
   // Open Google for the extension to capture — the free path (a normal Google
   // search in the student's own browser; the MIghTy extension reads the page).
-  // Fallback only — used when the in-app search backend isn't configured.
+  // Ask the extension to run the search and hand back the profiles, so results
+  // appear here rather than sending the student off to another site. Falls back
+  // to opening a tab only if the extension isn't installed.
+  async function viaExtension(kw){
+    setMsg({t:'Searching…'});
+    const r = await extBridge.search(kw);
+    if(r && r.ok && (r.people||[]).length){
+      setResults(r.people); setSel(new Set(r.people.map(p=>p.profileUrl))); setMsg(null); return;
+    }
+    if(r && r.error==='no_extension'){ openForExtension(kw); return; }
+    setMsg({t:'No profiles found for that search. Try different words.', err:true});
+  }
+
+  // Last resort — only when the extension isn't installed.
   // Points at LinkedIn's own people search rather than Google: the extension
   // captures real photos and headlines there, so imports arrive complete.
   function openForExtension(kw){
@@ -1197,9 +1210,9 @@ function FindPeople({sb, auth, db, patch, addPeople, setTab}){
         setResults(data.people||[]);
         setSel(new Set((data.people||[]).map(p=>p.profileUrl)));
       } else if(data && data.error==='not_configured'){
-        openForExtension(kw);
+        await viaExtension(kw);
       } else { setMsg({t:(data&&data.message)||'Search failed.', err:true}); }
-    }catch(e){ openForExtension(kw); }
+    }catch(e){ await viaExtension(kw); }
     setBusy(false);
   }
   const toggle=url=>setSel(s=>{ const n=new Set(s); n.has(url)?n.delete(url):n.add(url); return n; });
@@ -1285,48 +1298,92 @@ function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,addPeople,s
   </div>;
 }
 
+/* ---- Extension bridge -------------------------------------------------------
+   A web page can't read a cross-origin search page or a signed LinkedIn photo
+   URL — the browser blocks both. The extension can, so the app asks it and
+   renders the answer in place: the student never gets sent to Google or
+   LinkedIn. Request/response over postMessage; with no extension installed the
+   calls time out and every caller falls back gracefully. */
+const extBridge = (()=>{
+  let seq=0; const pending=new Map(); let ready=false;
+  if(typeof window!=='undefined'){
+    window.addEventListener('message', ev=>{
+      if(ev.source!==window) return;
+      const d=ev.data; if(!d || d.source!=='mighty-ext') return;
+      if(d.ready){ ready=true; return; }
+      const cb=pending.get(d.id); if(cb){ pending.delete(d.id); cb(d); }
+    });
+  }
+  function call(kind, extra, timeoutMs=25000){
+    return new Promise(resolve=>{
+      const id='m'+(++seq)+'-'+Date.now();
+      const t=setTimeout(()=>{ pending.delete(id); resolve({ok:false,error:'no_extension'}); }, timeoutMs);
+      pending.set(id, d=>{ clearTimeout(t); resolve(d); });
+      window.postMessage({source:'mighty-app', id, kind, ...extra}, window.location.origin);
+    });
+  }
+  return {
+    isReady: ()=>ready,
+    search: (query)=>call('search',{query}),
+    photo: (profileUrl)=>call('photo',{profileUrl}, 30000),
+  };
+})();
+
 /* ---- Guided enrichment ------------------------------------------------------
-   People imported from a Google search arrive with a URL and little else —
-   Google carries no profile photos. Rather than fetch LinkedIn pages behind the
-   student's back (that's scraping, and it's what gets accounts restricted), we
-   hand them a one-click queue: each click opens ONE real profile in a tab, and
-   the extension's existing auto-backfill fills the photo, headline and company
-   as that page loads. Same result, real page views, nothing automated. */
-function EnrichStrip({log}){
+   People found via search arrive with a URL and little else — search results
+   carry no profile photos. The extension can recover them one at a time (it is
+   throttled and capped on its side); we show honest progress while it works,
+   and the student can stop at any point. Nothing opens in their face. */
+function EnrichStrip({log, updateRow}){
   const missing = (log||[]).filter(r=>r.profile_url && (!r.avatar_url || !/^data:/.test(r.avatar_url)));
   const [dismissed,setDismissed] = useState(false);
-  const [opened,setOpened] = useState(()=>new Set());
+  const [running,setRunning] = useState(false);
+  const [done,setDone] = useState(0);
+  const [failed,setFailed] = useState(0);
+  const [current,setCurrent] = useState(null);
+  const stopRef = useRef(false);
   if(dismissed || missing.length===0) return null;
-  const remaining = missing.filter(r=>!opened.has(r.id));
-  const done = missing.length - remaining.length;
-  const pct = Math.round(100*done/missing.length);
-  const next = remaining[0];
-  function openNext(){
-    if(!next) return;
-    window.open(next.profile_url, '_blank', 'noopener');
-    setOpened(s=>new Set([...s, next.id]));
+  const total = missing.length;
+  const pct = total ? Math.round(100*(done+failed)/total) : 0;
+
+  async function run(){
+    setRunning(true); stopRef.current=false; setDone(0); setFailed(0);
+    for(const r of missing){
+      if(stopRef.current) break;
+      setCurrent(displayName(r));
+      const res = await extBridge.photo(r.profile_url);
+      if(res && res.ok && res.dataUrl){ await updateRow(r, {avatar_url: res.dataUrl}); setDone(d=>d+1); }
+      else { setFailed(f=>f+1); if(res && res.error==='no_extension') break; }
+    }
+    setCurrent(null); setRunning(false);
   }
+
   return <div className="panel" style={{padding:'14px 18px',marginBottom:12,display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
     <div style={{minWidth:0,flex:1}}>
       <div style={{fontWeight:600,fontSize:14}}>
-        {remaining.length>0 ? `${remaining.length} ${remaining.length===1?'person is':'people are'} missing a photo` : 'All caught up — refresh to see the new photos'}
+        {running ? `Adding details… ${done+failed} of ${total}`
+                 : `${total} ${total===1?'person is':'people are'} missing a photo`}
       </div>
       <div className="note" style={{marginTop:2}}>
-        {next ? <>Opens <strong>{displayName(next)}</strong> in a tab; Mighty fills in the photo and headline as it loads.</>
-              : 'Photos land as each profile finishes loading.'}
+        {running
+          ? <>Fetching {current?<strong>{current}</strong>:'profiles'} in the background — you can keep working.</>
+          : 'Mighty can pull their photo and headline in the background, a few seconds apart.'}
       </div>
       <div className="scorebar" style={{marginTop:9,maxWidth:320}}><i style={{width:`${pct}%`}}/></div>
+      {failed>0 && !running && <div className="note" style={{marginTop:5,color:'var(--terra2)'}}>{failed} couldn't be fetched — open those profiles yourself and they'll fill in.</div>}
     </div>
     <div style={{display:'flex',gap:8,alignItems:'center'}}>
-      <span className="note">{done}/{missing.length}</span>
-      {next && <button className="btn sm" onClick={openNext}>Open next profile</button>}
-      <button className="iconbtn" onClick={()=>setDismissed(true)}>Later</button>
+      <span className="note">{done}/{total}</span>
+      {running
+        ? <button className="btn ghost sm" onClick={()=>{stopRef.current=true;}}>Stop</button>
+        : <button className="btn sm" onClick={run}>Add details</button>}
+      {!running && <button className="iconbtn" onClick={()=>setDismissed(true)}>Later</button>}
     </div>
   </div>;
 }
 
 /* ============================ People ============================ */
-function People({db,log,events,doIngest,setDrawerId,sb,auth,deletePeople}){
+function People({db,log,events,doIngest,setDrawerId,sb,auth,deletePeople,updateRow}){
   const [q,setQ]=useState(''); const [checking,setChecking]=useState(false);
   const [ai,setAi]=useState(null); const [aiBusy,setAiBusy]=useState(false); const [aiErr,setAiErr]=useState(null);
   const [sel,setSel]=useState(()=>new Set()); const [delBusy,setDelBusy]=useState(false);
@@ -1386,7 +1443,7 @@ function People({db,log,events,doIngest,setDrawerId,sb,auth,deletePeople}){
       <button className="btn ghost sm" onClick={async()=>{setChecking(true); await doIngest(); setChecking(false);}} disabled={checking}>{checking?<Dots/>:'↻ Check for new profiles'}</button>
     </div>
 
-    <EnrichStrip log={log}/>
+    <EnrichStrip log={log} updateRow={updateRow}/>
 
     {mode!=='none' && !ai && log.length>0 && <div style={{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center',marginTop:-2,marginBottom:2}}>
       <span className="note" style={{color:'var(--mute2)'}}>Ask Mighty:</span>

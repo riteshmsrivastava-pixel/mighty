@@ -208,8 +208,55 @@ async function encodeAvatar(url) {
   } catch (e) { return { ok: false, error: String((e && e.message) || e) }; }
 }
 
+// Fetches a people-search results page and hands the raw HTML back to the
+// caller to parse (service workers have no DOM). Only the background worker can
+// read a cross-origin page — content scripts are still bound by CORS. This is
+// what lets the web app show search results without sending the student off to
+// Google or LinkedIn: one foreground search they asked for, no page navigation.
+async function fetchSearchHtml(query) {
+  const url = 'https://www.google.com/search?num=20&q=' + encodeURIComponent('site:linkedin.com/in ' + query);
+  try {
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) return { ok: false, error: 'http_' + res.status };
+    const html = await res.text();
+    return { ok: true, html };
+  } catch (e) { return { ok: false, error: String((e && e.message) || e) }; }
+}
+
+// Reading one profile page to recover a missing photo. Deliberately throttled:
+// requests are serialised with a minimum gap and capped per browser session, so
+// this never becomes the burst-of-requests pattern that gets accounts flagged.
+// It only ever runs for people the student already saved, on their explicit
+// click — never speculatively, never in bulk.
+const PHOTO_MIN_GAP_MS = 3000;
+const PHOTO_SESSION_CAP = 25;
+let photoLastAt = 0, photoCount = 0, photoChain = Promise.resolve();
+async function fetchProfilePhotoInner(profileUrl) {
+  if (!/^https:\/\/(www\.)?linkedin\.com\/in\//.test(profileUrl || '')) return { ok: false, error: 'bad_url' };
+  if (photoCount >= PHOTO_SESSION_CAP) return { ok: false, error: 'session_cap' };
+  const wait = Math.max(0, PHOTO_MIN_GAP_MS - (Date.now() - photoLastAt));
+  if (wait) await new Promise(r => setTimeout(r, wait));
+  photoLastAt = Date.now(); photoCount++;
+  try {
+    const res = await fetch(profileUrl, { credentials: 'include' });
+    if (!res.ok) return { ok: false, error: 'http_' + res.status };
+    const html = await res.text();
+    const m = html.match(/https:\/\/media\.licdn\.com\/dms\/image\/[^"'\\\s]+profile-displayphoto[^"'\\\s]*/i);
+    if (!m) return { ok: false, error: 'no_photo' };
+    const url = m[0].replace(/&amp;/g, '&');
+    const enc = await encodeAvatar(url);
+    return enc && enc.ok ? { ok: true, dataUrl: enc.dataUrl } : { ok: false, error: 'encode_failed' };
+  } catch (e) { return { ok: false, error: String((e && e.message) || e) }; }
+}
+function fetchProfilePhoto(profileUrl) {
+  photoChain = photoChain.then(() => fetchProfilePhotoInner(profileUrl), () => fetchProfilePhotoInner(profileUrl));
+  return photoChain;
+}
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg && msg.type === 'encodeAvatar') { encodeAvatar(msg.url).then(sendResponse); return true; }
+  if (msg && msg.type === 'fetchSearchHtml') { fetchSearchHtml(msg.query).then(sendResponse); return true; }
+  if (msg && msg.type === 'fetchProfilePhoto') { fetchProfilePhoto(msg.profileUrl).then(sendResponse); return true; }
   if (msg && msg.type === 'pushInbox') { pushInboxWithRetry(msg.kind, msg.payload).then(sendResponse); return true; }
   if (msg && msg.type === 'fetchLog') { fetchLog(msg.force).then(sendResponse); return true; }
   if (msg && msg.type === 'saveProfile') { saveProfile(msg.payload).then(sendResponse); return true; }
