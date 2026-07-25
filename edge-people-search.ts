@@ -25,8 +25,16 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const CSE_KEY           = Deno.env.get("GOOGLE_CSE_KEY") || "";
 const CSE_CX            = Deno.env.get("GOOGLE_CSE_CX")  || "";
 
+// Browsers preflight every POST carrying Authorization/content-type; without
+// these headers the OPTIONS request fails and the caller sees "Failed to fetch".
+const CORS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
+  "access-control-allow-methods": "POST, OPTIONS",
+  "access-control-max-age": "86400",
+};
 function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...CORS } });
 }
 function normUrl(href: string): string {
   try { const u = new URL(href); return (u.origin + u.pathname).replace(/\/$/, ""); } catch { return href; }
@@ -51,6 +59,7 @@ function parseItem(it: any) {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   let body: any = {};
   try { body = await req.json(); } catch (_e) {}
   const query = (body.query || "").toString().trim();

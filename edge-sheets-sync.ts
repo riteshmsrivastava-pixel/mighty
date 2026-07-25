@@ -23,8 +23,16 @@ const SERVICE_ACCOUNT     = JSON.parse(Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON
 const SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
 const HEADER_ROW = ["Profile URL","Name","Title","Company","Status","Priority","Message","Shortlisted At","Contacted At","Updated At"];
 
+// Browsers preflight every POST carrying Authorization/content-type; without
+// these headers the OPTIONS request fails and the caller sees "Failed to fetch".
+const CORS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
+  "access-control-allow-methods": "POST, OPTIONS",
+  "access-control-max-age": "86400",
+};
 function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...CORS } });
 }
 
 /* ---------- Google service-account auth ---------- */
@@ -128,6 +136,7 @@ async function syncUserToSheet(rows: any[], sheetId: string, tabName: string) {
 
 /* ---------- HTTP entry ---------- */
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   const url = new URL(req.url);
 
   // Cron / all-users mode — service role bearer required.

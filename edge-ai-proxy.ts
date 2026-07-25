@@ -72,8 +72,17 @@ const DEFAULT_FEATURE = "draft_message";
 // and what counts against the daily/monthly assist caps.
 const TIER_WEIGHT: Record<Tier, number> = { low: 1, medium: 2, high: 5 };
 
+// Browsers preflight every POST carrying Authorization/content-type. Without
+// these headers the OPTIONS request fails and the app sees "Failed to fetch"
+// long before anything reaches Anthropic — so CORS is not optional here.
+const CORS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
+  "access-control-allow-methods": "POST, OPTIONS",
+  "access-control-max-age": "86400",
+};
 function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...CORS } });
 }
 function estCost(model: string, inTok: number, outTok: number): number {
   const p = PRICING[model] || [3, 15];
@@ -88,6 +97,7 @@ function hashKey(...parts: string[]): string {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   let body: any = {};
   try { body = await req.json(); } catch (_e) { /* no body */ }
   const { system, user: userPrompt, maxTokens } = body;

@@ -21,11 +21,20 @@ const SUPABASE_URL     = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const K_ANONYMITY_FLOOR = 3;
 
+// Browsers preflight every POST carrying Authorization/content-type; without
+// these headers the OPTIONS request fails and the caller sees "Failed to fetch".
+const CORS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
+  "access-control-allow-methods": "POST, OPTIONS",
+  "access-control-max-age": "86400",
+};
 function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...CORS } });
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   const auth = req.headers.get("Authorization") || "";
   if (auth !== `Bearer ${SERVICE_ROLE_KEY}`) return json({ ok: false, error: "unauthorized" }, 401);
 
