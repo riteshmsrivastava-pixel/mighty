@@ -479,6 +479,43 @@ function Avatar({row,size}){
 }
 function StagePill({status}){ const m=STAGE_META[status]||STAGE_META.prospect; return <span className="pill" style={{background:m.bg,color:m.fg}}>{stageLabel(status)}</span>; }
 function PriorityDot({priority}){ const m=PRIORITY_META[priority]||PRIORITY_META.medium; return <span style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:12.5,color:'var(--sub)'}}><span className="dot" style={{background:m.dot}}></span>{m.label}</span>; }
+// Hover detail for a person. Cards stay quiet — a face and a name — and the
+// role, company, stage and next step appear on hover. Positioned fixed so it
+// never gets clipped by a scrolling pipeline column.
+function PersonHover({row, evs, followUpDays, children, style}){
+  const [pos,setPos] = useState(null);
+  const ref = useRef(null);
+  function enter(){
+    const el = ref.current; if(!el) return;
+    const r = el.getBoundingClientRect();
+    const W = 290, GAP = 10;
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - W - 8));
+    const below = r.bottom + GAP;
+    const flip = below + 190 > window.innerHeight;
+    setPos({left, top: flip ? Math.max(8, r.top - GAP) : below, flip, W});
+  }
+  const na = pos ? suggestedNextAction(row, evs||[], followUpDays) : null;
+  const last = pos ? lastInteraction(row, evs||[]) : null;
+  const sub = [row.title, row.company].filter(Boolean).join(' · ');
+  return <>
+    <div ref={ref} onMouseEnter={enter} onMouseLeave={()=>setPos(null)} style={style}>{children}</div>
+    {pos && <div style={{position:'fixed',left:pos.left,top:pos.top,width:pos.W,zIndex:90,transform:pos.flip?'translateY(-100%)':'none',
+        background:'var(--card)',border:'1px solid var(--line)',borderRadius:16,boxShadow:'0 20px 50px -20px rgba(27,26,31,.32)',padding:'14px 16px',pointerEvents:'none'}}>
+      <div style={{display:'flex',alignItems:'center',gap:10}}>
+        <Avatar row={row} size={36}/>
+        <div style={{minWidth:0}}>
+          <div style={{fontWeight:600,fontSize:14}}>{displayName(row)}</div>
+          {sub && <div className="note" style={{fontSize:12.5}}>{sub}</div>}
+        </div>
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginTop:10}}><StagePill status={row.status}/><PriorityDot priority={row.priority}/></div>
+      <div style={{marginTop:10,display:'flex',flexDirection:'column',gap:6}}>
+        {last && <div style={{display:'flex',justifyContent:'space-between',gap:10,fontSize:12.5}}><span className="note">Last</span><span style={{fontWeight:500}}>{last.label} · {last.when}</span></div>}
+        {na && <div style={{display:'flex',justifyContent:'space-between',gap:10,fontSize:12.5}}><span className="note">Next</span><span style={{fontWeight:500,color:'var(--brand2)',textAlign:'right'}}>{na.label}</span></div>}
+      </div>
+    </div>}
+  </>;
+}
 // "Who is this?" — the most recent real interaction, so a row reads like a
 // relationship, not a database record.
 const EVENT_LABEL = {reply:'They replied', coffee_chat:'Coffee chat', referral:'Referral', interview:'Interview', offer:'Offer', first_message:'Message sent', connection_request:'Connection request', note:'Note added', stage_change:'Moved forward'};
@@ -743,7 +780,7 @@ function App(){
       <div className="content">
         {tab==='dashboard' && <Dashboard db={db} patch={patch} log={log} events={events} tasks={tasks} communityStats={communityStats} sb={sb} auth={auth} addPeople={addPeople} setTab={setTab} setDrawerId={setDrawerId} setDraftFor={setDraftFor}/>}
         {tab==='people' && <People db={db} log={log} events={events} doIngest={doIngest} setDrawerId={setDrawerId} sb={sb} auth={auth} deletePeople={deletePeople}/>}
-        {tab==='pipeline' && <Pipeline log={log} changeStage={changeStage}/>}
+        {tab==='pipeline' && <Pipeline log={log} events={events} followUpDays={db.settings.followUpDays} changeStage={changeStage}/>}
         {tab==='tasks' && <Tasks tasks={tasks} log={log} events={events} db={db} addTask={addTask} toggleTask={toggleTask} deleteTask={deleteTask} setDrawerId={setDrawerId}/>}
         {tab==='insights' && <Insights log={log} events={events} tasks={tasks} db={db} communityStats={communityStats} setDrawerId={setDrawerId}/>}
         {tab==='settings' && <Settings db={db} patch={patch} auth={auth} sb={sb} signOut={signOut} setTab={setTab}/>}
@@ -1206,7 +1243,11 @@ function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,addPeople,s
       ? <div className="panel pad"><div className="empty" style={{padding:'20px'}}><div className="big">✓</div>All caught up.</div></div>
       : <div className="grid3">{priorities.map((p,i)=><div key={p.row.id+p.kind} className="panel pad" style={{display:'flex',flexDirection:'column',gap:7}}>
           <span className="chip" style={{alignSelf:'flex-start',background:p.kind==='followup'?'var(--tsoft)':'var(--bsoft)',color:p.kind==='followup'?'var(--terra2)':'var(--brand2)'}}>{p.kind==='followup'?'Follow-up due':'New contact'}</span>
-          <div style={{fontWeight:600,fontSize:14.5}}>{displayName(p.row)}</div>
+          <PersonHover row={p.row} evs={events.filter(e=>e.log_id===p.row.id)} followUpDays={followUpDays}
+            style={{display:'flex',alignItems:'center',gap:11,marginTop:2}}>
+            <Avatar row={p.row} size={38}/>
+            <div style={{fontWeight:600,fontSize:14.5,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{displayName(p.row)}</div>
+          </PersonHover>
           <div className="note">{p.label}</div>
           <div style={{flex:1}}/>
           <button className="btn ghost sm" style={{alignSelf:'flex-start'}} onClick={()=>p.kind==='followup'?setDraftFor(p.row.id):setDrawerId(p.row.id)}>{p.kind==='followup'?'Draft follow-up':'Open profile'}</button>
@@ -1331,7 +1372,7 @@ function People({db,log,events,doIngest,setDrawerId,sb,auth,deletePeople}){
 }
 
 /* ============================ Pipeline ============================ */
-function Pipeline({log,changeStage}){
+function Pipeline({log,events,followUpDays,changeStage}){
   const [filter,setFilter]=useState('All');
   const [dragId,setDragId]=useState(null);
   const companies = ['All', ...Array.from(new Set(log.map(r=>r.company).filter(Boolean)))];
@@ -1350,12 +1391,12 @@ function Pipeline({log,changeStage}){
           <div className="pcol-head"><span className="dot" style={{background:meta.dot}}></span><span style={{fontWeight:600,fontSize:13}}>{stageLabel(st)}</span><span className="note">{cards.length}</span></div>
           <div className="pcol-cards">
             {cards.map(r=><div key={r.id} className="pcard" draggable onDragStart={()=>setDragId(r.id)}>
-              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <Avatar row={r} size={24}/>
-                <div style={{fontWeight:600,fontSize:12.5,flex:1,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{displayName(r)}</div>
+              <PersonHover row={r} evs={(events||[]).filter(e=>e.log_id===r.id)} followUpDays={followUpDays}
+                style={{display:'flex',alignItems:'center',gap:9}}>
+                <Avatar row={r} size={28}/>
+                <div style={{fontWeight:600,fontSize:13,flex:1,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{displayName(r)}</div>
                 <span className="dot" style={{background:PRIORITY_META[r.priority]?.dot}}></span>
-              </div>
-              <div className="note" style={{marginTop:5}}>{r.title||''}{r.company?` · ${r.company}`:''}</div>
+              </PersonHover>
             </div>)}
             {cards.length===0 && <div className="pdrop">Drop here</div>}
           </div>
