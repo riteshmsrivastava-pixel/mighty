@@ -180,6 +180,8 @@ const DEFAULT = {
     sheets: { sheetId:'', tabName:'MIghTy Outreach', lastSyncedAt:null, lastError:null },
     // ---- AI Context Profile — what MIghTy needs to give great advice ----
     goal: '',               // ⭐ what you want to accomplish in the next 6-12 months (the lens for everything)
+    goalType: '',           // job_search | raise_funding | sales | mentors | networking — drives match weights
+    voiceSamples: [],       // your last few approved messages — Mighty writes to match them
     networkingReasons: [],  // why you're networking (job, funding, mentors, …)
     targetCompanies: [],
     targetRoles: [],
@@ -217,6 +219,7 @@ function shape(d){
       skills: arr(sd.skills, []),
       interests: arr(sd.interests, []),
       networkingStyle: arr(sd.networkingStyle, []),
+      voiceSamples: arr(sd.voiceSamples, []),
       stageLabels: (sd.stageLabels && typeof sd.stageLabels==='object') ? sd.stageLabels : {} } };
 }
 function loadDB(){ try{ return shape(JSON.parse(localStorage.getItem(DB_KEY))); }catch(e){ return shape(); } }
@@ -573,6 +576,131 @@ function relationshipScore(row, evs){
   const label = score>=75?'Strong':score>=50?'Growing':score>=28?'Warm':score>0?'Early':'New';
   return {score, label, factors};
 }
+/* ============================ Intelligence engines ============================
+   The Bible's scoring engines, ported honestly: every number is computed from
+   real facts, weighted by the user's goal, and NEVER shown without a reason.
+   No black-box AI number — a human can always see why. */
+
+// ---- #8 Goals engine → weight vector (§11.4) --------------------------------
+// A goal type carries base weights for the match components; named target
+// companies add a target_account weight; the vector is renormalized to sum 1.
+const GOAL_COMPONENTS = ['role_fit','sector_fit','stage_fit','warm_path','geography','affiliation','target_account'];
+const GOAL_BASE = {
+  job_search:   {role_fit:0.30, sector_fit:0.20, stage_fit:0.05, warm_path:0.20, geography:0.10, affiliation:0.15},
+  raise_funding:{role_fit:0.30, sector_fit:0.20, stage_fit:0.15, warm_path:0.20, geography:0.05, affiliation:0.10},
+  sales:        {role_fit:0.30, sector_fit:0.25, stage_fit:0.05, warm_path:0.15, geography:0.10, affiliation:0.05},
+  mentors:      {role_fit:0.20, sector_fit:0.20, stage_fit:0.05, warm_path:0.20, geography:0.10, affiliation:0.25},
+  networking:   {role_fit:0.20, sector_fit:0.20, stage_fit:0.05, warm_path:0.25, geography:0.10, affiliation:0.20},
+};
+const GOAL_TYPE_LABEL = {job_search:'Job search', raise_funding:'Fundraising', sales:'Sales & customers', mentors:'Mentors & advisors', networking:'General networking'};
+function inferGoalType(settings){
+  if(settings.goalType && GOAL_BASE[settings.goalType]) return settings.goalType;
+  const hay = ((settings.networkingReasons||[]).join(' ')+' '+(settings.goal||'')).toLowerCase();
+  if(/\bjob\b|hir(e|ed|ing)|career|recruit|role at/.test(hay)) return 'job_search';
+  if(/raise|fundrais|investor|vc\b|venture|seed|series [a-c]/.test(hay)) return 'raise_funding';
+  if(/customer|sales|client|pipeline|deal/.test(hay)) return 'sales';
+  if(/mentor|advisor|guidance|learn from/.test(hay)) return 'mentors';
+  return 'networking';
+}
+function goalWeights(settings){
+  const type = inferGoalType(settings);
+  const base = {...(GOAL_BASE[type]||GOAL_BASE.networking)};
+  if((settings.targetCompanies||[]).length) base.target_account = 0.10;   // qualifier boost
+  const sum = GOAL_COMPONENTS.reduce((s,k)=>s+(base[k]||0),0) || 1;
+  const w = {}; GOAL_COMPONENTS.forEach(k=>w[k]=(base[k]||0)/sum);
+  return {type, weights:w};
+}
+
+// ---- #7 Match score (§40) ----------------------------------------------------
+// Component scores each 0..1 from what's actually on the person, then weighted
+// by the goal vector, expressed 0..100, with a reason line from the top drivers.
+function matchScore(row, settings){
+  const ctx = row.context||{};
+  const hay = `${row.title||''} ${row.company||''} ${ctx.aboutText||''} ${ctx.experienceText||''} ${ctx.educationText||''} ${ctx.location||''}`.toLowerCase();
+  const anyHit = (list)=> (list||[]).filter(v=>{ const s=String(v||'').trim().toLowerCase(); return s.length>2 && hay.includes(s); });
+  const frac = (hits,list)=> (list||[]).length ? Math.min(1, hits.length/Math.min(3,(list||[]).length)) : 0;
+
+  const roleHits = anyHit(settings.targetRoles); const role_fit = frac(roleHits, settings.targetRoles);
+  const secHits  = anyHit(settings.industries);  const sector_fit = frac(secHits, settings.industries);
+  const schoolHits = anyHit(settings.schools);   const affiliation = schoolHits.length ? 1 : (/sloan|\bmit\b/.test(hay)?0.7:0);
+  const locList = [...(settings.targetLocations||[]), settings.homeLocation].filter(Boolean);
+  const geoHits = anyHit(locList); const geography = geoHits.length ? 1 : 0;
+  const target_account = (row.company && (settings.targetCompanies||[]).some(c=>c.trim().toLowerCase()===row.company.trim().toLowerCase())) ? 1 : 0;
+  const mutual = (ctx.mutualConnectionsRaw||'').match(/(\d+)\s*mutual/i);
+  const warm_path = mutual ? Math.min(1, (parseInt(mutual[1],10)||0)/3) : 0;
+  // stage_fit: only meaningful for fundraising/sales — reward investor/partner titles
+  const gt = inferGoalType(settings);
+  const stage_fit = (gt==='raise_funding'||gt==='sales') ? (/investor|partner|vc\b|venture|angel|managing director/.test(hay)?1:0.3) : 0.5;
+
+  const comp = {role_fit, sector_fit, stage_fit, warm_path, geography, affiliation, target_account};
+  const {weights} = goalWeights(settings);
+  let score = GOAL_COMPONENTS.reduce((s,k)=>s + (comp[k]||0)*(weights[k]||0), 0);
+  score = Math.round(Math.max(0,Math.min(1,score))*100);
+
+  // reason line — the top weighted contributors that actually fired
+  const contrib = GOAL_COMPONENTS.map(k=>({k, v:(comp[k]||0)*(weights[k]||0), raw:comp[k]})).filter(c=>c.raw>0.05).sort((a,b)=>b.v-a.v);
+  const LBL = {
+    target_account: target_account?`Target company: ${row.company}`:'',
+    role_fit: roleHits.length?`Role you want: ${roleHits.slice(0,2).join(', ')}`:'',
+    sector_fit: secHits.length?`Industry you care about: ${secHits.slice(0,2).join(', ')}`:'',
+    affiliation: (schoolHits.length?`Shared school: ${schoolHits[0]}`:(affiliation?'MIT / Sloan connection':'')),
+    geography: geoHits.length?`Where you're building: ${geoHits[0]}`:'',
+    warm_path: mutual?`${mutual[1]} mutual connection${mutual[1]==='1'?'':'s'}`:'',
+    stage_fit: (gt==='raise_funding'&&stage_fit===1)?'Investor — fits fundraising':'',
+  };
+  const reasons = contrib.map(c=>LBL[c.k]).filter(Boolean).slice(0,3);
+  const label = score>=70?'Strong match':score>=45?'Good match':score>0?'Some overlap':'No clear match';
+  return {score, label, reasons, components:comp, weights};
+}
+
+// ---- #9 Relationship health (§41) -------------------------------------------
+// Six factors over real interaction history → a band and a suggested move.
+const HEALTH_BANDS = [
+  {min:0.75, band:'Thriving', color:'#3E6B52', bg:'var(--gsoft)'},
+  {min:0.60, band:'Steady',   color:'#4C3EB0', bg:'var(--bsoft)'},
+  {min:0.40, band:'Cooling',  color:'#8C7A50', bg:'var(--asoft)'},
+  {min:0,    band:'Dormant',  color:'#96504A', bg:'var(--tsoft)'},
+];
+// Expected contact cadence in days, by how deep the relationship is.
+function expectedCadence(row){ return ({coffee_chat:60, referral:45, interview:30, offer:30, replied:30, contacted:21}[row.status]) || 90; }
+function relationshipHealth(row, evs, memories){
+  evs = (evs||[]).slice().sort((a,b)=>new Date(a.occurred_at)-new Date(b.occurred_at));
+  const factors = [];
+  const lastT = evs.length ? new Date(evs[evs.length-1].occurred_at).getTime()
+    : new Date(row.contacted_at||row.shortlisted_at||row.updated_at).getTime();
+  const days = Math.max(0,(now()-lastT)/864e5);
+  const cadence = expectedCadence(row);
+  // 1. Recency — 1 when within cadence, decaying past it
+  const recency = Math.max(0, 1 - (days/cadence)/2);
+  factors.push({k:'Recency', v:recency, note:`Last contact ${Math.round(days)}d ago`});
+  // 2. Frequency trend — last 180d vs prior 180d
+  const cut1=now()-180*864e5, cut2=now()-360*864e5;
+  const recent = evs.filter(e=>new Date(e.occurred_at).getTime()>=cut1).length;
+  const prior  = evs.filter(e=>{const t=new Date(e.occurred_at).getTime(); return t>=cut2 && t<cut1;}).length;
+  const trend = prior===0 ? (recent>0?0.7:0.4) : Math.min(1, recent/prior);
+  factors.push({k:'Momentum', v:trend, note:recent>=prior?'Holding or rising':'Slowing down'});
+  // 3. Reciprocity — did they reply / act, not just you sending
+  const theirs = evs.filter(e=>['reply','coffee_chat','referral'].includes(e.event_type)).length;
+  const recip = evs.length ? Math.min(1, theirs/Math.max(1,evs.length)) : 0.3;
+  factors.push({k:'Reciprocity', v:recip, note:theirs?`${theirs} response${theirs===1?'':'s'}`:'One-directional so far'});
+  // 4. Depth — coffee chats/meetings weigh more than messages
+  const depth = Math.min(1, 0.3 + 0.35*evs.filter(e=>e.event_type==='coffee_chat').length + 0.1*evs.length);
+  factors.push({k:'Depth', v:depth, note:evs.filter(e=>e.event_type==='coffee_chat').length?'Real conversations':'Light touch'});
+  // 5. Promise integrity — open promises YOU made, overdue drags it down
+  const openP = (memories||[]).filter(m=>m.type==='promise' && m.status!=='done').length;
+  const promise = openP===0 ? 1 : Math.max(0.2, 1 - openP*0.35);
+  factors.push({k:'Promises', v:promise, note:openP?`${openP} open`:'All kept'});
+
+  const W = {Recency:0.30, Momentum:0.20, Reciprocity:0.15, Depth:0.15, Promises:0.20};
+  const total = factors.reduce((s,f)=>s + f.v*(W[f.k]||0), 0);
+  const b = HEALTH_BANDS.find(x=>total>=x.min) || HEALTH_BANDS[HEALTH_BANDS.length-1];
+  const action = openP>0 ? 'Clear an open promise'
+    : days>cadence ? 'Reach out — it has gone quiet'
+    : recip<0.4 ? 'They have not engaged much; try a lighter touch'
+    : 'On track — keep the rhythm';
+  return {score:Math.round(total*100), band:b.band, color:b.color, bg:b.bg, factors, action, days, cadence};
+}
+
 /* ---- Memory records ---------------------------------------------------------
    A memory is a single durable, typed, SOURCED, confidence-scored fact about a
    person. This is the product's moat, so it's first-class: every memory carries
@@ -895,7 +1023,7 @@ function App(){
     {drawerRow && <PersonDrawer row={drawerRow} rowEvents={events.filter(e=>e.log_id===drawerRow.id)} db={db} sb={sb} auth={auth} communityStats={communityStats}
       drawerTab={drawerTab} setDrawerTab={setDrawerTab} onClose={()=>setDrawerId(null)}
       updateRow={updateRow} logEvent={logEvent} changeStage={changeStage} openDraft={()=>setDraftFor(drawerRow.id)}/>}
-    {draftRow && <DraftModal row={draftRow} db={db} sb={sb} auth={auth} updateRow={updateRow} changeStage={changeStage} onClose={()=>setDraftFor(null)}/>}
+    {draftRow && <DraftModal row={draftRow} db={db} patch={patch} sb={sb} auth={auth} updateRow={updateRow} changeStage={changeStage} onClose={()=>setDraftFor(null)}/>}
   </div>;
 }
 
@@ -2108,6 +2236,13 @@ function Settings({db,patch,auth,sb,signOut,setTab}){
       return <div className="panel pad">
         <div style={{marginBottom:12}}><label className="fld" style={{color:'var(--brand)'}}>★ Your goal (next 6-12 months)</label>
           <textarea className="inp" rows={2} defaultValue={db.settings.goal||''} onBlur={e=>patch('settings', s=>({...s, goal: e.target.value.trim()}))} placeholder="Break into climate-tech VC in Europe"/></div>
+        <div style={{marginBottom:12}}><label className="fld">What are you here for? <span style={{fontWeight:400,textTransform:'none',letterSpacing:0}}>— tunes how Mighty ranks people</span></label>
+          <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+            {Object.entries(GOAL_TYPE_LABEL).map(([k,lbl])=>{ const on=inferGoalType(db.settings)===k; const explicit=db.settings.goalType===k;
+              return <span key={k} onClick={()=>patch('settings', s=>({...s, goalType:k}))}
+                style={{cursor:'pointer',padding:'8px 14px',borderRadius:'var(--rpill)',fontSize:13,fontWeight:500,
+                  background:on?'var(--brand)':'var(--card2)',color:on?'#fff':'var(--sub)',border:'1px solid '+(on?'var(--brand)':'var(--line)')}}>{lbl}{on&&!explicit?' (auto)':''}</span>; })}
+          </div></div>
         {arrField('Why you\'re networking','networkingReasons','Get a job, Find mentors, Raise funding')}
         {arrField('Dream companies','targetCompanies','McKinsey, Bain, Amazon')}
         {arrField('Target roles','targetRoles','Product Manager, Consultant, Investor')}
@@ -2381,11 +2516,13 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
           </div>
           <div className="iconbtn" onClick={onClose} style={{cursor:'pointer'}}>✕</div>
         </div>
-        {(()=>{ const why=(computeScore(row, db.settings.targetCompanies, profileKeywords(db.settings)).reasons||[]).slice(0,3);
-          if(!why.length) return null;
-          return <div style={{marginTop:12}}>
-            <div className="tag" style={{marginBottom:5}}>Recommended because</div>
-            {why.map((w,i)=><div key={i} style={{fontSize:13,color:'var(--sub)',lineHeight:1.55}}>• {w}</div>)}
+        {(()=>{ const ms=matchScore(row, db.settings); if(!ms.reasons.length) return null;
+          return <div style={{marginTop:12,background:'var(--bsoft)',borderRadius:14,padding:'12px 15px'}}>
+            <div style={{display:'flex',alignItems:'baseline',gap:8}}>
+              <span style={{fontWeight:600,fontSize:14,color:'var(--brand2)'}}>{ms.label}</span>
+              <span className="note" style={{fontSize:11.5}}>· {GOAL_TYPE_LABEL[ms.weights&&inferGoalType(db.settings)]||'your goal'}</span>
+            </div>
+            {ms.reasons.map((w,i)=><div key={i} style={{fontSize:13,color:'var(--sub)',lineHeight:1.55,marginTop:i?2:5}}>• {w}</div>)}
           </div>; })()}
         {na && <div className="bluebox" style={{display:'flex',alignItems:'center',gap:12,marginTop:14}}>
           <div style={{flex:1}}><div className="tag">Next best action</div><div style={{fontWeight:600,fontSize:14,marginTop:3}}>{na.label}</div>
@@ -2410,12 +2547,25 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
           const hereIdx = Math.max(0, trail.indexOf(row.status==='ready_to_contact'?'prospect':row.status));
           const recent = rowEvents.slice().sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at)).slice(0,4).reverse();
           return <>
-            {/* Relationship — in words. The score stays internal for ranking. */}
-            {(()=>{ const rw=relationshipWords(row,rowEvents); return <div style={{background:'linear-gradient(150deg, var(--bsoft), var(--psoft))',borderRadius:'var(--radius)',padding:'18px 22px'}}>
-              <div className="tag" style={{color:'var(--brand2)'}}>Relationship</div>
-              <div style={{fontFamily:'var(--fh)',fontWeight:600,fontSize:24,letterSpacing:'-.03em',marginTop:4}}>{rw.icon} {rw.label}</div>
-              <div className="note" style={{marginTop:2,color:'var(--sub)'}}>{rw.sub}</div>
-            </div>; })()}
+            {/* Relationship health — 6-factor engine, band + why + suggested move */}
+            {(()=>{ const rw=relationshipWords(row,rowEvents); const h=relationshipHealth(row,rowEvents,personMemories(row,rowEvents));
+              const hasHistory = rowEvents.length>0;
+              return <div style={{background:'linear-gradient(150deg, var(--bsoft), var(--psoft))',borderRadius:'var(--radius)',padding:'18px 22px'}}>
+                <div style={{display:'flex',alignItems:'center',gap:10}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div className="tag" style={{color:'var(--brand2)'}}>Relationship</div>
+                    <div style={{fontFamily:'var(--fh)',fontWeight:600,fontSize:24,letterSpacing:'-.03em',marginTop:4}}>{rw.icon} {rw.label}</div>
+                    <div className="note" style={{marginTop:2,color:'var(--sub)'}}>{rw.sub}</div>
+                  </div>
+                  {hasHistory && <span className="pill" style={{background:h.bg,color:h.color,fontWeight:600}}>{h.band}</span>}
+                </div>
+                {hasHistory && <>
+                  <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:12}}>
+                    {h.factors.map(f=><span key={f.k} title={f.note} className="chip" style={{background:'rgba(255,255,255,.7)',fontSize:11}}>{f.k} {Math.round(f.v*100)}</span>)}
+                  </div>
+                  <div style={{fontSize:12.5,color:'var(--brand2)',marginTop:10,fontWeight:500}}>→ {h.action}</div>
+                </>}
+              </div>; })()}
 
             {/* Relationship trail */}
             <div className="tag" style={{margin:'20px 0 8px'}}>Journey</div>
@@ -2619,12 +2769,13 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
 }
 
 /* ============================ DraftModal ============================ */
-function DraftModal({row,db,sb,auth,updateRow,changeStage,onClose}){
+function DraftModal({row,db,patch,sb,auth,updateRow,changeStage,onClose}){
   const [objective,setObjective]=useState('coffee_chat');
   const [tone,setTone]=useState('Friendly');
   const [shorter,setShorter]=useState(false);
   const [personal,setPersonal]=useState(false);
   const [text,setText]=useState(row.ai_draft||'');
+  const [aiDraft,setAiDraft]=useState(row.ai_draft||'');   // the last AI output, to measure the student's edits against
   const [busy,setBusy]=useState(false); const [err,setErr]=useState(null); const [copied,setCopied]=useState(false);
   const mode = llmMode(sb,auth);
 
@@ -2634,16 +2785,33 @@ function DraftModal({row,db,sb,auth,updateRow,changeStage,onClose}){
     try{
       const ctx = row.context||{}; const br = row.briefing||{};
       const pctx = profileContext(db.settings);
+      // Voice profile — only CONFIRMED facts feed the draft, and the student's
+      // own recent approved messages teach the model how they actually write.
+      const mems = personMemories(row, []).filter(m=>m.status!=='suggested');
+      const memLines = mems.slice(0,6).map(m=>`- ${(MEM_TYPES[m.type]||{}).t||''}: ${m.value}`).join('\n');
+      const samples = (db.settings.voiceSamples||[]).slice(-2);
+      const voice = samples.length ? `\n\nWrite in the student's own voice. Here are messages they wrote and approved before — match this style, warmth, and length:\n${samples.map((x,i)=>`Sample ${i+1}: ${x}`).join('\n')}` : '';
       const result = await llmJSON(sb, auth, 'draft_message',
-        'You are helping an MIT Sloan Fellows MBA student write a real LinkedIn outreach message. Ground it in the given context — never invent facts not present in it. Reflect the student\'s goal and preferred voice when natural. Follow the objective, tone, and length instructions exactly.',
-        `${pctx?pctx+'\n\n':''}Objective: ${objective}. Tone: ${tone}. Length: ${shorter?'under 60 words':'under 120 words'}. Personalization: ${personal?'heavily reference specific shared details from the context':'lightly reference context'}.\nContact: ${row.name||''}, ${row.title||''} at ${row.company||''}\nContext — About: ${ctx.aboutText||''} Experience: ${ctx.experienceText||''} Education: ${ctx.educationText||''} Mutual: ${ctx.mutualConnectionsRaw||''}\nExisting briefing — Summary: ${br.careerSummary||''} Shared: ${br.sharedConnectionNote||''}\n\nReturn JSON: {"draftMessage": string}`);
-      setText(result.draftMessage||''); await updateRow(row, {ai_draft: result.draftMessage||'', status: row.status==='prospect'?'ready_to_contact':row.status});
+        'You are helping an MIT Sloan Fellows MBA student write a real LinkedIn outreach message. Ground it ONLY in the given context and confirmed memories — never invent facts. Match the student\'s own voice from their sample messages when provided. Follow the objective, tone, and length instructions exactly.',
+        `${pctx?pctx+'\n\n':''}Objective: ${objective}. Tone: ${tone}. Length: ${shorter?'under 60 words':'under 120 words'}. Personalization: ${personal?'heavily reference specific shared details':'lightly reference context'}.\nContact: ${row.name||''}, ${row.title||''} at ${row.company||''}\nWhat you know (confirmed):\n${memLines||'(nothing captured yet)'}\nContext — About: ${(ctx.aboutText||'').slice(0,800)} Mutual: ${ctx.mutualConnectionsRaw||''}\nBriefing: ${br.careerSummary||''}${voice}\n\nReturn JSON: {"draftMessage": string}`);
+      setText(result.draftMessage||''); setAiDraft(result.draftMessage||''); await updateRow(row, {ai_draft: result.draftMessage||'', status: row.status==='prospect'?'ready_to_contact':row.status});
     }catch(e){ setErr(e.message||String(e)); }
     setBusy(false);
   }
+  // Approval gate: the message that leaves is exactly what the student approved —
+  // and because they approved it, it teaches the voice profile. Nothing is ever
+  // sent; Mighty copies the approved text and opens LinkedIn for the human click.
   async function copyAndOpen(){
-    try{ await navigator.clipboard.writeText(text); }catch(e){}
-    await updateRow(row, {message_sent:text});
+    const approved = text.trim();
+    if(!approved) return;
+    try{ await navigator.clipboard.writeText(approved); }catch(e){}
+    await updateRow(row, {message_sent:approved});
+    // Learn from the approved message — keep the last 3 as voice samples. Only
+    // learn when the student actually shaped it (edited the AI draft, or wrote
+    // their own), so we capture their voice, not the model's.
+    if(patch && approved.length>40 && approved!==aiDraft){
+      patch('settings', s=>{ const prev=(s.voiceSamples||[]).filter(x=>x!==approved); return {...s, voiceSamples:[...prev, approved].slice(-3)}; });
+    }
     window.open(row.profile_url,'_blank','noopener');
     setCopied(true); setTimeout(()=>setCopied(false),1500);
   }
@@ -2664,7 +2832,7 @@ function DraftModal({row,db,sb,auth,updateRow,changeStage,onClose}){
       </div>
       <div style={{padding:'14px 22px 0'}}>
         <textarea className="inp" style={{minHeight:220,lineHeight:1.6}} value={text} onChange={e=>setText(e.target.value)} placeholder={mode==='none'?'Sign in to generate a draft, or write one yourself.':'Click Regenerate to draft with AI…'}/>
-        <div className="note" style={{marginTop:6}}>{words} words · nothing is sent until you click — you're always in control</div>
+        <div className="note" style={{marginTop:6}}>{words} words · nothing is sent until you click{(db.settings.voiceSamples||[]).length?` · ✎ written in your voice (learned from ${(db.settings.voiceSamples||[]).length} message${(db.settings.voiceSamples||[]).length===1?'':'s'})`:''}</div>
         {err && <div className="warnbox" style={{marginTop:8}}>{err}</div>}
       </div>
       <div style={{display:'flex',alignItems:'center',gap:8,padding:'16px 22px 18px',flexWrap:'wrap'}}>
