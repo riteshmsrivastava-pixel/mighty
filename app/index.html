@@ -176,24 +176,41 @@ const DEFAULT = {
   ],
   settings: {
     sheets: { sheetId:'', tabName:'MIghTy Outreach', lastSyncedAt:null, lastError:null },
-    goal: '', // free-text "what are you trying to achieve" — powers the match score + Daily Copilot
-    homeLocation: '', // your city — used to resolve "near me" in Find-people search
+    // ---- AI Context Profile — what MIghTy needs to give great advice ----
+    goal: '',               // ⭐ what you want to accomplish in the next 6-12 months (the lens for everything)
+    networkingReasons: [],  // why you're networking (job, funding, mentors, …)
     targetCompanies: [],
     targetRoles: [],
+    homeLocation: '',       // your city — resolves "near me" in Find-people
+    targetLocations: [],    // places you're interested in
+    schools: [],
+    industries: [],
+    interests: [],          // personal — fuels authentic conversation starters
+    networkingStyle: [],    // cold outreach / warm intros / coffee chats / events / email / linkedin
+    communicationStyle: '', // how your messages should sound (e.g. warm, concise)
+    hardestPart: '',        // the networking problem MIghTy should solve for you
+    currentRole: '', currentCompany: '', yearsExperience: '', linkedinUrl: '',
     followUpDays: 7,
     communityOptIn: false,
-    onboardedAt: null, // set once the first-run setup is finished/skipped
+    onboardedAt: null,      // set once the first-run setup is finished/skipped
   },
 };
 function shape(d){
   d = d||{};
   const sd = (d.settings||{});
+  const arr = (v,def)=>Array.isArray(v)?v:def;
   return { ...JSON.parse(JSON.stringify(DEFAULT)), ...d,
     templates: Array.isArray(d.templates) ? d.templates : DEFAULT.templates,
     settings: { ...DEFAULT.settings, ...sd,
       sheets:{ ...DEFAULT.settings.sheets, ...(sd.sheets||{}) },
-      targetCompanies: Array.isArray(sd.targetCompanies) ? sd.targetCompanies : DEFAULT.settings.targetCompanies,
-      targetRoles: Array.isArray(sd.targetRoles) ? sd.targetRoles : DEFAULT.settings.targetRoles } };
+      targetCompanies: arr(sd.targetCompanies, DEFAULT.settings.targetCompanies),
+      targetRoles: arr(sd.targetRoles, DEFAULT.settings.targetRoles),
+      networkingReasons: arr(sd.networkingReasons, []),
+      targetLocations: arr(sd.targetLocations, []),
+      schools: arr(sd.schools, []),
+      industries: arr(sd.industries, []),
+      interests: arr(sd.interests, []),
+      networkingStyle: arr(sd.networkingStyle, []) } };
 }
 function loadDB(){ try{ return shape(JSON.parse(localStorage.getItem(DB_KEY))); }catch(e){ return shape(); } }
 
@@ -273,7 +290,28 @@ function goalKeywords(goal){
   return [...new Set((goal||'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/)
     .filter(w=>w && !GOAL_STOPWORDS.has(w) && (w.length>=3 || ['vc','ai','pm','ux','hr'].includes(w))))].slice(0,8);
 }
-function computeScore(row, targetCompanies, goal){
+// The terms the match score looks for in a person — drawn from the whole context
+// profile (goal + roles + industries + schools), not just the goal sentence.
+function profileKeywords(settings){
+  const s = settings||{};
+  const extra = [...(s.targetRoles||[]), ...(s.industries||[]), ...(s.schools||[])]
+    .join(' ').toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/)
+    .filter(w=>w && !GOAL_STOPWORDS.has(w) && (w.length>=3 || ['vc','ai','pm','ux','hr'].includes(w)));
+  return [...new Set([...goalKeywords(s.goal), ...extra])].slice(0,14);
+}
+// Compact profile summary injected into AI prompts so drafts + advice reflect
+// who the student is and what they're going for.
+function profileContext(settings){
+  const s = settings||{}; const bits = [];
+  if(s.goal) bits.push(`The student's goal (next 6-12 months): ${s.goal}`);
+  if((s.networkingReasons||[]).length) bits.push(`They're networking to: ${s.networkingReasons.join(', ')}`);
+  if((s.targetCompanies||[]).length) bits.push(`Target companies: ${s.targetCompanies.join(', ')}`);
+  if((s.targetRoles||[]).length) bits.push(`Target roles: ${s.targetRoles.join(', ')}`);
+  if(s.communicationStyle) bits.push(`Their messages should sound: ${s.communicationStyle}`);
+  if((s.networkingStyle||[]).length) bits.push(`Preferred networking style: ${s.networkingStyle.join(', ')}`);
+  return bits.length ? 'About the student:\n'+bits.join('\n') : '';
+}
+function computeScore(row, targetCompanies, terms){
   const reasons = []; let score = 0;
   const ctx = row.context || {};
   if(row.company && (targetCompanies||[]).some(c=>c.trim().toLowerCase()===row.company.trim().toLowerCase())){
@@ -281,11 +319,11 @@ function computeScore(row, targetCompanies, goal){
   }
   // Goal relevance — does this person's title/company/profile match what you're
   // trying to achieve? Transparent keyword match, never a black-box AI number.
-  const kws = goalKeywords(goal);
+  const kws = Array.isArray(terms) ? terms : goalKeywords(terms);
   if(kws.length){
     const hay = `${row.title||''} ${row.company||''} ${ctx.aboutText||''} ${ctx.experienceText||''} ${ctx.educationText||''}`.toLowerCase();
     const hits = kws.filter(k=>hay.includes(k));
-    if(hits.length){ score += Math.min(30, 12*hits.length); reasons.push(`Matches your goal: ${hits.slice(0,3).join(', ')}`); }
+    if(hits.length){ score += Math.min(30, 12*hits.length); reasons.push(`Fits your goal: ${hits.slice(0,3).join(', ')}`); }
   }
   const mutualMatch = (ctx.mutualConnectionsRaw||'').match(/(\d+)\s*mutual/i);
   if(mutualMatch){
@@ -601,7 +639,7 @@ function App(){
     {drawerRow && <PersonDrawer row={drawerRow} rowEvents={events.filter(e=>e.log_id===drawerRow.id)} db={db} sb={sb} auth={auth} communityStats={communityStats}
       drawerTab={drawerTab} setDrawerTab={setDrawerTab} onClose={()=>setDrawerId(null)}
       updateRow={updateRow} logEvent={logEvent} changeStage={changeStage} openDraft={()=>setDraftFor(drawerRow.id)}/>}
-    {draftRow && <DraftModal row={draftRow} sb={sb} auth={auth} updateRow={updateRow} changeStage={changeStage} onClose={()=>setDraftFor(null)}/>}
+    {draftRow && <DraftModal row={draftRow} db={db} sb={sb} auth={auth} updateRow={updateRow} changeStage={changeStage} onClose={()=>setDraftFor(null)}/>}
   </div>;
 }
 
@@ -653,6 +691,26 @@ function Gate({sb}){
 }
 
 /* ============================ Onboarding (first run) ============================ */
+function MultiSelect({label, hint, options, value, onChange}){
+  const toggle=v=>onChange((value||[]).includes(v)?value.filter(x=>x!==v):[...(value||[]),v]);
+  return <div>
+    {label && <label className="fld">{label}</label>}
+    {hint && <div className="note" style={{margin:'-2px 0 8px'}}>{hint}</div>}
+    <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+      {options.map(o=>{ const on=(value||[]).includes(o); return <span key={o} onClick={()=>toggle(o)} style={{cursor:'pointer',padding:'7px 12px',fontSize:12.5,fontWeight:600,background:on?'var(--brand)':'var(--card)',color:on?'#fff':'var(--sub)',border:'1px solid '+(on?'var(--brand)':'var(--line)')}}>{on?'✓ ':''}{o}</span>; })}
+    </div>
+  </div>;
+}
+function RadioSelect({label, options, value, onChange}){
+  return <div>
+    {label && <label className="fld">{label}</label>}
+    <div style={{display:'flex',flexDirection:'column',gap:8}}>
+      {options.map(o=>{ const on=value===o; return <div key={o} onClick={()=>onChange(o)} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',border:'1px solid '+(on?'var(--brand)':'var(--line)'),background:on?'var(--bsoft)':'var(--card2)',cursor:'pointer'}}>
+        <span style={{width:16,height:16,flex:'none',borderRadius:99,border:'1.5px solid '+(on?'var(--brand)':'rgba(0,0,0,.3)'),background:on?'var(--brand)':'transparent'}}></span>
+        <span style={{fontSize:13.5,fontWeight:on?600:400}}>{o}</span></div>; })}
+    </div>
+  </div>;
+}
 function ChipInput({label, hint, placeholder, value, onChange, suggestions}){
   const [text,setText]=useState('');
   const add=(v)=>{ v=(v||'').trim(); if(!v) return; if(!value.some(x=>x.toLowerCase()===v.toLowerCase())) onChange([...value,v]); setText(''); };
@@ -680,24 +738,40 @@ function ChipInput({label, hint, placeholder, value, onChange, suggestions}){
 }
 function Onboarding({db, patch, auth, setTab}){
   const [step,setStep]=useState(0);
-  const [companies,setCompanies]=useState(db.settings.targetCompanies||[]);
-  const [roles,setRoles]=useState(db.settings.targetRoles||[]);
-  const [goal,setGoal]=useState(db.settings.goal||'');
+  const S=db.settings;
+  const [goal,setGoal]=useState(S.goal||'');
+  const [reasons,setReasons]=useState(S.networkingReasons||[]);
+  const [companies,setCompanies]=useState(S.targetCompanies||[]);
+  const [roles,setRoles]=useState(S.targetRoles||[]);
+  const [homeLoc,setHomeLoc]=useState(S.homeLocation||'');
+  const [targetLocs,setTargetLocs]=useState(S.targetLocations||[]);
+  const [schools,setSchools]=useState(S.schools||[]);
+  const [industries,setIndustries]=useState(S.industries||[]);
+  const [style,setStyle]=useState(S.networkingStyle||[]);
+  const [hardest,setHardest]=useState(S.hardestPart||'');
   const first=(auth.user.email||'').split('@')[0];
-  const finish=()=>patch('settings',{goal:goal.trim(), targetCompanies:companies, targetRoles:roles, onboardedAt:Date.now()});
+  const finish=()=>patch('settings',{ goal:goal.trim(), networkingReasons:reasons, targetCompanies:companies, targetRoles:roles,
+    homeLocation:homeLoc.trim(), targetLocations:targetLocs, schools, industries, networkingStyle:style, hardestPart:hardest, onboardedAt:Date.now() });
 
+  const REASONS=['Get a job','Change careers','Raise funding','Find customers','Build partnerships','Find mentors','Hire talent','Build my brand','Grow my network'];
+  const STYLES=['Warm introductions','Coffee chats','Cold outreach','Events','Email','LinkedIn'];
+  const HARDEST=["I don't know who to reach out to","I forget to follow up","I hate cold outreach","I don't know what to say","I don't stay organized"];
   const STEPS = [
     { key:'welcome', title:`Welcome, ${first}`, sub:'MIghTy helps you build real relationships on LinkedIn, not just connections. A few quick questions, then you\'re set.' },
-    { key:'goal', title:'What are you trying to achieve?', sub:'This is the most important one. MIghTy uses your goal to rank who\'s worth your time and to plan your day. Say it in your own words.' },
-    { key:'companies', title:'Which companies are you targeting?', sub:'MIghTy uses these to score who\'s worth reaching out to. You can change them anytime in Settings.' },
-    { key:'roles', title:'What roles are you after?', sub:'Optional - helps MIghTy prioritise the right people. Skip if you\'re just exploring.' },
+    { key:'goal', title:'What do you want to accomplish in the next 6-12 months?', sub:'This is the most important one. It becomes the lens MIghTy uses to rank people, draft messages, and plan your day.' },
+    { key:'reason', title:'Why are you networking?', sub:'Pick all that apply - it shapes the advice you get.' },
+    { key:'targets', title:'Who are you targeting?', sub:'Dream companies and the roles you\'re after. MIghTy scores people against these. Optional, editable anytime.' },
+    { key:'places', title:'Where?', sub:'Your city (so "near me" searches work) and any places you want to build a network.' },
+    { key:'background', title:'Your background', sub:'Schools and industries help MIghTy spot shared ground and prioritise the right people.' },
+    { key:'style', title:'How you like to network', sub:'So MIghTy suggests moves that actually feel like you - and solves your hardest part.' },
     { key:'extension', title:'Add the Chrome extension', sub:'This is what lets MIghTy read LinkedIn pages you\'re viewing and save people with one click. It never sends or connects for you.' },
     { key:'tour', title:'Here\'s the flow', sub:'Four moves, and MIghTy does the remembering.' },
   ];
   const s=STEPS[step];
   const last=step===STEPS.length-1;
   const COMPANY_SUGGESTIONS=['McKinsey','BCG','Bain & Company','Amazon','Google','Stripe','OpenAI','Goldman Sachs','Deloitte'];
-  const ROLE_SUGGESTIONS=['Product Manager','Consultant','Investor / VC','Founder','Data Scientist','Strategy','Business Development'];
+  const ROLE_SUGGESTIONS=['Product Manager','Consultant','Investor / VC','Founder','Chief of Staff','Strategy','Data Scientist'];
+  const INDUSTRY_SUGGESTIONS=['Healthcare','Climate','Fintech','AI','Consumer','VC','Consulting','Defense'];
 
   return <div style={{minHeight:'100vh',background:'var(--bg)',display:'grid',placeItems:'center',padding:24}}>
     <div className="panel" style={{width:540,maxWidth:'100%'}}>
@@ -723,10 +797,24 @@ function Onboarding({db, patch, auth, setTab}){
                 <span key={ex} onClick={()=>setGoal(ex)} className="chip" style={{cursor:'pointer',background:'var(--card)',border:'1px solid var(--line)'}}>{ex}</span>)}
             </div>
           </div>}
-          {s.key==='companies' &&
-            <ChipInput label="Target companies" placeholder="Type a company, press Enter" value={companies} onChange={setCompanies} suggestions={COMPANY_SUGGESTIONS}/>}
-          {s.key==='roles' &&
-            <ChipInput label="Target roles (optional)" placeholder="Type a role, press Enter" value={roles} onChange={setRoles} suggestions={ROLE_SUGGESTIONS}/>}
+          {s.key==='reason' &&
+            <MultiSelect value={reasons} onChange={setReasons} options={REASONS}/>}
+          {s.key==='targets' && <div style={{display:'flex',flexDirection:'column',gap:18}}>
+            <ChipInput label="Dream companies" placeholder="Type a company, press Enter" value={companies} onChange={setCompanies} suggestions={COMPANY_SUGGESTIONS}/>
+            <ChipInput label="Target roles" placeholder="Type a role, press Enter" value={roles} onChange={setRoles} suggestions={ROLE_SUGGESTIONS}/>
+          </div>}
+          {s.key==='places' && <div style={{display:'flex',flexDirection:'column',gap:18}}>
+            <div><label className="fld">Your city</label><input className="inp" value={homeLoc} onChange={e=>setHomeLoc(e.target.value)} placeholder="Boston" style={{maxWidth:300}}/></div>
+            <ChipInput label="Places you want to network in (optional)" placeholder="Type a city, press Enter" value={targetLocs} onChange={setTargetLocs} suggestions={['Boston','New York','San Francisco','London','Bangalore']}/>
+          </div>}
+          {s.key==='background' && <div style={{display:'flex',flexDirection:'column',gap:18}}>
+            <ChipInput label="Schools" placeholder="Type a school, press Enter" value={schools} onChange={setSchools} suggestions={['MIT Sloan','Harvard','Stanford','IIM Bangalore','Wharton']}/>
+            <ChipInput label="Industries you care about" placeholder="Type an industry, press Enter" value={industries} onChange={setIndustries} suggestions={INDUSTRY_SUGGESTIONS}/>
+          </div>}
+          {s.key==='style' && <div style={{display:'flex',flexDirection:'column',gap:18}}>
+            <MultiSelect label="You prefer" value={style} onChange={setStyle} options={STYLES}/>
+            <RadioSelect label="Networking is hardest because…" value={hardest} onChange={setHardest} options={HARDEST}/>
+          </div>}
           {s.key==='extension' &&
             <div style={{display:'flex',flexDirection:'column',gap:12}}>
               <a className="btn" href="../install/" target="_blank" rel="noopener noreferrer" style={{alignSelf:'flex-start',textDecoration:'none'}}>Open install guide ↗</a>
@@ -784,7 +872,7 @@ function buildDailyDigest(log, events, tasks, settings){
   push('Coffee chat done — send thanks / next touch', log.filter(r=>r.status==='coffee_chat').map(nm));
   push('Referral / interview in progress', log.filter(r=>r.status==='referral'||r.status==='interview').map(r=>`${nm(r)} [${r.status}]`));
   const fresh = log.filter(r=>r.status==='prospect'||r.status==='ready_to_contact')
-    .map(r=>({r, ...computeScore(r, settings.targetCompanies, settings.goal)})).sort((a,b)=>b.score-a.score);
+    .map(r=>({r, ...computeScore(r, settings.targetCompanies, profileKeywords(settings))})).sort((a,b)=>b.score-a.score);
   push('Top new people to message first', fresh.slice(0,6).map(x=>`${nm(x.r)} score ${x.score}`));
   const todayStr = new Date().toISOString().slice(0,10);
   push('Tasks due', (tasks||[]).filter(t=>!t.done && t.due_date && t.due_date<=todayStr).map(t=>t.label));
@@ -800,10 +888,10 @@ function DailyCopilot({db, log, events, tasks, sb, auth, setDrawerId}){
   async function generate(){
     setBusy(true); setErr(null);
     try{
-      const goalLine = (db.settings.goal||'').trim();
+      const pctx = profileContext(db.settings);
       const r = await llmJSON(sb, auth, 'daily_plan',
         `You are MIghTy's daily networking copilot for an MIT Sloan Fellows MBA student. Given their real outreach pipeline below, recommend the best use of about 30 minutes today. Use ONLY the people and facts provided — never invent anyone. Prioritise time-sensitive, high-leverage moves (overdue follow-ups, replies waiting, coffee-chat thank-yous, warm high-score intros) AND moves that advance the student's stated goal. Be specific and concise.`,
-        `${goalLine?`Student's goal: ${goalLine}\n\n`:''}Pipeline:\n${digest}\n\nReturn JSON: {"headline": string (one short motivating line, reference the goal if relevant), "actions": [{"title": string (imperative, <8 words), "who": string (person name or "—"), "why": string (<15 words, tie to the goal when it applies), "minutes": number}]}. 3 to 4 actions, ordered by priority, total ~30 minutes.`,
+        `${pctx?pctx+'\n\n':''}Pipeline:\n${digest}\n\nReturn JSON: {"headline": string (one short motivating line, reference the goal if relevant), "actions": [{"title": string (imperative, <8 words), "who": string (person name or "—"), "why": string (<15 words, tie to the goal when it applies), "minutes": number}]}. 3 to 4 actions, ordered by priority, total ~30 minutes.`,
         900);
       setPlan(r);
     }catch(e){ setErr(e.message||String(e)); }
@@ -954,7 +1042,7 @@ function FindPeople({sb, auth, db, patch, addPeople, setTab}){
 /* ============================ Dashboard ============================ */
 function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,addPeople,setTab,setDrawerId,setDraftFor}){
   const candidates = log.filter(r=>r.status==='prospect'||r.status==='ready_to_contact');
-  const scored = candidates.map(r=>({row:r, kind:'contact', label:'Message for the first time', ...computeScore(r, db.settings.targetCompanies, db.settings.goal)}));
+  const scored = candidates.map(r=>({row:r, kind:'contact', label:'Message for the first time', ...computeScore(r, db.settings.targetCompanies, profileKeywords(db.settings))}));
   const followUpDays = db.settings.followUpDays||7;
   const repliedIds = new Set(events.filter(e=>e.event_type==='reply').map(e=>e.log_id));
   const overdue = log.filter(r=>r.status==='contacted' && !repliedIds.has(r.id) && r.contacted_at && (now()-new Date(r.contacted_at).getTime())>followUpDays*864e5)
@@ -1334,33 +1422,32 @@ function Settings({db,patch,auth,sb,signOut,setTab}){
     <div className="tag" style={{margin:'26px 0 10px'}}>AI usage</div>
     <AiUsagePanel sb={sb} auth={auth}/>
 
-    <div className="tag" style={{margin:'26px 0 10px'}}>Your goal</div>
-    <div className="panel pad">
-      <label className="fld">What are you trying to achieve?</label>
-      <div className="note" style={{margin:'-2px 0 8px',fontSize:12.5}}>Powers the match score and your Daily Copilot. Say it in your own words.</div>
-      <textarea className="inp" rows={2} defaultValue={db.settings.goal||''}
-        onBlur={e=>patch('settings', s=>({...s, goal: e.target.value.trim()}))}
-        placeholder="e.g. Break into climate-tech VC in Europe"/>
-    </div>
-
-    <div className="tag" style={{margin:'26px 0 10px'}}>Ranking &amp; follow-ups</div>
-    <div className="panel pad">
-      <label className="fld">Target companies (comma-separated)</label>
-      <input className="inp" defaultValue={db.settings.targetCompanies.join(', ')}
-        onBlur={e=>patch('settings', s=>({...s, targetCompanies: e.target.value.split(',').map(x=>x.trim()).filter(Boolean)}))}
-        placeholder="McKinsey, Bain, Amazon"/>
-      <div style={{height:10}}/><label className="fld">Target roles (comma-separated)</label>
-      <input className="inp" defaultValue={(db.settings.targetRoles||[]).join(', ')}
-        onBlur={e=>patch('settings', s=>({...s, targetRoles: e.target.value.split(',').map(x=>x.trim()).filter(Boolean)}))}
-        placeholder="Product Manager, Consultant, Investor"/>
-      <div style={{height:10}}/><label className="fld">Your city (used when you search "near me")</label>
-      <input className="inp" defaultValue={db.settings.homeLocation||''}
-        onBlur={e=>patch('settings', s=>({...s, homeLocation: e.target.value.trim()}))}
-        placeholder="Boston" style={{maxWidth:280}}/>
-      <div style={{height:10}}/><label className="fld">Follow-up reminder after (days)</label>
-      <input className="inp" type="number" min={1} max={60} style={{width:120}} value={db.settings.followUpDays}
-        onChange={e=>patch('settings', s=>({...s, followUpDays: parseInt(e.target.value,10)||7}))}/>
-    </div>
+    <div className="tag" style={{margin:'26px 0 10px'}}>Your profile</div>
+    <div className="note" style={{margin:'-4px 0 10px',fontSize:12.5}}>The more MIghTy knows, the sharper its ranking, drafts, and daily plan. Everything here is private to you.</div>
+    {(()=>{ const arrField=(label,key,ph)=><div style={{marginBottom:12}}><label className="fld">{label}</label>
+        <input className="inp" defaultValue={(db.settings[key]||[]).join(', ')}
+          onBlur={e=>patch('settings', s=>({...s, [key]: e.target.value.split(',').map(x=>x.trim()).filter(Boolean)}))} placeholder={ph}/></div>;
+      const txtField=(label,key,ph,area)=><div style={{marginBottom:12}}><label className="fld">{label}</label>
+        {area ? <textarea className="inp" rows={2} defaultValue={db.settings[key]||''} onBlur={e=>patch('settings', s=>({...s, [key]: e.target.value.trim()}))} placeholder={ph}/>
+              : <input className="inp" defaultValue={db.settings[key]||''} onBlur={e=>patch('settings', s=>({...s, [key]: e.target.value.trim()}))} placeholder={ph}/>}</div>;
+      return <div className="panel pad">
+        <div style={{marginBottom:12}}><label className="fld" style={{color:'var(--brand)'}}>★ Your goal (next 6-12 months)</label>
+          <textarea className="inp" rows={2} defaultValue={db.settings.goal||''} onBlur={e=>patch('settings', s=>({...s, goal: e.target.value.trim()}))} placeholder="Break into climate-tech VC in Europe"/></div>
+        {arrField('Why you\'re networking','networkingReasons','Get a job, Find mentors, Raise funding')}
+        {arrField('Dream companies','targetCompanies','McKinsey, Bain, Amazon')}
+        {arrField('Target roles','targetRoles','Product Manager, Consultant, Investor')}
+        {txtField('Your city','homeLocation','Boston')}
+        {arrField('Places you want to network in','targetLocations','New York, London')}
+        {arrField('Schools','schools','MIT Sloan, IIM Bangalore')}
+        {arrField('Industries','industries','Healthcare, Climate, AI')}
+        {arrField('Personal interests (for conversation starters)','interests','Running, Chess, Formula 1')}
+        {arrField('Preferred networking style','networkingStyle','Warm introductions, Coffee chats')}
+        {txtField('How your messages should sound','communicationStyle','Warm, concise, a little informal')}
+        <div><label className="fld">Follow-up reminder after (days)</label>
+          <input className="inp" type="number" min={1} max={60} style={{width:120}} value={db.settings.followUpDays}
+            onChange={e=>patch('settings', s=>({...s, followUpDays: parseInt(e.target.value,10)||7}))}/></div>
+      </div>;
+    })()}
 
     <div className="tag" style={{margin:'26px 0 10px'}}>Community insights</div>
     <div className="panel pad">
@@ -1523,9 +1610,10 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
   async function genPrep(){
     setPrepBusy(true); setPrepErr(null);
     try{
+      const pctx = profileContext(db.settings);
       const r = await llmJSON(sb, auth, 'meeting_prep',
-        'You are prepping an MIT Sloan Fellows MBA student for an upcoming conversation with this person. Use ONLY the provided context; never invent facts. Be specific, practical, and warm.',
-        `${personDigest()}\n\nReturn JSON: {"talkingPoints": string[], "questions": string[], "reminders": string[], "risks": string[]}. 2 to 4 concise items in each array; use [] if nothing applies.`);
+        'You are prepping an MIT Sloan Fellows MBA student for an upcoming conversation with this person. Use ONLY the provided context; never invent facts. Tie talking points and questions to the student\'s goal where it fits. Be specific, practical, and warm.',
+        `${pctx?pctx+'\n\n':''}${personDigest()}\n\nReturn JSON: {"talkingPoints": string[], "questions": string[], "reminders": string[], "risks": string[]}. 2 to 4 concise items in each array; use [] if nothing applies.`);
       setPrep(r);
     }catch(e){ setPrepErr(e.message||String(e)); }
     setPrepBusy(false);
@@ -1671,7 +1759,7 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
 }
 
 /* ============================ DraftModal ============================ */
-function DraftModal({row,sb,auth,updateRow,changeStage,onClose}){
+function DraftModal({row,db,sb,auth,updateRow,changeStage,onClose}){
   const [objective,setObjective]=useState('coffee_chat');
   const [tone,setTone]=useState('Friendly');
   const [shorter,setShorter]=useState(false);
@@ -1685,9 +1773,10 @@ function DraftModal({row,sb,auth,updateRow,changeStage,onClose}){
     setBusy(true); setErr(null);
     try{
       const ctx = row.context||{}; const br = row.briefing||{};
+      const pctx = profileContext(db.settings);
       const result = await llmJSON(sb, auth, 'draft_message',
-        'You are helping an MIT Sloan Fellows MBA student write a real LinkedIn outreach message. Ground it in the given context — never invent facts not present in it. Follow the objective, tone, and length instructions exactly.',
-        `Objective: ${objective}. Tone: ${tone}. Length: ${shorter?'under 60 words':'under 120 words'}. Personalization: ${personal?'heavily reference specific shared details from the context':'lightly reference context'}.\nContact: ${row.name||''}, ${row.title||''} at ${row.company||''}\nContext — About: ${ctx.aboutText||''} Experience: ${ctx.experienceText||''} Education: ${ctx.educationText||''} Mutual: ${ctx.mutualConnectionsRaw||''}\nExisting briefing — Summary: ${br.careerSummary||''} Shared: ${br.sharedConnectionNote||''}\n\nReturn JSON: {"draftMessage": string}`);
+        'You are helping an MIT Sloan Fellows MBA student write a real LinkedIn outreach message. Ground it in the given context — never invent facts not present in it. Reflect the student\'s goal and preferred voice when natural. Follow the objective, tone, and length instructions exactly.',
+        `${pctx?pctx+'\n\n':''}Objective: ${objective}. Tone: ${tone}. Length: ${shorter?'under 60 words':'under 120 words'}. Personalization: ${personal?'heavily reference specific shared details from the context':'lightly reference context'}.\nContact: ${row.name||''}, ${row.title||''} at ${row.company||''}\nContext — About: ${ctx.aboutText||''} Experience: ${ctx.experienceText||''} Education: ${ctx.educationText||''} Mutual: ${ctx.mutualConnectionsRaw||''}\nExisting briefing — Summary: ${br.careerSummary||''} Shared: ${br.sharedConnectionNote||''}\n\nReturn JSON: {"draftMessage": string}`);
       setText(result.draftMessage||''); await updateRow(row, {ai_draft: result.draftMessage||'', status: row.status==='prospect'?'ready_to_contact':row.status});
     }catch(e){ setErr(e.message||String(e)); }
     setBusy(false);
