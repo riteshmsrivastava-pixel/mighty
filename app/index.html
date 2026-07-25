@@ -1149,6 +1149,7 @@ function FindPeople({sb, auth, db, patch, addPeople, setTab}){
   const [q,setQ]=useState(''); const [busy,setBusy]=useState(false);
   const [results,setResults]=useState(null); const [sel,setSel]=useState(new Set());
   const [msg,setMsg]=useState(null); const [lastKw,setLastKw]=useState('');
+  const [prog,setProg]=useState(0); const [phase,setPhase]=useState('');
   const mode = llmMode(sb,auth);
   const EX=['strategy tech companies near me','MIT Sloan alumni in AI','healthcare VCs in New York','product managers at Stripe','climate startup founders in Europe'];
   const NEARME=/\b(near|around|close to)\s+me\b|\bnearby\b|\bmy area\b/i;
@@ -1181,8 +1182,9 @@ function FindPeople({sb, auth, db, patch, addPeople, setTab}){
   // appear here rather than sending the student off to another site. Falls back
   // to opening a tab only if the extension isn't installed.
   async function viaExtension(kw){
-    setMsg({t:'Searching…'});
+    setProg(55); setPhase('Reading results');
     const r = await extBridge.search(kw);
+    setProg(85); setPhase('Building your list');
     if(r && r.ok && (r.people||[]).length){
       setResults(r.people); setSel(new Set(r.people.map(p=>p.profileUrl))); setMsg(null); return;
     }
@@ -1200,7 +1202,11 @@ function FindPeople({sb, auth, db, patch, addPeople, setTab}){
   async function go(){
     const raw=q.trim(); if(!raw || busy) return;
     setBusy(true); setMsg(null); setResults(null); setSel(new Set());
+    // Real phases, not a fake timer: each step below moves the bar when it
+    // actually completes, so the number always means something.
+    setProg(8); setPhase('Understanding your search');
     const kw = await keywords(raw); setLastKw(kw);
+    setProg(30); setPhase('Searching profiles');
     try{
       // Try the optional in-app search API; if it isn't set up, use the free
       // extension flow rather than treating it as an error.
@@ -1213,7 +1219,9 @@ function FindPeople({sb, auth, db, patch, addPeople, setTab}){
         await viaExtension(kw);
       } else { setMsg({t:(data&&data.message)||'Search failed.', err:true}); }
     }catch(e){ await viaExtension(kw); }
+    setProg(100); setPhase('');
     setBusy(false);
+    setTimeout(()=>setProg(0), 600);
   }
   const toggle=url=>setSel(s=>{ const n=new Set(s); n.has(url)?n.delete(url):n.add(url); return n; });
   async function importSel(){
@@ -1233,6 +1241,14 @@ function FindPeople({sb, auth, db, patch, addPeople, setTab}){
       <input className="inp" value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') go(); }} placeholder="e.g. strategy people at tech companies near me"/>
       <button className="btn" onClick={go} disabled={busy||!q.trim()}>{busy?<Dots/>:'✨ Search'}</button>
     </div>
+
+    {(busy||prog>0) && <div style={{marginTop:12}}>
+      <div style={{display:'flex',alignItems:'baseline',gap:10,marginBottom:6}}>
+        <span className="note" style={{fontWeight:500,color:'var(--brand2)'}}>{phase||'Done'}</span>
+        <span className="note" style={{marginLeft:'auto'}}>{prog}%</span>
+      </div>
+      <div className="scorebar"><i style={{width:prog+'%',transition:'width .45s cubic-bezier(.22,.61,.36,1)'}}/></div>
+    </div>}
 
     {msg && <div className={msg.err?'warnbox':'okbox'} style={{marginTop:10}}>{msg.t}{msg.go && <> <a style={{cursor:'pointer',fontWeight:700}} onClick={()=>setTab('people')}>View in People →</a></>}</div>}
 
