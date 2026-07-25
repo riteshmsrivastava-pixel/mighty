@@ -176,6 +176,7 @@ const DEFAULT = {
   ],
   settings: {
     sheets: { sheetId:'', tabName:'MIghTy Outreach', lastSyncedAt:null, lastError:null },
+    goal: '', // free-text "what are you trying to achieve" — powers the match score + Daily Copilot
     targetCompanies: [],
     targetRoles: [],
     followUpDays: 7,
@@ -263,11 +264,27 @@ function avatarFor(row){
 
 // Transparent, client-side relevance scoring for ranking who to contact next —
 // every term is explainable, nothing is a fabricated probability.
-function computeScore(row, targetCompanies){
+// Meaningful keywords from the user's free-text goal — drops stopwords/short
+// words so "break into climate VC in Europe" → ["climate","europe"] (VC too
+// short is kept via the whitelist). Used to score goal-relevance transparently.
+const GOAL_STOPWORDS = new Set(['the','a','an','to','in','into','at','for','of','and','or','with','on','my','me','get','got','want','looking','look','find','people','person','someone','who','that','this','break','move','role','job','work','working','company','companies','around','near','new']);
+function goalKeywords(goal){
+  return [...new Set((goal||'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/)
+    .filter(w=>w && !GOAL_STOPWORDS.has(w) && (w.length>=3 || ['vc','ai','pm','ux','hr'].includes(w))))].slice(0,8);
+}
+function computeScore(row, targetCompanies, goal){
   const reasons = []; let score = 0;
   const ctx = row.context || {};
   if(row.company && (targetCompanies||[]).some(c=>c.trim().toLowerCase()===row.company.trim().toLowerCase())){
     score += 40; reasons.push(`Target company: ${row.company}`);
+  }
+  // Goal relevance — does this person's title/company/profile match what you're
+  // trying to achieve? Transparent keyword match, never a black-box AI number.
+  const kws = goalKeywords(goal);
+  if(kws.length){
+    const hay = `${row.title||''} ${row.company||''} ${ctx.aboutText||''} ${ctx.experienceText||''} ${ctx.educationText||''}`.toLowerCase();
+    const hits = kws.filter(k=>hay.includes(k));
+    if(hits.length){ score += Math.min(30, 12*hits.length); reasons.push(`Matches your goal: ${hits.slice(0,3).join(', ')}`); }
   }
   const mutualMatch = (ctx.mutualConnectionsRaw||'').match(/(\d+)\s*mutual/i);
   if(mutualMatch){
@@ -281,7 +298,7 @@ function computeScore(row, targetCompanies){
   score += 10*recency;
   if(daysAgo<3) reasons.push(`Added ${daysAgo<1?'today':Math.round(daysAgo)+'d ago'}`);
   if(row.context){ score += 10; reasons.push('Profile context captured'); }
-  return { score, reasons: reasons.slice(0,4) };
+  return { score: Math.round(score), reasons: reasons.slice(0,4) };
 }
 
 // Honest relationship strength — recency decay + interaction count + reciprocity.
@@ -650,11 +667,13 @@ function Onboarding({db, patch, auth, setTab}){
   const [step,setStep]=useState(0);
   const [companies,setCompanies]=useState(db.settings.targetCompanies||[]);
   const [roles,setRoles]=useState(db.settings.targetRoles||[]);
+  const [goal,setGoal]=useState(db.settings.goal||'');
   const first=(auth.user.email||'').split('@')[0];
-  const finish=()=>patch('settings',{targetCompanies:companies, targetRoles:roles, onboardedAt:Date.now()});
+  const finish=()=>patch('settings',{goal:goal.trim(), targetCompanies:companies, targetRoles:roles, onboardedAt:Date.now()});
 
   const STEPS = [
-    { key:'welcome', title:`Welcome, ${first}`, sub:'MIghTy helps you build real relationships on LinkedIn, not just connections. Two quick questions, then you\'re set.' },
+    { key:'welcome', title:`Welcome, ${first}`, sub:'MIghTy helps you build real relationships on LinkedIn, not just connections. A few quick questions, then you\'re set.' },
+    { key:'goal', title:'What are you trying to achieve?', sub:'This is the most important one. MIghTy uses your goal to rank who\'s worth your time and to plan your day. Say it in your own words.' },
     { key:'companies', title:'Which companies are you targeting?', sub:'MIghTy uses these to score who\'s worth reaching out to. You can change them anytime in Settings.' },
     { key:'roles', title:'What roles are you after?', sub:'Optional - helps MIghTy prioritise the right people. Skip if you\'re just exploring.' },
     { key:'extension', title:'Add the Chrome extension', sub:'This is what lets MIghTy read LinkedIn pages you\'re viewing and save people with one click. It never sends or connects for you.' },
@@ -681,6 +700,14 @@ function Onboarding({db, patch, auth, setTab}){
         <h2 style={{fontSize:22}}>{s.title}</h2>
         <div className="note" style={{marginTop:6,fontSize:13.5,lineHeight:1.55}}>{s.sub}</div>
         <div style={{marginTop:18}}>
+          {s.key==='goal' && <div>
+            <label className="fld">Your goal</label>
+            <textarea className="inp" rows={3} value={goal} onChange={e=>setGoal(e.target.value)} placeholder="e.g. Break into climate-tech VC in Europe · Land a PM role at a Series B startup · Meet Sloan alumni working in AI"/>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:10}}>
+              {['Break into climate-tech VC','Land a PM role at a startup','Meet alumni in AI','Find a technical co-founder','Explore healthcare investing'].map(ex=>
+                <span key={ex} onClick={()=>setGoal(ex)} className="chip" style={{cursor:'pointer',background:'var(--card)',border:'1px solid var(--line)'}}>{ex}</span>)}
+            </div>
+          </div>}
           {s.key==='companies' &&
             <ChipInput label="Target companies" placeholder="Type a company, press Enter" value={companies} onChange={setCompanies} suggestions={COMPANY_SUGGESTIONS}/>}
           {s.key==='roles' &&
@@ -742,7 +769,7 @@ function buildDailyDigest(log, events, tasks, settings){
   push('Coffee chat done — send thanks / next touch', log.filter(r=>r.status==='coffee_chat').map(nm));
   push('Referral / interview in progress', log.filter(r=>r.status==='referral'||r.status==='interview').map(r=>`${nm(r)} [${r.status}]`));
   const fresh = log.filter(r=>r.status==='prospect'||r.status==='ready_to_contact')
-    .map(r=>({r, ...computeScore(r, settings.targetCompanies)})).sort((a,b)=>b.score-a.score);
+    .map(r=>({r, ...computeScore(r, settings.targetCompanies, settings.goal)})).sort((a,b)=>b.score-a.score);
   push('Top new people to message first', fresh.slice(0,6).map(x=>`${nm(x.r)} score ${x.score}`));
   const todayStr = new Date().toISOString().slice(0,10);
   push('Tasks due', (tasks||[]).filter(t=>!t.done && t.due_date && t.due_date<=todayStr).map(t=>t.label));
@@ -758,9 +785,10 @@ function DailyCopilot({db, log, events, tasks, sb, auth, setDrawerId}){
   async function generate(){
     setBusy(true); setErr(null);
     try{
+      const goalLine = (db.settings.goal||'').trim();
       const r = await llmJSON(sb, auth, 'daily_plan',
-        'You are MIghTy\'s daily networking copilot for an MIT Sloan Fellows MBA student. Given their real outreach pipeline below, recommend the best use of about 30 minutes today. Use ONLY the people and facts provided — never invent anyone. Prioritise time-sensitive, high-leverage moves (overdue follow-ups, replies waiting, coffee-chat thank-yous, warm high-score intros). Be specific and concise.',
-        `Pipeline:\n${digest}\n\nReturn JSON: {"headline": string (one short motivating line), "actions": [{"title": string (imperative, <8 words), "who": string (person name or "—"), "why": string (<15 words), "minutes": number}]}. 3 to 4 actions, ordered by priority, total ~30 minutes.`,
+        `You are MIghTy's daily networking copilot for an MIT Sloan Fellows MBA student. Given their real outreach pipeline below, recommend the best use of about 30 minutes today. Use ONLY the people and facts provided — never invent anyone. Prioritise time-sensitive, high-leverage moves (overdue follow-ups, replies waiting, coffee-chat thank-yous, warm high-score intros) AND moves that advance the student's stated goal. Be specific and concise.`,
+        `${goalLine?`Student's goal: ${goalLine}\n\n`:''}Pipeline:\n${digest}\n\nReturn JSON: {"headline": string (one short motivating line, reference the goal if relevant), "actions": [{"title": string (imperative, <8 words), "who": string (person name or "—"), "why": string (<15 words, tie to the goal when it applies), "minutes": number}]}. 3 to 4 actions, ordered by priority, total ~30 minutes.`,
         900);
       setPlan(r);
     }catch(e){ setErr(e.message||String(e)); }
@@ -843,7 +871,7 @@ function FindPeople({sb, auth}){
 /* ============================ Dashboard ============================ */
 function Dashboard({db,log,events,tasks,communityStats,sb,auth,setTab,setDrawerId,setDraftFor}){
   const candidates = log.filter(r=>r.status==='prospect'||r.status==='ready_to_contact');
-  const scored = candidates.map(r=>({row:r, kind:'contact', label:'Message for the first time', ...computeScore(r, db.settings.targetCompanies)}));
+  const scored = candidates.map(r=>({row:r, kind:'contact', label:'Message for the first time', ...computeScore(r, db.settings.targetCompanies, db.settings.goal)}));
   const followUpDays = db.settings.followUpDays||7;
   const repliedIds = new Set(events.filter(e=>e.event_type==='reply').map(e=>e.log_id));
   const overdue = log.filter(r=>r.status==='contacted' && !repliedIds.has(r.id) && r.contacted_at && (now()-new Date(r.contacted_at).getTime())>followUpDays*864e5)
@@ -1222,6 +1250,15 @@ function Settings({db,patch,auth,sb,signOut,setTab}){
 
     <div className="tag" style={{margin:'26px 0 10px'}}>AI usage</div>
     <AiUsagePanel sb={sb} auth={auth}/>
+
+    <div className="tag" style={{margin:'26px 0 10px'}}>Your goal</div>
+    <div className="panel pad">
+      <label className="fld">What are you trying to achieve?</label>
+      <div className="note" style={{margin:'-2px 0 8px',fontSize:12.5}}>Powers the match score and your Daily Copilot. Say it in your own words.</div>
+      <textarea className="inp" rows={2} defaultValue={db.settings.goal||''}
+        onBlur={e=>patch('settings', s=>({...s, goal: e.target.value.trim()}))}
+        placeholder="e.g. Break into climate-tech VC in Europe"/>
+    </div>
 
     <div className="tag" style={{margin:'26px 0 10px'}}>Ranking &amp; follow-ups</div>
     <div className="panel pad">
