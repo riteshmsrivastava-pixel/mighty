@@ -57,6 +57,7 @@ const FEATURES: Record<string, FeatureDef> = {
   // Extraction/classification — cheap, Haiku.
   coffee_extract:      { model: MODELS.haiku,  tier: "medium", cache: false },
   tagging:             { model: MODELS.haiku,  tier: "low",    cache: false },
+  resume_extract:      { model: MODELS.sonnet, tier: "medium", cache: false },
   // Tier 2 — reasoning, Sonnet.
   relationship_health: { model: MODELS.sonnet, tier: "medium", cache: true  },
   intro_suggestion:    { model: MODELS.sonnet, tier: "medium", cache: false },

@@ -185,6 +185,7 @@ const DEFAULT = {
     targetLocations: [],    // places you're interested in
     schools: [],
     industries: [],
+    skills: [],             // extracted from resume; strong match-score terms
     interests: [],          // personal — fuels authentic conversation starters
     networkingStyle: [],    // cold outreach / warm intros / coffee chats / events / email / linkedin
     communicationStyle: '', // how your messages should sound (e.g. warm, concise)
@@ -209,6 +210,7 @@ function shape(d){
       targetLocations: arr(sd.targetLocations, []),
       schools: arr(sd.schools, []),
       industries: arr(sd.industries, []),
+      skills: arr(sd.skills, []),
       interests: arr(sd.interests, []),
       networkingStyle: arr(sd.networkingStyle, []) } };
 }
@@ -294,7 +296,7 @@ function goalKeywords(goal){
 // profile (goal + roles + industries + schools), not just the goal sentence.
 function profileKeywords(settings){
   const s = settings||{};
-  const extra = [...(s.targetRoles||[]), ...(s.industries||[]), ...(s.schools||[])]
+  const extra = [...(s.targetRoles||[]), ...(s.industries||[]), ...(s.schools||[]), ...(s.skills||[])]
     .join(' ').toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/)
     .filter(w=>w && !GOAL_STOPWORDS.has(w) && (w.length>=3 || ['vc','ai','pm','ux','hr'].includes(w)));
   return [...new Set([...goalKeywords(s.goal), ...extra])].slice(0,14);
@@ -605,7 +607,7 @@ function App(){
     <div className="panel pad" style={{maxWidth:420,textAlign:'center'}}><h2>MIghTy isn't set up yet</h2>
       <p className="note" style={{marginTop:10}}>The deployer needs to add a Supabase project URL + anon key to <span className="mono">index.html</span> — see SETUP.md.</p></div></div>;
   if(auth.status!=='in') return <Gate sb={sb}/>;
-  if(!db.settings.onboardedAt) return <Onboarding db={db} patch={patch} auth={auth} setTab={setTab}/>;
+  if(!db.settings.onboardedAt) return <Onboarding sb={sb} db={db} patch={patch} auth={auth} setTab={setTab}/>;
 
   return <div className="app">
     <div className="rail">
@@ -736,7 +738,7 @@ function ChipInput({label, hint, placeholder, value, onChange, suggestions}){
     </div>}
   </div>;
 }
-function Onboarding({db, patch, auth, setTab}){
+function Onboarding({sb, db, patch, auth, setTab}){
   const [step,setStep]=useState(0);
   const S=db.settings;
   const [goal,setGoal]=useState(S.goal||'');
@@ -747,11 +749,26 @@ function Onboarding({db, patch, auth, setTab}){
   const [targetLocs,setTargetLocs]=useState(S.targetLocations||[]);
   const [schools,setSchools]=useState(S.schools||[]);
   const [industries,setIndustries]=useState(S.industries||[]);
+  const [skills,setSkills]=useState(S.skills||[]);
+  const [currentRole,setCurrentRole]=useState(S.currentRole||'');
+  const [currentCompany,setCurrentCompany]=useState(S.currentCompany||'');
+  const [yearsExperience,setYearsExperience]=useState(S.yearsExperience||'');
   const [style,setStyle]=useState(S.networkingStyle||[]);
   const [hardest,setHardest]=useState(S.hardestPart||'');
   const first=(auth.user.email||'').split('@')[0];
   const finish=()=>patch('settings',{ goal:goal.trim(), networkingReasons:reasons, targetCompanies:companies, targetRoles:roles,
-    homeLocation:homeLoc.trim(), targetLocations:targetLocs, schools, industries, networkingStyle:style, hardestPart:hardest, onboardedAt:Date.now() });
+    homeLocation:homeLoc.trim(), targetLocations:targetLocs, schools, industries, skills, currentRole:currentRole.trim(), currentCompany:currentCompany.trim(), yearsExperience:yearsExperience.trim(),
+    networkingStyle:style, hardestPart:hardest, onboardedAt:Date.now() });
+  // Resume extraction fills the local onboarding state (which finish() saves) —
+  // never patches settings directly, so nothing here is lost when finish() runs.
+  const onResume=e=>{
+    if(e.currentRole && !currentRole) setCurrentRole(e.currentRole);
+    if(e.currentCompany && !currentCompany) setCurrentCompany(e.currentCompany);
+    if(e.yearsExperience && !yearsExperience) setYearsExperience(e.yearsExperience);
+    setSkills(v=>mergeArr(v, e.skills));
+    setSchools(v=>mergeArr(v, e.schools));
+    setIndustries(v=>mergeArr(v, e.industries));
+  };
 
   const REASONS=['Get a job','Change careers','Raise funding','Find customers','Build partnerships','Find mentors','Hire talent','Build my brand','Grow my network'];
   const STYLES=['Warm introductions','Coffee chats','Cold outreach','Events','Email','LinkedIn'];
@@ -759,6 +776,7 @@ function Onboarding({db, patch, auth, setTab}){
   const STEPS = [
     { key:'welcome', title:`Welcome, ${first}`, sub:'MIghTy helps you build real relationships on LinkedIn, not just connections. A few quick questions, then you\'re set.' },
     { key:'goal', title:'What do you want to accomplish in the next 6-12 months?', sub:'This is the most important one. It becomes the lens MIghTy uses to rank people, draft messages, and plan your day.' },
+    { key:'resume', title:'Import your resume', sub:'Optional, but it fills in most of your profile in seconds. Upload a PDF or paste the text - MIghTy pulls out your skills, schools, and current role for you to confirm.' },
     { key:'reason', title:'Why are you networking?', sub:'Pick all that apply - it shapes the advice you get.' },
     { key:'targets', title:'Who are you targeting?', sub:'Dream companies and the roles you\'re after. MIghTy scores people against these. Optional, editable anytime.' },
     { key:'places', title:'Where?', sub:'Your city (so "near me" searches work) and any places you want to build a network.' },
@@ -796,6 +814,12 @@ function Onboarding({db, patch, auth, setTab}){
               {['Break into climate-tech VC','Land a PM role at a startup','Meet alumni in AI','Find a technical co-founder','Explore healthcare investing'].map(ex=>
                 <span key={ex} onClick={()=>setGoal(ex)} className="chip" style={{cursor:'pointer',background:'var(--card)',border:'1px solid var(--line)'}}>{ex}</span>)}
             </div>
+          </div>}
+          {s.key==='resume' && <div>
+            <ResumeImport sb={sb} auth={auth} onApply={onResume}/>
+            {(skills.length>0||currentRole||schools.length>0) && <div className="okbox" style={{marginTop:12}}>
+              Added so far:{currentRole?` ${currentRole}${currentCompany?` at ${currentCompany}`:''};`:''}{skills.length>0?` ${skills.length} skills;`:''}{schools.length>0?` ${schools.length} schools;`:''}{industries.length>0?` ${industries.length} industries.`:''} You can edit all of this later in Settings.
+            </div>}
           </div>}
           {s.key==='reason' &&
             <MultiSelect value={reasons} onChange={setReasons} options={REASONS}/>}
@@ -964,7 +988,7 @@ function FindPeople({sb, auth, db, patch, addPeople, setTab}){
     if(mode==='none') return localClean(located);
     try{
       const kw = await llm(sb, auth, 'tagging',
-        'You turn a natural-language request to find people into a short set of LinkedIn profile search keywords: role/title, company, industry, and location. Keep real company and place names exactly. Convert phrases like "tech companies" to "technology". Output ONLY the keywords on one line — no punctuation, quotes, or explanation.',
+        'You turn a natural-language request to find people into a short set of LinkedIn profile search keywords: role/title, company, industry, and location. Keep real company and place names exactly. Convert phrases like "tech companies" to "technology". Output ONLY the keywords on one line - no punctuation, quotes, or explanation.',
         located, 60);
       const clean=(kw||'').trim().replace(/[\n"]/g,' ').replace(/\s+/g,' ');
       return clean.length>1 ? clean : localClean(located);
@@ -974,7 +998,7 @@ function FindPeople({sb, auth, db, patch, addPeople, setTab}){
   // search in the student's own browser; the MIghTy extension reads the page).
   function openForExtension(kw){
     window.open('https://www.google.com/search?q='+encodeURIComponent('site:linkedin.com/in '+kw),'_blank','noopener');
-    setMsg({t:'Opened your search in a new tab — tick the profiles in the MIghTy panel there and hit Import. They\'ll land in your People list.'});
+    setMsg({t:'Opened your search in a new tab - tick the profiles in the MIghTy panel there and hit Import. They\'ll land in your People list.'});
   }
   async function go(){
     const raw=q.trim(); if(!raw || busy) return;
@@ -1335,6 +1359,101 @@ function CommunityInsights({communityStats}){
 // how many assists they've used today/this month and the estimated spend. All
 // queries fail soft — if the gateway tables aren't deployed yet, it just shows
 // a hint instead of an error.
+// Loads pdf.js on demand (only when the student picks a PDF) so the app stays
+// light for everyone else.
+function loadPdfJs(){
+  return new Promise((resolve,reject)=>{
+    if(window.pdfjsLib) return resolve(window.pdfjsLib);
+    const sc=document.createElement('script');
+    sc.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    sc.onload=()=>{ try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; resolve(window.pdfjsLib); }catch(e){ reject(e); } };
+    sc.onerror=()=>reject(new Error('Could not load the PDF reader.'));
+    document.head.appendChild(sc);
+  });
+}
+async function pdfToText(file){
+  const lib=await loadPdfJs();
+  const buf=await file.arrayBuffer();
+  const pdf=await lib.getDocument({data:buf}).promise;
+  let out='';
+  for(let i=1;i<=Math.min(pdf.numPages,8);i++){
+    const page=await pdf.getPage(i);
+    const tc=await page.getTextContent();
+    out += tc.items.map(it=>it.str).join(' ')+'\n';
+  }
+  return out;
+}
+const mergeArr=(a,b)=>{ const seen=new Set((a||[]).map(x=>x.toLowerCase())); return [...(a||[]), ...(b||[]).filter(x=>x&&!seen.has(x.toLowerCase()))]; };
+
+// Fills most of the profile from a resume. Reads the text (PDF via pdf.js, or a
+// pasted paste), asks the gateway to extract structured facts, shows them for
+// the student to confirm, then MERGES into settings — never overwriting what's
+// already there. This is the "AI extracts, you confirm" step.
+function ResumeImport({sb, auth, db, patch, onApply}){
+  const [text,setText]=useState(''); const [busy,setBusy]=useState(false);
+  const [ex,setEx]=useState(null); const [err,setErr]=useState(null); const [done,setDone]=useState(false);
+  const mode=llmMode(sb,auth);
+  async function onFile(e){
+    const f=e.target.files&&e.target.files[0]; if(!f) return;
+    setErr(null); setDone(false);
+    try{
+      if(/pdf$/i.test(f.name)||f.type==='application/pdf'){ setBusy(true); setText(await pdfToText(f)); setBusy(false); }
+      else { setText(await f.text()); }
+    }catch(e2){ setBusy(false); setErr('Could not read that file. Paste the text below instead.'); }
+  }
+  async function extract(){
+    if(!text.trim()||mode==='none'||busy) return;
+    setBusy(true); setErr(null); setDone(false);
+    try{
+      const r=await llmJSON(sb, auth, 'resume_extract',
+        'Extract structured facts from this resume for a professional-networking app. Use ONLY what the resume states - never infer or invent. Keep list items short (a few words each).',
+        `Resume text:\n${text.slice(0,9000)}\n\nReturn JSON: {"currentRole":string,"currentCompany":string,"yearsExperience":string,"skills":string[],"schools":string[],"industries":string[]}. Use "" or [] when unknown.`);
+      setEx({ currentRole:r.currentRole||'', currentCompany:r.currentCompany||'', yearsExperience:r.yearsExperience||'',
+        skills:(r.skills||[]).slice(0,12), schools:(r.schools||[]).slice(0,6), industries:(r.industries||[]).slice(0,6) });
+    }catch(e){ setErr(e.message||String(e)); }
+    setBusy(false);
+  }
+  function apply(){
+    const e=ex; if(!e) return;
+    if(onApply){ onApply(e); }
+    else patch('settings', s=>({...s,
+      currentRole: s.currentRole||e.currentRole,
+      currentCompany: s.currentCompany||e.currentCompany,
+      yearsExperience: s.yearsExperience||e.yearsExperience,
+      skills: mergeArr(s.skills, e.skills),
+      schools: mergeArr(s.schools, e.schools),
+      industries: mergeArr(s.industries, e.industries) }));
+    setEx(null); setText(''); setDone(true);
+  }
+  if(mode==='none') return <div className="panel pad"><div className="note">Sign in to import your resume.</div></div>;
+  return <div className="panel pad">
+    <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+      <div style={{fontWeight:600,fontSize:14}}>Import from your resume</div>
+      <div style={{flex:1}}/>
+      <label className="btn ghost sm" style={{cursor:'pointer'}}>Upload PDF<input type="file" accept=".pdf,.txt,application/pdf,text/plain" style={{display:'none'}} onChange={onFile}/></label>
+    </div>
+    <div className="note" style={{margin:'6px 0 10px',fontSize:12.5}}>Upload a PDF or paste the text - MIghTy fills in your skills, schools, industries, and current role for you to confirm. Nothing is stored except what you keep.</div>
+    <textarea className="inp" rows={4} value={text} onChange={e=>setText(e.target.value)} placeholder="…or paste your resume text here"/>
+    <div style={{display:'flex',gap:10,alignItems:'center',marginTop:10}}>
+      <button className="btn" onClick={extract} disabled={busy||!text.trim()}>{busy?<Dots/>:'Extract with AI'}</button>
+      {done && <span className="note" style={{color:'var(--green2)'}}>✓ Added to your profile below.</span>}
+    </div>
+    {err && <div className="warnbox" style={{marginTop:10}}>{err}</div>}
+    {ex && <div style={{marginTop:14,borderTop:'1px solid var(--line)',paddingTop:12}}>
+      <div className="tag" style={{marginBottom:8}}>Found in your resume - confirm to add</div>
+      <div style={{display:'flex',flexDirection:'column',gap:6,fontSize:13}}>
+        {ex.currentRole && <div><span className="note">Current role: </span>{ex.currentRole}{ex.currentCompany?` at ${ex.currentCompany}`:''}{ex.yearsExperience?` · ${ex.yearsExperience}`:''}</div>}
+        {ex.skills.length>0 && <div><span className="note">Skills: </span>{ex.skills.join(', ')}</div>}
+        {ex.schools.length>0 && <div><span className="note">Schools: </span>{ex.schools.join(', ')}</div>}
+        {ex.industries.length>0 && <div><span className="note">Industries: </span>{ex.industries.join(', ')}</div>}
+      </div>
+      <div style={{display:'flex',gap:10,marginTop:12}}>
+        <button className="btn" onClick={apply}>Add to my profile</button>
+        <a className="note" style={{cursor:'pointer'}} onClick={()=>setEx(null)}>Discard</a>
+      </div>
+    </div>}
+  </div>;
+}
 function AiUsagePanel({sb, auth}){
   const [u,setU]=useState(undefined); // undefined=loading, null=unavailable, obj=data
   useEffect(()=>{
@@ -1424,6 +1543,7 @@ function Settings({db,patch,auth,sb,signOut,setTab}){
 
     <div className="tag" style={{margin:'26px 0 10px'}}>Your profile</div>
     <div className="note" style={{margin:'-4px 0 10px',fontSize:12.5}}>The more MIghTy knows, the sharper its ranking, drafts, and daily plan. Everything here is private to you.</div>
+    <div style={{marginBottom:14}}><ResumeImport sb={sb} auth={auth} db={db} patch={patch}/></div>
     {(()=>{ const arrField=(label,key,ph)=><div style={{marginBottom:12}}><label className="fld">{label}</label>
         <input className="inp" defaultValue={(db.settings[key]||[]).join(', ')}
           onBlur={e=>patch('settings', s=>({...s, [key]: e.target.value.split(',').map(x=>x.trim()).filter(Boolean)}))} placeholder={ph}/></div>;
@@ -1440,6 +1560,7 @@ function Settings({db,patch,auth,sb,signOut,setTab}){
         {arrField('Places you want to network in','targetLocations','New York, London')}
         {arrField('Schools','schools','MIT Sloan, IIM Bangalore')}
         {arrField('Industries','industries','Healthcare, Climate, AI')}
+        {arrField('Skills','skills','Strategy, Python, Operations')}
         {arrField('Personal interests (for conversation starters)','interests','Running, Chess, Formula 1')}
         {arrField('Preferred networking style','networkingStyle','Warm introductions, Coffee chats')}
         {txtField('How your messages should sound','communicationStyle','Warm, concise, a little informal')}
