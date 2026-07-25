@@ -1,26 +1,55 @@
 {
   "manifest_version": 3,
-  "name": "MIghTy — LinkedIn Outreach",
-  "version": "0.1.6",
+  "name": "MIghTy \u2014 LinkedIn Outreach",
+  "version": "0.1.7",
   "description": "Shortlist LinkedIn profiles, see real match scores and a docked context panel, and log confirmed sends back to your MIghTy account. Never clicks Connect/Message for you.",
-  "permissions": ["storage"],
+  "permissions": [
+    "storage"
+  ],
   "host_permissions": [
     "https://*.linkedin.com/*",
     "https://*.licdn.com/*",
-    "https://*.google.com/*",
     "https://*.supabase.co/*"
   ],
-  "background": { "service_worker": "background.js" },
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
-    { "matches": ["https://*.linkedin.com/*", "https://www.google.com/search*"], "js": ["scoring.js", "content.js"], "run_at": "document_idle" }
+    {
+      "matches": [
+        "https://*.linkedin.com/*"
+      ],
+      "js": [
+        "scoring.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
   ],
   "web_accessible_resources": [
-    { "resources": ["icons/*.png"], "matches": ["https://*.linkedin.com/*", "https://www.google.com/*"] }
+    {
+      "resources": [
+        "icons/*.png"
+      ],
+      "matches": [
+        "https://*.linkedin.com/*"
+      ]
+    }
   ],
-  "icons": { "16": "icons/logo-16.png", "32": "icons/logo-32.png", "48": "icons/logo-48.png", "128": "icons/logo-128.png" },
+  "icons": {
+    "16": "icons/logo-16.png",
+    "32": "icons/logo-32.png",
+    "48": "icons/logo-48.png",
+    "128": "icons/logo-128.png"
+  },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "MIghTy — LinkedIn Outreach",
-    "default_icon": { "16": "icons-grey/logo-16.png", "32": "icons-grey/logo-32.png", "48": "icons-grey/logo-48.png", "128": "icons-grey/logo-128.png" }
+    "default_title": "MIghTy \u2014 LinkedIn Outreach",
+    "default_icon": {
+      "16": "icons-grey/logo-16.png",
+      "32": "icons-grey/logo-32.png",
+      "48": "icons-grey/logo-48.png",
+      "128": "icons-grey/logo-128.png"
+    }
   }
 }
