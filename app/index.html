@@ -531,6 +531,17 @@ function App(){
     try{ await sb.from('outreach_log').update({...fields, updated_at:new Date().toISOString()}).eq('id',row.id); await refreshLog(sb, auth.user); return {ok:true}; }
     catch(e){ return {ok:false, error:e.message||String(e)}; }
   }
+  // Permanently remove people from the pipeline. Deletes their events first
+  // (outreach_events has no cascade), then the log rows. RLS scopes to the user.
+  async function deletePeople(ids){
+    if(!sb || auth.status!=='in' || !ids || !ids.length) return {ok:false};
+    try{
+      await sb.from('outreach_events').delete().in('log_id', ids);
+      await sb.from('outreach_log').delete().in('id', ids);
+      await refreshLog(sb, auth.user); await refreshEvents(sb, auth.user);
+      return {ok:true};
+    }catch(e){ return {ok:false, error:e.message||String(e)}; }
+  }
   // Import people discovered via web search straight into the pipeline as
   // prospects (upsert, so re-importing someone is a no-op). RLS scopes to the user.
   async function addPeople(people){
@@ -628,7 +639,7 @@ function App(){
       <div className="topbar"><h2>{TITLES[tab]}</h2></div>
       <div className="content">
         {tab==='dashboard' && <Dashboard db={db} patch={patch} log={log} events={events} tasks={tasks} communityStats={communityStats} sb={sb} auth={auth} addPeople={addPeople} setTab={setTab} setDrawerId={setDrawerId} setDraftFor={setDraftFor}/>}
-        {tab==='people' && <People db={db} log={log} events={events} doIngest={doIngest} setDrawerId={setDrawerId} sb={sb} auth={auth}/>}
+        {tab==='people' && <People db={db} log={log} events={events} doIngest={doIngest} setDrawerId={setDrawerId} sb={sb} auth={auth} deletePeople={deletePeople}/>}
         {tab==='pipeline' && <Pipeline log={log} changeStage={changeStage}/>}
         {tab==='tasks' && <Tasks tasks={tasks} log={log} addTask={addTask} toggleTask={toggleTask} deleteTask={deleteTask} setDrawerId={setDrawerId}/>}
         {tab==='insights' && <Insights log={log} events={events} communityStats={communityStats}/>}
@@ -1146,10 +1157,12 @@ function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,addPeople,s
 }
 
 /* ============================ People ============================ */
-function People({db,log,events,doIngest,setDrawerId,sb,auth}){
+function People({db,log,events,doIngest,setDrawerId,sb,auth,deletePeople}){
   const [q,setQ]=useState(''); const [checking,setChecking]=useState(false);
   const [ai,setAi]=useState(null); const [aiBusy,setAiBusy]=useState(false); const [aiErr,setAiErr]=useState(null);
+  const [sel,setSel]=useState(()=>new Set()); const [delBusy,setDelBusy]=useState(false);
   const mode = llmMode(sb,auth);
+  const toggleOne=(id)=>setSel(s=>{ const n=new Set(s); n.has(id)?n.delete(id):n.add(id); return n; });
   const ql = q.toLowerCase();
   // When an AI answer is showing, the query is a question (not a name filter),
   // so keep the full table below instead of filtering it to nothing.
@@ -1181,6 +1194,17 @@ function People({db,log,events,doIngest,setDrawerId,sb,auth}){
   }
   const aiRows = ai ? ai.map(m=>({m, r:log.find(x=>x.id===m.id)})).filter(x=>x.r) : null;
 
+  const visibleIds = rows.map(r=>r.id);
+  const allSel = visibleIds.length>0 && visibleIds.every(id=>sel.has(id));
+  const toggleAll=()=>setSel(s=>{ const n=new Set(s); if(visibleIds.every(id=>n.has(id))){ visibleIds.forEach(id=>n.delete(id)); } else { visibleIds.forEach(id=>n.add(id)); } return n; });
+  async function doDelete(){
+    if(!sel.size) return;
+    if(!window.confirm(`Delete ${sel.size} ${sel.size===1?'person':'people'} from your pipeline? This also removes their logged history and cannot be undone.`)) return;
+    setDelBusy(true);
+    await deletePeople([...sel]);
+    setSel(new Set()); setDelBusy(false);
+  }
+
   return <div className="page wide">
     <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:12}}>
       <input className="inp" style={{width:360}} value={q} onChange={e=>setQ(e.target.value)}
@@ -1191,6 +1215,13 @@ function People({db,log,events,doIngest,setDrawerId,sb,auth}){
       <div style={{flex:1}}/>
       <button className="btn ghost sm" onClick={async()=>{setChecking(true); await doIngest(); setChecking(false);}} disabled={checking}>{checking?<Dots/>:'↻ Check for new profiles'}</button>
     </div>
+
+    {sel.size>0 && <div className="panel" style={{display:'flex',alignItems:'center',gap:12,marginBottom:12,padding:'10px 16px'}}>
+      <div style={{fontWeight:600,fontSize:13}}>{sel.size} selected</div>
+      <div style={{flex:1}}/>
+      <button className="btn ghost sm" onClick={()=>setSel(new Set())}>Clear</button>
+      <button className="btn sm" onClick={doDelete} disabled={delBusy} style={{background:'var(--brand)',color:'#fff',border:'none'}}>{delBusy?<Dots/>:`Delete ${sel.size}`}</button>
+    </div>}
 
     {aiErr && <div className="warnbox" style={{marginBottom:12}}>{aiErr}</div>}
     {aiRows && <div className="panel pad" style={{marginBottom:14}}>
@@ -1210,10 +1241,13 @@ function People({db,log,events,doIngest,setDrawerId,sb,auth}){
     <div className="panel" style={{overflow:'auto'}}>
       {log.length===0
         ? <div className="empty"><div className="big">◔</div>Nobody yet. Shortlist profiles with the extension, then hit "Check for new profiles."</div>
-        : <table className="ptable"><thead><tr><th>Name</th><th>Company</th><th>Role</th><th>Status</th><th>Priority</th><th>Last activity</th><th>Next action</th></tr></thead>
+        : <table className="ptable"><thead><tr>
+            <th style={{width:34,paddingRight:0}}><input type="checkbox" checked={allSel} onChange={toggleAll} aria-label="Select all" style={{cursor:'pointer'}}/></th>
+            <th>Name</th><th>Company</th><th>Role</th><th>Status</th><th>Priority</th><th>Last activity</th><th>Next action</th></tr></thead>
           <tbody>{rows.map(r=>{
             const na = suggestedNextAction(r, events.filter(e=>e.log_id===r.id), db.settings.followUpDays);
-            return <tr key={r.id} className="body-row" onClick={()=>setDrawerId(r.id)}>
+            return <tr key={r.id} className="body-row" onClick={()=>setDrawerId(r.id)} style={sel.has(r.id)?{background:'var(--tsoft)'}:null}>
+              <td onClick={e=>e.stopPropagation()} style={{width:34,paddingRight:0}}><input type="checkbox" checked={sel.has(r.id)} onChange={()=>toggleOne(r.id)} aria-label="Select" style={{cursor:'pointer'}}/></td>
               <td><div style={{display:'flex',alignItems:'center',gap:9}}><Avatar row={r}/><div style={{minWidth:0}}><div style={{fontWeight:600,fontSize:13,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{displayName(r)}</div></div></div></td>
               <td>{r.company||''}</td>
               <td style={{color:'var(--sub)'}}>{r.title||''}</td>
