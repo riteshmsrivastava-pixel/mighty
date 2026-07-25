@@ -230,6 +230,11 @@ function loadDB(){ try{ return shape(JSON.parse(localStorage.getItem(DB_KEY))); 
 const uid = () => Math.random().toString(36).slice(2,10);
 const now = () => Date.now();
 const fmtDate = ts => new Date(ts).toLocaleDateString(undefined,{month:'short',day:'numeric'});
+const fmtDateTime = ts => new Date(ts).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+// Human "in X" for a future time (rel() only speaks past-tense).
+const relFuture = ts => { const s=(ts-now())/1000; if(s<=0) return 'now'; const m=s/60,h=m/60,d=h/24;
+  if(m<60) return `in ${Math.max(1,Math.round(m))}m`; if(h<24) return `in ${Math.round(h)}h`;
+  if(d<14) return `in ${Math.round(d)}d`; return fmtDate(ts); };
 const rel = ts => { if(!ts) return 'never'; const s=(now()-ts)/1000;
   if(s<60) return 'just now'; if(s<3600) return Math.floor(s/60)+'m ago';
   if(s<86400) return Math.floor(s/3600)+'h ago'; return Math.floor(s/86400)+'d ago'; };
@@ -834,6 +839,83 @@ function lastInteraction(row, evs){
   return {label:'Saved', when: rel(new Date(row.shortlisted_at||row.updated_at).getTime())};
 }
 
+/* ============================ Meetings & calendar ============================
+   #12 Calendar (read-only). Live Google Calendar sync needs OAuth credentials
+   the user must provision (same gate as the search CSE key) — until then this is
+   the honest, pragmatic version: add a meeting by hand, or paste an .ics file and
+   Mighty matches attendees to your contacts. Meetings live per-person in
+   context.meetings[] so there's no migration. Each one drives two moments that
+   matter: a pre-meeting brief (who they are + what Mighty knows + your open
+   promises) and, once it's passed, a nudge to capture what happened — which feeds
+   straight into the same coffee-chat extraction that grows the memory graph. */
+const MEETING_MODES = { coffee:{icon:'☕',label:'Coffee chat'}, call:{icon:'📞',label:'Call'}, video:{icon:'🎥',label:'Video call'}, meeting:{icon:'🤝',label:'Meeting'}, interview:{icon:'💼',label:'Interview'} };
+function readMeetings(row){ const m=((row.context||{}).meetings)||[]; return Array.isArray(m)?m:[]; }
+function writeMeetings(row, updateRow, arr){ return updateRow(row, { context: { ...(row.context||{}), meetings: arr } }); }
+function newMeeting(o){
+  return { id:'mt'+Math.random().toString(36).slice(2,8)+Date.now().toString(36),
+    at:o.at, title:o.title||'', mode:o.mode||'coffee', source:o.source||'manual',
+    captured:false, createdAt:Date.now() };
+}
+// Flatten meetings across every contact, tagged with their person row, sorted by time.
+function allMeetings(log){
+  const out=[];
+  (log||[]).forEach(row=> readMeetings(row).forEach(mt=>{ if(mt&&mt.at) out.push({...mt, row, ts:new Date(mt.at).getTime()}); }));
+  return out.filter(m=>!isNaN(m.ts)).sort((a,b)=>a.ts-b.ts);
+}
+function upcomingMeetings(log, withinDays){
+  const t=now(), end=withinDays?t+withinDays*864e5:Infinity;
+  return allMeetings(log).filter(m=>m.ts>=t && m.ts<=end);
+}
+// Passed, not yet captured — the "how did it go?" moment.
+function meetingsToCapture(log){
+  const t=now();
+  return allMeetings(log).filter(m=>m.ts<t && !m.captured).sort((a,b)=>b.ts-a.ts);
+}
+// Minimal iCalendar parser — enough for real Google/Outlook/Apple .ics exports.
+// Unfolds RFC-5545 line continuations, reads SUMMARY / DTSTART / ATTENDEE(CN + mailto).
+function parseICS(text){
+  if(!text) return [];
+  const raw = String(text).replace(/\r\n/g,'\n').replace(/\n[ \t]/g,''); // unfold
+  const events=[]; let cur=null;
+  raw.split('\n').forEach(line=>{
+    if(line==='BEGIN:VEVENT'){ cur={summary:'', start:null, attendees:[], emails:[]}; return; }
+    if(line==='END:VEVENT'){ if(cur) events.push(cur); cur=null; return; }
+    if(!cur) return;
+    const ci=line.indexOf(':'); if(ci<0) return;
+    const keyPart=line.slice(0,ci), val=line.slice(ci+1);
+    const key=keyPart.split(';')[0].toUpperCase();
+    if(key==='SUMMARY') cur.summary=val.replace(/\\,/g,',').replace(/\\;/g,';').trim();
+    else if(key==='DTSTART') cur.start=parseICSDate(val);
+    else if(key==='ATTENDEE'){
+      const cn=/CN=([^;:]+)/i.exec(keyPart); if(cn) cur.attendees.push(cn[1].replace(/^"|"$/g,'').trim());
+      const em=/mailto:([^\s;:]+)/i.exec(val); if(em) cur.emails.push(em[1].toLowerCase());
+    }
+  });
+  return events.filter(e=>e.start);
+}
+function parseICSDate(v){
+  // Forms: 20260730T140000Z, 20260730T140000, 20260730 (all-day)
+  const m=/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2}))?(Z)?$/.exec(String(v).trim());
+  if(!m) { const t=Date.parse(v); return isNaN(t)?null:t; }
+  const [,Y,Mo,D,h,mi,s,z]=m;
+  if(z) return Date.UTC(+Y,+Mo-1,+D,+(h||0),+(mi||0),+(s||0));
+  return new Date(+Y,+Mo-1,+D,+(h||0),+(mi||0),+(s||0)).getTime();
+}
+// Match a parsed calendar event to a tracked contact: attendee name, then a name
+// mention inside the summary. Conservative — no match is better than a wrong one.
+function matchMeetingContact(log, ev){
+  const norm=s=>String(s||'').toLowerCase().replace(/[^a-z\s]/g,'').trim();
+  const names=(ev.attendees||[]).map(norm).filter(Boolean);
+  const summ=norm(ev.summary);
+  for(const row of log){
+    const dn=norm(displayName(row)); if(dn.length<3) continue;
+    if(names.includes(dn)) return row;
+    // full-name mention in the title ("Coffee with Amit Jain")
+    const parts=dn.split(/\s+/); if(parts.length>=2 && summ.includes(dn)) return row;
+  }
+  return null;
+}
+
 /* ============================ App shell ============================ */
 function App(){
   const [db,setDb] = useState(loadDB);
@@ -1061,12 +1143,12 @@ function App(){
     <div className="main">
       <div className="topbar"><h2>{TITLES[tab]}</h2>{SUBTITLES[tab] && <span className="note" style={{color:'var(--mute2)',fontSize:13.5}}>{SUBTITLES[tab]}</span>}</div>
       <div className="content">
-        {tab==='dashboard' && <Dashboard db={db} patch={patch} log={log} events={events} tasks={tasks} communityStats={communityStats} sb={sb} auth={auth} addPeople={addPeople} setTab={setTab} setDrawerId={setDrawerId} setDraftFor={setDraftFor}/>}
+        {tab==='dashboard' && <Dashboard db={db} patch={patch} log={log} events={events} tasks={tasks} communityStats={communityStats} sb={sb} auth={auth} addPeople={addPeople} setTab={setTab} setDrawerId={setDrawerId} setDraftFor={setDraftFor} updateRow={updateRow}/>}
         {tab==='people' && <People db={db} log={log} events={events} doIngest={doIngest} setDrawerId={setDrawerId} sb={sb} auth={auth} deletePeople={deletePeople} updateRow={updateRow}/>}
         {tab==='pipeline' && <Pipeline log={log} events={events} followUpDays={db.settings.followUpDays} changeStage={changeStage}/>}
         {tab==='tasks' && <Tasks tasks={tasks} log={log} events={events} db={db} addTask={addTask} toggleTask={toggleTask} deleteTask={deleteTask} setDrawerId={setDrawerId}/>}
         {tab==='insights' && <Insights log={log} events={events} tasks={tasks} db={db} communityStats={communityStats} setDrawerId={setDrawerId}/>}
-        {tab==='settings' && <Settings db={db} patch={patch} auth={auth} sb={sb} signOut={signOut} setTab={setTab}/>}
+        {tab==='settings' && <Settings db={db} patch={patch} auth={auth} sb={sb} signOut={signOut} setTab={setTab} log={log} updateRow={updateRow}/>}
         {tab==='templates' && <Templates db={db} patch={patch} sb={sb} auth={auth} setTab={setTab}/>}
         {tab==='extpreview' && <ExtensionPreview/>}
       </div>
@@ -1540,8 +1622,119 @@ function FindPeople({sb, auth, db, patch, addPeople, setTab}){
   </div>;
 }
 
+/* ============================ Meetings ============================ */
+// Pre-meeting brief. Everything Mighty already knows, plus AI talking points — so
+// you walk in warm. Reuses confirmed memories only (suggestions never leak in).
+function MeetingPrepModal({row, evs, db, sb, auth, onClose}){
+  const mems = personMemories(row, evs);
+  const yourPromises = mems.filter(m=>m.type==='promise');
+  const theirPromises = mems.filter(m=>m.type==='their_promise');
+  const facts = mems.filter(m=>!['promise','their_promise','starter'].includes(m.type)).slice(0,6);
+  const [points,setPoints] = useState(null);
+  const [busy,setBusy] = useState(false), [err,setErr] = useState(null);
+  async function generate(){
+    setBusy(true); setErr(null);
+    try{
+      const memLines = mems.slice(0,10).map(m=>`- ${m.value}`).join('\n') || '(nothing captured yet)';
+      const r = await llmJSON(sb, auth, 'meeting_prep',
+        `You prep a busy professional for a 1:1. Given your goal and what's known about the other person, return 3 specific, non-generic talking points or questions that move the relationship forward. Return JSON: {"points": string[]}`,
+        `My goal: ${db.settings.goal||'build my network'}.\nMeeting with: ${displayName(row)}${row.title?', '+row.title:''}${row.company?' at '+row.company:''}.\nWhat I know about them:\n${memLines}`,
+        500);
+      setPoints((r&&r.points)||[]);
+    }catch(e){ setErr(e.message||'Could not generate'); }
+    setBusy(false);
+  }
+  return <div className="modal-overlay" onClick={onClose}>
+    <div className="modal" style={{maxWidth:480,padding:22}} onClick={e=>e.stopPropagation()}>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
+        <Avatar row={row} size={38}/>
+        <div><div style={{fontWeight:700,fontSize:16}}>Prep — {displayName(row)}</div>
+          <div className="note" style={{fontSize:12.5}}>{[row.title,row.company].filter(Boolean).join(' · ')||'Before you meet'}</div></div>
+      </div>
+      {facts.length>0 && <div style={{marginTop:14}}><div className="tag">What Mighty knows</div>
+        <div style={{marginTop:6,display:'flex',flexDirection:'column',gap:5}}>
+          {facts.map(m=><div key={m.id} style={{fontSize:13.5,display:'flex',gap:8}}><span style={{color:'var(--muted)'}}>{(MEM_TYPES[m.type]||{}).t||'•'}</span><span>{m.value}</span></div>)}
+        </div></div>}
+      {yourPromises.length>0 && <div style={{marginTop:12}}><div className="tag" style={{color:'var(--terra)'}}>You promised them</div>
+        {yourPromises.map(m=><div key={m.id} style={{fontSize:13.5,marginTop:4}}>→ {m.value}</div>)}</div>}
+      {theirPromises.length>0 && <div style={{marginTop:12}}><div className="tag">They promised you</div>
+        {theirPromises.map(m=><div key={m.id} style={{fontSize:13.5,marginTop:4}}>← {m.value}</div>)}</div>}
+      <div style={{marginTop:16}}><div className="tag">Talking points</div>
+        {!points && <button className="btn sm" style={{marginTop:8}} disabled={busy} onClick={generate}>{busy?'Thinking…':'✨ Suggest talking points'}</button>}
+        {err && <div className="note" style={{color:'var(--terra)',marginTop:6,fontSize:12.5}}>{err}</div>}
+        {points && (points.length? <ol style={{margin:'8px 0 0 18px',padding:0,display:'flex',flexDirection:'column',gap:6}}>
+          {points.map((p,i)=><li key={i} style={{fontSize:13.5}}>{p}</li>)}</ol>
+          : <div className="note" style={{marginTop:6}}>Capture a coffee chat first — Mighty needs something to work with.</div>)}
+      </div>
+      <div style={{display:'flex',justifyContent:'flex-end',marginTop:18}}><button className="btn sm" onClick={onClose}>Done</button></div>
+    </div>
+  </div>;
+}
+// Coming-up + capture nudges on the dashboard. Add a meeting by hand here, or
+// import a calendar in Settings. This is the surface that makes the calendar useful.
+function MeetingsStrip({log, events, db, sb, auth, updateRow, setDrawerId}){
+  const upcoming = upcomingMeetings(log, 14);
+  const toCapture = meetingsToCapture(log).slice(0,3);
+  const [prep,setPrep] = useState(null);      // {row}
+  const [adding,setAdding] = useState(false);
+  const [pid,setPid] = useState(''), [when,setWhen] = useState(''), [mode,setMode] = useState('coffee');
+  async function addMeeting(){
+    const row = log.find(r=>String(r.id)===String(pid)); if(!row||!when) return;
+    const arr=[...readMeetings(row), newMeeting({at:new Date(when).toISOString(), mode})];
+    await writeMeetings(row, updateRow, arr);
+    setAdding(false); setPid(''); setWhen(''); setMode('coffee');
+  }
+  async function markCaptured(m){
+    const arr = readMeetings(m.row).map(x=>x.id===m.id?{...x,captured:true}:x);
+    await writeMeetings(m.row, updateRow, arr);
+  }
+  if(!upcoming.length && !toCapture.length && !adding)
+    return <div style={{marginTop:14}}><button className="btn sm" style={{background:'var(--card)',color:'var(--ink)',border:'1px solid var(--line)'}} onClick={()=>setAdding(true)}>＋ Add a meeting</button></div>;
+  return <div style={{marginTop:14}}>
+    {toCapture.length>0 && <>
+      <div className="tag" style={{margin:'0 0 8px'}}>Just met?</div>
+      <div className="panel" style={{overflow:'hidden',marginBottom:14}}>
+        {toCapture.map((m,i)=><div key={m.id} style={{display:'flex',alignItems:'center',gap:12,padding:'13px 18px',borderTop:i?'1px solid var(--line2)':'none'}}>
+          <span style={{fontSize:18}}>{(MEETING_MODES[m.mode]||{}).icon||'🗓'}</span>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontWeight:600,fontSize:14}}>{displayName(m.row)}</div>
+            <div className="note" style={{fontSize:12.5}}>Met {rel(m.ts)} — capture what happened so Mighty remembers</div>
+          </div>
+          <button className="btn sm" onClick={()=>setDrawerId(m.row.id)}>Capture</button>
+          <button className="iconbtn" title="Dismiss" onClick={()=>markCaptured(m)}>✕</button>
+        </div>)}
+      </div></>}
+    {upcoming.length>0 && <>
+      <div className="tag" style={{margin:'0 0 8px',display:'flex',justifyContent:'space-between'}}><span>Coming up</span>
+        <span style={{cursor:'pointer',color:'var(--brand)',fontWeight:600}} onClick={()=>setAdding(a=>!a)}>＋ Add</span></div>
+      <div className="panel" style={{overflow:'hidden'}}>
+        {upcoming.map((m,i)=><div key={m.id} style={{display:'flex',alignItems:'center',gap:12,padding:'13px 18px',borderTop:i?'1px solid var(--line2)':'none'}}>
+          <span style={{fontSize:18}}>{(MEETING_MODES[m.mode]||{}).icon||'🗓'}</span>
+          <div style={{flex:1,minWidth:0,cursor:'pointer'}} onClick={()=>setDrawerId(m.row.id)}>
+            <div style={{fontWeight:600,fontSize:14}}>{displayName(m.row)}</div>
+            <div className="note" style={{fontSize:12.5}}>{(MEETING_MODES[m.mode]||{}).label} · {fmtDateTime(m.ts)} · {relFuture(m.ts)}</div>
+          </div>
+          <button className="btn sm" onClick={()=>setPrep({row:m.row})}>Prep</button>
+        </div>)}
+      </div></>}
+    {adding && <div className="panel pad" style={{marginTop:10,display:'flex',flexWrap:'wrap',gap:8,alignItems:'center'}}>
+      <select className="inp" style={{flex:'1 1 150px'}} value={pid} onChange={e=>setPid(e.target.value)}>
+        <option value="">Who are you meeting?</option>
+        {log.slice().sort((a,b)=>displayName(a).localeCompare(displayName(b))).map(r=><option key={r.id} value={r.id}>{displayName(r)}{r.company?` · ${r.company}`:''}</option>)}
+      </select>
+      <input className="inp" style={{flex:'1 1 160px'}} type="datetime-local" value={when} onChange={e=>setWhen(e.target.value)}/>
+      <select className="inp" style={{flex:'0 0 130px'}} value={mode} onChange={e=>setMode(e.target.value)}>
+        {Object.entries(MEETING_MODES).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}
+      </select>
+      <button className="btn sm" disabled={!pid||!when} onClick={addMeeting}>Add</button>
+      <button className="iconbtn" onClick={()=>setAdding(false)}>Cancel</button>
+    </div>}
+    {prep && <MeetingPrepModal row={prep.row} evs={events.filter(e=>e.log_id===prep.row.id)} db={db} sb={sb} auth={auth} onClose={()=>setPrep(null)}/>}
+  </div>;
+}
+
 /* ============================ Dashboard ============================ */
-function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,addPeople,setTab,setDrawerId,setDraftFor}){
+function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,addPeople,setTab,setDrawerId,setDraftFor,updateRow}){
   const candidates = log.filter(r=>r.status==='prospect'||r.status==='ready_to_contact');
   const scored = candidates.map(r=>({row:r, kind:'contact', label:'Send the first message', ...computeScore(r, db.settings.targetCompanies, profileKeywords(db.settings))}));
   const followUpDays = db.settings.followUpDays||7;
@@ -1561,6 +1754,8 @@ function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,addPeople,s
     <div style={{marginTop:20}}><DailyCopilot db={db} log={log} events={events} tasks={tasks} sb={sb} auth={auth} setDrawerId={setDrawerId}/></div>
 
     <div style={{marginTop:14}}><FindPeople sb={sb} auth={auth} db={db} patch={patch} addPeople={addPeople} setTab={setTab}/></div>
+
+    <MeetingsStrip log={log} events={events} db={db} sb={sb} auth={auth} updateRow={updateRow} setDrawerId={setDrawerId}/>
 
     <div className="tag" style={{margin:'28px 0 10px'}}>Today's priorities</div>
     {priorities.length===0
@@ -2251,7 +2446,54 @@ function AssetsPanel({db,patch}){
       : <button className="btn ghost sm" onClick={()=>setAdding(true)}>＋ Add an asset</button>}
   </div>;
 }
-function Settings({db,patch,auth,sb,signOut,setTab}){
+// Calendar import — paste an .ics export, Mighty matches attendees to your
+// contacts and files each event as an upcoming meeting. Read-only by design: it
+// never writes to your calendar. Live two-way Google Calendar sync needs OAuth
+// credentials you'd provision yourself (like the people-search key) — flagged
+// honestly rather than faked.
+function CalendarImport({log, updateRow}){
+  const [text,setText]=useState('');
+  const [preview,setPreview]=useState(null);  // [{ev,row}]
+  const [msg,setMsg]=useState(null);
+  function scan(){
+    setMsg(null);
+    const evs=parseICS(text).filter(e=>e.start>=now()-864e5); // today onward
+    const matched=evs.map(ev=>({ev, row:matchMeetingContact(log, ev)})).filter(x=>x.row);
+    if(!evs.length){ setMsg({err:true,t:'No calendar events found — paste the full contents of a .ics file.'}); setPreview(null); return; }
+    if(!matched.length){ setMsg({err:true,t:`Found ${evs.length} event${evs.length!==1?'s':''}, but none matched a contact by name. Add the person first, or add the meeting by hand from Home.`}); setPreview(null); return; }
+    setPreview(matched);
+  }
+  async function importAll(){
+    let n=0;
+    // group by row so we write each contact once
+    const byRow=new Map();
+    preview.forEach(({ev,row})=>{ const list=byRow.get(row)||[]; list.push(ev); byRow.set(row,list); });
+    for(const [row,evsForRow] of byRow){
+      const existing=readMeetings(row);
+      const have=new Set(existing.map(m=>new Date(m.at).getTime()));
+      const fresh=evsForRow.filter(ev=>!have.has(ev.start))
+        .map(ev=>{ const s=(ev.summary||'').toLowerCase();
+          const mode=/interview/.test(s)?'interview':/call|phone/.test(s)?'call':/zoom|meet|video|teams/.test(s)?'video':/coffee|chat|catch/.test(s)?'coffee':'meeting';
+          return newMeeting({at:new Date(ev.start).toISOString(), title:ev.summary, mode, source:'ics'}); });
+      if(fresh.length){ await writeMeetings(row, updateRow, [...existing, ...fresh]); n+=fresh.length; }
+    }
+    setPreview(null); setText(''); setMsg({err:false,t:`Imported ${n} meeting${n!==1?'s':''}. See them on Home.`});
+  }
+  return <div className="panel pad">
+    <div className="note" style={{fontSize:12.5,marginBottom:8}}>Export a day/week from Google, Outlook or Apple Calendar as <b>.ics</b> and paste it here. Mighty reads it only to match attendees to your contacts — it never writes back to your calendar.</div>
+    <textarea className="inp" rows={3} placeholder="Paste .ics contents…" value={text} onChange={e=>setText(e.target.value)}/>
+    <div style={{display:'flex',gap:8,marginTop:8}}>
+      <button className="btn sm" disabled={!text.trim()} onClick={scan}>Scan for meetings</button>
+      {preview && <button className="btn sm" onClick={importAll}>Import {preview.length} matched →</button>}
+    </div>
+    {preview && <div style={{marginTop:10,display:'flex',flexDirection:'column',gap:5}}>
+      {preview.map(({ev,row},i)=><div key={i} style={{fontSize:13,display:'flex',gap:8,alignItems:'center'}}>
+        <span style={{color:'var(--muted)'}}>{fmtDateTime(ev.start)}</span><b>{displayName(row)}</b><span className="note" style={{fontSize:12}}>{ev.summary}</span></div>)}
+    </div>}
+    {msg && <div className={msg.err?'warnbox':'okbox'} style={{marginTop:10}}>{msg.t}</div>}
+  </div>;
+}
+function Settings({db,patch,auth,sb,signOut,setTab,log,updateRow}){
   const [saEmail,setSaEmail]=useState(null); const [saErr,setSaErr]=useState(null); const [saBusy,setSaBusy]=useState(false); const [copied,setCopied]=useState(false);
   const [syncBusy,setSyncBusy]=useState(false); const [syncMsg,setSyncMsg]=useState(null);
   const [exporting,setExporting]=useState(false);
@@ -2388,6 +2630,9 @@ function Settings({db,patch,auth,sb,signOut,setTab}){
       </label>
       <div className="note" style={{marginTop:10}}>Only aggregated counts by company are ever shared — never your name, messages, or individual activity. A company only appears once at least 3 students have contributed, and every number is bucketed, never exact.</div>
     </div>
+
+    <div className="tag" style={{margin:'26px 0 10px'}}>Calendar</div>
+    <CalendarImport log={log} updateRow={updateRow}/>
 
     <div className="tag" style={{margin:'26px 0 10px'}}>Google Sheets sync</div>
     <div className="panel pad">
