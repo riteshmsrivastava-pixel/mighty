@@ -170,7 +170,37 @@ async function generateDraft(system, user, maxTokens, feature) {
   } catch (e) { return { ok: false, error: String(e && e.message || e) }; }
 }
 
+// LinkedIn profile photos are served from media.licdn.com as signed, expiring,
+// referrer-locked URLs — they do NOT hotlink from the MIghTy web app (they load
+// on linkedin.com and nowhere else). So we fetch the bytes here (host permission
+// for licdn.com bypasses CORS), downscale to a small square thumbnail, and hand
+// back a self-contained base64 data URL to store. That renders anywhere, forever,
+// with no network call. ~4 KB per contact.
+async function encodeAvatar(url) {
+  try {
+    if (!url || /^data:/.test(url)) return { ok: false };
+    const r = await fetch(url);
+    if (!r.ok) return { ok: false, error: 'http_' + r.status };
+    const blob = await r.blob();
+    const bmp = await createImageBitmap(blob);
+    const S = 128;
+    const oc = new OffscreenCanvas(S, S);
+    const ctx = oc.getContext('2d');
+    const side = Math.min(bmp.width, bmp.height);
+    const sx = (bmp.width - side) / 2, sy = (bmp.height - side) / 2;
+    ctx.drawImage(bmp, sx, sy, side, side, 0, 0, S, S);
+    const outBlob = await oc.convertToBlob({ type: 'image/jpeg', quality: 0.82 });
+    // Build the data URL without FileReader (not available in MV3 service workers).
+    const bytes = new Uint8Array(await outBlob.arrayBuffer());
+    let bin = '';
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    const dataUrl = 'data:image/jpeg;base64,' + btoa(bin);
+    return { ok: true, dataUrl };
+  } catch (e) { return { ok: false, error: String((e && e.message) || e) }; }
+}
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg && msg.type === 'encodeAvatar') { encodeAvatar(msg.url).then(sendResponse); return true; }
   if (msg && msg.type === 'pushInbox') { pushInboxWithRetry(msg.kind, msg.payload).then(sendResponse); return true; }
   if (msg && msg.type === 'fetchLog') { fetchLog(msg.force).then(sendResponse); return true; }
   if (msg && msg.type === 'saveProfile') { saveProfile(msg.payload).then(sendResponse); return true; }

@@ -57,6 +57,17 @@ function profilePhotoUrl() {
   imgs.sort((a, b) => (b.naturalWidth || b.width || 0) - (a.naturalWidth || a.width || 0));
   return imgs[0] ? imgs[0].src : '';
 }
+// Returns a small, self-contained base64 thumbnail of the profile photo (or ''),
+// so it renders in the web app. The raw licdn.com URL is signed/expiring and
+// won't hotlink off LinkedIn — the background worker fetches + downscales it.
+async function profilePhotoDataUrl() {
+  const url = profilePhotoUrl();
+  if (!url) return '';
+  try {
+    const res = await send('encodeAvatar', { url });
+    return (res && res.ok && res.dataUrl) ? res.dataUrl : '';
+  } catch (e) { return ''; }
+}
 function profileHeadline(name) {
   const nameH = [...document.querySelectorAll('h1,h2')].find(h => h.textContent.trim() === name);
   if (!nameH) return '';
@@ -331,7 +342,8 @@ async function renderProfileSidebar() {
     btn.style.cssText = `background:${ACCENT};color:#fff;border:none;padding:9px 12px;font-weight:800;font-size:13px;cursor:pointer;width:100%;font-family:inherit;`;
     btn.onclick = async () => {
       btn.textContent = 'Saving…';
-      const res = await send('saveProfile', { payload: { profileUrl, name: liveName, title: liveHeadline, company: liveCompany, avatarUrl: livePhoto } });
+      const avatarData = await profilePhotoDataUrl();
+      const res = await send('saveProfile', { payload: { profileUrl, name: liveName, title: liveHeadline, company: liveCompany, avatarUrl: avatarData || livePhoto } });
       if (res && res.ok) { renderProfileSidebar(); return; }
       btn.textContent = 'Saved ✓'; btn.disabled = true;
     };
@@ -358,12 +370,17 @@ async function renderProfileSidebar() {
     if (!row.name && liveName) patch.name = liveName;
     if (!row.title && liveHeadline) patch.title = liveHeadline;
     if (!row.company && liveCompany) patch.company = liveCompany;
-    if (!row.avatar_url && livePhoto) patch.avatar_url = livePhoto;
-    if (Object.keys(patch).length) {
-      enrichedThisSession.add(profileUrl);
-      send('saveProfile', { payload: { profileUrl, name: name, title: headline, company: company, avatarUrl: photo } })
-        .then(() => { Object.assign(row, patch); }); // keep the warm cache row consistent
-    }
+    // Re-encode the avatar if it's missing OR a stale hotlink (not yet base64) —
+    // old rows stored the raw licdn.com URL, which never loads in the web app.
+    const avatarStale = !row.avatar_url || !/^data:/.test(row.avatar_url);
+    enrichedThisSession.add(profileUrl);
+    (async () => {
+      let avatarToSave = row.avatar_url;
+      if (avatarStale) { const d = await profilePhotoDataUrl(); if (d) { patch.avatar_url = d; avatarToSave = d; } }
+      if (!Object.keys(patch).length) return;
+      await send('saveProfile', { payload: { profileUrl, name: row.name || liveName, title: row.title || liveHeadline, company: row.company || liveCompany, avatarUrl: avatarToSave } });
+      Object.assign(row, patch); // keep the warm cache row consistent
+    })();
   }
 
   el.innerHTML =

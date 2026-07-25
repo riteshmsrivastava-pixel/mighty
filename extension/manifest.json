@@ -1,11 +1,12 @@
 {
   "manifest_version": 3,
   "name": "MIghTy — LinkedIn Outreach",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shortlist LinkedIn profiles, see real match scores and a docked context panel, and log confirmed sends back to your MIghTy account. Never clicks Connect/Message for you.",
   "permissions": ["storage"],
   "host_permissions": [
     "https://*.linkedin.com/*",
+    "https://*.licdn.com/*",
     "https://*.google.com/*",
     "https://*.supabase.co/*"
   ],
