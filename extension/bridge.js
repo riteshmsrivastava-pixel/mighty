@@ -46,8 +46,29 @@
       if (!name || name.length > 60 || /^https?:/i.test(name)) continue;
       const headline = parts.slice(1).join(' - ').trim();
       const at = headline.match(/\bat\s+(.+?)(?:\s*[·|]|$)/i) || headline.match(/@\s*(.+?)(?:\s*[·|]|$)/);
+
+      // Google's snippet carries far more than the headline — location,
+      // experience, education, follower counts. It costs nothing extra to read
+      // (it's already in the page we fetched) and needs no LinkedIn request.
+      let blk = card;
+      for (let i = 0; i < 4 && blk.parentElement; i++) { blk = blk.parentElement; if ((blk.innerText || '').length > 140) break; }
+      let snip = (blk.innerText || '').replace(/\s+/g, ' ').trim();
+      snip = snip.split(title).slice(1).join(' ').trim();           // drop the heading
+      snip = snip.replace(/^(LinkedIn\s*·\s*[^·]{0,60}?(?:[\d.]+K?\+?\s*followers)?\s*)+/i, '').trim();
+      const grab = re => { const m = snip.match(re); return m ? m[1].replace(/\s*[·|].*$/, '').trim().slice(0, 90) : ''; };
+      const location  = grab(/Location:\s*([^·]+)/i) || grab(/^([A-Z][A-Za-z.\- ]+,\s*[A-Za-z.\- ]+(?:,\s*[A-Za-z.\- ]+)?)\s*·/);
+      const education = grab(/Education:\s*([^·]+)/i);
+      const experience= grab(/Experience:\s*([^·]+)/i);
+      const followers = grab(/([\d.,]+K?\+?)\s*followers/i);
+      const connections = grab(/([\d.,]+\+?)\s*connections/i);
+
       seen.add(url);
-      out.push({ profileUrl: url, name, title: headline, company: at ? at[1].trim() : '' });
+      out.push({
+        profileUrl: url, name, title: headline,
+        company: (at ? at[1].trim() : '') || experience,
+        location, education, experience, followers, connections,
+        snippet: snip.slice(0, 300),
+      });
       if (out.length >= 12) break;
     }
     return out;

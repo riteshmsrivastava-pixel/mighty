@@ -536,6 +536,8 @@ function PersonHover({row, evs, followUpDays, children, style, className}){
           {sub && <div className="note" style={{fontSize:12.5}}>{sub}</div>}
         </div>
       </div>
+      {(()=>{ const c=row.context||{}; const bits=[c.location&&'📍 '+c.location, c.education&&'🎓 '+c.education, c.followers&&c.followers+' followers'].filter(Boolean);
+        return bits.length ? <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:9}}>{bits.map((b,i)=><span key={i} className="chip" style={{fontSize:11.5}}>{b}</span>)}</div> : null; })()}
       <div style={{display:'flex',alignItems:'center',gap:8,marginTop:10}}><StagePill status={row.status}/><PriorityDot priority={row.priority}/></div>
       <div style={{marginTop:10,display:'flex',flexDirection:'column',gap:6}}>
         {last && <div style={{display:'flex',justifyContent:'space-between',gap:10,fontSize:12.5}}><span className="note">Last</span><span style={{fontWeight:500}}>{last.label} · {last.when}</span></div>}
@@ -716,7 +718,13 @@ function App(){
     let added=0;
     for(const p of people){
       try{
-        await sb.from('outreach_log').upsert({ user_id:auth.user.id, profile_url:p.profileUrl, name:p.name||null, title:p.title||null, company:p.company||null, updated_at:new Date().toISOString() }, {onConflict:'user_id,profile_url'});
+        // Location / education / reach come from the search snippet — keep them
+        // in the existing context jsonb so no schema migration is needed.
+        const ctx = {};
+        ['location','education','experience','followers','connections','snippet'].forEach(k=>{ if(p[k]) ctx[k]=p[k]; });
+        const rowIns = { user_id:auth.user.id, profile_url:p.profileUrl, name:p.name||null, title:p.title||null, company:p.company||null, updated_at:new Date().toISOString() };
+        if(Object.keys(ctx).length) rowIns.context = {...ctx, source:'search'};
+        await sb.from('outreach_log').upsert(rowIns, {onConflict:'user_id,profile_url'});
         added++;
       }catch(e){ /* likely the weekly-cap trigger or a dup — skip */ }
     }
@@ -1260,7 +1268,16 @@ function FindPeople({sb, auth, db, patch, addPeople, setTab}){
           <div className="list">{results.map(p=>{ const on=sel.has(p.profileUrl);
             return <label key={p.profileUrl} className="row" style={{cursor:'pointer',alignItems:'flex-start'}}>
               <input type="checkbox" checked={on} onChange={()=>toggle(p.profileUrl)} style={{marginTop:3}}/>
-              <div className="grow"><div className="t">{p.name}</div><div className="m">{p.title||p.company||'LinkedIn profile'}</div></div>
+              <div className="grow" style={{minWidth:0}}>
+                <div className="t">{p.name}</div>
+                <div className="m">{p.title||p.company||'LinkedIn profile'}</div>
+                <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:5}}>
+                  {p.company &&   <span className="chip" style={{fontSize:11.5}}>🏢 {p.company}</span>}
+                  {p.location &&  <span className="chip" style={{fontSize:11.5}}>📍 {p.location}</span>}
+                  {p.education && <span className="chip" style={{fontSize:11.5}}>🎓 {p.education}</span>}
+                  {p.followers && <span className="chip" style={{fontSize:11.5}}>{p.followers} followers</span>}
+                </div>
+              </div>
               <a className="linkurl" href={p.profileUrl} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()}>↗</a>
             </label>; })}</div>
           <div style={{display:'flex',gap:10,marginTop:12,alignItems:'center'}}>
@@ -1496,20 +1513,22 @@ function People({db,log,events,doIngest,setDrawerId,sb,auth,deletePeople,updateR
         ? <div className="empty"><div className="big">◔</div>Nobody yet. Shortlist profiles with the extension, then hit "Check for new profiles."</div>
         : <table className="ptable"><thead><tr>
             <th style={{width:34,paddingRight:0}}><input type="checkbox" checked={allSel} onChange={toggleAll} aria-label="Select all" style={{cursor:'pointer'}}/></th>
-            <th>Who</th><th>Last interaction</th><th>Relationship</th><th>Next</th></tr></thead>
+            <th>Name</th><th>Company</th><th>Location</th><th>Last interaction</th><th>Relationship</th><th>Next</th></tr></thead>
           <tbody>{rows.map(r=>{
             const evs = events.filter(e=>e.log_id===r.id);
             const na = suggestedNextAction(r, evs, db.settings.followUpDays);
             const last = lastInteraction(r, evs);
-            const sub = [r.title, r.company].filter(Boolean).join(' · ');
+            const ctx = r.context||{};
             return <tr key={r.id} className="body-row" onClick={()=>setDrawerId(r.id)} style={sel.has(r.id)?{background:'var(--tsoft)'}:null}>
               <td onClick={e=>e.stopPropagation()} style={{width:34,paddingRight:0}}><input type="checkbox" checked={sel.has(r.id)} onChange={()=>toggleOne(r.id)} aria-label="Select" style={{cursor:'pointer'}}/></td>
               <td><PersonHover row={r} evs={evs} followUpDays={db.settings.followUpDays} style={{display:'flex',alignItems:'center',gap:11,width:'100%'}}>
                 <Avatar row={r}/><div style={{minWidth:0}}>
                   <div style={{fontWeight:600,fontSize:14,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{displayName(r)}</div>
-                  {sub && <div style={{fontSize:12.5,color:'var(--mute)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:220}}>{sub}</div>}
+                  {r.title && <div style={{fontSize:12.5,color:'var(--mute)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:230}}>{r.title}</div>}
                 </div>
               </PersonHover></td>
+              <td style={{maxWidth:150}}><div style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.company||'—'}</div></td>
+              <td style={{maxWidth:150,color:'var(--sub)'}}><div style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{ctx.location||'—'}</div></td>
               <td><div style={{fontSize:13.5}}>{last.label}</div><div style={{fontSize:12.5,color:'var(--mute)'}}>{last.when}</div></td>
               <td><StagePill status={r.status}/></td>
               <td style={{color:'var(--brand2)',fontWeight:500,fontSize:13}}>{na?na.label:'—'}</td>
@@ -2292,6 +2311,17 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
                     <span style={{width:15,height:15,flex:'none',borderRadius:5,border:'1.5px solid var(--line)'}}/>
                     <span style={{fontSize:13.5,color:'var(--sub)'}}>{q}</span>
                   </div>)}
+                </div>
+              </>; })()}
+
+            {(()=>{ const c=row.context||{};
+              const rowsD=[['Location',c.location],['Education',c.education],['Experience',c.experience],['Reach',c.followers?c.followers+' followers':(c.connections?c.connections+' connections':'')]].filter(x=>x[1]);
+              if(!rowsD.length) return null;
+              return <>
+                <div className="tag" style={{margin:'22px 0 8px'}}>Details</div>
+                <div style={{display:'flex',flexDirection:'column',gap:7}}>
+                  {rowsD.map(([k,v])=><div key={k} style={{display:'flex',justifyContent:'space-between',gap:12,fontSize:13.5}}>
+                    <span className="note">{k}</span><span style={{fontWeight:500,textAlign:'right',maxWidth:280}}>{v}</span></div>)}
                 </div>
               </>; })()}
 
