@@ -709,6 +709,92 @@ function relationshipHealth(row, evs, memories){
   return {score:Math.round(total*100), band:b.band, color:b.color, bg:b.bg, factors, action, days, cadence};
 }
 
+/* ============================ #13 Pattern engine (Tier 4) ============================
+   Everything here is *derived*, never entered. outreach_events is already an
+   append-only interaction log, so the "insights" the Bible wanted from an
+   event-sourced store are computable today without a risky schema migration.
+   Nothing is asserted without enough data behind it — small samples say so
+   instead of inventing a trend. */
+const REACHED = ['contacted','replied','coffee_chat','referral','interview','offer'];
+const ENGAGED = ['replied','coffee_chat','referral','interview','offer'];
+// A warm signal we can see: a shared connection the briefing surfaced, or overlap
+// the extension captured. Used to prove whether warmth actually lifts reply rate.
+function hasWarmSignal(row){
+  const c=row.context||{}, b=row.briefing||{};
+  return !!(b.sharedConnectionNote || c.networkOverlap || (Array.isArray(c.mutuals)&&c.mutuals.length) || c.education);
+}
+function median(nums){ if(!nums.length) return null; const s=nums.slice().sort((a,b)=>a-b); const m=Math.floor(s.length/2);
+  return s.length%2?s[m]:(s[m-1]+s[m])/2; }
+const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function patternInsights(log, events){
+  const active = log.filter(r=>r.status!=='do_not_contact');
+  const reached = active.filter(r=>REACHED.includes(r.status));
+  const firstReplyAt = r => { const e=events.filter(x=>x.log_id===r.id && x.event_type==='reply')
+      .sort((a,b)=>new Date(a.occurred_at)-new Date(b.occurred_at))[0]; return e?new Date(e.occurred_at).getTime():null; };
+  // Time to reply (days) — contacted_at → first reply
+  const replyDays = reached.map(r=>{ const fr=firstReplyAt(r); return (fr&&r.contacted_at)?(fr-new Date(r.contacted_at).getTime())/864e5:null; })
+    .filter(d=>d!=null && d>=0);
+  const medReply = median(replyDays);
+  // Reply lift from a warm signal
+  const bucket = pred => { const g=reached.filter(pred); const rep=g.filter(r=>ENGAGED.includes(r.status)).length;
+    return {sent:g.length, replied:rep, rate:g.length?Math.round(100*rep/g.length):null}; };
+  const warm = bucket(hasWarmSignal), cold = bucket(r=>!hasWarmSignal(r));
+  // Best send window — day-of-week reply rate (only where we sent at least twice)
+  const dow = DOW.map((label,i)=>{ const g=reached.filter(r=>r.contacted_at && new Date(r.contacted_at).getDay()===i);
+    const rep=g.filter(r=>ENGAGED.includes(r.status)).length; return {label, sent:g.length, replied:rep, rate:g.length?rep/g.length:0}; });
+  const bestDow = dow.filter(d=>d.sent>=2).sort((a,b)=>b.rate-a.rate)[0] || null;
+  // 8-week momentum — outreach (by contacted_at) vs replies (by reply event)
+  const weeks=[]; const wk=weekStartUTC();
+  for(let i=7;i>=0;i--){ const start=wk-i*7*864e5, end=start+7*864e5;
+    const outreach=reached.filter(r=>r.contacted_at && new Date(r.contacted_at).getTime()>=start && new Date(r.contacted_at).getTime()<end).length;
+    const replies=events.filter(e=>e.event_type==='reply' && new Date(e.occurred_at).getTime()>=start && new Date(e.occurred_at).getTime()<end).length;
+    weeks.push({start, outreach, replies}); }
+  // Stage funnel
+  const depthOf = s => STAGE_DEPTH[s]!=null?STAGE_DEPTH[s]:0;
+  const funnel = [['Saved',0],['Contacted',STAGE_DEPTH.contacted],['Replied',STAGE_DEPTH.replied],['Coffee chat',STAGE_DEPTH.coffee_chat],['Referral+',STAGE_DEPTH.referral]]
+    .map(([label,min])=>({label, n: active.filter(r=>depthOf(r.status)>=min).length}));
+  const sample = reached.length;
+  return {medReply, warm, cold, bestDow, weeks, funnel, sample, reached:reached.length};
+}
+// #14 Connectors (Tier 5, the unblocked slice). A real warm-intro graph needs your
+// LinkedIn 1st-degree list, which we deliberately never scrape. But among the
+// people you already track we CAN see shared affiliations: if a prospect works
+// where one of your *strong* contacts does, that contact is a live intro path.
+function connectorPaths(log){
+  const norm=s=>String(s||'').trim().toLowerCase();
+  const strong = log.filter(r=>['coffee_chat','referral','interview','offer'].includes(r.status)); // real relationships
+  const targets = log.filter(r=>['prospect','ready_to_contact','contacted'].includes(r.status));
+  const paths=[];
+  targets.forEach(t=>{
+    strong.forEach(s=>{
+      if(s.id===t.id) return;
+      const via=[];
+      if(t.company && norm(t.company)===norm(s.company)) via.push({kind:'company', v:t.company});
+      const ts=(t.context||{}).education, ss=(s.context||{}).education;
+      if(ts && ss && norm(ts)===norm(ss)) via.push({kind:'school', v:ts});
+      if(via.length) paths.push({target:t, via:s, on:via});
+    });
+  });
+  // one best path per target, prefer company overlap
+  const byTarget=new Map();
+  paths.forEach(p=>{ const cur=byTarget.get(p.target.id);
+    const score=p.on.some(o=>o.kind==='company')?2:1;
+    if(!cur || score>cur.score) byTarget.set(p.target.id, {...p, score}); });
+  return [...byTarget.values()].sort((a,b)=>b.score-a.score);
+}
+// #15 Memory review (Tier 4). The confidence gate leaves amber suggestions
+// scattered across profiles; this collects every one awaiting your yes/no so the
+// memory graph stays honest without hunting person by person.
+function memoryReview(log){
+  const toConfirm=[], expiring=[];
+  log.forEach(row=>{
+    suggestedMemories(row).forEach(m=>toConfirm.push({row, mem:m}));
+    memList(row).forEach(m=>{ if(m.status==='confirmed' && m.expiresAt && !m.permanent){
+      const d=(new Date(m.expiresAt).getTime()-now())/864e5; if(d>=0 && d<=14) expiring.push({row, mem:m, days:Math.round(d)}); }});
+  });
+  return {toConfirm, expiring};
+}
+
 /* ---- #11 Identity & asset sharing (§15) -------------------------------------
    Networking is reciprocal: you don't just take context, you give it. Mighty
    holds your shareable assets (resume, portfolio, deck, card, scheduling link…)
@@ -1147,7 +1233,7 @@ function App(){
         {tab==='people' && <People db={db} log={log} events={events} doIngest={doIngest} setDrawerId={setDrawerId} sb={sb} auth={auth} deletePeople={deletePeople} updateRow={updateRow}/>}
         {tab==='pipeline' && <Pipeline log={log} events={events} followUpDays={db.settings.followUpDays} changeStage={changeStage}/>}
         {tab==='tasks' && <Tasks tasks={tasks} log={log} events={events} db={db} addTask={addTask} toggleTask={toggleTask} deleteTask={deleteTask} setDrawerId={setDrawerId}/>}
-        {tab==='insights' && <Insights log={log} events={events} tasks={tasks} db={db} communityStats={communityStats} setDrawerId={setDrawerId}/>}
+        {tab==='insights' && <Insights log={log} events={events} tasks={tasks} db={db} communityStats={communityStats} setDrawerId={setDrawerId} updateRow={updateRow}/>}
         {tab==='settings' && <Settings db={db} patch={patch} auth={auth} sb={sb} signOut={signOut} setTab={setTab} log={log} updateRow={updateRow}/>}
         {tab==='templates' && <Templates db={db} patch={patch} sb={sb} auth={auth} setTab={setTab}/>}
         {tab==='extpreview' && <ExtensionPreview/>}
@@ -2133,7 +2219,43 @@ function Tasks({tasks,log,events,db,addTask,toggleTask,deleteTask,setDrawerId}){
 /* ============================ Insights ============================ */
 // Intelligence — patterns you'd otherwise miss, not analytics. Everything is
 // derived from your own contacts + timeline; nothing is invented.
-function Insights({log,events,tasks,db,communityStats,setDrawerId}){
+// Two-line 8-week momentum sparkline (outreach vs replies), pure SVG.
+function Momentum({weeks}){
+  const W=280, H=64, pad=6;
+  const max=Math.max(1, ...weeks.map(w=>Math.max(w.outreach, w.replies)));
+  const x=i=>pad + i*(W-2*pad)/(weeks.length-1||1);
+  const y=v=>H-pad - v*(H-2*pad)/max;
+  const path=key=>weeks.map((w,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(w[key]).toFixed(1)}`).join(' ');
+  return <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} style={{overflow:'visible'}}>
+    <path d={path('outreach')} fill="none" stroke="var(--brand)" strokeWidth="2" strokeLinejoin="round"/>
+    <path d={path('replies')} fill="none" stroke="var(--green2)" strokeWidth="2" strokeLinejoin="round"/>
+    {weeks.map((w,i)=><circle key={i} cx={x(i)} cy={y(w.replies)} r="2.2" fill="var(--green2)"/>)}
+  </svg>;
+}
+function MiniFunnel({funnel}){
+  const top=funnel[0]?.n||1;
+  return <div style={{display:'flex',flexDirection:'column',gap:7,marginTop:12}}>
+    {funnel.map((f,i)=>{ const pct=top?Math.round(100*f.n/top):0;
+      return <div key={f.label} style={{display:'flex',alignItems:'center',gap:10}}>
+        <span style={{width:88,fontSize:12.5,color:'var(--mute2)',flex:'none'}}>{f.label}</span>
+        <div style={{flex:1,height:16,background:'var(--chip)',borderRadius:6,overflow:'hidden'}}>
+          <div style={{width:`${Math.max(f.n?6:0,pct)}%`,height:'100%',background:i===0?'var(--brand)':`color-mix(in srgb, var(--brand) ${Math.max(30,100-i*15)}%, var(--green2))`,borderRadius:6}}/></div>
+        <span style={{width:26,textAlign:'right',fontWeight:600,fontSize:13}}>{f.n}</span>
+      </div>; })}
+  </div>;
+}
+function Insights({log,events,tasks,db,communityStats,setDrawerId,updateRow}){
+  const pat = patternInsights(log, events);
+  const connectors = connectorPaths(log);
+  const review = memoryReview(log);
+  async function confirmMem(row, mem){
+    const arr = memList(row).map(m=>m.id===mem.id?{...m, status:'confirmed', updatedAt:Date.now()}:m);
+    await writeMemories(row, updateRow, arr);
+  }
+  async function dropMem(row, mem){
+    const arr = memList(row).filter(m=>m.id!==mem.id);
+    await writeMemories(row, updateRow, arr);
+  }
   const active = log.filter(r=>r.status!=='do_not_contact');
   const lastTouch = r => { const evs=events.filter(e=>e.log_id===r.id); const ev=evs.slice().sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at))[0];
     return ev?new Date(ev.occurred_at).getTime() : (r.contacted_at?new Date(r.contacted_at).getTime() : new Date(r.shortlisted_at||r.updated_at).getTime()); };
@@ -2189,6 +2311,74 @@ function Insights({log,events,tasks,db,communityStats,setDrawerId}){
           </div>}
       </div>
     </div>
+
+    <div className="tag" style={{margin:'26px 0 10px'}}>What's working</div>
+    {pat.sample<3
+      ? <div className="panel pad"><div className="note">Reach out to a few more people — Mighty needs at least 3 sent messages before it can tell you what's actually working. {pat.sample}/3 so far.</div></div>
+      : <>
+      <div className="grid3">
+        <div style={card}>
+          <span style={kicker}>Typical reply time</span>
+          {pat.medReply==null ? <div className="note" style={{marginTop:10}}>No replies with a send date yet.</div>
+            : <><div style={{fontFamily:'var(--fh)',fontWeight:600,fontSize:36,marginTop:8,letterSpacing:'-.03em'}}>{pat.medReply<1?'<1':Math.round(pat.medReply)}<span style={{fontSize:16,fontWeight:500}}> day{Math.round(pat.medReply)===1?'':'s'}</span></div>
+              <div className="note" style={{marginTop:2}}>Median from send to first reply — set your follow-up cadence a touch longer.</div></>}
+        </div>
+        <div style={card}>
+          <span style={kicker}>Warm intro lift</span>
+          {(pat.warm.rate==null||pat.cold.rate==null) ? <div className="note" style={{marginTop:10}}>Need replies both with and without a shared connection to compare.</div>
+            : <><div style={{fontFamily:'var(--fh)',fontWeight:600,fontSize:28,marginTop:8,letterSpacing:'-.02em'}}>{pat.warm.rate}% <span style={{fontSize:15,color:'var(--mute2)',fontWeight:500}}>vs {pat.cold.rate}%</span></div>
+              <div className="note" style={{marginTop:2}}>Reply rate with a warm signal vs cold. {pat.warm.rate>pat.cold.rate?'Warm paths are clearly worth the extra effort.':'Your cold outreach is holding its own.'}</div></>}
+        </div>
+        <div style={card}>
+          <span style={kicker}>Best day to send</span>
+          {!pat.bestDow ? <div className="note" style={{marginTop:10}}>Not enough sends on any one day yet.</div>
+            : <><div style={{fontFamily:'var(--fh)',fontWeight:600,fontSize:30,marginTop:8,letterSpacing:'-.02em'}}>{pat.bestDow.label}</div>
+              <div className="note" style={{marginTop:2}}>{Math.round(pat.bestDow.rate*100)}% reply rate across {pat.bestDow.sent} sent that day.</div></>}
+        </div>
+      </div>
+      <div className="grid2" style={{marginTop:18}}>
+        <div style={card}>
+          <div style={{display:'flex',alignItems:'baseline',gap:12}}><span style={kicker}>8-week momentum</span>
+            <span className="note" style={{marginLeft:'auto',fontSize:12}}><span style={{color:'var(--brand)'}}>●</span> outreach <span style={{color:'var(--green2)',marginLeft:6}}>●</span> replies</span></div>
+          <div style={{marginTop:12}}><Momentum weeks={pat.weeks}/></div>
+        </div>
+        <div style={card}>
+          <span style={kicker}>Pipeline funnel</span>
+          <MiniFunnel funnel={pat.funnel}/>
+        </div>
+      </div>
+      </>}
+
+    {connectors.length>0 && <div style={{...card,marginTop:18}}>
+      <span style={kicker}>Warm paths in your network</span>
+      <div className="note" style={{marginTop:4,marginBottom:8}}>People you already know well who share a company or school with someone you're trying to reach — your fastest intro.</div>
+      <div style={{display:'flex',flexDirection:'column',gap:2}}>
+        {connectors.slice(0,5).map(p=><div key={p.target.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 4px'}}>
+          <Avatar row={p.via} size={30}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:14}}><b style={{cursor:'pointer'}} onClick={()=>setDrawerId&&setDrawerId(p.via.id)}>{displayName(p.via)}</b> could introduce you to <b style={{cursor:'pointer'}} onClick={()=>setDrawerId&&setDrawerId(p.target.id)}>{displayName(p.target)}</b></div>
+            <div className="note" style={{fontSize:12.5}}>Both {p.on.map(o=>o.kind==='company'?`at ${o.v}`:`from ${o.v}`).join(' · ')}</div>
+          </div>
+          <button className="btn sm" style={{background:'var(--card)',color:'var(--ink)',border:'1px solid var(--line)'}} onClick={()=>setDrawerId&&setDrawerId(p.via.id)}>Ask</button>
+        </div>)}
+      </div>
+    </div>}
+
+    {(review.toConfirm.length>0 || review.expiring.length>0) && <div style={{...card,marginTop:18}}>
+      <span style={kicker}>Memory to review</span>
+      <div className="note" style={{marginTop:4,marginBottom:8}}>Things Mighty picked up but isn't sure about. Confirm what's true — nothing here reaches your drafts until you do.</div>
+      <div style={{display:'flex',flexDirection:'column',gap:6}}>
+        {review.toConfirm.slice(0,8).map(({row,mem})=><div key={mem.id} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',border:'1px dashed var(--amber,#d9a441)',borderRadius:10,background:'var(--asoft,rgba(217,164,65,.06))'}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:13.5}}>{mem.value}</div>
+            <div className="note" style={{fontSize:12}}>{displayName(row)} · {mem.sourceLabel||'captured'}</div>
+          </div>
+          <button className="btn sm" onClick={()=>confirmMem(row,mem)}>Confirm</button>
+          <button className="iconbtn" title="Discard" onClick={()=>dropMem(row,mem)}>✕</button>
+        </div>)}
+        {review.expiring.slice(0,4).map(({row,mem,days})=><div key={mem.id} className="note" style={{fontSize:12.5}}>⏳ "{mem.value}" for {displayName(row)} expires in {days}d</div>)}
+      </div>
+    </div>}
 
     <div className="grid3" style={{marginTop:18}}>
       <div style={card}>
