@@ -510,7 +510,7 @@ function PriorityDot({priority}){ const m=PRIORITY_META[priority]||PRIORITY_META
 // Hover detail for a person. Cards stay quiet — a face and a name — and the
 // role, company, stage and next step appear on hover. Positioned fixed so it
 // never gets clipped by a scrolling pipeline column.
-function PersonHover({row, evs, followUpDays, children, style}){
+function PersonHover({row, evs, followUpDays, children, style, className}){
   const [pos,setPos] = useState(null);
   const ref = useRef(null);
   function enter(){
@@ -526,7 +526,7 @@ function PersonHover({row, evs, followUpDays, children, style}){
   const last = pos ? lastInteraction(row, evs||[]) : null;
   const sub = [row.title, row.company].filter(Boolean).join(' · ');
   return <>
-    <div ref={ref} onMouseEnter={enter} onMouseLeave={()=>setPos(null)} style={style}>{children}</div>
+    <div ref={ref} className={className} onMouseEnter={enter} onMouseLeave={()=>setPos(null)} style={style}>{children}</div>
     {pos && <div style={{position:'fixed',left:pos.left,top:pos.top,width:pos.W,zIndex:90,transform:pos.flip?'translateY(-100%)':'none',
         background:'var(--card)',border:'1px solid var(--line)',borderRadius:16,boxShadow:'0 20px 50px -20px rgba(27,26,31,.32)',padding:'14px 16px',pointerEvents:'none'}}>
       <div style={{display:'flex',alignItems:'center',gap:10}}>
@@ -1269,17 +1269,16 @@ function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,addPeople,s
     <div className="tag" style={{margin:'28px 0 10px'}}>Today's priorities</div>
     {priorities.length===0
       ? <div className="panel pad"><div className="empty" style={{padding:'20px'}}><div className="big">✓</div>All caught up.</div></div>
-      : <div className="grid3">{priorities.map((p,i)=><div key={p.row.id+p.kind} className="panel pad" style={{display:'flex',flexDirection:'column',gap:7}}>
+      : <div className="grid3">{priorities.map((p,i)=><PersonHover key={p.row.id+p.kind} row={p.row} evs={events.filter(e=>e.log_id===p.row.id)} followUpDays={followUpDays} className="panel pad" style={{display:'flex',flexDirection:'column',gap:7}}>
           <span className="chip" style={{alignSelf:'flex-start',background:p.kind==='followup'?'var(--tsoft)':'var(--bsoft)',color:p.kind==='followup'?'var(--terra2)':'var(--brand2)'}}>{p.kind==='followup'?'Follow-up due':'New contact'}</span>
-          <PersonHover row={p.row} evs={events.filter(e=>e.log_id===p.row.id)} followUpDays={followUpDays}
-            style={{display:'flex',alignItems:'center',gap:11,marginTop:2}}>
+          <div style={{display:'flex',alignItems:'center',gap:11,marginTop:2}}>
             <Avatar row={p.row} size={38}/>
             <div style={{fontWeight:600,fontSize:14.5,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{displayName(p.row)}</div>
-          </PersonHover>
+          </div>
           <div className="note">{p.label}</div>
           <div style={{flex:1}}/>
           <button className="btn ghost sm" style={{alignSelf:'flex-start'}} onClick={()=>p.kind==='followup'?setDraftFor(p.row.id):setDrawerId(p.row.id)}>{p.kind==='followup'?'Draft follow-up':'Open profile'}</button>
-        </div>)}</div>}
+        </PersonHover>)}</div>}
   </div>;
 }
 
@@ -1366,8 +1365,10 @@ function People({db,log,events,doIngest,setDrawerId,sb,auth,deletePeople}){
       {aiRows.length===0
         ? <div className="note">No one in your saved contacts matches that. Try saving more people, or rephrasing.</div>
         : <div className="list">{aiRows.map(({m,r})=><div key={r.id} className="row" style={{cursor:'pointer'}} onClick={()=>setDrawerId(r.id)}>
-            <Avatar row={r} size={34}/>
-            <div className="grow"><div className="t">{displayName(r)}</div><div className="m">{r.title||''}{r.company?` · ${r.company}`:''}</div></div>
+            <PersonHover row={r} evs={events.filter(e=>e.log_id===r.id)} followUpDays={db.settings.followUpDays} style={{display:'flex',alignItems:'center',gap:12,flex:1,minWidth:0}}>
+              <Avatar row={r} size={34}/>
+              <div className="grow"><div className="t">{displayName(r)}</div><div className="m">{r.title||''}{r.company?` · ${r.company}`:''}</div></div>
+            </PersonHover>
             <div style={{maxWidth:260,textAlign:'right',fontSize:12.5,color:'var(--brand2)'}}>{m.why}</div>
           </div>)}</div>}
     </div>}
@@ -1385,10 +1386,12 @@ function People({db,log,events,doIngest,setDrawerId,sb,auth,deletePeople}){
             const sub = [r.title, r.company].filter(Boolean).join(' · ');
             return <tr key={r.id} className="body-row" onClick={()=>setDrawerId(r.id)} style={sel.has(r.id)?{background:'var(--tsoft)'}:null}>
               <td onClick={e=>e.stopPropagation()} style={{width:34,paddingRight:0}}><input type="checkbox" checked={sel.has(r.id)} onChange={()=>toggleOne(r.id)} aria-label="Select" style={{cursor:'pointer'}}/></td>
-              <td><div style={{display:'flex',alignItems:'center',gap:11}}><Avatar row={r}/><div style={{minWidth:0}}>
-                <div style={{fontWeight:600,fontSize:14,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{displayName(r)}</div>
-                {sub && <div style={{fontSize:12.5,color:'var(--mute)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:220}}>{sub}</div>}
-              </div></div></td>
+              <td><PersonHover row={r} evs={evs} followUpDays={db.settings.followUpDays} style={{display:'flex',alignItems:'center',gap:11,width:'100%'}}>
+                <Avatar row={r}/><div style={{minWidth:0}}>
+                  <div style={{fontWeight:600,fontSize:14,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{displayName(r)}</div>
+                  {sub && <div style={{fontSize:12.5,color:'var(--mute)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:220}}>{sub}</div>}
+                </div>
+              </PersonHover></td>
               <td><div style={{fontSize:13.5}}>{last.label}</div><div style={{fontSize:12.5,color:'var(--mute)'}}>{last.when}</div></td>
               <td><StagePill status={r.status}/></td>
               <td style={{color:'var(--brand2)',fontWeight:500,fontSize:13}}>{na?na.label:'—'}</td>
@@ -1514,7 +1517,9 @@ function Tasks({tasks,log,events,db,addTask,toggleTask,deleteTask,setDrawerId}){
             <div style={{fontWeight:500,fontSize:14,marginTop:3}}>{s.label}</div>
             <div className="note" style={{marginTop:2}}>{s.why}</div>
           </div>
-          {s.person && <div className="chip" style={{cursor:'pointer',background:'rgba(255,255,255,.75)'}} onClick={()=>setDrawerId(s.person.id)}>{displayName(s.person)}</div>}
+          {s.person && <PersonHover row={s.person} evs={(events||[]).filter(e=>e.log_id===s.person.id)} followUpDays={db?.settings?.followUpDays}>
+            <div className="chip" style={{cursor:'pointer',background:'rgba(255,255,255,.75)'}} onClick={()=>setDrawerId(s.person.id)}>{displayName(s.person)}</div>
+          </PersonHover>}
           <button className="btn sm" disabled={adding===s.key} onClick={()=>accept(s)}>{adding===s.key?<Dots/>:'Add'}</button>
         </div>; })}</div>}
 
@@ -1529,7 +1534,9 @@ function Tasks({tasks,log,events,db,addTask,toggleTask,deleteTask,setDrawerId}){
           <div onClick={()=>toggleTask(t)} style={{width:20,height:20,flex:'none',borderRadius:7,border:'1.5px solid '+(t.done?'var(--brand)':'rgba(27,26,31,.2)'),background:t.done?'var(--brand)':'transparent',display:'grid',placeItems:'center',cursor:'pointer',color:'#fff',fontSize:11}}>{t.done?'✓':''}</div>
           <div className="grow"><div style={{fontWeight:500,fontSize:14,color:t.done?'var(--mute)':'var(--ink)',textDecoration:t.done?'line-through':'none'}}>{t.label}</div>
             {t.sub && <div className="note">{t.sub}</div>}</div>
-          {person && <div className="chip" style={{cursor:'pointer'}} onClick={()=>setDrawerId(person.id)}>{displayName(person)}</div>}
+          {person && <PersonHover row={person} evs={(events||[]).filter(e=>e.log_id===person.id)} followUpDays={db?.settings?.followUpDays}>
+            <div className="chip" style={{cursor:'pointer'}} onClick={()=>setDrawerId(person.id)}>{displayName(person)}</div>
+          </PersonHover>}
           <button className="iconbtn" onClick={()=>deleteTask(t)}>✕</button>
         </div>; })}</div>
     </div>)}
@@ -1621,8 +1628,10 @@ function Insights({log,events,tasks,db,communityStats,setDrawerId}){
       <div style={{marginTop:12,display:'flex',flexDirection:'column',gap:2}}>
         {reconnect.length===0 ? <div className="note">Everyone's fresh — nice.</div>
           : reconnect.map(({r,t})=><div key={r.id} className="row" style={{border:'none',background:'transparent',padding:'10px 4px',cursor:'pointer'}} onClick={()=>setDrawerId&&setDrawerId(r.id)}>
-              <Avatar row={r} size={32}/>
-              <div className="grow"><div className="t" style={{fontWeight:500}}>{displayName(r)}</div><div className="m">{[r.title,r.company].filter(Boolean).join(' · ')}</div></div>
+              <PersonHover row={r} evs={events.filter(e=>e.log_id===r.id)} followUpDays={followUpDays} style={{display:'flex',alignItems:'center',gap:12,flex:1,minWidth:0}}>
+                <Avatar row={r} size={32}/>
+                <div className="grow"><div className="t" style={{fontWeight:500}}>{displayName(r)}</div><div className="m">{[r.title,r.company].filter(Boolean).join(' · ')}</div></div>
+              </PersonHover>
               <div className="note">since {monthOf(t)}</div>
             </div>)}
       </div>
