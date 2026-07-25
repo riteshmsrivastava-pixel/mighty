@@ -182,6 +182,8 @@ const DEFAULT = {
     goal: '',               // ⭐ what you want to accomplish in the next 6-12 months (the lens for everything)
     goalType: '',           // job_search | raise_funding | sales | mentors | networking — drives match weights
     voiceSamples: [],       // your last few approved messages — Mighty writes to match them
+    assets: [],             // your shareable brand assets: [{id,type,label,url}]
+    signature: '',          // a short professional signature appended to drafts on request
     networkingReasons: [],  // why you're networking (job, funding, mentors, …)
     targetCompanies: [],
     targetRoles: [],
@@ -220,6 +222,7 @@ function shape(d){
       interests: arr(sd.interests, []),
       networkingStyle: arr(sd.networkingStyle, []),
       voiceSamples: arr(sd.voiceSamples, []),
+      assets: arr(sd.assets, []),
       stageLabels: (sd.stageLabels && typeof sd.stageLabels==='object') ? sd.stageLabels : {} } };
 }
 function loadDB(){ try{ return shape(JSON.parse(localStorage.getItem(DB_KEY))); }catch(e){ return shape(); } }
@@ -699,6 +702,55 @@ function relationshipHealth(row, evs, memories){
     : recip<0.4 ? 'They have not engaged much; try a lighter touch'
     : 'On track — keep the rhythm';
   return {score:Math.round(total*100), band:b.band, color:b.color, bg:b.bg, factors, action, days, cadence};
+}
+
+/* ---- #11 Identity & asset sharing (§15) -------------------------------------
+   Networking is reciprocal: you don't just take context, you give it. Mighty
+   holds your shareable assets (resume, portfolio, deck, card, scheduling link…)
+   and suggests the RIGHT one to send, scored by fit × purpose × novelty × stage.
+   Nothing is auto-sent — it appends a link to a draft you approve, and records
+   what was shared with whom so you never send the same thing twice. */
+const ASSET_TYPES = {
+  resume:    {label:'Resume', icon:'📄', roles:{recruiter:0.95, hiring_manager:0.95, peer:0.3, investor:0.2}},
+  portfolio: {label:'Portfolio', icon:'🎨', roles:{recruiter:0.85, hiring_manager:0.9, peer:0.5, investor:0.4}},
+  deck:      {label:'Founder deck', icon:'📊', roles:{investor:0.95, peer:0.3, recruiter:0.1, hiring_manager:0.1}},
+  website:   {label:'Personal website', icon:'🌐', roles:{recruiter:0.6, hiring_manager:0.6, peer:0.7, investor:0.6}},
+  onepager:  {label:'One-page profile', icon:'📃', roles:{recruiter:0.7, hiring_manager:0.7, peer:0.6, investor:0.6}},
+  github:    {label:'GitHub / technical', icon:'💻', roles:{recruiter:0.7, hiring_manager:0.8, peer:0.5, investor:0.3}},
+  scheduling:{label:'Scheduling link', icon:'📅', roles:{recruiter:0.8, hiring_manager:0.8, peer:0.8, investor:0.8}},
+  card:      {label:'Digital business card', icon:'🪪', roles:{recruiter:0.6, hiring_manager:0.6, peer:0.8, investor:0.7}},
+  paper:     {label:'Research / publication', icon:'📚', roles:{recruiter:0.4, hiring_manager:0.5, peer:0.6, investor:0.5}},
+};
+// Which role class is this person, for asset fit. Crude but honest — inferred
+// from title, refined by the user's goal.
+function roleClassOf(row, settings){
+  const t = `${row.title||''} ${row.company||''}`.toLowerCase();
+  if(/recruit|talent|sourc/.test(t)) return 'recruiter';
+  if(/investor|partner|vc\b|venture|angel/.test(t)) return 'investor';
+  if(/head|director|vp|chief|lead|manager|founder|ceo|cto/.test(t)) return 'hiring_manager';
+  return 'peer';
+}
+// message purpose → how much sharing an asset fits at all
+const PURPOSE_FIT = {ask:1.0, offer:0.6, reconnect:0.5, thank:0.3, intro:0.7, coffee_chat:0.7, follow_up:0.8, referral_ask:1.0, recruiter_intro:1.0};
+function sharedAssetIds(row){ const a=(row.context||{}).sharedAssets; return new Set((Array.isArray(a)?a:[]).map(x=>x.assetId)); }
+// The §15.10 scorer: fit·0.4 + purpose·0.3 + novelty·0.2 + stage_ok·0.1, keep ≥0.65, cap 2.
+function suggestAssets(settings, {row, purpose}){
+  const assets = (settings.assets||[]).filter(a=>a.url && a.type);
+  if(!assets.length) return [];
+  const cls = roleClassOf(row, settings);
+  const shared = sharedAssetIds(row);
+  const purposeScore = PURPOSE_FIT[purpose] ?? 0.5;
+  const firstContact = ['prospect','ready_to_contact','contacted'].includes(row.status);
+  const scored = assets.map(a=>{
+    const meta = ASSET_TYPES[a.type]||{roles:{}};
+    const fit = meta.roles[cls] ?? 0.4;
+    const novelty = shared.has(a.id) ? 0 : 1;
+    const heavyweight = ['deck','resume','paper'].includes(a.type);
+    const stage_ok = (firstContact && heavyweight) ? 0 : 1;
+    const score = fit*0.4 + purposeScore*0.3 + novelty*0.2 + stage_ok*0.1;
+    return {...a, meta, score, alreadyShared:shared.has(a.id)};
+  }).sort((x,y)=>y.score-x.score);
+  return scored.filter(s=>s.score>=0.65 && !s.alreadyShared).slice(0,2);
 }
 
 /* ---- Memory records ---------------------------------------------------------
@@ -2165,6 +2217,40 @@ function AiUsagePanel({sb, auth}){
       : <div className="note" style={{marginTop:10}}>Repeat requests are cached for free. Drafting and briefings use one assist; heavier features use more.</div>}
   </div>;
 }
+function AssetsPanel({db,patch}){
+  const assets = db.settings.assets||[];
+  const [adding,setAdding]=useState(false);
+  const [type,setType]=useState('resume'); const [label,setLabel]=useState(''); const [url,setUrl]=useState('');
+  function save(){
+    const u=url.trim(); if(!u) return;
+    const a={id:uid(), type, label:label.trim()||ASSET_TYPES[type].label, url:/^https?:/.test(u)?u:'https://'+u};
+    patch('settings', s=>({...s, assets:[...(s.assets||[]), a]})); setAdding(false); setLabel(''); setUrl('');
+  }
+  function remove(id){ patch('settings', s=>({...s, assets:(s.assets||[]).filter(a=>a.id!==id)})); }
+  return <div className="panel pad">
+    {assets.length===0 && !adding && <div className="note" style={{marginBottom:12}}>No assets yet. Add your resume, portfolio, scheduling link or deck so Mighty can offer them when it fits.</div>}
+    {assets.length>0 && <div className="list" style={{marginBottom:12}}>
+      {assets.map(a=>{ const m=ASSET_TYPES[a.type]||{icon:'🔗',label:a.type}; return <div key={a.id} className="row">
+        <span style={{fontSize:18}}>{m.icon}</span>
+        <div className="grow" style={{minWidth:0}}><div style={{fontWeight:500,fontSize:13.5}}>{a.label||m.label}</div>
+          <a className="linkurl" href={a.url} target="_blank" rel="noopener noreferrer">{a.url}</a></div>
+        <button className="iconbtn" onClick={()=>remove(a.id)}>✕</button>
+      </div>; })}
+    </div>}
+    {adding
+      ? <div style={{display:'flex',flexDirection:'column',gap:10}}>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            <select className="inp" style={{width:'auto'}} value={type} onChange={e=>{setType(e.target.value); setLabel('');}}>
+              {Object.entries(ASSET_TYPES).map(([k,m])=><option key={k} value={k}>{m.icon} {m.label}</option>)}
+            </select>
+            <input className="inp" style={{flex:1,minWidth:180}} value={label} onChange={e=>setLabel(e.target.value)} placeholder={ASSET_TYPES[type].label}/>
+          </div>
+          <input className="inp" value={url} onChange={e=>setUrl(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')save();}} placeholder="Link (Google Drive, Notion, Calendly, your site…)"/>
+          <div style={{display:'flex',gap:8}}><button className="btn sm" onClick={save} disabled={!url.trim()}>Add asset</button><a className="note" style={{cursor:'pointer',alignSelf:'center'}} onClick={()=>setAdding(false)}>Cancel</a></div>
+        </div>
+      : <button className="btn ghost sm" onClick={()=>setAdding(true)}>＋ Add an asset</button>}
+  </div>;
+}
 function Settings({db,patch,auth,sb,signOut,setTab}){
   const [saEmail,setSaEmail]=useState(null); const [saErr,setSaErr]=useState(null); const [saBusy,setSaBusy]=useState(false); const [copied,setCopied]=useState(false);
   const [syncBusy,setSyncBusy]=useState(false); const [syncMsg,setSyncMsg]=useState(null);
@@ -2289,6 +2375,10 @@ function Settings({db,patch,auth,sb,signOut,setTab}){
         </div>)}
       </div>
     </div>
+
+    <div className="tag" style={{margin:'26px 0 10px'}}>Your assets to share</div>
+    <div className="note" style={{margin:'-4px 0 10px',fontSize:12.5}}>Networking is reciprocal. Add what you can offer — Mighty suggests the right one to attach when you draft a message, and never sends the same thing twice.</div>
+    <AssetsPanel db={db} patch={patch}/>
 
     <div className="tag" style={{margin:'26px 0 10px'}}>Community insights</div>
     <div className="panel pad">
@@ -2678,6 +2768,17 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
               </div>
             </>}
 
+            {/* Assets shared — the reciprocal record (§15.9) */}
+            {(()=>{ const shared=(((row.context||{}).sharedAssets)||[]); if(!shared.length) return null;
+              return <>
+                <div className="tag" style={{margin:'22px 0 8px'}}>You've shared</div>
+                <div style={{display:'flex',flexDirection:'column',gap:2}}>
+                  {shared.slice().reverse().map((s,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'6px 0',fontSize:13.5}}>
+                    <span>✓</span><span style={{flex:1}}>{s.label}</span><span className="note">{rel(s.sharedAt)}</span>
+                  </div>)}
+                </div>
+              </>; })()}
+
             {/* Ask Mighty — an input, not a row of pills */}
             <div className="tag" style={{margin:'22px 0 8px'}}>Ask Mighty</div>
             <input className="inp" placeholder={`Ask anything about ${displayName(row).split(' ')[0]}…`}
@@ -2815,6 +2916,16 @@ function DraftModal({row,db,patch,sb,auth,updateRow,changeStage,onClose}){
     window.open(row.profile_url,'_blank','noopener');
     setCopied(true); setTimeout(()=>setCopied(false),1500);
   }
+  // Reciprocal sharing: attach one of the student's own assets and record that
+  // it was shared, so Mighty never suggests the same thing to this person twice.
+  const [sharedTick,setSharedTick]=useState(0);
+  function attachAsset(a){
+    setText(t=>`${t.trim()}\n\n${a.label}: ${a.url}`.trim());
+    const rec = {assetId:a.id, label:a.label, sharedAt:Date.now(), via:'linkedin'};
+    updateRow(row, {context:{...(row.context||{}), sharedAssets:[...(((row.context||{}).sharedAssets)||[]), rec]}});
+    setSharedTick(t=>t+1);
+  }
+  const suggestions = suggestAssets(db.settings, {row, purpose:objective});
   const words = text.trim() ? text.trim().split(/\s+/).length : 0;
 
   return <div className="modal-overlay" onClick={onClose}>
@@ -2833,6 +2944,11 @@ function DraftModal({row,db,patch,sb,auth,updateRow,changeStage,onClose}){
       <div style={{padding:'14px 22px 0'}}>
         <textarea className="inp" style={{minHeight:220,lineHeight:1.6}} value={text} onChange={e=>setText(e.target.value)} placeholder={mode==='none'?'Sign in to generate a draft, or write one yourself.':'Click Regenerate to draft with AI…'}/>
         <div className="note" style={{marginTop:6}}>{words} words · nothing is sent until you click{(db.settings.voiceSamples||[]).length?` · ✎ written in your voice (learned from ${(db.settings.voiceSamples||[]).length} message${(db.settings.voiceSamples||[]).length===1?'':'s'})`:''}</div>
+        {suggestions.length>0 && <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginTop:10}}>
+          <span className="note" style={{fontSize:12}}>Offer something back:</span>
+          {suggestions.map(a=><button key={a.id} className="chip" style={{cursor:'pointer',background:'var(--gsoft)',color:'var(--green2)'}} onClick={()=>attachAsset(a)}>+ {(ASSET_TYPES[a.type]||{}).icon} {a.label}</button>)}
+        </div>}
+        {(db.settings.assets||[]).length===0 && <div className="note" style={{marginTop:8,fontSize:12}}>Add your resume, portfolio or scheduling link in Settings and Mighty will suggest the right one to share here.</div>}
         {err && <div className="warnbox" style={{marginTop:8}}>{err}</div>}
       </div>
       <div style={{display:'flex',alignItems:'center',gap:8,padding:'16px 22px 18px',flexWrap:'wrap'}}>
