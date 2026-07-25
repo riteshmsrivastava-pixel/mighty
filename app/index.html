@@ -882,22 +882,28 @@ function FindPeople({sb, auth, db, patch, addPeople, setTab}){
       return clean.length>1 ? clean : localClean(located);
     }catch(e){ return localClean(located); }
   }
+  // Open Google for the extension to capture — the free path (a normal Google
+  // search in the student's own browser; the MIghTy extension reads the page).
+  function openForExtension(kw){
+    window.open('https://www.google.com/search?q='+encodeURIComponent('site:linkedin.com/in '+kw),'_blank','noopener');
+    setMsg({t:'Opened your search in a new tab — tick the profiles in the MIghTy panel there and hit Import. They\'ll land in your People list.'});
+  }
   async function go(){
     const raw=q.trim(); if(!raw || busy) return;
     setBusy(true); setMsg(null); setResults(null); setSel(new Set());
     const kw = await keywords(raw); setLastKw(kw);
     try{
+      // Try the optional in-app search API; if it isn't set up, use the free
+      // extension flow rather than treating it as an error.
       const {data,error} = await sb.functions.invoke('people-search', {body:{query:kw}});
-      if(error) throw error;
-      if(data && data.ok){
+      if(error){ openForExtension(kw); }
+      else if(data && data.ok){
         setResults(data.people||[]);
         setSel(new Set((data.people||[]).map(p=>p.profileUrl)));
       } else if(data && data.error==='not_configured'){
-        // web search not set up — fall back to opening Google for the extension
-        window.open('https://www.google.com/search?q='+encodeURIComponent('site:linkedin.com/in '+kw),'_blank','noopener');
-        setMsg({t:'Opened Google in a new tab. Set up web search (see SETUP.md) to get results right here.'});
+        openForExtension(kw);
       } else { setMsg({t:(data&&data.message)||'Search failed.', err:true}); }
-    }catch(e){ setMsg({t:e.message||String(e), err:true}); }
+    }catch(e){ openForExtension(kw); }
     setBusy(false);
   }
   const toggle=url=>setSel(s=>{ const n=new Set(s); n.has(url)?n.delete(url):n.add(url); return n; });
