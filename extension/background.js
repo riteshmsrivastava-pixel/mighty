@@ -56,7 +56,7 @@ async function pushInboxWithRetry(kind, payload) {
 // (RLS scopes this automatically — no user_id filter needed). Used to decorate
 // LinkedIn pages with real score/status data for profiles already tracked in
 // MIghTy. Cached briefly so scanning a results page doesn't refetch per-card.
-let logCache = { at: 0, log: [], events: [], targetCompanies: [] };
+let logCache = { at: 0, log: [], events: [], targetCompanies: [], goal: '', profile: {} };
 const LOG_CACHE_TTL = 5 * 60 * 1000;
 async function fetchLog(force) {
   const { settings = {} } = await chrome.storage.local.get('settings');
@@ -72,10 +72,19 @@ async function fetchLog(force) {
     ]);
     if (!logRes.ok || !eventsRes.ok) return { ok: false, error: 'fetch_failed' };
     const log = await logRes.json(); const events = await eventsRes.json();
-    let targetCompanies = [], goal = '';
-    try { const ud = await userDataRes.json(); const st = ud?.[0]?.data?.settings || {}; targetCompanies = st.targetCompanies || []; goal = st.goal || ''; } catch (e) {}
-    logCache = { at: Date.now(), log, events, targetCompanies, goal };
-    return { ok: true, log, events, targetCompanies, goal };
+    // The sidebar answers "why this person?" locally, so it needs the same goal
+    // signals the web app scores with — not just target companies.
+    let targetCompanies = [], goal = '', profile = {};
+    try {
+      const ud = await userDataRes.json(); const st = ud?.[0]?.data?.settings || {};
+      targetCompanies = st.targetCompanies || []; goal = st.goal || '';
+      profile = {
+        targetRoles: st.targetRoles || [], schools: st.schools || [], industries: st.industries || [],
+        skills: st.skills || [], targetLocations: st.targetLocations || [], homeLocation: st.homeLocation || '',
+      };
+    } catch (e) {}
+    logCache = { at: Date.now(), log, events, targetCompanies, goal, profile };
+    return { ok: true, log, events, targetCompanies, goal, profile };
   } catch (e) { return { ok: false, error: String(e && e.message || e) }; }
 }
 

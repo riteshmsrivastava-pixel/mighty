@@ -305,6 +305,50 @@ function ensureSidebar() {
   return sidebarEl;
 }
 function esc(s) { return (s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+/* ---------- "Why this person?" ----------------------------------------------
+   Answered locally from the student's own goal + targets matched against what's
+   on the page. No AI call, so it works instantly and offline — and it never
+   invents a reason: every line traces to something they actually told Mighty. */
+function whyThisPerson(text, r) {
+  const hay = (text || '').toLowerCase();
+  const out = [];
+  const hit = (list, fmt) => (list || []).forEach(v => {
+    const s = String(v || '').trim(); if (!s || s.length < 2) return;
+    if (hay.includes(s.toLowerCase()) && out.length < 4) out.push(fmt(s));
+  });
+  const p = r.profile || {};
+  hit(r.targetCompanies, v => `Target company: ${v}`);
+  hit(p.targetRoles,     v => `Role you're targeting: ${v}`);
+  hit(p.schools,         v => `Shared school: ${v}`);
+  hit(p.industries,      v => `Industry you care about: ${v}`);
+  hit(p.targetLocations, v => `Where you're building: ${v}`);
+  if (out.length < 4) {
+    const kws = mightyGoalKeywords(r.goal || '');
+    const hits = kws.filter(k => hay.includes(k));
+    if (hits.length) out.push(`Matches your goal: ${hits.slice(0, 3).join(', ')}`);
+  }
+  return out;
+}
+// People already in your network at the same company — the thing LinkedIn never
+// surfaces in the context of your own relationships. Pure local lookup.
+function networkOverlap(log, company) {
+  const c = String(company || '').trim().toLowerCase();
+  if (!c || c.length < 2) return { count: 0, names: [] };
+  const hits = (log || []).filter(r => String(r.company || '').trim().toLowerCase() === c);
+  return { count: hits.length, names: hits.slice(0, 3).map(r => r.name || '').filter(Boolean) };
+}
+// Relationship stated in words, not a bare percentage.
+function relationshipWords(row, evs) {
+  if (!row) return { icon: '✦', label: 'Not tracked', sub: 'Save to start remembering' };
+  const n = (evs || []).length;
+  if (row.status === 'prospect' || row.status === 'ready_to_contact')
+    return { icon: '🌱', label: 'New relationship', sub: 'No outreach yet' };
+  if (row.status === 'contacted') return { icon: '📤', label: 'Reached out', sub: 'Waiting to hear back' };
+  if (row.status === 'replied') return { icon: '💬', label: 'In conversation', sub: 'They replied' };
+  if (row.status === 'coffee_chat') return { icon: '☕', label: 'Real relationship', sub: `${n} interaction${n === 1 ? '' : 's'} logged` };
+  return { icon: '🤝', label: 'Strong relationship', sub: `${n} interaction${n === 1 ? '' : 's'} logged` };
+}
 function mightyBrandHead(rightHtml) {
   return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
     ${MARK_SVG}
@@ -336,13 +380,33 @@ async function renderProfileSidebar() {
   const livePhoto = profilePhotoUrl();
 
   if (!row) {
+    const why = whyThisPerson(`${liveHeadline} ${liveName} ${liveCompany}`, r);
+    const overlap = networkOverlap(r.log, liveCompany);
     el.innerHTML = mightyBrandHead(`<span style="font-size:11.5px;font-weight:500;color:#7B7787;background:#F4F3F1;padding:4px 11px;border-radius:999px;">Not tracked</span>`)
-      + `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      + `<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
           ${livePhoto ? `<img src="${esc(livePhoto)}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex:none;">` : ''}
           <div style="min-width:0;"><div style="font-weight:600;font-size:15.5px;">${esc(liveName) || 'This profile'}</div>
-          <div style="font-size:12.5px;color:#7B7787;line-height:1.35;max-height:32px;overflow:hidden;">${esc(liveHeadline)}</div></div>
-        </div>
-        <div style="color:#7B7787;margin-bottom:14px;font-size:13.5px;line-height:1.5;">Not yet tracked in Mighty. Save it to see match, status, and notes here.</div>`;
+          <div style="font-size:12.5px;color:#7B7787;line-height:1.35;max-height:32px;overflow:hidden;">${esc(liveCompany || liveHeadline)}</div></div>
+        </div>`
+      + (why.length
+          ? `<div style="background:${TINT};border-radius:14px;padding:13px 15px;margin-bottom:12px;">
+               <div style="font-size:11px;font-weight:500;letter-spacing:.09em;text-transform:uppercase;color:${ACCENT_DEEP};margin-bottom:7px;">Why this person</div>
+               ${why.map(w => `<div style="font-size:13px;color:#413A52;line-height:1.5;">• ${esc(w)}</div>`).join('')}
+             </div>`
+          : `<div style="background:#FAF9F7;border:1px solid rgba(27,26,31,.07);border-radius:14px;padding:13px 15px;margin-bottom:12px;">
+               <div style="font-size:13px;color:#7B7787;line-height:1.5;">No obvious link to your goal yet — still worth saving if they're interesting.</div>
+             </div>`)
+      + (overlap.count
+          ? `<div style="display:flex;align-items:center;gap:9px;padding:11px 14px;background:#E9F1EC;border-radius:14px;margin-bottom:12px;">
+               <span style="font-weight:600;font-size:16px;color:#3E6B52;">${overlap.count}</span>
+               <span style="font-size:12.5px;color:#3E6B52;line-height:1.4;">${overlap.count === 1 ? 'person you know' : 'people you know'} at ${esc(liveCompany)}${overlap.names.length ? ` — ${esc(overlap.names.join(', '))}` : ''}</span>
+             </div>`
+          : '')
+      + `<div style="margin-bottom:13px;">
+           <div style="font-size:11px;font-weight:500;letter-spacing:.09em;text-transform:uppercase;color:#A29EAC;margin-bottom:7px;">Save to Mighty to</div>
+           ${['Remember this person','Draft personalised outreach','Track follow-ups','Prepare before you meet']
+              .map(b => `<div style="font-size:13px;color:#4A4751;line-height:1.6;">✓ ${b}</div>`).join('')}
+         </div>`;
     const btn = document.createElement('button');
     btn.textContent = 'Save to Mighty';
     btn.style.cssText = `background:${ACCENT};color:#fff;border:none;border-radius:999px;padding:13px 12px;font-weight:500;font-size:14.5px;cursor:pointer;width:100%;font-family:inherit;`;
@@ -360,6 +424,9 @@ async function renderProfileSidebar() {
   const rowEvents = r.events.filter(e => e.log_id === row.id);
   const next = mightySuggestedNext(row);
   const { score, reasons } = mightyComputeScore(row, r.targetCompanies, r.goal);
+  const rel = relationshipWords(row, rowEvents);
+  const why = whyThisPerson(`${row.title || liveHeadline} ${row.company || liveCompany} ${row.name || liveName}`, r);
+  const overlap = networkOverlap(r.log, row.company || liveCompany);
   const name = row.name || liveName;
   const headline = row.title || liveHeadline;
   const company = row.company || liveCompany;
@@ -398,20 +465,32 @@ async function renderProfileSidebar() {
           <div style="font-size:12.5px;color:#7B7787;line-height:1.35;max-height:32px;overflow:hidden;">${esc(company || headline)}</div>
         </div>
       </div>
-      <div style="background:${TINT};border-radius:14px;padding:14px 16px;margin-bottom:14px;">
-        <div style="font-weight:600;font-size:17px;letter-spacing:-.02em;color:${ACCENT_DEEP};line-height:1.15;">${mightyMatchLabel(score)}</div>
-        <div style="font-size:12.5px;color:#413A52;margin-top:3px;">${score}%${reasons.length ? ' · ' + esc(reasons.join(' · ')) : ''}</div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:11px;font-size:13px;margin-bottom:14px;">
-        <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:#8C8898;">Status</span><span style="font-weight:500;">${esc(statusLabel)}</span></div>
+      <div style="background:${TINT};border-radius:14px;padding:14px 16px;margin-bottom:12px;">
+        <div style="font-weight:600;font-size:17px;letter-spacing:-.02em;color:${ACCENT_DEEP};line-height:1.15;">${rel.icon} ${esc(rel.label)}</div>
+        <div style="font-size:12.5px;color:#413A52;margin-top:3px;">${esc(rel.sub)}</div>
+      </div>`
+      + (why.length
+          ? `<div style="margin-bottom:12px;">
+               <div style="font-size:11px;font-weight:500;letter-spacing:.09em;text-transform:uppercase;color:#A29EAC;margin-bottom:6px;">Why this matters</div>
+               ${why.map(w => `<div style="font-size:12.5px;color:#4A4751;line-height:1.5;">• ${esc(w)}</div>`).join('')}
+             </div>`
+          : '')
+      + (overlap.count > 1
+          ? `<div style="display:flex;align-items:center;gap:9px;padding:10px 13px;background:#E9F1EC;border-radius:13px;margin-bottom:12px;">
+               <span style="font-weight:600;font-size:15px;color:#3E6B52;">${overlap.count}</span>
+               <span style="font-size:12px;color:#3E6B52;line-height:1.4;">people you know at ${esc(company)}</span>
+             </div>`
+          : '')
+      + `<div style="display:flex;flex-direction:column;gap:11px;font-size:13px;margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:#8C8898;">Stage</span><span style="font-weight:500;">${esc(statusLabel)}</span></div>
         <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:#8C8898;">Last interaction</span><span style="font-weight:500;">${esc(lastInteractionLabel(row, rowEvents))}</span></div>
-        <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:#8C8898;">Next action</span><span style="font-weight:500;color:${ACCENT_DEEP};text-align:right;max-width:170px;">${esc(next || '—')}</span></div>
+        <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:#8C8898;">Next step</span><span style="font-weight:500;color:${ACCENT_DEEP};text-align:right;max-width:170px;">${esc(next || '—')}</span></div>
       </div>`;
 
   // notes
   const notesWrap = document.createElement('div');
   notesWrap.style.cssText = 'background:#FAF9F7;border:1px solid rgba(27,26,31,.07);border-radius:14px;padding:12px 14px;margin-bottom:14px;';
-  notesWrap.innerHTML = `<div style="font-size:11px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:#A29EAC;margin-bottom:6px;">Your notes</div>`;
+  notesWrap.innerHTML = `<div style="font-size:11px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:#A29EAC;margin-bottom:6px;">Quick notes</div>`;
   const notesBox = document.createElement('textarea');
   notesBox.value = row.notes || ''; notesBox.placeholder = 'Jot anything…';
   notesBox.style.cssText = 'width:100%;min-height:52px;border:none;background:transparent;padding:0;font:13.5px inherit;color:#1B1A1F;resize:vertical;outline:none;';
