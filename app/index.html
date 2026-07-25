@@ -449,6 +449,15 @@ function Avatar({row,size}){
 }
 function StagePill({status}){ const m=STAGE_META[status]||STAGE_META.prospect; return <span className="pill" style={{background:m.bg,color:m.fg}}>{m.label}</span>; }
 function PriorityDot({priority}){ const m=PRIORITY_META[priority]||PRIORITY_META.medium; return <span style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:12.5,color:'var(--sub)'}}><span className="dot" style={{background:m.dot}}></span>{m.label}</span>; }
+// "Who is this?" — the most recent real interaction, so a row reads like a
+// relationship, not a database record.
+const EVENT_LABEL = {reply:'They replied', coffee_chat:'Coffee chat', referral:'Referral', interview:'Interview', offer:'Offer', first_message:'Message sent', connection_request:'Connection request', note:'Note added', stage_change:'Moved forward'};
+function lastInteraction(row, evs){
+  const ev = (evs||[]).slice().sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at))[0];
+  if(ev) return {label: EVENT_LABEL[ev.event_type]||'Updated', when: rel(new Date(ev.occurred_at).getTime())};
+  if(row.contacted_at) return {label:'Message sent', when: rel(new Date(row.contacted_at).getTime())};
+  return {label:'Saved', when: rel(new Date(row.shortlisted_at||row.updated_at).getTime())};
+}
 
 /* ============================ App shell ============================ */
 function App(){
@@ -665,7 +674,7 @@ function App(){
         {tab==='people' && <People db={db} log={log} events={events} doIngest={doIngest} setDrawerId={setDrawerId} sb={sb} auth={auth} deletePeople={deletePeople}/>}
         {tab==='pipeline' && <Pipeline log={log} changeStage={changeStage}/>}
         {tab==='tasks' && <Tasks tasks={tasks} log={log} addTask={addTask} toggleTask={toggleTask} deleteTask={deleteTask} setDrawerId={setDrawerId}/>}
-        {tab==='insights' && <Insights log={log} events={events} communityStats={communityStats}/>}
+        {tab==='insights' && <Insights log={log} events={events} tasks={tasks} db={db} communityStats={communityStats} setDrawerId={setDrawerId}/>}
         {tab==='settings' && <Settings db={db} patch={patch} auth={auth} sb={sb} signOut={signOut} setTab={setTab}/>}
         {tab==='templates' && <Templates db={db} patch={patch} sb={sb} auth={auth} setTab={setTab}/>}
         {tab==='extpreview' && <ExtensionPreview/>}
@@ -1110,24 +1119,6 @@ function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,addPeople,s
       return {row:r, kind:'followup', label:`Follow up — no reply in ${days}d`, score:Math.min(100,50+(days-followUpDays)*3), reasons:[`Sent ${days}d ago`]}; });
   const priorities = [...scored, ...overdue].sort((a,b)=>b.score-a.score).slice(0,3);
 
-  const buckets = ['prospect','ready_to_contact','contacted','replied','coffee_chat','referral','interview','offer'];
-  const reach = st => log.filter(r=>{
-    if(r.status==='do_not_contact') return false;
-    const i=buckets.indexOf(r.status), j=buckets.indexOf(st);
-    return i>=j;
-  }).length;
-  const funnel = [
-    ['Saved', log.filter(r=>r.status!=='do_not_contact').length],
-    ['Contacted', reach('contacted')],['Replied', reach('replied')],['Coffee chats', reach('coffee_chat')],
-    ['Referrals', reach('referral')],['Interviews', reach('interview')],['Offers', reach('offer')],
-  ];
-  const maxFunnel = Math.max(1, funnel[0][1]);
-
-  const weekContacted = contactedThisWeek(log);
-  const weekReplies = events.filter(e=>e.event_type==='reply' && new Date(e.occurred_at).getTime()>=weekStartUTC()).length;
-  const weekChats = events.filter(e=>e.event_type==='coffee_chat' && new Date(e.occurred_at).getTime()>=weekStartUTC()).length;
-  const weekRate = weekContacted ? Math.round(100*weekReplies/weekContacted) : 0;
-
   const hour = new Date().getHours(), tod = hour<12?'morning':hour<18?'afternoon':'evening';
   const first = (auth.user.email||'').split('@')[0];
 
@@ -1149,35 +1140,6 @@ function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,addPeople,s
           <div style={{flex:1}}/>
           <button className="btn ghost sm" style={{alignSelf:'flex-start'}} onClick={()=>p.kind==='followup'?setDraftFor(p.row.id):setDrawerId(p.row.id)}>{p.kind==='followup'?'Draft follow-up':'Open profile'}</button>
         </div>)}</div>}
-
-    <div className="grid2" style={{marginTop:30,alignItems:'start'}}>
-      <div>
-        <div className="tag" style={{marginBottom:10}}>Networking progress</div>
-        <div className="panel pad">
-          {funnel.map(([label,val])=><div key={label} style={{display:'grid',gridTemplateColumns:'96px 1fr 36px',gap:12,alignItems:'center',padding:'6px 0'}}>
-            <div className="note">{label}</div>
-            <div style={{height:16,borderRadius:0,background:'var(--chip)',overflow:'hidden'}}><div style={{height:'100%',width:`${Math.max(3,Math.round(100*val/maxFunnel))}%`,background:'var(--brand)',borderRadius:0}}></div></div>
-            <div style={{fontWeight:700,textAlign:'right',fontSize:13}}>{val}</div>
-          </div>)}
-        </div>
-      </div>
-      <div style={{display:'flex',flexDirection:'column',gap:14}}>
-        <div>
-          <div className="tag" style={{marginBottom:10}}>This week</div>
-          <div className="panel pad">
-            {[['Contacted',weekContacted],['Replies',weekReplies],['Response rate',weekRate+'%'],['Coffee chats',weekChats]].map(([l,v])=>
-              <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid var(--line2)'}}><span className="note">{l}</span><span style={{fontWeight:700,fontSize:14}}>{v}</span></div>)}
-          </div>
-        </div>
-        <div>
-          <div className="tag" style={{marginBottom:10}}>Quick actions</div>
-          <div className="panel pad" style={{padding:6}}>
-            {[['Search alumni',()=>setTab('people')],['Open the extension',()=>setTab('extpreview')],['Review pipeline',()=>setTab('pipeline')],['Add a task',()=>setTab('tasks')]].map(([l,go])=>
-              <div key={l} className="row" style={{border:'none',background:'transparent',padding:'9px 10px',cursor:'pointer'}} onClick={go}><span style={{fontSize:13.5,fontWeight:500}}>{l}</span><span style={{marginLeft:'auto',color:'var(--mute)'}}>→</span></div>)}
-          </div>
-        </div>
-      </div>
-    </div>
   </div>;
 }
 
@@ -1198,8 +1160,9 @@ function People({db,log,events,doIngest,setDrawerId,sb,auth,deletePeople}){
   // and returns which ones match a natural-language question, with why. Grounded
   // strictly in the index; no fabricated people. Routed through the gateway's
   // network_search feature.
-  async function askNetwork(){
-    if(mode==='none' || !q.trim()) return;
+  async function askNetwork(query){
+    const question = (typeof query==='string' ? query : q).trim();
+    if(mode==='none' || !question) return;
     setAiBusy(true); setAiErr(null); setAi(null);
     try{
       const index = log.slice(0,120).map(r=>{
@@ -1212,7 +1175,7 @@ function People({db,log,events,doIngest,setDrawerId,sb,auth,deletePeople}){
       }).join('\n');
       const r = await llmJSON(sb, auth, 'network_search',
         'You are a semantic search over an MIT Sloan Fellows MBA student\'s own saved contacts. Given a question and an indexed list of contacts, return the contacts that genuinely match. Use ONLY the provided index — never invent people or facts. If nothing matches, return an empty list.',
-        `Question: ${q.trim()}\n\nContacts (one per line, prefixed with #id):\n${index}\n\nReturn JSON: {"matches": [{"id": number, "why": string (under 15 words)}]}. Ranked best-first, at most 12.`);
+        `Question: ${question}\n\nContacts (one per line, prefixed with #id):\n${index}\n\nReturn JSON: {"matches": [{"id": number, "why": string (under 15 words)}]}. Ranked best-first, at most 12.`);
       setAi(r.matches||[]);
     }catch(e){ setAiErr(e.message||String(e)); }
     setAiBusy(false);
@@ -1241,6 +1204,12 @@ function People({db,log,events,doIngest,setDrawerId,sb,auth,deletePeople}){
       <button className="btn ghost sm" onClick={async()=>{setChecking(true); await doIngest(); setChecking(false);}} disabled={checking}>{checking?<Dots/>:'↻ Check for new profiles'}</button>
     </div>
 
+    {mode!=='none' && !ai && log.length>0 && <div style={{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center',marginTop:-2,marginBottom:2}}>
+      <span className="note" style={{color:'var(--mute2)'}}>Ask Mighty:</span>
+      {['Who works in healthcare?','Who knows climate VC?','Who have I met from Bain?','Who have I ignored for 6 months?'].map(qq=>
+        <span key={qq} className="chip" style={{cursor:'pointer',background:'var(--bsoft)',color:'var(--brand2)'}} onClick={()=>{ setQ(qq); askNetwork(qq); }}>{qq}</span>)}
+    </div>}
+
     {sel.size>0 && <div className="panel" style={{display:'flex',alignItems:'center',gap:12,marginBottom:12,padding:'10px 16px'}}>
       <div style={{fontWeight:600,fontSize:13}}>{sel.size} selected</div>
       <div style={{flex:1}}/>
@@ -1268,18 +1237,21 @@ function People({db,log,events,doIngest,setDrawerId,sb,auth,deletePeople}){
         ? <div className="empty"><div className="big">◔</div>Nobody yet. Shortlist profiles with the extension, then hit "Check for new profiles."</div>
         : <table className="ptable"><thead><tr>
             <th style={{width:34,paddingRight:0}}><input type="checkbox" checked={allSel} onChange={toggleAll} aria-label="Select all" style={{cursor:'pointer'}}/></th>
-            <th>Name</th><th>Company</th><th>Role</th><th>Status</th><th>Priority</th><th>Last activity</th><th>Next action</th></tr></thead>
+            <th>Who</th><th>Last interaction</th><th>Relationship</th><th>Next</th></tr></thead>
           <tbody>{rows.map(r=>{
-            const na = suggestedNextAction(r, events.filter(e=>e.log_id===r.id), db.settings.followUpDays);
+            const evs = events.filter(e=>e.log_id===r.id);
+            const na = suggestedNextAction(r, evs, db.settings.followUpDays);
+            const last = lastInteraction(r, evs);
+            const sub = [r.title, r.company].filter(Boolean).join(' · ');
             return <tr key={r.id} className="body-row" onClick={()=>setDrawerId(r.id)} style={sel.has(r.id)?{background:'var(--tsoft)'}:null}>
               <td onClick={e=>e.stopPropagation()} style={{width:34,paddingRight:0}}><input type="checkbox" checked={sel.has(r.id)} onChange={()=>toggleOne(r.id)} aria-label="Select" style={{cursor:'pointer'}}/></td>
-              <td><div style={{display:'flex',alignItems:'center',gap:9}}><Avatar row={r}/><div style={{minWidth:0}}><div style={{fontWeight:600,fontSize:13,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{displayName(r)}</div></div></div></td>
-              <td>{r.company||''}</td>
-              <td style={{color:'var(--sub)'}}>{r.title||''}</td>
+              <td><div style={{display:'flex',alignItems:'center',gap:11}}><Avatar row={r}/><div style={{minWidth:0}}>
+                <div style={{fontWeight:600,fontSize:14,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{displayName(r)}</div>
+                {sub && <div style={{fontSize:12.5,color:'var(--mute)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:220}}>{sub}</div>}
+              </div></div></td>
+              <td><div style={{fontSize:13.5}}>{last.label}</div><div style={{fontSize:12.5,color:'var(--mute)'}}>{last.when}</div></td>
               <td><StagePill status={r.status}/></td>
-              <td><PriorityDot priority={r.priority}/></td>
-              <td className="note">{rel(new Date(r.updated_at).getTime())}</td>
-              <td style={{color:'var(--brand)',fontWeight:500,fontSize:12.5}}>{na?na.label:'—'}</td>
+              <td style={{color:'var(--brand2)',fontWeight:500,fontSize:13}}>{na?na.label:'—'}</td>
             </tr>;
           })}</tbody>
         </table>}
@@ -1353,53 +1325,99 @@ function Tasks({tasks,log,addTask,toggleTask,deleteTask,setDrawerId}){
 }
 
 /* ============================ Insights ============================ */
-function Insights({log,events,communityStats}){
+// Intelligence — patterns you'd otherwise miss, not analytics. Everything is
+// derived from your own contacts + timeline; nothing is invented.
+function Insights({log,events,tasks,db,communityStats,setDrawerId}){
+  const active = log.filter(r=>r.status!=='do_not_contact');
+  const lastTouch = r => { const evs=events.filter(e=>e.log_id===r.id); const ev=evs.slice().sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at))[0];
+    return ev?new Date(ev.occurred_at).getTime() : (r.contacted_at?new Date(r.contacted_at).getTime() : new Date(r.shortlisted_at||r.updated_at).getTime()); };
   const everContacted = log.filter(r=>r.status!=='prospect'&&r.status!=='ready_to_contact'&&r.status!=='do_not_contact').length;
   const replied = log.filter(r=>['replied','coffee_chat','referral','interview','offer'].includes(r.status)).length;
   const responseRate = everContacted ? Math.round(100*replied/everContacted) : 0;
-  const coffeeChats = events.filter(e=>e.event_type==='coffee_chat').length;
-  const referrals = log.filter(r=>['referral','interview','offer'].includes(r.status)).length;
-  const interviews = log.filter(r=>['interview','offer'].includes(r.status)).length;
-  const stats = [
-    {v:responseRate+'%', l:'Response rate', n:`${replied} of ${everContacted} replied`},
-    {v:coffeeChats, l:'Coffee chats', n:'Logged in Timeline'},
-    {v:referrals, l:'Referrals', n:'Reached referral stage or beyond'},
-    {v:interviews, l:'Interviews', n:'Reached interview stage or beyond'},
-  ];
+  const followUpDays = db?.settings?.followUpDays||7;
+  const repliedIds = new Set(events.filter(e=>e.event_type==='reply').map(e=>e.log_id));
+
+  // Risks: overdue promises + follow-ups that have gone quiet.
+  const overduePromises = (tasks||[]).filter(t=>!t.done && t.due_date && new Date(t.due_date).getTime() < now());
+  const overdueFollowups = active.filter(r=>r.status==='contacted' && !repliedIds.has(r.id) && r.contacted_at && (now()-new Date(r.contacted_at).getTime())>followUpDays*864e5);
+  const riskCount = overduePromises.length + overdueFollowups.length;
+
+  // Network Health — a single honest score from activity, responsiveness, risk.
+  const staleRatio = active.length ? active.filter(r=>now()-lastTouch(r)>60*864e5).length/active.length : 0;
+  const health = active.length===0 ? 0 : Math.max(0, Math.min(100, Math.round(62 + responseRate*0.3 - riskCount*4 - staleRatio*28)));
+  const healthLabel = health>=80?'Excellent':health>=62?'Healthy':health>=42?'Needs attention':'At risk';
+
+  // Companies you're strongest in.
   const companyMap = {};
-  log.forEach(r=>{ if(!r.company) return; const c=companyMap[r.company]=companyMap[r.company]||{contacts:0,replies:0}; c.contacts++; if(['replied','coffee_chat','referral','interview','offer'].includes(r.status)) c.replies++; });
-  const coBars = Object.entries(companyMap).sort((a,b)=>b[1].contacts-a[1].contacts).slice(0,6);
-  const maxCo = Math.max(1, ...coBars.map(([,c])=>c.contacts));
-  const weekBuckets = Array.from({length:8},(_,i)=>{ const start = weekStartUTC(now()-((7-i))*7*864e5); return log.filter(r=>r.contacted_at && weekStartUTC(new Date(r.contacted_at).getTime())===start).length; });
-  const maxWeek = Math.max(1, ...weekBuckets);
+  active.forEach(r=>{ if(!r.company) return; const c=companyMap[r.company]=companyMap[r.company]||{contacts:0,replies:0}; c.contacts++; if(['replied','coffee_chat','referral','interview','offer'].includes(r.status)) c.replies++; });
+  const strongest = Object.entries(companyMap).sort((a,b)=>b[1].contacts-a[1].contacts).slice(0,5);
+  const responsive = Object.entries(companyMap).filter(([,c])=>c.contacts>=2).map(([n,c])=>[n, Math.round(100*c.replies/c.contacts), c]).sort((a,b)=>b[1]-a[1])[0];
+
+  // People who've gone quiet the longest.
+  const reconnect = active.filter(r=>r.status!=='prospect').map(r=>({r, t:lastTouch(r)})).sort((a,b)=>a.t-b.t).slice(0,4);
+  const monthOf = t => new Date(t).toLocaleDateString(undefined,{month:'long', year:'numeric'});
+
+  // Introductions you've generated.
+  const intros = log.filter(r=>['referral','interview','offer'].includes(r.status)).length
+    + events.filter(e=>e.event_type==='referral').length;
+
+  const card = {background:'var(--card)',border:'1px solid var(--line)',borderRadius:'var(--radius)',padding:'24px 26px'};
+  const kicker = {fontSize:11.5,letterSpacing:'.12em',textTransform:'uppercase',color:'var(--mute2)'};
 
   return <div className="page">
-    <div className="grid3" style={{gridTemplateColumns:'repeat(4,1fr)'}}>
-      {stats.map(s=><div key={s.l} className="panel pad"><div style={{fontSize:22,fontWeight:700}}>{s.v}</div><div className="note" style={{fontWeight:500,marginTop:3}}>{s.l}</div><div className="note" style={{marginTop:5}}>{s.n}</div></div>)}
-    </div>
-    <div className="grid2" style={{marginTop:14}}>
-      <div className="panel pad">
-        <div style={{fontWeight:600,fontSize:14}}>Networking by company</div>
-        <div style={{marginTop:12}}>{coBars.length===0 && <div className="note">No company data yet.</div>}
-          {coBars.map(([name,c])=><div key={name} style={{display:'grid',gridTemplateColumns:'76px 1fr',gap:10,alignItems:'center',padding:'6px 0'}}>
-            <div className="note">{name}</div>
-            <div><div style={{height:12,borderRadius:0,background:'var(--chip)',overflow:'hidden'}}><div style={{height:'100%',width:`${Math.round(100*c.contacts/maxCo)}%`,background:'var(--brand)',borderRadius:0}}></div></div>
-              <div className="note" style={{marginTop:3}}>{c.contacts} contacts · {c.replies} replies</div></div>
-          </div>)}</div>
+    {active.length===0 && <div className="panel pad"><div className="empty"><div className="big">🧠</div>Save a few people and log an interaction — Mighty starts spotting patterns once there's history.</div></div>}
+    {active.length>0 && <>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1.3fr',gap:18,alignItems:'stretch'}}>
+      <div style={{...card,background:'linear-gradient(150deg, var(--bsoft), var(--psoft))',border:'none',display:'flex',flexDirection:'column',gap:4,justifyContent:'center'}}>
+        <span style={kicker}>Network health</span>
+        <div style={{fontFamily:'var(--fh)',fontWeight:600,fontSize:60,lineHeight:1,letterSpacing:'-.04em'}}>{health}</div>
+        <div style={{fontWeight:600,fontSize:18,color:'var(--brand2)'}}>{healthLabel}</div>
+        <div className="note" style={{marginTop:4}}>{responseRate}% reply rate · {Math.round(staleRatio*100)}% of relationships gone quiet</div>
       </div>
-      <div className="panel pad" style={{display:'flex',flexDirection:'column'}}>
-        <div style={{fontWeight:600,fontSize:14}}>Weekly activity</div>
-        <div className="note">Contacted per week</div>
-        <div style={{flex:1,display:'flex',alignItems:'flex-end',gap:9,paddingTop:16,minHeight:130}}>
-          {weekBuckets.map((v,i)=><div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:5,justifyContent:'flex-end'}}>
-            <div style={{fontSize:11,fontWeight:600}}>{v}</div>
-            <div style={{width:'100%',maxWidth:28,height:Math.round(v/maxWeek*90)+6,borderRadius:0,background:i===7?'var(--brand)':'var(--chip)'}}></div>
-            <div style={{fontSize:10,color:'var(--mute)'}}>W{i+1}</div>
-          </div>)}
+      <div style={{...card,display:'flex',flexDirection:'column',gap:12}}>
+        <div style={{display:'flex',alignItems:'baseline',gap:10}}><span style={kicker}>Relationship risks</span><span style={{marginLeft:'auto',fontFamily:'var(--fh)',fontWeight:600,fontSize:22,color:riskCount?'var(--terra2)':'var(--green2)'}}>{riskCount}</span></div>
+        {riskCount===0 ? <div className="note">Nothing slipping. Every promise is on track.</div>
+          : <div className="list">
+            {overduePromises.slice(0,3).map(t=><div key={'t'+t.id} className="row" style={{borderColor:'var(--line)'}}><span style={{width:7,height:7,borderRadius:99,background:'var(--terra)',flex:'none'}}/><div className="grow"><div className="t" style={{fontWeight:500}}>{t.label}</div><div className="m">Promise overdue</div></div></div>)}
+            {overdueFollowups.slice(0,Math.max(0,3-overduePromises.length)).map(r=><div key={'f'+r.id} className="row" style={{borderColor:'var(--line)',cursor:'pointer'}} onClick={()=>setDrawerId&&setDrawerId(r.id)}><span style={{width:7,height:7,borderRadius:99,background:'var(--terra)',flex:'none'}}/><div className="grow"><div className="t" style={{fontWeight:500}}>{displayName(r)}</div><div className="m">No reply — follow up</div></div></div>)}
+          </div>}
+      </div>
+    </div>
+
+    <div className="grid3" style={{marginTop:18}}>
+      <div style={card}>
+        <span style={kicker}>Strongest with</span>
+        <div style={{marginTop:12,display:'flex',flexDirection:'column',gap:9}}>
+          {strongest.length===0 ? <div className="note">No company data yet.</div>
+            : strongest.map(([n,c])=><div key={n} style={{display:'flex',alignItems:'center',gap:10}}><span style={{fontWeight:500,fontSize:14.5}}>{n}</span><span style={{marginLeft:'auto'}} className="note">{c.contacts}</span></div>)}
         </div>
       </div>
+      <div style={card}>
+        <span style={kicker}>Most responsive</span>
+        {responsive ? <><div style={{fontFamily:'var(--fh)',fontWeight:600,fontSize:24,marginTop:10,letterSpacing:'-.02em'}}>{responsive[0]}</div><div className="note" style={{marginTop:4}}>{responsive[1]}% reply rate across {responsive[2].contacts} contacts</div></>
+          : <div className="note" style={{marginTop:10}}>Not enough replies yet to tell.</div>}
+      </div>
+      <div style={card}>
+        <span style={kicker}>Introductions generated</span>
+        <div style={{fontFamily:'var(--fh)',fontWeight:600,fontSize:36,marginTop:10,letterSpacing:'-.03em'}}>{intros}</div>
+        <div className="note" style={{marginTop:2}}>Referrals, interviews and offers your network opened.</div>
+      </div>
     </div>
-    <div style={{marginTop:14}}><CommunityInsights communityStats={communityStats}/></div>
+
+    <div style={{...card,marginTop:18}}>
+      <span style={kicker}>You haven't talked to</span>
+      <div style={{marginTop:12,display:'flex',flexDirection:'column',gap:2}}>
+        {reconnect.length===0 ? <div className="note">Everyone's fresh — nice.</div>
+          : reconnect.map(({r,t})=><div key={r.id} className="row" style={{border:'none',background:'transparent',padding:'10px 4px',cursor:'pointer'}} onClick={()=>setDrawerId&&setDrawerId(r.id)}>
+              <Avatar row={r} size={32}/>
+              <div className="grow"><div className="t" style={{fontWeight:500}}>{displayName(r)}</div><div className="m">{[r.title,r.company].filter(Boolean).join(' · ')}</div></div>
+              <div className="note">since {monthOf(t)}</div>
+            </div>)}
+      </div>
+    </div>
+
+    <div style={{marginTop:18}}><CommunityInsights communityStats={communityStats}/></div>
+    </>}
   </div>;
 }
 function CommunityInsights({communityStats}){
@@ -1600,9 +1618,8 @@ function Settings({db,patch,auth,sb,signOut,setTab}){
     <div className="tag" style={{margin:'26px 0 10px'}}>AI usage</div>
     <AiUsagePanel sb={sb} auth={auth}/>
 
-    <div className="tag" style={{margin:'26px 0 10px'}}>Your profile</div>
-    <div className="note" style={{margin:'-4px 0 10px',fontSize:12.5}}>The more MIghTy knows, the sharper its ranking, drafts, and daily plan. Everything here is private to you.</div>
-    <div style={{marginBottom:14}}><ResumeImport sb={sb} auth={auth} db={db} patch={patch}/></div>
+    <div className="tag" style={{margin:'26px 0 10px'}}>Edit profile</div>
+    <div className="note" style={{margin:'-4px 0 10px',fontSize:12.5}}>The more Mighty knows, the sharper its ranking, drafts, and daily plan. Everything here is private to you. (Import a resume anytime from onboarding.)</div>
     {(()=>{ const arrField=(label,key,ph)=><div style={{marginBottom:12}}><label className="fld">{label}</label>
         <input className="inp" defaultValue={(db.settings[key]||[]).join(', ')}
           onBlur={e=>patch('settings', s=>({...s, [key]: e.target.value.split(',').map(x=>x.trim()).filter(Boolean)}))} placeholder={ph}/></div>;
