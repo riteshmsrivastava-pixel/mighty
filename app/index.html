@@ -164,7 +164,7 @@ label.fld{display:block;font-size:12.5px;font-weight:500;letter-spacing:.02em;te
 const {useState,useEffect,useRef,useMemo} = React;
 
 /* ============================ deployer config ============================
-   Filled in ONCE by whoever deploys MIghTy (see SETUP.md) — students never
+   Filled in ONCE by whoever deploys Mighty (see SETUP.md) — students never
    see or touch this. Anon keys are safe to ship in client code; row-level
    security is what actually protects the data. */
 const SUPABASE_URL = 'https://hplyyywdftnvjajyncvj.supabase.co';
@@ -191,7 +191,7 @@ const DEFAULT = {
     interests: [],          // personal — fuels authentic conversation starters
     networkingStyle: [],    // cold outreach / warm intros / coffee chats / events / email / linkedin
     communicationStyle: '', // how your messages should sound (e.g. warm, concise)
-    hardestPart: '',        // the networking problem MIghTy should solve for you
+    hardestPart: '',        // the networking problem Mighty should solve for you
     currentRole: '', currentCompany: '', yearsExperience: '', linkedinUrl: '',
     followUpDays: 7,
     communityOptIn: false,
@@ -799,7 +799,7 @@ function App(){
 
   if(auth.status==='loading') return <div style={{display:'grid',placeItems:'center',height:'100vh'}}><div className="empty"><div className="big">⏳</div>Loading…</div></div>;
   if(auth.status==='unconfigured') return <div style={{display:'grid',placeItems:'center',height:'100vh',padding:24}}>
-    <div className="panel pad" style={{maxWidth:420,textAlign:'center'}}><h2>MIghTy isn't set up yet</h2>
+    <div className="panel pad" style={{maxWidth:420,textAlign:'center'}}><h2>Mighty isn't set up yet</h2>
       <p className="note" style={{marginTop:10}}>The deployer needs to add a Supabase project URL + anon key to <span className="mono">index.html</span> — see SETUP.md.</p></div></div>;
   if(auth.status!=='in') return <Gate sb={sb}/>;
   if(!db.settings.onboardedAt) return <Onboarding sb={sb} db={db} patch={patch} auth={auth} setTab={setTab}/>;
@@ -971,16 +971,16 @@ function Onboarding({sb, db, patch, auth, setTab}){
   const STYLES=['Warm introductions','Coffee chats','Cold outreach','Events','Email','LinkedIn'];
   const HARDEST=["I don't know who to reach out to","I forget to follow up","I hate cold outreach","I don't know what to say","I don't stay organized"];
   const STEPS = [
-    { key:'welcome', title:`Welcome, ${first}`, sub:'MIghTy helps you build real relationships on LinkedIn, not just connections. A few quick questions, then you\'re set.' },
-    { key:'goal', title:'What do you want to accomplish in the next 6-12 months?', sub:'This is the most important one. It becomes the lens MIghTy uses to rank people, draft messages, and plan your day.' },
-    { key:'resume', title:'Import your resume', sub:'Optional, but it fills in most of your profile in seconds. Upload a PDF or paste the text - MIghTy pulls out your skills, schools, and current role for you to confirm.' },
+    { key:'welcome', title:`Welcome, ${first}`, sub:'Mighty helps you build real relationships on LinkedIn, not just connections. A few quick questions, then you\'re set.' },
+    { key:'goal', title:'What do you want to accomplish in the next 6-12 months?', sub:'This is the most important one. It becomes the lens Mighty uses to rank people, draft messages, and plan your day.' },
+    { key:'resume', title:'Import your resume', sub:'Optional, but it fills in most of your profile in seconds. Upload a PDF or paste the text - Mighty pulls out your skills, schools, and current role for you to confirm.' },
     { key:'reason', title:'Why are you networking?', sub:'Pick all that apply - it shapes the advice you get.' },
-    { key:'targets', title:'Who are you targeting?', sub:'Dream companies and the roles you\'re after. MIghTy scores people against these. Optional, editable anytime.' },
+    { key:'targets', title:'Who are you targeting?', sub:'Dream companies and the roles you\'re after. Mighty scores people against these. Optional, editable anytime.' },
     { key:'places', title:'Where?', sub:'Your city (so "near me" searches work) and any places you want to build a network.' },
-    { key:'background', title:'Your background', sub:'Schools and industries help MIghTy spot shared ground and prioritise the right people.' },
-    { key:'style', title:'How you like to network', sub:'So MIghTy suggests moves that actually feel like you - and solves your hardest part.' },
-    { key:'extension', title:'Add the Chrome extension', sub:'This is what lets MIghTy read LinkedIn pages you\'re viewing and save people with one click. It never sends or connects for you.' },
-    { key:'tour', title:'Here\'s the flow', sub:'Four moves, and MIghTy does the remembering.' },
+    { key:'background', title:'Your background', sub:'Schools and industries help Mighty spot shared ground and prioritise the right people.' },
+    { key:'style', title:'How you like to network', sub:'So Mighty suggests moves that actually feel like you - and solves your hardest part.' },
+    { key:'extension', title:'Add the Chrome extension', sub:'This is what lets Mighty read LinkedIn pages you\'re viewing and save people with one click. It never sends or connects for you.' },
+    { key:'tour', title:'Here\'s the flow', sub:'Four moves, and Mighty does the remembering.' },
   ];
   const s=STEPS[step];
   const last=step===STEPS.length-1;
@@ -1051,9 +1051,9 @@ function Onboarding({sb, db, patch, auth, setTab}){
           {s.key==='tour' &&
             <div style={{display:'flex',flexDirection:'column',gap:10}}>
               {[['1','Save people','From LinkedIn search or a profile, save anyone interesting.'],
-                ['2','See the match','MIghTy scores each person and tells you why.'],
+                ['2','See the match','Mighty scores each person and tells you why.'],
                 ['3','Draft & send','Get a grounded first draft. You always click Send yourself.'],
-                ['4','Track it','Log coffee chats and follow-ups; MIghTy resurfaces them.']].map(([n,t,d])=>
+                ['4','Track it','Log coffee chats and follow-ups; Mighty resurfaces them.']].map(([n,t,d])=>
                 <div key={n} style={{display:'flex',gap:12,alignItems:'flex-start'}}>
                   <div style={{width:26,height:26,flex:'none',background:'var(--brand)',color:'#fff',display:'grid',placeItems:'center',fontWeight:700,fontSize:13}}>{n}</div>
                   <div><div style={{fontWeight:600,fontSize:13.5}}>{t}</div><div className="note" style={{fontSize:12.5}}>{d}</div></div></div>)}
@@ -1111,7 +1111,7 @@ function DailyCopilot({db, log, events, tasks, sb, auth, setDrawerId}){
     try{
       const pctx = profileContext(db.settings);
       const r = await llmJSON(sb, auth, 'daily_plan',
-        `You are MIghTy's daily networking copilot for an MIT Sloan Fellows MBA student. Given their real outreach pipeline below, recommend the best use of about 30 minutes today. Use ONLY the people and facts provided — never invent anyone. Prioritise time-sensitive, high-leverage moves (overdue follow-ups, replies waiting, coffee-chat thank-yous, warm high-score intros) AND moves that advance the student's stated goal. Be specific and concise.`,
+        `You are Mighty's daily networking copilot for an MIT Sloan Fellows MBA student. Given their real outreach pipeline below, recommend the best use of about 30 minutes today. Use ONLY the people and facts provided — never invent anyone. Prioritise time-sensitive, high-leverage moves (overdue follow-ups, replies waiting, coffee-chat thank-yous, warm high-score intros) AND moves that advance the student's stated goal. Be specific and concise.`,
         `${pctx?pctx+'\n\n':''}Pipeline:\n${digest}\n\nReturn JSON: {"headline": string (one short motivating line, reference the goal if relevant), "actions": [{"title": string (imperative, <8 words), "who": string (person name or "—"), "why": string (<15 words, tie to the goal when it applies), "minutes": number}]}. 3 to 4 actions, ordered by priority, total ~30 minutes.`,
         900);
       setPlan(r);
@@ -1130,7 +1130,7 @@ function DailyCopilot({db, log, events, tasks, sb, auth, setDrawerId}){
     {mode==='none'
       ? <div style={{fontSize:13,opacity:.85,marginTop:8}}>Sign in to get an AI plan for your day.</div>
       : !hasWork
-        ? <div style={{fontSize:13,opacity:.85,marginTop:8}}>Save a few people first, then MIghTy can plan your day around them.</div>
+        ? <div style={{fontSize:13,opacity:.85,marginTop:8}}>Save a few people first, then Mighty can plan your day around them.</div>
         : busy
           ? <div style={{marginTop:12}}><Dots/></div>
           : err
@@ -1150,12 +1150,12 @@ function DailyCopilot({db, log, events, tasks, sb, auth, setDrawerId}){
                       </div>; })}
                   </div>
                 </div>
-              : <div style={{fontSize:13,opacity:.85,marginTop:8}}>Ask MIghTy what's worth doing in the next half hour.</div>}
+              : <div style={{fontSize:13,opacity:.85,marginTop:8}}>Ask Mighty what's worth doing in the next half hour.</div>}
   </div>;
 }
 
 /* ============================ Find people (Discover) ============================
-   You type a natural request ("strategy tech companies near me"); MIghTy resolves
+   You type a natural request ("strategy tech companies near me"); Mighty resolves
    "near me" to your city, rewrites it into tight keywords via the AI gateway, and
    runs an official Google Programmable Search (server-side, quota'd, never HTML
    scraping) scoped to public LinkedIn profiles. Results come back INTO the app as
@@ -1251,8 +1251,8 @@ function FindPeople({sb, auth, db, patch, addPeople, setTab}){
   }
 
   return <div className="panel pad">
-    <div style={{fontWeight:700,fontSize:15,marginBottom:4}}>🔎 Find people anywhere</div>
-    <div className="note" style={{marginBottom:12,fontSize:12.5,lineHeight:1.5}}>Describe who you're looking for in plain words. MIghTy turns it into a smart search and finds matching LinkedIn profiles for you to add.</div>
+    <div style={{fontFamily:'var(--fh)',fontWeight:600,fontSize:17,letterSpacing:'-.02em',marginBottom:4}}>Find people anywhere</div>
+    <div className="note" style={{marginBottom:12,fontSize:13,lineHeight:1.5}}>Describe who you're looking for in plain words — Mighty finds matching profiles for you to add.</div>
     <div style={{display:'flex',gap:8}}>
       <input className="inp" value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') go(); }} placeholder="e.g. strategy people at tech companies near me"/>
       <button className="btn" onClick={go} disabled={busy||!q.trim()}>{busy?<Dots/>:'✨ Search'}</button>
@@ -1326,16 +1326,20 @@ function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,addPeople,s
     <div className="tag" style={{margin:'28px 0 10px'}}>Today's priorities</div>
     {priorities.length===0
       ? <div className="panel pad"><div className="empty" style={{padding:'20px'}}><div className="big">✓</div>All caught up.</div></div>
-      : <div className="grid3">{priorities.map((p,i)=><PersonHover key={p.row.id+p.kind} row={p.row} evs={events.filter(e=>e.log_id===p.row.id)} followUpDays={followUpDays} className="panel pad" style={{display:'flex',flexDirection:'column',gap:7}}>
-          <span className="chip" style={{alignSelf:'flex-start',background:p.kind==='followup'?'var(--tsoft)':'var(--bsoft)',color:p.kind==='followup'?'var(--terra2)':'var(--brand2)'}}>{p.kind==='followup'?'Follow-up due':'New contact'}</span>
-          <div style={{display:'flex',alignItems:'center',gap:11,marginTop:2}}>
-            <Avatar row={p.row} size={38}/>
-            <div style={{fontWeight:600,fontSize:14.5,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{displayName(p.row)}</div>
-          </div>
-          <div className="note">{p.label}</div>
-          <div style={{flex:1}}/>
-          <button className="btn ghost sm" style={{alignSelf:'flex-start'}} onClick={()=>p.kind==='followup'?setDraftFor(p.row.id):setDrawerId(p.row.id)}>{p.kind==='followup'?'Draft follow-up':'Open profile'}</button>
-        </PersonHover>)}</div>}
+      : <div className="panel" style={{overflow:'hidden'}}>
+          {priorities.map((p,i)=><PersonHover key={p.row.id+p.kind} row={p.row} evs={events.filter(e=>e.log_id===p.row.id)} followUpDays={followUpDays}
+              style={{display:'flex',alignItems:'center',gap:14,padding:'16px 22px',borderTop:i?'1px solid var(--line2)':'none',cursor:'pointer'}}>
+            <Avatar row={p.row} size={40}/>
+            <div style={{minWidth:0,flex:1}}>
+              <div style={{fontWeight:600,fontSize:15,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{displayName(p.row)}</div>
+              <div className="note" style={{fontSize:13}}>{p.label}</div>
+            </div>
+            <button className="btn sm" style={p.kind==='followup'?undefined:{background:'var(--card)',color:'var(--ink)',border:'1px solid var(--line)'}}
+              onClick={e=>{ e.stopPropagation(); p.kind==='followup'?setDraftFor(p.row.id):setDrawerId(p.row.id); }}>
+              {p.kind==='followup'?'Draft follow-up':'Open profile'}
+            </button>
+          </PersonHover>)}
+        </div>}
   </div>;
 }
 
@@ -1875,7 +1879,7 @@ function ResumeImport({sb, auth, db, patch, onApply}){
       <div style={{flex:1}}/>
       <label className="btn ghost sm" style={{cursor:'pointer'}}>Upload PDF<input type="file" accept=".pdf,.txt,application/pdf,text/plain" style={{display:'none'}} onChange={onFile}/></label>
     </div>
-    <div className="note" style={{margin:'6px 0 10px',fontSize:12.5}}>Upload a PDF or paste the text - MIghTy fills in your skills, schools, industries, and current role for you to confirm. Nothing is stored except what you keep.</div>
+    <div className="note" style={{margin:'6px 0 10px',fontSize:12.5}}>Upload a PDF or paste the text - Mighty fills in your skills, schools, industries, and current role for you to confirm. Nothing is stored except what you keep.</div>
     <textarea className="inp" rows={4} value={text} onChange={e=>setText(e.target.value)} placeholder="…or paste your resume text here"/>
     <div style={{display:'flex',gap:10,alignItems:'center',marginTop:10}}>
       <button className="btn" onClick={extract} disabled={busy||!text.trim()}>{busy?<Dots/>:'Extract with AI'}</button>
@@ -1921,7 +1925,7 @@ function AiUsagePanel({sb, auth}){
   },[sb,auth.status]);
 
   if(u===undefined) return <div className="panel pad"><div className="note">Loading usage…</div></div>;
-  if(u===null) return <div className="panel pad"><div className="note">AI usage will appear here once the AI Gateway is deployed. It tracks your MIghTy Assists and plan.</div></div>;
+  if(u===null) return <div className="panel pad"><div className="note">AI usage will appear here once the AI Gateway is deployed. It tracks your Mighty Assists and plan.</div></div>;
   const PLAN_LABEL={explorer:'Explorer',builder:'Builder',leader:'Leader'};
   const pct = u.cap==null ? 0 : Math.min(100,Math.round(100*u.month/Math.max(1,u.cap)));
   const nearLimit = u.cap!=null && u.month/u.cap >= 0.8;
@@ -1932,7 +1936,7 @@ function AiUsagePanel({sb, auth}){
       {u.plan!=='leader' && <a className="btn ghost sm" href="../pricing/" target="_blank" rel="noopener noreferrer" style={{textDecoration:'none'}}>{u.plan==='explorer'?'Upgrade':'Change plan'}</a>}
     </div>
     <div style={{marginBottom:12}}>
-      <div style={{display:'flex',justifyContent:'space-between',fontSize:12.5,marginBottom:5}}><span className="note">MIghTy Assists this month</span>
+      <div style={{display:'flex',justifyContent:'space-between',fontSize:12.5,marginBottom:5}}><span className="note">Mighty Assists this month</span>
         <span style={{fontWeight:600}}>{u.month}{u.cap!=null?` / ${u.cap}`:' · unlimited'}</span></div>
       {u.cap!=null && <div className="scorebar"><i style={{width:pct+'%'}}></i></div>}
     </div>
@@ -1970,7 +1974,7 @@ function Settings({db,patch,auth,sb,signOut,setTab}){
     {t:'Account', d:auth.user.email, action:'Sign out', go:signOut},
     {t:'Message templates', d:`${db.templates.length} saved`, action:'Edit', go:()=>setTab('templates')},
     {t:'Export your data', d:'Contacts, notes and messages — yours anytime', action:'Export CSV/JSON', go:exportData},
-    {t:'Privacy', d:'Notes and drafts are private to you; nothing is ever sent without your click', action:'Learn more', go:()=>alert('MIghTy stores only what you put in. AI calls go through a shared proxy so no student needs an API key — your prompts are not used to train models. See the Log/Timeline for your full activity history.')},
+    {t:'Privacy', d:'Notes and drafts are private to you; nothing is ever sent without your click', action:'Learn more', go:()=>alert('Mighty stores only what you put in. AI calls go through a shared proxy so no student needs an API key — your prompts are not used to train models. See the Log/Timeline for your full activity history.')},
   ];
 
   return <div className="page">
@@ -2507,7 +2511,7 @@ function ExtensionPreview(){
   const [mode,setMode]=useState('profile');
   return <div className="page wide">
     <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:18}}>
-      <div className="note">How MIghTy shows up inside LinkedIn:</div>
+      <div className="note">How Mighty shows up inside LinkedIn:</div>
       <div className="seg">
         <button className={mode==='search'?'on':''} onClick={()=>setMode('search')}>Search results</button>
         <button className={mode==='profile'?'on':''} onClick={()=>setMode('profile')}>Profile sidebar</button>
@@ -2552,7 +2556,7 @@ function ExtensionPreview(){
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:14}}>
               <button className="btn sm">Draft follow-up</button>
-              <button className="btn ghost sm">Open in MIghTy</button>
+              <button className="btn ghost sm">Open in Mighty</button>
             </div>
           </div>
         </> : <div style={{flex:1,padding:'22px',overflow:'auto'}}>
@@ -2569,7 +2573,7 @@ function ExtensionPreview(){
             </div>
             <div style={{display:'flex',alignItems:'center',gap:12,background:'var(--ink)',color:'#fff',borderRadius:10,padding:'10px 14px',marginTop:12}}>
               <Logo size={18}/><div style={{flex:1,fontSize:13}}>3 people selected</div>
-              <button className="btn sm">Save to MIghTy</button>
+              <button className="btn sm">Save to Mighty</button>
             </div>
           </div>
         </div>}
@@ -2582,13 +2586,13 @@ function InstallSteps(){
   const steps = [
     ['Open chrome://extensions', 'In Chrome, go to the address bar and type chrome://extensions, then press Enter.'],
     ['Turn on Developer mode', 'Flip the "Developer mode" toggle in the top-right corner of that page.'],
-    ['Download & unzip MIghTy', 'Click the button below to download the extension, then double-click the .zip file to unzip it.'],
+    ['Download & unzip Mighty', 'Click the button below to download the extension, then double-click the .zip file to unzip it.'],
     ['Click "Load unpacked"', 'Back on chrome://extensions, click "Load unpacked" and select the unzipped mighty-extension folder.'],
-    ['Sign in', 'Click the MIghTy icon in your toolbar (pin it for easy access) and sign in with your @mit.edu email — same account as the web app.'],
+    ['Sign in', 'Click the Mighty icon in your toolbar (pin it for easy access) and sign in with your @mit.edu email — same account as the web app.'],
   ];
   return <div style={{maxWidth:640,margin:'0 auto'}}>
     <div className="panel pad">
-      <div className="ph"><div><h2>Install the MIghTy extension</h2><div className="sub">About a minute, one time per device.</div></div></div>
+      <div className="ph"><div><h2>Install the Mighty extension</h2><div className="sub">About a minute, one time per device.</div></div></div>
       <div className="list">
         {steps.map(([title,body],i)=><div key={i} className="row" style={{alignItems:'flex-start'}}>
           <div style={{width:26,height:26,borderRadius:99,background:'var(--brand)',color:'#fff',display:'grid',placeItems:'center',fontWeight:700,fontSize:13,flex:'none'}}>{i+1}</div>
@@ -2596,7 +2600,7 @@ function InstallSteps(){
         </div>)}
       </div>
       <div style={{marginTop:16,display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
-        <a className="btn" href="../install/mighty-extension.zip" download style={{textDecoration:'none'}}>⬇ Download MIghTy extension (.zip)</a>
+        <a className="btn" href="../install/mighty-extension.zip" download style={{textDecoration:'none'}}>⬇ Download Mighty extension (.zip)</a>
         <a className="btn ghost" href="../install/" style={{textDecoration:'none'}}>Full written guide →</a>
       </div>
       <div className="note" style={{marginTop:14}}>Human-in-the-loop by design — it never clicks Connect or Message for you. You always click Send.</div>
