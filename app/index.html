@@ -607,18 +607,29 @@ function newMemory(o){
   return { id:'m'+Math.random().toString(36).slice(2,9)+Date.now().toString(36),
     type:o.type||'personal', value:String(o.value||'').trim(),
     confidence:o.confidence==null?0.7:o.confidence,
+    // Gate: green commits, amber is a suggestion the user must confirm, red is
+    // dropped before it ever reaches here. Suggestions never feed drafts or
+    // briefings until confirmed — an uncertain guess must not become a "fact".
+    status:o.status||'confirmed',
     sourceLabel:o.sourceLabel||'You', sourceKind:o.sourceKind||'user',
     visibility:o.visibility||'normal', permanent:!!o.permanent, expiresAt:o.expiresAt||null,
     pinned:!!o.pinned, createdAt:Date.now(), updatedAt:Date.now() };
 }
+// Confidence → gate decision. Callers drop 'red', suggest 'amber', commit 'green'.
+function memGate(c){ c=(c==null?0.7:c); return c>=0.75?'commit':c>=0.5?'suggest':'drop'; }
 // Unified read: real memory records first, then legacy coffee-chat extractions
 // and briefing hints that predate the memory model — shown but not editable, so
 // nothing already captured disappears. New writes always go to real records.
+// Amber memories awaiting the user's yes/no. Never used anywhere but the
+// confirm UI — structurally excluded from drafts, briefings and reasoning.
+function suggestedMemories(row){
+  return memList(row).filter(m=>m.status==='suggested' && !(m.expiresAt && new Date(m.expiresAt).getTime()<now() && !m.permanent));
+}
 function personMemories(row, evs){
   const out = [], seen = new Set();
   const push = m => { const k=(m.value||'').trim().toLowerCase(); if(!k||seen.has(k)) return; seen.add(k); out.push(m); };
-  // 1. Real records (skip expired)
-  memList(row).forEach(m=>{ if(m.expiresAt && new Date(m.expiresAt).getTime()<now() && !m.permanent) return; push(m); });
+  // 1. Real records — confirmed only (suggestions live in their own tray), skip expired
+  memList(row).forEach(m=>{ if(m.status==='suggested') return; if(m.expiresAt && new Date(m.expiresAt).getTime()<now() && !m.permanent) return; push(m); });
   // 2. Legacy extractions from the timeline
   (evs||[]).slice().sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at)).forEach(e=>{
     const x=e.extracted||{}; const src=`Coffee chat, ${fmtDate(new Date(e.occurred_at).getTime())}`;
@@ -2233,10 +2244,15 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
       const extracted = { personalDetails:mems.map(m=>m.value), promises:yourP, theirPromises:theirP, nextTouchJustification:r.nextTouch?.justification||'' };
       const suggested_next_touch = r.nextTouch ? addOffset(now(), r.nextTouch.amount, r.nextTouch.unit) : null;
       await logEvent(row, 'coffee_chat', noteText.trim(), { extracted, suggested_next_touch });
-      // First-class memory records, with type + confidence + source.
+      // First-class memory records, with type + confidence + source. Confidence
+      // gates commit vs suggest vs drop — an uncertain guess becomes a suggestion
+      // the user confirms, never a silent fact. Promises are explicit acts, so
+      // they commit directly.
       const src = `Coffee chat, ${fmtDate(now())}`;
+      const gated = mems.map(m=>({m, g:memGate(m.confidence)})).filter(x=>x.g!=='drop')
+        .map(x=>newMemory({type:x.m.type||'personal', value:x.m.value, confidence:x.m.confidence, sourceLabel:src, sourceKind:'coffee_chat', status:x.g==='commit'?'confirmed':'suggested'}));
       const fresh = [
-        ...mems.map(m=>newMemory({type:m.type||'personal', value:m.value, confidence:m.confidence, sourceLabel:src, sourceKind:'coffee_chat'})),
+        ...gated,
         ...yourP.map(p=>newMemory({type:'promise', value:p, confidence:0.9, sourceLabel:src, sourceKind:'coffee_chat'})),
         ...theirP.map(p=>newMemory({type:'their_promise', value:p, confidence:0.9, sourceLabel:src, sourceKind:'coffee_chat'})),
       ].filter(m=>m.value);
@@ -2365,7 +2381,22 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
                 </React.Fragment>; })}
             </div>
 
-            {/* What Mighty knows — first-class memory records */}
+            {/* Suggested memories — amber, awaiting confirmation. Not yet facts. */}
+            {(()=>{ const sugg=suggestedMemories(row); if(!sugg.length) return null;
+              return <>
+                <div className="tag" style={{margin:'22px 0 8px',color:'var(--amber)'}}>Did I get this right?</div>
+                <div className="list">{sugg.map(m=>{ const meta=MEM_TYPES[m.type]||MEM_TYPES.personal;
+                  return <div key={m.id} className="row" style={{background:'var(--asoft)',border:'1px dashed rgba(140,122,80,.4)',alignItems:'center'}}>
+                    <div className="grow" style={{minWidth:0}}>
+                      <div style={{fontSize:11,fontWeight:500,letterSpacing:'.07em',textTransform:'uppercase',color:'var(--amber)'}}>{meta.t} · unsure</div>
+                      <div style={{fontSize:13.5,marginTop:3}}>{m.value}</div>
+                    </div>
+                    <button className="btn sm" onClick={()=>writeMemories(row, updateRow, memList(row).map(x=>x.id===m.id?{...x,status:'confirmed',confidence:Math.max(0.8,x.confidence),updatedAt:Date.now()}:x))}>Confirm</button>
+                    <span className="iconbtn" style={{cursor:'pointer',fontSize:12}} onClick={()=>writeMemories(row, updateRow, memList(row).filter(x=>x.id!==m.id))}>✕</span>
+                  </div>; })}</div>
+              </>; })()}
+
+            {/* What Mighty knows — confirmed, first-class memory records */}
             <div style={{display:'flex',alignItems:'center',margin:'22px 0 8px'}}>
               <div className="tag">Mighty knows</div><div style={{flex:1}}/>
               <span className="iconbtn" style={{cursor:'pointer',fontSize:11.5,padding:'4px 9px'}} onClick={()=>setAddingMem(v=>!v)}>＋ Add</span>
