@@ -255,6 +255,49 @@ function ChipInput({value, onChange, placeholder}){
 }
 
 /* ===================== AI (shared ai-proxy - no key ever reaches the client) ===================== */
+/* ---- Instrumentation --------------------------------------------------------
+   Our own table, not a third-party service, because we tell people that nothing
+   they write about someone leaves their account. Sending behavioural data to a
+   vendor a week after saying that would make it untrue in spirit.
+
+   Counts and categories only. safeProps() enforces that structurally rather than
+   by convention: a value survives only if it is a finite number, a boolean, or a
+   short enum-shaped string. A name has a space and a capital, an email has an @,
+   a URL has a colon and a slash - all three are dropped by the same rule, so a
+   leak requires defeating the sanitizer rather than merely forgetting the rule.
+
+   Fire and forget. Analytics must never break a feature or make the user wait,
+   so every failure here is swallowed on purpose. */
+const ENUMISH = /^[a-z0-9_]{1,32}$/;
+/* Must agree with app_events.event's check constraint (2 to 40 chars). A name
+   the client accepts and Postgres rejects is an event that vanishes silently. */
+const EVENT_NAME = /^[a-z0-9_]{2,40}$/;
+function safeProps(props){
+  const out = {};
+  if(!props || typeof props!=='object') return out;
+  for(const k of Object.keys(props).slice(0,8)){
+    if(!ENUMISH.test(k)) continue;
+    const v = props[k];
+    if(typeof v==='number' && Number.isFinite(v)) out[k] = v;
+    else if(typeof v==='boolean') out[k] = v;
+    else if(typeof v==='string' && ENUMISH.test(v)) out[k] = v;
+    // anything else - names, emails, URLs, note text, objects - is dropped
+  }
+  return out;
+}
+/* App binds these once it has a client and a session. Kept module-level rather
+   than threaded through six components as a prop: call sites stay readable, and
+   an unbound tracker is a silent no-op rather than a crash. */
+let _trkSb = null, _trkUser = null;
+function bindTracking(sb, user){ _trkSb = sb; _trkUser = user; }
+function track(event, props){
+  try{
+    if(!_trkSb || !_trkUser || !EVENT_NAME.test(String(event||''))) return;
+    _trkSb.from('app_events').insert({user_id:_trkUser.id, event, props:safeProps(props)})
+      .then(()=>{}, ()=>{});   // never surface an analytics failure
+  }catch(e){}
+}
+
 /* ---- Extension bridge -------------------------------------------------------
    The extension can read a search results page that this page cannot: CORS
    blocks the app, but the background worker holds host permission. It parses
@@ -713,11 +756,12 @@ function Discover({sb, settings, people, onSave, onOpen, go}){
          back with location, education, experience and follower counts - the API
          path returns a title and a link and nothing else. Fall back to the edge
          function only when the extension is not installed. */
-      let found = [];
+      let found = [], via = 'ext';
       const bridged = await extBridge.search(kw);
       if(bridged && bridged.ok){
         found = (bridged.people||[]).filter(p=>p && p.profileUrl);
       } else if(bridged && bridged.error==='blocked'){
+        track('search_blocked', {});
         setErr('Search is rate limited right now, so results would be incomplete rather than wrong. Give it a few minutes, or find them on LinkedIn and save from there.');
         setPhase('idle'); return;
       } else {
@@ -729,7 +773,13 @@ function Discover({sb, settings, people, onSave, onOpen, go}){
           setPhase('idle'); return;
         }
         found = (data.people||[]).filter(p=>p && p.profileUrl);
+        via = 'api';
       }
+      /* `via` is the whole point of instrumenting this: it tells us whether the
+         extension search path actually works against live Google, which cannot
+         be established from a test harness. */
+      track('search_run', {via, results:found.length,
+        with_facts: found.filter(p=>p.location||p.education).length});
 
       if(!found.length){
         setNote('Nothing came back for that one. Naming a role and a place works best - "product leaders in Boston" beats "smart people in AI".');
@@ -1016,6 +1066,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
         shared:Array.isArray(out.shared)?out.shared:[], conversationStarters:Array.isArray(out.starters)?out.starters:[],
         avoid:clean(out.avoid), builtAt:new Date().toISOString()};
       await onUpdate(row, {briefing});
+      track('brief_built', {shared:(briefing.shared||[]).length, starters:(briefing.conversationStarters||[]).length});
       flash('Brief ready');
     }catch(e){ setErr(e.message||String(e)); }
     setBusy(null);
@@ -1031,6 +1082,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
         800);
       setDraft(clean(out.message));
       await onUpdate(row, {ai_draft:clean(out.message), status: row.status==='prospect'?'ready_to_contact':row.status});
+      track('draft_written', {approach, had_brief: !!br.careerSummary, memories: memories.length});
       flash('Draft written - you always click send');
     }catch(e){ setErr(e.message||String(e)); }
     setBusy(null);
@@ -1043,6 +1095,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
       await onStage(row, 'contacted');
       await onEvent(row, 'first_message', draft.slice(0,400));
     }
+    track('draft_copied', {stage: row.status});
     flash('Copied. Paste it, read it once more, then click Send yourself.');
   }
 
@@ -1071,6 +1124,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
           await onTask({label:clean(p), sub:'You promised '+(row.name||'them'), log_id:row.id,
             due_date:new Date(Date.now()+dueDays*DAY).toISOString().slice(0,10)});
       }catch(e){}
+      track('capture_saved', {after_reply: justReplied, fields:[noteS,noteC,noteP].filter(x=>clean(x)).length});
       setNoteS(''); setNoteC(''); setNoteP('');
       setJustReplied(false);
       flash('Captured');
@@ -1089,6 +1143,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
     try{
       await onEvent(row, 'reply', null);
       if(row.status!=='replied') await onStage(row, 'replied');
+      track('reply_logged', {days_since_sent: Math.max(0, Math.round(days(row.contacted_at)||0))});
       setJustReplied(true);
       setTab('notes');
       flash('Logged. What did they say?');
@@ -2082,10 +2137,19 @@ function App(){
   async function saveSettings(patch){
     if(!sb || auth.status!=='in') return;
     setBusySave(true);
+    const firstRun = !settings.goalType;
     const next = {...(blob||{}), settings:{...settings, ...patch}};
     setBlob(next);
     try{ await sb.from('user_data').upsert({user_id:auth.user.id, data:next, updated_at:new Date().toISOString()}); }
     catch(e){ setErr('Saved on this device, but syncing failed: '+(e.message||'unknown error')); }
+    /* Counts only: which goal, how many targets named, whether this was the
+       first time. Never the goal text itself, which is free prose. */
+    track(firstRun?'strategy_first_saved':'strategy_updated', {
+      goal_type: next.settings.goalType || 'none',
+      roles: (next.settings.targetRoles||[]).length,
+      companies: (next.settings.targetCompanies||[]).length,
+      schools: (next.settings.schools||[]).length,
+    });
     setBusySave(false);
   }
 
@@ -2098,6 +2162,7 @@ function App(){
       await sb.from('outreach_log').upsert({user_id:auth.user.id, profile_url:p.profileUrl,
         name:p.name||null, title:p.title||null, company:p.company||null, context:ctx,
         updated_at:new Date().toISOString()}, {onConflict:'user_id,profile_url'});
+      track('person_saved', {source:'search', verdict:p.verdict||'none', facts:[p.location,p.education,p.followers].filter(Boolean).length});
       await refreshPeople(auth.user);
     }catch(e){ setErr('Could not save that person: '+(e.message||'unknown error')); }
   }
@@ -2121,6 +2186,7 @@ function App(){
     if(to==='contacted' && !row.contacted_at) fields.contacted_at = new Date().toISOString();
     await updateRow(row, fields);
     await logEvent(row, 'stage_change', null, {extracted:{from:row.status, to}});
+    track('stage_changed', {to, from:row.status});
   }
   async function addTask(t){
     try{
@@ -2149,6 +2215,16 @@ function App(){
       window.history.replaceState({}, '', window.location.pathname);
     }
   },[people]);
+
+  /* Bind instrumentation once, and note whether the extension answered. That
+     one flag is how we learn in production whether the search bridge works,
+     which is otherwise only testable by hand in a real browser. */
+  useEffect(()=>{
+    if(auth.status!=='in' || !sb || !auth.user) return;
+    bindTracking(sb, auth.user);
+    const t = setTimeout(()=>track('session_start', {extension: extBridge.isReady()}), 1500);
+    return ()=>clearTimeout(t);
+  },[auth.status, sb, auth.user]);
 
   /* Coming back from LinkedIn is the moment new extension saves should appear. */
   useEffect(()=>{

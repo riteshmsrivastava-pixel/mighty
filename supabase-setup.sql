@@ -433,6 +433,44 @@ create policy "wl insert public" on public.waitlist
   with check (email is not null and length(email) between 3 and 200);
 -- no select/update/delete policy - entries are visible only via the service role / SQL editor.
 
+-- 9. Product events - the only instrumentation in the product, and deliberately
+-- our own table rather than a third-party analytics service. We tell users that
+-- nothing they write about a person leaves their account; shipping behavioural
+-- data to a vendor a week later would make that untrue in spirit even if the
+-- events looked harmless. Here it is subject to the same RLS, the same export
+-- and the same delete path as everything else.
+--
+-- These events are COUNTS AND CATEGORIES ONLY. No names, no emails, no URLs, no
+-- note text, ever. The client's track() enforces that structurally by dropping
+-- any string that does not look like an enum value, so a leak needs someone to
+-- defeat the sanitizer rather than merely forget the rule.
+--
+-- You read these in SQL, e.g. capture rate over the last 30 days:
+--   select count(distinct user_id) filter (where event = 'capture_saved')::float
+--        / nullif(count(distinct user_id), 0)
+--   from public.app_events where created_at > now() - interval '30 days';
+create table if not exists public.app_events (
+  id         bigint generated always as identity primary key,
+  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  event      text not null check (length(event) between 2 and 40),
+  props      jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+create index if not exists app_events_user_time_idx  on public.app_events (user_id, created_at desc);
+create index if not exists app_events_event_time_idx on public.app_events (event, created_at desc);
+
+alter table public.app_events enable row level security;
+-- Insert-only from the client. A user may write and read their own rows, which
+-- keeps the export path honest, but cannot update or delete a single event: the
+-- funnel would stop meaning anything if rows could be rewritten. Deleting the
+-- account removes them all via the cascade above, which is the real delete path.
+drop policy if exists "ev insert own" on public.app_events;
+create policy "ev insert own" on public.app_events
+  for insert to authenticated with check (auth.uid() = user_id);
+drop policy if exists "ev select own" on public.app_events;
+create policy "ev select own" on public.app_events
+  for select to authenticated using (auth.uid() = user_id);
+
 -- ============================================================
 -- Also in the dashboard (not SQL):
 -- • Authentication → Providers → Email: ENABLED, "Confirm email" ON
