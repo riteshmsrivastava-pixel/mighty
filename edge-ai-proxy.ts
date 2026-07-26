@@ -1,5 +1,5 @@
 // ============================================================
-// MIghTy — AI Gateway (Edge Function, deployed as "ai-proxy").
+// MIghTy - AI Gateway (Edge Function, deployed as "ai-proxy").
 //
 // One entry point for EVERY Claude call in the product. It:
 //   1. routes each feature to the cheapest capable model (Haiku/Sonnet/Opus),
@@ -9,7 +9,7 @@
 //   4. logs user/feature/model/tokens/cost/latency/cache for every call.
 //
 // The one Anthropic key lives here server-side; students never see or manage it.
-// Budget knobs live in the public.ai_config table — retune them in the SQL
+// Budget knobs live in the public.ai_config table - retune them in the SQL
 // editor without redeploying this function.
 //
 // Deploy:
@@ -33,7 +33,7 @@ const MODELS = {
   opus:   "claude-opus-4-8",
 };
 
-// ---- Pricing per 1M tokens (USD), [input, output]. Estimates for budget math —
+// ---- Pricing per 1M tokens (USD), [input, output]. Estimates for budget math -
 //      directionally right is enough; cost only drives the $ guardrails + ledger.
 //      Update if pricing changes. ----
 const PRICING: Record<string, [number, number]> = {
@@ -44,37 +44,37 @@ const PRICING: Record<string, [number, number]> = {
 
 // ---- Feature registry: the single source of truth for model routing + cost
 //      tier + whether the answer is cacheable. "AI should think, not calculate"
-//      — everything here needs reasoning; anything mechanical stays in SQL/JS and
+// - everything here needs reasoning; anything mechanical stays in SQL/JS and
 //      never reaches this function. ----
 type Tier = "low" | "medium" | "high";
 interface FeatureDef { model: string; tier: Tier; cache: boolean; }
 const FEATURES: Record<string, FeatureDef> = {
-  // Tier 1 — user-facing reasoning, Sonnet.
+  // Tier 1 - user-facing reasoning, Sonnet.
   profile_briefing:    { model: MODELS.sonnet, tier: "low",    cache: true  },
   draft_message:       { model: MODELS.sonnet, tier: "low",    cache: false },
   meeting_prep:        { model: MODELS.sonnet, tier: "high",   cache: true  },
   daily_plan:          { model: MODELS.sonnet, tier: "medium", cache: true  },
-  // Extraction/classification — cheap, Haiku.
+  // Extraction/classification - cheap, Haiku.
   coffee_extract:      { model: MODELS.haiku,  tier: "medium", cache: false },
   tagging:             { model: MODELS.haiku,  tier: "low",    cache: false },
   resume_extract:      { model: MODELS.sonnet, tier: "medium", cache: false },
-  // Tier 2 — reasoning, Sonnet.
+  // Tier 2 - reasoning, Sonnet.
   relationship_health: { model: MODELS.sonnet, tier: "medium", cache: true  },
   intro_suggestion:    { model: MODELS.sonnet, tier: "medium", cache: false },
   followup_timing:     { model: MODELS.sonnet, tier: "low",    cache: false },
   network_search:      { model: MODELS.sonnet, tier: "medium", cache: false },
-  // Tier 3 — rare, heavy, Opus.
+  // Tier 3 - rare, heavy, Opus.
   deep_network_report: { model: MODELS.opus,   tier: "high",   cache: true  },
 };
 const DEFAULT_FEATURE = "draft_message";
 
-// Assist "weight" per tier — what the client can show as "Uses N MIghTy Assists"
+// Assist "weight" per tier - what the client can show as "Uses N MIghTy Assists"
 // and what counts against the daily/monthly assist caps.
 const TIER_WEIGHT: Record<Tier, number> = { low: 1, medium: 2, high: 5 };
 
 // Browsers preflight every POST carrying Authorization/content-type. Without
 // these headers the OPTIONS request fails and the app sees "Failed to fetch"
-// long before anything reaches Anthropic — so CORS is not optional here.
+// long before anything reaches Anthropic - so CORS is not optional here.
 const CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",

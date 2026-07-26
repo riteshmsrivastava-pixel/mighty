@@ -5,24 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mighty</title>
 <!-- ============================================================
-     Mighty v2 — the relationship operating system.
+     Mighty v2 - the relationship operating system.
      Governed by docs/PRODUCT-BIBLE-v2.md. Visual spec: the Claude Design
      bundle (app-redesign-with-new-principles).
 
      Navigation is the user's questions, not features:
-       Today        — what deserves my attention?
-       Strategy     — why am I networking?
-       Discover     — who should I know?
-       Relationships— where am I with everyone?
-       Ask Mighty   — what should I do?
-       Settings     — how does Mighty work for me?
+       Today - what deserves my attention?
+       Strategy - why am I networking?
+       Discover - who should I know?
+       Relationships- where am I with everyone?
+       Ask Mighty - what should I do?
+       Settings - how does Mighty work for me?
 
      Permanent rules enforced here:
        · You always click Send. Nothing is ever sent automatically.
-       · Explain before you score — no numeric match scores in the UI.
+       · Explain before you score - no numeric match scores in the UI.
        · Save is the only way a person enters Mighty; 'prospect' IS Saved.
        · Navigation is always visible; only depth unlocks, on data not time.
-       · Never "Mighty knows" — always "Things you've learned".
+       · Never "Mighty knows" - always "Things you've learned".
        · No empty dashboards: every panel hides until it has real data.
 
      Same Supabase project, tables and settings keys as app/v1.html, so both
@@ -34,16 +34,16 @@
 <link rel="icon" href="../favicon.ico">
 <style>
   :root{
-    --paper:#FAF9F7; --rail:#F6F4F1; --card:#FFFFFF; --card2:#FCFBF9;
-    --line:#EAE6E0; --line2:#F5F2ED; --line3:#EBE7E1; --line4:#F2EFEA;
-    --ink:#1A1917; --ink2:#2A2724; --body:#3B3833; --sub:#948E85; --mute:#A39C93; --mute2:#B0A9A0;
-    --brand:#5B46E5; --brand-h:#4B38CE; --brand-ink:#5540D8;
-    --brand-soft:#F7F5FE; --brand-soft2:#EFEBFE; --brand-line:#EDE9FC; --brand-nav:#E9E4FC;
-    --green:#14805A; --green2:#22916A; --green-soft:#E9F1EC;
-    --amber:#8C7A50; --amber-soft:#FBF3E2; --amber-dot:#D9971C;
-    --red:#B5675A; --red-soft:#FDEDEB;
-    --f:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;
-    --r:16px; --rsm:14px; --pill:999px; --sh:0 1px 2px rgba(26,25,23,.04);
+ --paper:#FAF9F7; --rail:#F6F4F1; --card:#FFFFFF; --card2:#FCFBF9;
+ --line:#EAE6E0; --line2:#F5F2ED; --line3:#EBE7E1; --line4:#F2EFEA;
+ --ink:#1A1917; --ink2:#2A2724; --body:#3B3833; --sub:#948E85; --mute:#A39C93; --mute2:#B0A9A0;
+ --brand:#5B46E5; --brand-h:#4B38CE; --brand-ink:#5540D8;
+ --brand-soft:#F7F5FE; --brand-soft2:#EFEBFE; --brand-line:#EDE9FC; --brand-nav:#E9E4FC;
+ --green:#14805A; --green2:#22916A; --green-soft:#E9F1EC;
+ --amber:#8C7A50; --amber-soft:#FBF3E2; --amber-dot:#D9971C;
+ --red:#B5675A; --red-soft:#FDEDEB;
+ --f:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;
+ --r:16px; --rsm:14px; --pill:999px; --sh:0 1px 2px rgba(26,25,23,.04);
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;height:100%}
@@ -142,7 +142,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.4/babel.min.js"></script>
 <script>
-  // Classic JSX runtime — the automatic runtime emits an ES import that fails without a bundler.
+  // Classic JSX runtime - the automatic runtime emits an ES import that fails without a bundler.
   Babel.registerPreset('react-classic', { presets: [[Babel.availablePresets['react'], { runtime: 'classic' }]] });
 </script>
 <script type="text/babel" data-presets="react-classic">
@@ -196,7 +196,7 @@ const EVENT_LABEL = {connection_request:'Connection request', first_message:'Fir
 /* ===================== progressive disclosure =====================
    Navigation is always visible. Only depth unlocks, and only on data. */
 const UNLOCKS = {
-  board:    {test:(p)=>p.length>=5,       hint:'The board opens once five people are saved — before that a list says more.'},
+  board:    {test:(p)=>p.length>=5,       hint:'The board opens once five people are saved - before that a list says more.'},
   timeline: {test:(p,e)=>e.length>=3,     hint:'The timeline fills in once three things have happened.'},
   health:   {test:(p)=>p.filter(r=>REACHED.includes(r.status)).length>=3,
              hint:'Reach out to three people and Mighty can start showing what is working.'},
@@ -254,7 +254,7 @@ function ChipInput({value, onChange, placeholder}){
   );
 }
 
-/* ===================== AI (shared ai-proxy — no key ever reaches the client) ===================== */
+/* ===================== AI (shared ai-proxy - no key ever reaches the client) ===================== */
 async function llm(sb, feature, system, user, maxTokens){
   const {data, error} = await sb.functions.invoke('ai-proxy', {body:{feature, system, user, maxTokens:maxTokens||700}});
   if(error) throw error;
@@ -295,27 +295,28 @@ async function toKeywords(sb, sentence, st){
     return k || localKeywords(near, st);
   }catch(e){ return localKeywords(near, st); }
 }
-/* One match ladder across the whole product — app, extension panel and
+/* One match ladder across the whole product - app, extension panel and
    marketing all say the same three things. Keep in sync with
    mightyMatchLabel() in extension/scoring.js. */
 const VERDICT = {
   excellent:{label:'Excellent match', dot:'#5B46E5'},
   strong:   {label:'Strong match',    dot:'#22916A'},
   potential:{label:'Potential match', dot:'#D9971C'},
+  low:      {label:'Low potential',   dot:'#B0A9A0'},
 };
-const VERDICT_KEYS = ['excellent','strong','potential'];
+const VERDICT_KEYS = ['excellent','strong','potential','low'];
 async function evaluate(sb, people, st){
-  const list = people.map((p,i)=>`${i+1}. ${p.name} — ${p.title||'(no headline)'}${p.company?' — '+p.company:''}`).join('\n');
+  const list = people.map((p,i)=>`${i+1}. ${p.name} - ${p.title||'(no headline)'}${p.company?' - '+p.company:''}`).join('\n');
   const out = await llmJSON(sb, 'profile_briefing',
-    'You help a professional decide who is worth building a relationship with. For each candidate, judge relevance to THEIR stated goal and explain it in plain language. Never output a numeric score. Ground every claim only in the given headline text — if the headline does not support a claim, do not make it. Be honest: use "potential" and say plainly when someone is a stretch, and never inflate a weak fit. Common ground must be real overlap between the two people; "both in tech" is not common ground.',
-    `The person doing the networking:\n${strategyBrief(st)}\n\nCandidates:\n${list}\n\nReturn JSON exactly like {"matches":[{"n":1,"verdict":"excellent"|"strong"|"potential","why":"one or two sentences, starts with the reason, no score","common":["short shared-ground phrase"]}]}. Use "excellent" only when they match the goal squarely, "strong" for a clear fit, and "potential" when the connection is loose or outside the current goal. Include every candidate by its number n. "common" may be empty.`,
+    'You help a professional decide who is worth building a relationship with. For each candidate, judge relevance to THEIR stated goal and explain it in plain language. Never output a numeric score. Ground every claim only in the given headline text - if the headline does not support a claim, do not make it. Be honest: never inflate a weak fit, and when nothing about someone matches the goal, say so outright rather than implying promise that is not there. Common ground must be real overlap between the two people; "both in tech" is not common ground. Never use em dashes; write a spaced hyphen instead.',
+    `The person doing the networking:\n${strategyBrief(st)}\n\nCandidates:\n${list}\n\nReturn JSON exactly like {"matches":[{"n":1,"verdict":"excellent"|"strong"|"potential"|"low","why":"one or two sentences, starts with the reason, no score","common":["short shared-ground phrase"]}]}. Use "excellent" only when they match the goal squarely, "strong" for a clear fit, "potential" when the connection is real but loose, and "low" when nothing about them lines up with the goal. Include every candidate by its number n. "common" may be empty.`,
     1500);
   const byN = {};
   (out.matches||[]).forEach(m=>{ if(m && m.n) byN[Number(m.n)]=m; });
   return people.map((p,i)=>{
     const m = byN[i+1]||{};
     const raw = String(m.verdict||'').toLowerCase();
-    const v = VERDICT_KEYS.indexOf(raw)>=0 ? raw : 'strong';
+    const v = VERDICT_KEYS.indexOf(raw)>=0 ? raw : 'potential';
     return {...p, verdict:v, why:clean(m.why), common:Array.isArray(m.common)?m.common.filter(Boolean).slice(0,4):[]};
   });
 }
@@ -351,7 +352,7 @@ function StrategyForm({settings, onSave, busy, onCancel, firstRun}){
       </h1>
       <p className="sub" style={{marginTop:8,lineHeight:1.55,textWrap:'pretty'}}>
         {firstRun
-          ? 'Four questions, about a minute. This drives every recommendation Mighty makes — from your very first search.'
+          ? 'Four questions, about a minute. This drives every recommendation Mighty makes - from your very first search.'
           : 'This is a living strategy, not a settings page. Change it whenever your goals change and everything downstream follows.'}
       </p>
 
@@ -377,7 +378,7 @@ function StrategyForm({settings, onSave, busy, onCancel, firstRun}){
 
       <div className="card" style={{marginTop:16,padding:'24px 26px'}}>
         <div className="h4">Who do you want to meet?</div>
-        <div className="sub" style={{marginTop:4,fontSize:14}}>Roles first — this is what Mighty ranks against. Press Enter after each.</div>
+        <div className="sub" style={{marginTop:4,fontSize:14}}>Roles first - this is what Mighty ranks against. Press Enter after each.</div>
         <div style={{marginTop:14}}><ChipInput value={roles} onChange={setRoles} placeholder="Product Manager, Founder, Hiring Manager…"/></div>
       </div>
 
@@ -448,7 +449,7 @@ function StrategyView({settings, people, onEdit}){
   const talked  = people.filter(r=>['replied','coffee_chat','referral','interview','offer'].indexOf(r.status)>=0).length;
   const met     = people.filter(r=>['coffee_chat','referral','interview','offer'].indexOf(r.status)>=0).length;
   const rows = [
-    ['Primary goal', GOAL_LABEL[st.goalType]||'—'],
+    ['Primary goal', GOAL_LABEL[st.goalType]||' - '],
     st.goal ? ['In your words', st.goal] : null,
     (st.targetRoles||[]).length ? ['Ideal relationships', st.targetRoles.join(', ')] : null,
     (st.targetCompanies||[]).length ? ['Target organizations', st.targetCompanies.join(', ')] : null,
@@ -502,7 +503,7 @@ function StrategyView({settings, people, onEdit}){
 }
 
 /* ===================== Today ===================== */
-/* Actions are derived from real relationship data. Nothing is invented — if
+/* Actions are derived from real relationship data. Nothing is invented - if
    there is nothing real to do, Today says so and points at Discover. */
 function buildPlan(people, events, tasks){
   const byLog = {};
@@ -619,7 +620,7 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
 
         <div className="meta" style={{padding:'16px 26px'}}>
           {people.length===0
-            ? 'Your plan is built from real relationships — save someone and it fills in.'
+            ? 'Your plan is built from real relationships - save someone and it fills in.'
             : plan.length + (plan.length===1?' action':' actions') + ' · ' + mins + ' minutes'}
         </div>
       </div>
@@ -681,7 +682,7 @@ function Discover({sb, settings, people, onSave, onOpen, go}){
       }
       const found = (data.people||[]).filter(p=>p && p.profileUrl);
       if(!found.length){
-        setNote('Nothing came back for that one. Naming a role and a place works best — "product leaders in Boston" beats "smart people in AI".');
+        setNote('Nothing came back for that one. Naming a role and a place works best - "product leaders in Boston" beats "smart people in AI".');
         setPhase('idle'); return;
       }
       setRes(found); setPhase('thinking');
@@ -751,7 +752,7 @@ function Discover({sb, settings, people, onSave, onOpen, go}){
 
           {visible.map(r=>{
             const savedRow = savedUrls[r.profileUrl];
-            const v = VERDICT[r.verdict]||VERDICT.good;
+            const v = VERDICT[r.verdict]||VERDICT.potential;
             return (
               <div key={r.profileUrl} className="card fade" style={{marginTop:14,padding:'22px 24px'}}>
                 <div style={{display:'flex',alignItems:'flex-start',gap:14,flexWrap:'wrap'}}>
@@ -805,7 +806,7 @@ function nextAction(r){
     case 'contacted':        return days(r.contacted_at)>=7 ? 'Follow up' : 'Waiting on them';
     case 'replied':          return 'Reply';
     case 'coffee_chat':      return 'Capture notes';
-    case 'do_not_contact':   return '—';
+    case 'do_not_contact':   return ' - ';
     default:                 return 'Keep in touch';
   }
 }
@@ -818,12 +819,12 @@ function Relationships({people, events, view, setView, onOpen, onStage, go}){
   if(!people.length)
     return <div className="pad fade" style={{maxWidth:720}}>
       <Empty title="No one here yet."
-        body="Everyone you save lands here, however you found them — search, the extension, a conference, a referral. Start with one person you genuinely want to know."
+        body="Everyone you save lands here, however you found them - search, the extension, a conference, a referral. Start with one person you genuinely want to know."
         cta="Discover someone" onCta={()=>go({screen:'discover'})}/>
     </div>;
 
   const feed = events.slice().sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at)).slice(0,60);
-  const nameOf = (id)=>{ const p=people.find(x=>x.id===id); return p?(p.name||'Unnamed'):'—'; };
+  const nameOf = (id)=>{ const p=people.find(x=>x.id===id); return p?(p.name||'Unnamed'):' - '; };
 
   return (
     <div className="pad fade" style={{maxWidth:1120,paddingTop:34}}>
@@ -950,7 +951,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
     setBusy('brief'); setErr(null);
     try{
       const out = await llmJSON(sb, 'profile_briefing',
-        'You prepare someone for a first conversation. Use ONLY the facts given — never invent employers, dates, achievements or posts. If you do not know something, leave that field out. Plain language, no scores, no flattery.',
+        'You prepare someone for a first conversation. Use ONLY the facts given - never invent employers, dates, achievements or posts. If you do not know something, leave that field out. Plain language, no scores, no flattery. Never use em dashes; write a spaced hyphen instead.',
         `About the person doing the outreach:\n${strategyBrief(settings)}\n\nThe person they want to understand:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nLocation: ${ctx.location||'unknown'}\nEducation: ${ctx.education||'unknown'}\nProfile text captured: ${clean(ctx.aboutText||ctx.snippet||'').slice(0,900)}\nWhy they were saved: ${ctx.whySaved||'unknown'}\nShared ground noted at save time: ${(ctx.common||[]).join('; ')||'none noted'}\n\nReturn JSON {"careerSummary":"2-3 sentences","whyMatters":"1-2 sentences on why this person matters to THIS user's goal","shared":["real overlap"],"starters":["specific opening, grounded in the facts above"],"avoid":"one thing not to lead with, or omit"}`,
         1000);
       const briefing = {...br, careerSummary:clean(out.careerSummary), whyMatters:clean(out.whyMatters),
@@ -967,12 +968,12 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
     const a = APPROACHES.find(x=>x.id===approach)||APPROACHES[1];
     try{
       const out = await llmJSON(sb, 'draft_message',
-        "You write a real first outreach message for a professional. Ground it ONLY in the given context — never invent shared history, mutual friends, articles or events. Sound like a person, not a template. No flattery, no buzzwords, no 'I hope this finds you well'. Under 110 words. Ask for one specific, easy thing.",
-        `The sender:\n${strategyBrief(settings)}\n\nThe recipient:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nWhy the sender saved them: ${ctx.whySaved||'unknown'}\nShared ground: ${((br.shared&&br.shared.length?br.shared:ctx.common)||[]).join('; ')||'none confirmed'}\nBrief: ${br.careerSummary||'none'}\nThings the sender has learned about them: ${memories.map(m=>m.value).join('; ')||'nothing captured yet'}\n\nApproach: ${a.label} — ${a.brief}.\n\nReturn JSON {"subject":"short subject line for email use","message":"the message body"}`,
+        "You write a real first outreach message for a professional. Ground it ONLY in the given context - never invent shared history, mutual friends, articles or events. Sound like a person, not a template. No flattery, no buzzwords, no 'I hope this finds you well'. Under 110 words. Ask for one specific, easy thing. Never use em dashes; write a spaced hyphen instead.",
+        `The sender:\n${strategyBrief(settings)}\n\nThe recipient:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nWhy the sender saved them: ${ctx.whySaved||'unknown'}\nShared ground: ${((br.shared&&br.shared.length?br.shared:ctx.common)||[]).join('; ')||'none confirmed'}\nBrief: ${br.careerSummary||'none'}\nThings the sender has learned about them: ${memories.map(m=>m.value).join('; ')||'nothing captured yet'}\n\nApproach: ${a.label} - ${a.brief}.\n\nReturn JSON {"subject":"short subject line for email use","message":"the message body"}`,
         800);
       setDraft(clean(out.message));
       await onUpdate(row, {ai_draft:clean(out.message), status: row.status==='prospect'?'ready_to_contact':row.status});
-      flash('Draft written — you always click send');
+      flash('Draft written - you always click send');
     }catch(e){ setErr(e.message||String(e)); }
     setBusy(null);
   }
@@ -1269,7 +1270,7 @@ function Ask({sb, people, events, tasks, settings, onOpen}){
       const last = ev.length?ev[ev.length-1]:null;
       const mem = (Array.isArray((r.context||{}).memories)?r.context.memories:[]).map(m=>m.value).slice(0,4);
       return [
-        `${i+1}. ${r.name||'Unnamed'} — ${r.title||'no headline'}${r.company?' at '+r.company:''}`,
+        `${i+1}. ${r.name||'Unnamed'} - ${r.title||'no headline'}${r.company?' at '+r.company:''}`,
         `   stage: ${stageOf(r).label}; saved ${ago(r.shortlisted_at)||'recently'}${r.contacted_at?'; contacted '+ago(r.contacted_at):''}`,
         `   why saved: ${(r.context||{}).whySaved || 'not recorded'}`,
         last ? `   last activity: ${EVENT_LABEL[last.event_type]||last.event_type} ${ago(last.occurred_at)}` : '   last activity: nothing yet',
@@ -1287,13 +1288,13 @@ function Ask({sb, people, events, tasks, settings, onOpen}){
     const settle = (a, ppl)=>setLog(l=>l.map(x=>x===entry?{...x, a, people:ppl||[]}:x));
 
     if(!people.length){
-      settle("I don't know yet — there's nobody in your network here. Save a few relationships and I'll start recognizing patterns: who has gone quiet, who to reach out to, who to prepare for.");
+      settle("I don't know yet - there's nobody in your network here. Save a few relationships and I'll start recognizing patterns: who has gone quiet, who to reach out to, who to prepare for.");
       setBusy(false); return;
     }
     try{
       const openTasks = tasks.filter(t=>!t.done).map(t=>`- ${t.label}${t.due_date?' (due '+t.due_date+')':''}`).join('\n');
       const out = await llmJSON(sb, 'network_search',
-        "You are the user's relationship strategist. Answer ONLY from the network data provided. Never invent people, facts or events. If the data cannot answer the question, say so plainly and say what would make it answerable. Be specific and brief — 2 to 4 sentences. Refer to people by name. Never suggest sending anything automatically; the user always writes and sends.",
+        "You are the user's relationship strategist. Answer ONLY from the network data provided. Never invent people, facts or events. If the data cannot answer the question, say so plainly and say what would make it answerable. Be specific and brief - 2 to 4 sentences. Refer to people by name. Never suggest sending anything automatically; the user always writes and sends. Never use em dashes; write a spaced hyphen instead.",
         `The user's strategy:\n${strategyBrief(settings)}\n\nToday: ${new Date().toDateString()}\n\nTheir network (${people.length} people):\n${digest()}\n\nOpen commitments:\n${openTasks||'(none)'}\n\nQuestion: ${question}\n\nReturn JSON {"answer":"your answer","people":[{"n":number,"note":"why you named them","action":"the next best action, 2-4 words"}]}. Include people only when naming them helps; at most 5.`,
         1100);
       const refs = (Array.isArray(out.people)?out.people:[]).map(p=>{
@@ -1362,7 +1363,7 @@ function Ask({sb, people, events, tasks, settings, onOpen}){
 }
 
 /* ===================== Extension + Settings ===================== */
-/* Chrome-window chrome for the mockups below. Illustrative only — these are
+/* Chrome-window chrome for the mockups below. Illustrative only - these are
    pictures of the extension, not the extension itself. */
 function Frame({url, children, badge}){
   return (
@@ -1427,7 +1428,7 @@ function Extension(){
     ['5','Remember every interaction','Notes, timeline and commitments, kept for you.'],
   ];
   const steps = [
-    ['1','Download','Grab the Mighty extension for Chrome — one file, one time.'],
+    ['1','Download','Grab the Mighty extension for Chrome - one file, one time.'],
     ['2','Enable the extension','Open chrome://extensions, turn on Developer mode, load the unzipped folder.'],
     ['3','Sign in','Click the Mighty icon in your toolbar and sign in with the same account.'],
   ];
@@ -1487,7 +1488,7 @@ function Extension(){
           </Frame>
           <div className="hint" style={{marginTop:14,maxWidth:620}}>
             On a search page Mighty scores the whole list at once and you tick who is worth keeping. Nobody is
-            contacted — saving is where it stops.
+            contacted - saving is where it stops.
           </div>
         </div>}
 
@@ -1598,7 +1599,7 @@ function Extension(){
                 <ExtPanel>
                   <div className="row" style={{gap:8,marginTop:16}}>
                     <span className="dot" style={{background:'var(--green2)',width:7,height:7}}/>
-                    <span style={{fontSize:13.5,color:'#5B554D',fontWeight:500}}>Connected — your Mighty account</span>
+                    <span style={{fontSize:13.5,color:'#5B554D',fontWeight:500}}>Connected - your Mighty account</span>
                   </div>
                   <PanelBlock label="Your strategy" first>
                     <div style={{fontSize:16,fontWeight:700,letterSpacing:'-.015em',marginTop:7}}>A product role in AI</div>
@@ -1665,7 +1666,7 @@ function Extension(){
         </div>}
 
       <div className="hint" style={{marginTop:34,maxWidth:620}}>
-        Human in the loop by design — Mighty never clicks Connect or Message for you. You always click send.
+        Human in the loop by design - Mighty never clicks Connect or Message for you. You always click send.
       </div>
     </div>
   );
@@ -1687,7 +1688,7 @@ function Settings({email, settings, people, events, tasks, go, onSignOut}){
     ['Relationship strategy', (settings.goal||GOAL_LABEL[settings.goalType]||'Not set')
       + (settings.strategyUpdatedAt?' · updated '+ago(settings.strategyUpdatedAt):''), 'Edit', ()=>go({screen:'strategy'})],
     ['Browser extension', 'Evaluate and save people while you browse LinkedIn', 'Open', ()=>go({screen:'extension'})],
-    ['Export everything', 'Strategy, people, timeline and commitments — one JSON file, yours anytime',
+    ['Export everything', 'Strategy, people, timeline and commitments - one JSON file, yours anytime',
       copied?'Downloaded':'Export', exportAll],
   ];
   return (
@@ -1906,7 +1907,7 @@ function App(){
   }
 
   /* Drain whatever the extension pushed into outreach_inbox. profile_context is
-     discarded unless a matching row already exists — the privacy boundary:
+     discarded unless a matching row already exists - the privacy boundary:
      nothing is retained for a profile the user did not deliberately save. */
   async function ingest(u){
     try{
@@ -1934,7 +1935,7 @@ function App(){
             const {data:existing} = await sb.from('outreach_log').select('id,context')
               .eq('user_id',u.id).eq('profile_url',p.profileUrl).maybeSingle();
             if(existing){
-              // Merge, never replace — the row may already carry location, education
+              // Merge, never replace - the row may already carry location, education
               // and the reason it was saved, and a blind overwrite would lose them.
               const prev = existing.context||{};
               const next = {...prev,
@@ -1955,7 +1956,7 @@ function App(){
               avatar_url:p.avatarUrl||null, context:ctx, updated_at:nowIso}, {onConflict:'user_id,profile_url'});
           }
           consumed.push(row.id);
-        }catch(e){ /* likely the weekly-cap trigger — leave it, retried next ingest */ }
+        }catch(e){ /* likely the weekly-cap trigger - leave it, retried next ingest */ }
       }
       if(consumed.length) await sb.from('outreach_inbox').delete().in('id', consumed);
       return consumed.length;
@@ -1978,7 +1979,7 @@ function App(){
   const hasIntent = !!settings.goalType;
 
   /* Merge-write so keys this app doesn't know (templates, sheets, voiceSamples)
-     survive — app/v1.html owns those and both apps share the row. */
+     survive - app/v1.html owns those and both apps share the row. */
   async function saveSettings(patch){
     if(!sb || auth.status!=='in') return;
     setBusySave(true);
@@ -1992,7 +1993,7 @@ function App(){
   async function savePerson(p, query){
     if(!sb || auth.status!=='in') return;
     const ctx = {source:'search', savedFrom:query||'', whySaved:p.why||'', common:p.common||[]};
-    if(p.verdict) ctx.verdictLabel = (VERDICT[p.verdict]||VERDICT.good).label;
+    if(p.verdict) ctx.verdictLabel = (VERDICT[p.verdict]||VERDICT.potential).label;
     ['location','education','experience','followers','connections','snippet'].forEach(k=>{ if(p[k]) ctx[k]=p[k]; });
     try{
       await sb.from('outreach_log').upsert({user_id:auth.user.id, profile_url:p.profileUrl,

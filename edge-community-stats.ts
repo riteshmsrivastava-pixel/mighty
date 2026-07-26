@@ -1,9 +1,9 @@
 // ============================================================
-// MIghTy — Community insights aggregation. Cron-only, no on-demand mode.
+// MIghTy - Community insights aggregation. Cron-only, no on-demand mode.
 //
 // Reads only students who opted in (user_data.settings.communityOptIn===true),
 // aggregates their outreach_log/outreach_events by company, and writes ONLY
-// aggregated counts to community_stats — never names, never messages, never
+// aggregated counts to community_stats - never names, never messages, never
 // a per-student breakdown. Enforces a k-anonymity floor: a company's row is
 // only written (or kept) once >=3 distinct students have contributed to it;
 // below that, any existing row for that company is deleted. The app additionally
@@ -12,8 +12,8 @@
 // Deploy:
 //   1. supabase functions new community-stats   (then replace its index.ts with this file)
 //   2. supabase functions deploy community-stats
-//      (SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are injected automatically — no secrets to set)
-//   3. Schedule it daily — see the pg_cron snippet in SETUP.md.
+//      (SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are injected automatically - no secrets to set)
+//   3. Schedule it daily - see the pg_cron snippet in SETUP.md.
 // ============================================================
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
 
   // A company that was above the floor before but has since disappeared from
   // this run's data entirely (e.g. everyone deleted their rows) would otherwise
-  // leave a stale row behind — clean up anything not touched this run.
+  // leave a stale row behind - clean up anything not touched this run.
   const seenCompanies = Array.from(byCompany.keys()).filter(c => byCompany.get(c)!.contributors.size >= K_ANONYMITY_FLOOR);
   if (seenCompanies.length) {
     await admin.from("community_stats").delete().not("company", "in", `(${seenCompanies.map(c => `"${c.replace(/"/g, '""')}"`).join(",")})`);

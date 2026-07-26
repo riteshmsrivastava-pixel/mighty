@@ -1,7 +1,7 @@
-// MIghTy — LinkedIn Outreach · background service worker
+// MIghTy - LinkedIn Outreach · background service worker
 //
 // This is a thin relay ONLY. It never opens tabs, never navigates, never
-// clicks anything — it just forwards events the content script observed
+// clicks anything - it just forwards events the content script observed
 // (in a page the student themselves opened) to Supabase's outreach_inbox.
 // No alarms, no scheduled jobs: nothing runs unless the student is actively
 // browsing LinkedIn themselves.
@@ -27,7 +27,7 @@ async function pushInbox(kind, payload) {
   catch (e) { return { ok: false, error: String(e && e.message || e) }; }
 
   if (res.status === 401 && sb.refreshToken) {
-    // Access token expired — refresh once and retry.
+    // Access token expired - refresh once and retry.
     try {
       const r = await fetch(`${sb.url}/auth/v1/token?grant_type=refresh_token`, {
         method: 'POST', headers: { apikey: sb.anonKey, 'content-type': 'application/json' },
@@ -44,7 +44,7 @@ async function pushInbox(kind, payload) {
   return { ok: res.ok, status: res.status };
 }
 
-// One retry with backoff — a lost "sent confirmation" matters more than a
+// One retry with backoff - a lost "sent confirmation" matters more than a
 // lost "shortlisted" event, and there's no daily job to catch it later.
 async function pushInboxWithRetry(kind, payload) {
   let r = await pushInbox(kind, payload);
@@ -53,7 +53,7 @@ async function pushInboxWithRetry(kind, payload) {
 }
 
 // Authenticated GET of the signed-in student's OWN outreach_log + outreach_events
-// (RLS scopes this automatically — no user_id filter needed). Used to decorate
+// (RLS scopes this automatically - no user_id filter needed). Used to decorate
 // LinkedIn pages with real score/status data for profiles already tracked in
 // MIghTy. Cached briefly so scanning a results page doesn't refetch per-card.
 let logCache = { at: 0, log: [], events: [], targetCompanies: [], goal: '', profile: {} };
@@ -73,7 +73,7 @@ async function fetchLog(force) {
     if (!logRes.ok || !eventsRes.ok) return { ok: false, error: 'fetch_failed' };
     const log = await logRes.json(); const events = await eventsRes.json();
     // The sidebar answers "why this person?" locally, so it needs the same goal
-    // signals the web app scores with — not just target companies.
+    // signals the web app scores with - not just target companies.
     let targetCompanies = [], goal = '', profile = {};
     try {
       const ud = await userDataRes.json(); const st = ud?.[0]?.data?.settings || {};
@@ -88,12 +88,12 @@ async function fetchLog(force) {
   } catch (e) { return { ok: false, error: String(e && e.message || e) }; }
 }
 
-// Direct upsert into outreach_log — used only for the explicit "Save to
+// Direct upsert into outreach_log - used only for the explicit "Save to
 // MIghTy" action (sidebar's Save button, search-results' Send-N-to-MIghTy
 // panel). Unlike the passive sent-confirmation/profile-context observations,
 // this is a deliberate save, so it goes straight to outreach_log instead of
 // round-tripping through outreach_inbox and waiting for the web app to be
-// open to ingest it — otherwise the sidebar keeps saying "not tracked" even
+// open to ingest it - otherwise the sidebar keeps saying "not tracked" even
 // right after the student clicked Save.
 async function saveProfile(payload) {
   const { settings = {} } = await chrome.storage.local.get('settings');
@@ -146,7 +146,7 @@ async function saveProfile(payload) {
   return { ok: true, row };
 }
 
-// Direct PATCH to outreach_log.notes — that table already has an update
+// Direct PATCH to outreach_log.notes - that table already has an update
 // policy (unlike outreach_inbox/outreach_events), so this doesn't need to
 // go through the inbox relay.
 async function patchNotes(logId, notes) {
@@ -163,7 +163,7 @@ async function patchNotes(logId, notes) {
   } catch (e) { return { ok: false, error: String(e && e.message || e) }; }
 }
 
-// Calls the shared ai-proxy Edge Function directly — same auth pattern as
+// Calls the shared ai-proxy Edge Function directly - same auth pattern as
 // pushInbox, so the docked sidebar can draft a follow-up without opening the
 // web app. No API key here either; the proxy holds it server-side.
 async function generateDraft(system, user, maxTokens, feature) {
@@ -183,7 +183,7 @@ async function generateDraft(system, user, maxTokens, feature) {
 }
 
 // LinkedIn profile photos are served from media.licdn.com as signed, expiring,
-// referrer-locked URLs — they do NOT hotlink from the MIghTy web app (they load
+// referrer-locked URLs - they do NOT hotlink from the MIghTy web app (they load
 // on linkedin.com and nowhere else). So we fetch the bytes here (host permission
 // for licdn.com bypasses CORS), downscale to a small square thumbnail, and hand
 // back a self-contained base64 data URL to store. That renders anywhere, forever,
@@ -213,7 +213,7 @@ async function encodeAvatar(url) {
 
 // Fetches a people-search results page and hands the raw HTML back to the
 // caller to parse (service workers have no DOM). Only the background worker can
-// read a cross-origin page — content scripts are still bound by CORS. This is
+// read a cross-origin page - content scripts are still bound by CORS. This is
 // what lets the web app show search results without sending the student off to
 // Google or LinkedIn: one foreground search they asked for, no page navigation.
 async function fetchSearchHtml(query) {
@@ -230,7 +230,7 @@ async function fetchSearchHtml(query) {
 // requests are serialised with a minimum gap and capped per browser session, so
 // this never becomes the burst-of-requests pattern that gets accounts flagged.
 // It only ever runs for people the student already saved, on their explicit
-// click — never speculatively, never in bulk.
+// click - never speculatively, never in bulk.
 const PHOTO_MIN_GAP_MS = 3000;
 const PHOTO_SESSION_CAP = 25;
 let photoLastAt = 0, photoCount = 0, photoChain = Promise.resolve();
@@ -267,7 +267,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg && msg.type === 'generateDraft') { generateDraft(msg.system, msg.user, msg.maxTokens).then(sendResponse); return true; }
 });
 
-// Toolbar icon reflects sign-in state — colored when signed in, grey otherwise.
+// Toolbar icon reflects sign-in state - colored when signed in, grey otherwise.
 const COLOR_ICON = { 16: 'icons/logo-16.png', 32: 'icons/logo-32.png', 48: 'icons/logo-48.png', 128: 'icons/logo-128.png' };
 const GREY_ICON = { 16: 'icons-grey/logo-16.png', 32: 'icons-grey/logo-32.png', 48: 'icons-grey/logo-48.png', 128: 'icons-grey/logo-128.png' };
 async function updateActionIcon() {

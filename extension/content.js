@@ -1,4 +1,4 @@
-// MIghTy — LinkedIn Outreach · content script
+// MIghTy - LinkedIn Outreach · content script
 //
 // Human-in-the-loop only. Everything here is foreground, on a page the
 // student themselves navigated to:
@@ -7,7 +7,7 @@
 //      compose box (only on explicit click). The extension never writes messages:
 //      drafting and sending live in the web app, on purpose.
 //   3. Passively read a profile page's About/Experience/Education text to enrich a
-//      contact's briefing — but ONLY if that profile is already on the student's
+//      contact's briefing - but ONLY if that profile is already on the student's
 //      shortlist; the app discards this for anyone not already added, so nothing
 //      is retained for a profile the student merely browsed past.
 //   4. Passively OBSERVE the real Send/Connect click (never calls .click() ourselves)
@@ -16,7 +16,7 @@
 // LinkedIn's DOM changes without notice and isn't verifiable from this dev
 // environment. If shortlisting or send-detection breaks, inspect the live
 // page and fix ONLY this SELECTORS object.
-// Only the compose box + send/connect buttons still use fixed selectors —
+// Only the compose box + send/connect buttons still use fixed selectors -
 // everything else (names, titles, companies, photos, profile text, mutual
 // connections) is scraped by DOM-anchoring helpers below, because LinkedIn's
 // class names rotate. If Send/Connect detection or draft-fill breaks, fix here.
@@ -27,7 +27,7 @@ const SELECTORS = {
 };
 
 // LinkedIn headlines are "Title at Company", "Title @ Company", or
-// "Company | tagline | ..." — good enough to split without a real parser.
+// "Company | tagline | ..." - good enough to split without a real parser.
 // Returns '' rather than guessing when no company pattern is present.
 // Words that mark a phrase as an organisation rather than a job title. Used to
 // resolve the very common "Company - Title" headline (and its reverse) without
@@ -42,7 +42,7 @@ function companyFromTitle(title) {
   // Headlines are often pipe-separated claims ("MIT Sloan '27 | DBJ - VP"), so
   // resolve within each segment before falling back to the whole string.
   for (const seg of t.split(/\s*[|｜]\s*/).map(s => s.trim()).filter(Boolean)) {
-    const dash = seg.split(/\s+[-–—]\s+/);
+    const dash = seg.split(/\s+[-\u2013\u2014]\s+/);
     if (dash.length < 2) continue;
     const first = dash[0].trim(), rest = dash.slice(1).join(' - ').trim();
     const firstIsCo = CO_SUFFIX.test(first), restIsCo = CO_SUFFIX.test(rest);
@@ -55,7 +55,7 @@ function companyFromTitle(title) {
 
 /* ---------- robust profile-page extraction ----------
    LinkedIn ships obfuscated, frequently-rotated class names (e.g. "_699ffef9")
-   and renders the name in an <h2>, not <h1> — so fixed class selectors rot fast.
+   and renders the name in an <h2>, not <h1> - so fixed class selectors rot fast.
    These read from stable anchors instead: the document <title>, the
    profile-photo image src pattern, and DOM order relative to the name. Verified
    against the live profile DOM; if this breaks, re-inspect and fix HERE. */
@@ -75,7 +75,7 @@ function profilePhotoUrl() {
 }
 // Returns a small, self-contained base64 thumbnail of the profile photo (or ''),
 // so it renders in the web app. The raw licdn.com URL is signed/expiring and
-// won't hotlink off LinkedIn — the background worker fetches + downscales it.
+// won't hotlink off LinkedIn - the background worker fetches + downscales it.
 async function profilePhotoDataUrl() {
   const url = profilePhotoUrl();
   if (!url) return '';
@@ -84,7 +84,7 @@ async function profilePhotoDataUrl() {
     return (res && res.ok && res.dataUrl) ? res.dataUrl : '';
   } catch (e) { return ''; }
 }
-// Location lives only in the RENDERED page — LinkedIn ships it via JS, so a
+// Location lives only in the RENDERED page - LinkedIn ships it via JS, so a
 // background fetch of the HTML can't see it (verified). Read it here instead,
 // while the student is actually looking at the profile.
 function profileLocation(name) {
@@ -178,7 +178,7 @@ function ensurePanel() {
 // Score badges: real, transparent scores only for profiles already in the
 // student's outreach_log (fetched via the authenticated fetchLog relay).
 // For anyone NOT yet tracked, only a plain "target company" text match is
-// shown — never a fabricated live score for a stranger.
+// shown - never a fabricated live score for a stranger.
 async function decorateCardsWithScores(cards) {
   const r = await fetchLogCached();
   if (!r || !r.ok) return;
@@ -238,7 +238,7 @@ function renderCardCheckboxes() {
     if (!selected.length) return;
     btn.textContent = 'Saving…';
     for (const c of selected) {
-      // Encode the photo to a self-contained thumbnail first — the raw
+      // Encode the photo to a self-contained thumbnail first - the raw
       // licdn.com URL is signed and referrer-locked, so storing it would give
       // the web app a broken image.
       let avatar = '';
@@ -248,7 +248,7 @@ function renderCardCheckboxes() {
     selected.forEach(c => { const b = c.el.querySelector('.mighty-badge'); if (b) b.remove(); });
     checked.clear();
     document.querySelectorAll('.mighty-check').forEach(el => { el.checked = false; });
-    btn.textContent = `Saved ✓ — Send 0 to Mighty`;
+    btn.textContent = `Saved ✓ - Send 0 to Mighty`;
     decorateCardsWithScores(cards).catch(() => {});
   };
 }
@@ -256,7 +256,7 @@ function renderCardCheckboxes() {
 /* ---------- 2. opt-in compose pre-fill ----------
    The MIghTy web app's "Copy message + Open profile" button already puts the
    drafted, placeholder-filled message on the clipboard before it opens this
-   tab — so filling the compose box is just reading the clipboard back, on
+   tab - so filling the compose box is just reading the clipboard back, on
    explicit click only. No cross-context lookup needed. */
 function wireComposeFill() {
   const box = document.querySelector(SELECTORS.composeBox);
@@ -280,7 +280,7 @@ function wireComposeFill() {
 
 /* ---------- 3. profile-page context capture (foreground, passive read only) ----------
    Fires on any profile page the student opens. Reads only what's already
-   rendered — no scrolling automation, no expanding hidden sections, no
+   rendered - no scrolling automation, no expanding hidden sections, no
    navigation. The web app DISCARDS this for any profile not already on the
    student's shortlist, so nothing is retained for someone just browsed past.
 
@@ -311,7 +311,7 @@ function mutualText() {
    Languages, certifications, and whether they post at all. LinkedIn renders
    each section heading on its own line and rotates its class names, so
    splitting the rendered text on those headings survives redesigns better than
-   per-section selectors. Nothing here is expanded, clicked or fetched — this is
+   per-section selectors. Nothing here is expanded, clicked or fetched - this is
    only what is already on screen. */
 const PROFILE_SECTIONS = ['Highlights','About','Activity','Featured','Experience','Education',
   'Licenses & certifications','Licenses and certifications','Skills','Languages','Interests',
@@ -320,7 +320,7 @@ const PROFILE_SECTIONS = ['Highlights','About','Activity','Featured','Experience
   'You might like','Explore Premium profiles','Pages for you'];
 const STOP_SECTIONS = ['More profiles for you','People you may know','You might like',
   'Explore Premium profiles','Pages for you'];
-// "Skills (5)" and "Experience" are the same kind of heading — drop the count.
+// "Skills (5)" and "Experience" are the same kind of heading - drop the count.
 const normHead = (s) => s.replace(/\s*\(\d+\)\s*$/, '').trim();
 function parseProfileSections() {
   const main = document.querySelector('main');
@@ -369,26 +369,26 @@ function timingSignals(sec) {
     if (newest <= 3) out.push('Just moved into this role');
     else if (newest <= 9) out.push(`About ${newest} months into this role`);
   }
-  if (/no recent posts/i.test(sec.activity || '')) out.push('Does not post — do not open with their content');
+  if (/no recent posts/i.test(sec.activity || '')) out.push('Does not post - do not open with their content');
   return out;
 }
 let lastContextUrl = '';
 // `force` re-pushes for a URL already captured this session. Needed right after
 // a save: the first push happened while the profile was still untracked, so the
-// app correctly discarded it — without this the brief would stay thin until the
+// app correctly discarded it - without this the brief would stay thin until the
 // student happened to open the profile a second time.
 function captureProfileContext(force) {
   if (!PROFILE_PAGE_RE.test(location.pathname)) return;
   const profileUrl = normProfileUrl(location.href);
   if (!force && profileUrl === lastContextUrl) return;
   const main = profileMainText();
-  if (!main || main.length < 60) return; // page likely hasn't rendered yet — retry on next scan
+  if (!main || main.length < 60) return; // page likely hasn't rendered yet - retry on next scan
   lastContextUrl = profileUrl;
   const sec = parseProfileSections();
   const timing = timingSignals(sec);
   const payload = {
     profileUrl,
-    // Sections, not one blob — the app writes briefs and drafts from these, and
+    // Sections, not one blob - the app writes briefs and drafts from these, and
     // a real career history beats a wall of text.
     aboutText: sec.about || main,
     experienceText: sec.experience || '',
@@ -405,10 +405,10 @@ function captureProfileContext(force) {
 
 /* ---------- docked sidebar on profile pages ----------
    Shows real MIghTy data if this profile is already tracked (never fabricates
-   info for a stranger — that preserves the same discard-if-not-shortlisted
+   info for a stranger - that preserves the same discard-if-not-shortlisted
    boundary as profile-context capture). For an untracked profile, only a
    lighter "save?" panel appears. */
-/* Design tokens — kept identical to the web app so the panel reads as one
+/* Design tokens - kept identical to the web app so the panel reads as one
    product. See app/index.html :root. */
 const ACCENT = '#5B46E5';
 const ACCENT_DEEP = '#5540D8';
@@ -421,11 +421,12 @@ const LINE = '#F0EDE8';
 const FONT = "'Plus Jakarta Sans',-apple-system,system-ui,sans-serif";
 // The one match ladder, same words as the app. Keep in sync with
 // mightyMatchLabel() in scoring.js and VERDICT in app/index.html.
-const FIT_DOT = {'Excellent match':'#5B46E5','Strong match':'#22916A','Potential match':'#D9971C'};
+const FIT_DOT = {'Excellent match':'#5B46E5','Strong match':'#22916A','Potential match':'#D9971C',
+  'Low potential':'#B0A9A0'};
 // Two-overlapping-circles brand mark, inline so it needs no web-accessible asset.
 const MARK_SVG = '<svg width="20" height="20" viewBox="0 0 26 26" fill="none" style="display:block;flex:none"><circle cx="9.5" cy="13" r="7.5" fill="#5B46E5"></circle><circle cx="16.5" cy="13" r="7.5" fill="#F2A78E" fill-opacity="0.85"></circle></svg>';
 let sidebarEl = null;
-// Profiles the student skipped — the panel stays out of the way until reload.
+// Profiles the student skipped - the panel stays out of the way until reload.
 const skippedThisSession = new Set();
 // Profiles we've already auto-enriched this browsing session, so viewing the
 // same sparse profile twice doesn't re-write it while the log cache is warm.
@@ -449,7 +450,7 @@ function ensureSidebar() {
 }
 function esc(s) { return (s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
-// People already in your network at the same company — the thing LinkedIn never
+// People already in your network at the same company - the thing LinkedIn never
 // surfaces in the context of your own relationships. Pure local lookup.
 function networkOverlap(log, company) {
   const c = String(company || '').trim().toLowerCase();
@@ -503,8 +504,21 @@ function fitFromStrategy(p, r) {
   const find = (list) => findIn(list, hay);
 
   const co = String(p.company || '').trim();
-  if (co && (r.targetCompanies || []).some(c => String(c).trim().toLowerCase() === co.toLowerCase())) {
-    score += 40; push(`On your target list: ${co}`);
+  const targets = r.targetCompanies || [];
+  const hit = co && targets.find(c => mightySameCompany(c, co));
+  if (hit) {
+    // Working at a company you named is the strongest signal there is: on its
+    // own it should read Excellent, not merely Strong.
+    score += 65; push(`On your target list: ${co}`);
+  } else {
+    // The headline may not parse into a company at all (or LinkedIn truncated
+    // it). If a target company appears anywhere on the page, that still counts,
+    // just less: they work there, or they used to.
+    const inPage = targets.find(c => {
+      const n = mightyNormCompany(c);
+      return n.length > 2 && mightyNormCompany(`${p.title || ''} ${p.text || ''}`).includes(n);
+    });
+    if (inPage) { score += 30; push(`${inPage} appears on their profile`); }
   }
   const role = find(prof.targetRoles);
   if (role) { score += 25; push(`A role you are targeting: ${role}`); }
@@ -514,7 +528,7 @@ function fitFromStrategy(p, r) {
   if (skill) { score += 10; push(`Shared ground: ${skill}`); }
   const kws = mightyGoalKeywords(r.goal || '');
   const hits = kws.filter(k => hay.includes(k));
-  // Short tokens are acronyms ("ai", "vc", "pm") — lowercase reads like a typo.
+  // Short tokens are acronyms ("ai", "vc", "pm") - lowercase reads like a typo.
   const pretty = (k) => (k.length <= 3 ? k.toUpperCase() : k);
   if (hits.length) { score += Math.min(25, 10 * hits.length); push(`Matches your goal: ${hits.slice(0, 3).map(pretty).join(', ')}`); }
   const industry = find(prof.industries);
@@ -528,12 +542,15 @@ function fitFromStrategy(p, r) {
 function fitRecommendation(fit, r) {
   const goal = String(r.goal || '').trim();
   if (fit.label === 'Excellent match')
-    return goal ? `Save them. They line up with your goal: ${goal.replace(/\.$/, '')}.` : 'Save them — they line up with what you are building.';
+    return goal ? `Save them. They line up with your goal: ${goal.replace(/\.$/, '')}.` : 'Save them - they line up with what you are building.';
   if (fit.label === 'Strong match')
     return 'Worth saving. Read the brief in Mighty before you write.';
-  return goal
-    ? `Save only if you are deliberately going wider than "${goal.replace(/\.$/, '')}". Otherwise, skip.`
-    : 'Save only if you are deliberately going wider than your current goal. Otherwise, skip.';
+  if (fit.label === 'Potential match')
+    return goal
+      ? `A stretch against "${goal.replace(/\.$/, '')}". Save only if you have your own reason.`
+      : 'A stretch against your current goal. Save only if you have your own reason.';
+  // Nothing matched - say that plainly rather than dressing it up.
+  return 'Nothing here matches your strategy. Skip, unless you know something Mighty does not.';
 }
 // Panel section: small caps label above content, hairline rule above.
 function panelSection(label, inner, first) {
@@ -576,14 +593,14 @@ function pbtn(text, kind) {
 /* ---------- people already on this page ----------
    A profile page also lists "More profiles for you" and "People you may know":
    colleagues of the person you are looking at, alumni of their school. Those are
-   real discovery leads, and they are already rendered — no extra fetch. Each is
+   real discovery leads, and they are already rendered - no extra fetch. Each is
    scored against the same strategy (your goal text and target companies), and
    only Strong or Excellent matches are shown, at most three, so the panel never
    turns into a feed. */
 /* extractCards() is built for search-results pages: it walks up to a container
    holding a profile photo, which on a PROFILE page swallows the whole recommendation
    block and pins the page owner's name onto someone else's link. Recommendation
-   rows need their own reader — the name is the link's own text, and the headline is
+   rows need their own reader - the name is the link's own text, and the headline is
    the nearest small container around it. Showing the wrong person's name would be
    worse than showing nobody. */
 const NOT_A_NAME = /mutual connection|are mutual|follower|\bfollows\b|View |Show all|Message|Connect|Follow|Contact info|profile$/i;
@@ -650,7 +667,7 @@ function renderNearby(el, r, selfUrl) {
       + `font-weight:600;font-size:13px;cursor:pointer;font-family:${FONT};color:${INK};`;
     btn.onclick = async () => {
       btn.textContent = 'Saving…'; btn.disabled = true;
-      // No page context for someone whose profile we are not on — name, role and
+      // No page context for someone whose profile we are not on - name, role and
       // company only. The rest fills in when they open that profile.
       const res = await send('saveProfile', { payload: { profileUrl: p.profileUrl, name: p.name, title: p.title, company: p.company } });
       if (res && res.ok) { btn.textContent = 'Saved ✓'; await send('fetchLog', { force: true }); }
@@ -671,7 +688,7 @@ async function renderProfileSidebar() {
   const row = r.log.find(x => x.profile_url === profileUrl);
   const el = ensureSidebar();
 
-  // Live-scraped identity — fills gaps if the stored row is sparse.
+  // Live-scraped identity - fills gaps if the stored row is sparse.
   const liveName = profileName();
   const liveHeadline = profileHeadline(liveName);
   const liveCompany = companyFromTitle(liveHeadline);
@@ -687,7 +704,7 @@ async function renderProfileSidebar() {
     const timing = timingSignals(sec);
     const overlap = networkOverlap(r.log, liveCompany);
     const shared = [];
-    if (overlap.count) shared.push(`${overlap.count} ${overlap.count === 1 ? 'person' : 'people'} you know at ${liveCompany}${overlap.names.length ? ` — ${overlap.names.join(', ')}` : ''}`);
+    if (overlap.count) shared.push(`${overlap.count} ${overlap.count === 1 ? 'person' : 'people'} you know at ${liveCompany}${overlap.names.length ? ` - ${overlap.names.join(', ')}` : ''}`);
     const mut = (mutualText() || '').match(/(\d+)\s*mutual/i);
     if (mut) shared.push(`${mut[1]} mutual connection${mut[1] === '1' ? '' : 's'}`);
     if (liveLocation) shared.push(liveLocation);
@@ -722,7 +739,7 @@ async function renderProfileSidebar() {
       const res = await send('saveProfile', { payload: { profileUrl, name: liveName, title: liveHeadline, company: liveCompany, avatarUrl: avatarData || livePhoto, location: liveLocation } });
       if (res && res.ok) {
         // Now that a row exists, hand over the page text the app discarded a
-        // moment ago — that's what the AI brief is written from.
+        // moment ago - that's what the AI brief is written from.
         captureProfileContext(true);
         await send('fetchLog', { force: true });
         renderProfileSidebar();
@@ -749,14 +766,14 @@ async function renderProfileSidebar() {
   // Auto-backfill: many rows were saved before we scraped rich details (or via
   // search/import paths that capture less), so they show up in the web app with
   // no name/role/photo. When the student views such a profile, quietly fill the
-  // gaps from what's live on the page — no manual re-save needed. We only ever
+  // gaps from what's live on the page - no manual re-save needed. We only ever
   // ADD to empty fields (never overwrite), and only once per profile per session.
   if (!enrichedThisSession.has(profileUrl)) {
     const patch = {};
     if (!row.name && liveName) patch.name = liveName;
     if (!row.title && liveHeadline) patch.title = liveHeadline;
     if (!row.company && liveCompany) patch.company = liveCompany;
-    // Re-encode the avatar if it's missing OR a stale hotlink (not yet base64) —
+    // Re-encode the avatar if it's missing OR a stale hotlink (not yet base64) -
     // old rows stored the raw licdn.com URL, which never loads in the web app.
     const avatarStale = !row.avatar_url || !/^data:/.test(row.avatar_url);
     enrichedThisSession.add(profileUrl);
@@ -796,10 +813,10 @@ async function renderProfileSidebar() {
         `<div style="display:flex;flex-direction:column;gap:9px;font-size:13.5px;margin-top:9px;">
            <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:${SUB};">Stage</span><span style="font-weight:700;">${esc(statusLabel)}</span></div>
            <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:${SUB};">Last interaction</span><span style="font-weight:700;">${esc(lastInteractionLabel(row, rowEvents))}</span></div>
-           <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:${SUB};">Next step</span><span style="font-weight:700;color:${ACCENT_DEEP};text-align:right;max-width:170px;">${esc(next || '—')}</span></div>
+           <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:${SUB};">Next step</span><span style="font-weight:700;color:${ACCENT_DEEP};text-align:right;max-width:170px;">${esc(next || ' - ')}</span></div>
          </div>`);
 
-  // Writing and sending happen in the web app, deliberately — the panel's only
+  // Writing and sending happen in the web app, deliberately - the panel's only
   // job is the decision. This button carries the relationship there.
   const actions = document.createElement('div');
   actions.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:20px;';
@@ -819,7 +836,7 @@ function wireSendObserver() {
   document.addEventListener('click', (e) => {
     const target = e.target.closest(`${SELECTORS.sendButton}, ${SELECTORS.connectButton}`);
     if (!target) return;
-    // Observation only — this listener never calls target.click() or preventDefault().
+    // Observation only - this listener never calls target.click() or preventDefault().
     send('pushInbox', { kind: 'sent_confirmation', payload: { profileUrl: normProfileUrl(location.href), ts: Date.now() } });
   }, true);
 }
@@ -828,7 +845,7 @@ function wireSendObserver() {
    The student runs a normal Google search (MIghTy's "Find people" box opens
    one scoped to LinkedIn profiles). On the results page they're already viewing,
    this reads the visible LinkedIn profile links + titles and offers one-click
-   bulk import. We never automate the search or scrape at scale — we only read
+   bulk import. We never automate the search or scrape at scale - we only read
    the page the student opened themselves, same human-in-the-loop boundary. */
 function extractGoogleProfiles() {
   const seen = new Set(), out = [];
@@ -843,7 +860,7 @@ function extractGoogleProfiles() {
     const h3 = card.querySelector('h3');
     let title = ((h3 && h3.textContent) || a.textContent || '').trim();
     title = title.replace(/\s*[|·]?\s*LinkedIn\s*$/i, '').replace(/\s*[.…]+\s*$/, '').trim();
-    const parts = title.split(/\s+[-–—]\s+/);
+    const parts = title.split(/\s+[-\u2013\u2014]\s+/);
     const name = (parts[0] || '').trim();
     if (!name || name.length > 60 || /^https?:/i.test(name)) continue;
     const headline = parts.slice(1).join(' - ').trim();
@@ -911,7 +928,7 @@ async function renderGoogleImportPanel() {
   const foot = document.createElement('div'); foot.style.cssText = 'font-size:10.5px;color:#7d7979;margin-top:8px;';
   // Google results carry no profile photos (only a 16px LinkedIn favicon), so
   // imported people start with initials. The photo fills itself in the first
-  // time you open their profile — we never fetch LinkedIn pages on your behalf.
+  // time you open their profile - we never fetch LinkedIn pages on your behalf.
   foot.textContent = 'Imported as prospects, ready to score and draft. Photos fill in when you open each profile.';
   gPanel.appendChild(foot);
   document.body.appendChild(gPanel);
@@ -929,7 +946,7 @@ function scan() {
       if (IS_LINKEDIN) { renderCardCheckboxes(); wireComposeFill(); captureProfileContext(); renderProfileSidebar(); wireSendObserver(); }
       else if (IS_GOOGLE) { renderGoogleImportPanel(); }
     }
-    catch (e) { /* selectors likely drifted — see SELECTORS comment above */ }
+    catch (e) { /* selectors likely drifted - see SELECTORS comment above */ }
   }, 1200); // let the SPA render
 }
 

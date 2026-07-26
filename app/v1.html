@@ -9,16 +9,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#FAF9F7; --bg2:#F4F2EF; --card:#FFFFFF; --card2:#FCFBFA; --line:rgba(27,26,31,.09); --line2:rgba(27,26,31,.055); --inp:#FCFBFA; --chip:#F4F3F1;
-  --ink:#1B1A1F; --sub:#4A4751; --sub2:#615E6B; --mute:#7B7787; --mute2:#A29EAC;
-  --brand:#5B4BC4; --brand2:#4C3EB0; --bsoft:#EDEAFE;
-  --peach:#F2A69B; --psoft:#FDEDEB;
-  --green:#4B7A5E; --green2:#3E6B52; --gsoft:#E9F1EC;
-  --terra:#B5675A; --terra2:#96504A; --tsoft:#FDEDEB;
-  --amber:#8C7A50; --asoft:#FBF3E2;
-  --fh:'Figtree',system-ui,-apple-system,sans-serif; --fb:'Instrument Sans',system-ui,-apple-system,sans-serif; --fm:ui-monospace,'SF Mono',Menlo,monospace;
-  --shadow:0 1px 2px rgba(27,26,31,.04); --shadowL:0 30px 70px -34px rgba(27,26,31,.24);
-  --radius:20px; --rsm:13px; --rpill:999px;
+ --bg:#FAF9F7; --bg2:#F4F2EF; --card:#FFFFFF; --card2:#FCFBFA; --line:rgba(27,26,31,.09); --line2:rgba(27,26,31,.055); --inp:#FCFBFA; --chip:#F4F3F1;
+ --ink:#1B1A1F; --sub:#4A4751; --sub2:#615E6B; --mute:#7B7787; --mute2:#A29EAC;
+ --brand:#5B4BC4; --brand2:#4C3EB0; --bsoft:#EDEAFE;
+ --peach:#F2A69B; --psoft:#FDEDEB;
+ --green:#4B7A5E; --green2:#3E6B52; --gsoft:#E9F1EC;
+ --terra:#B5675A; --terra2:#96504A; --tsoft:#FDEDEB;
+ --amber:#8C7A50; --asoft:#FBF3E2;
+ --fh:'Figtree',system-ui,-apple-system,sans-serif; --fb:'Instrument Sans',system-ui,-apple-system,sans-serif; --fm:ui-monospace,'SF Mono',Menlo,monospace;
+ --shadow:0 1px 2px rgba(27,26,31,.04); --shadowL:0 30px 70px -34px rgba(27,26,31,.24);
+ --radius:20px; --rsm:13px; --rpill:999px;
 }
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;height:100%;}
@@ -157,42 +157,42 @@ label.fld{display:block;font-size:12.5px;font-weight:500;letter-spacing:.02em;te
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.4/babel.min.js"></script>
 <script>
-  // Classic JSX runtime (React.createElement) — the automatic runtime emits an ES import that fails without a bundler.
+  // Classic JSX runtime (React.createElement) - the automatic runtime emits an ES import that fails without a bundler.
   Babel.registerPreset('react-classic', { presets: [[Babel.availablePresets['react'], { runtime: 'classic' }]] });
 </script>
 <script type="text/babel" data-presets="react-classic">
 const {useState,useEffect,useRef,useMemo} = React;
 
 /* ============================ deployer config ============================
-   Filled in ONCE by whoever deploys Mighty (see SETUP.md) — students never
+   Filled in ONCE by whoever deploys Mighty (see SETUP.md) - students never
    see or touch this. Anon keys are safe to ship in client code; row-level
    security is what actually protects the data. */
 const SUPABASE_URL = 'https://hplyyywdftnvjajyncvj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_e_oCwuz3Qlko5N3Xl8ZwxA_zQijz_u8';
 
 /* ============================ persistence ============================ */
-const DB_KEY = 'mighty_v2'; // synced app data — templates + settings only
+const DB_KEY = 'mighty_v2'; // synced app data - templates + settings only
 const DEFAULT = {
   templates: [
-    { id:'starter', name:'Intro — Sloan Fellow', body:"Hi {{firstName}}, I'm an MIT Sloan Fellow exploring {{company}} and would love to hear about your path there. Would you be open to a quick chat?" },
+    { id:'starter', name:'Intro - Sloan Fellow', body:"Hi {{firstName}}, I'm an MIT Sloan Fellow exploring {{company}} and would love to hear about your path there. Would you be open to a quick chat?" },
   ],
   settings: {
     sheets: { sheetId:'', tabName:'MIghTy Outreach', lastSyncedAt:null, lastError:null },
-    // ---- AI Context Profile — what MIghTy needs to give great advice ----
+    // ---- AI Context Profile - what MIghTy needs to give great advice ----
     goal: '',               // ⭐ what you want to accomplish in the next 6-12 months (the lens for everything)
-    goalType: '',           // job_search | raise_funding | sales | mentors | networking — drives match weights
-    voiceSamples: [],       // your last few approved messages — Mighty writes to match them
+    goalType: '',           // job_search | raise_funding | sales | mentors | networking - drives match weights
+    voiceSamples: [],       // your last few approved messages - Mighty writes to match them
     assets: [],             // your shareable brand assets: [{id,type,label,url}]
     signature: '',          // a short professional signature appended to drafts on request
     networkingReasons: [],  // why you're networking (job, funding, mentors, …)
     targetCompanies: [],
     targetRoles: [],
-    homeLocation: '',       // your city — resolves "near me" in Find-people
+    homeLocation: '',       // your city - resolves "near me" in Find-people
     targetLocations: [],    // places you're interested in
     schools: [],
     industries: [],
     skills: [],             // extracted from resume; strong match-score terms
-    interests: [],          // personal — fuels authentic conversation starters
+    interests: [],          // personal - fuels authentic conversation starters
     networkingStyle: [],    // cold outreach / warm intros / coffee chats / events / email / linkedin
     communicationStyle: '', // how your messages should sound (e.g. warm, concise)
     hardestPart: '',        // the networking problem Mighty should solve for you
@@ -243,7 +243,7 @@ const MIT_RE = /@([a-z0-9-]+\.)*mit\.edu$/i;
 
 // LinkedIn vanity slugs are usually firstname-lastname-<id>, so when the
 // extension couldn't scrape a name we can still show something readable
-// instead of the raw URL — never shown once a real name is set.
+// instead of the raw URL - never shown once a real name is set.
 function nameFromUrl(url){
   const m = (url||'').match(/linkedin\.com\/in\/([^/?#]+)/i);
   if(!m) return '';
@@ -293,7 +293,7 @@ const STAGE_META = {
 };
 /* ---- Pipeline templates ----------------------------------------------------
    A relationship funnel is the same eight ordered steps whichever game you're
-   playing — only the vocabulary changes. So a template RELABELS the existing
+   playing - only the vocabulary changes. So a template RELABELS the existing
    stages instead of forking the schema: no migration, no risk to saved data,
    and switching templates can never strand a contact in a stage that stopped
    existing. Any single label can also be overridden. */
@@ -325,7 +325,7 @@ function avatarFor(row){
   const init = displayName(row).trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
   return {bg,fg,init};
 }
-// Brand mark — two overlapping circles (lilac + peach). Scales to any size.
+// Brand mark - two overlapping circles (lilac + peach). Scales to any size.
 function Logo({size=24}){
   return <svg width={size} height={size} viewBox="0 0 26 26" fill="none" aria-hidden="true" style={{display:'block',flex:'none'}}>
     <circle cx="9.5" cy="13" r="7.5" fill="var(--brand)"/>
@@ -347,9 +347,9 @@ function NavIcon({name}){
   return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{flex:'none'}}>{P[name]}</svg>;
 }
 
-// Transparent, client-side relevance scoring for ranking who to contact next —
+// Transparent, client-side relevance scoring for ranking who to contact next -
 // every term is explainable, nothing is a fabricated probability.
-// Meaningful keywords from the user's free-text goal — drops stopwords/short
+// Meaningful keywords from the user's free-text goal - drops stopwords/short
 // words so "break into climate VC in Europe" → ["climate","europe"] (VC too
 // short is kept via the whitelist). Used to score goal-relevance transparently.
 const GOAL_STOPWORDS = new Set(['the','a','an','to','in','into','at','for','of','and','or','with','on','my','me','get','got','want','looking','look','find','people','person','someone','who','that','this','break','move','role','job','work','working','company','companies','around','near','new']);
@@ -357,7 +357,7 @@ function goalKeywords(goal){
   return [...new Set((goal||'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/)
     .filter(w=>w && !GOAL_STOPWORDS.has(w) && (w.length>=3 || ['vc','ai','pm','ux','hr'].includes(w))))].slice(0,8);
 }
-// The terms the match score looks for in a person — drawn from the whole context
+// The terms the match score looks for in a person - drawn from the whole context
 // profile (goal + roles + industries + schools), not just the goal sentence.
 function profileKeywords(settings){
   const s = settings||{};
@@ -384,7 +384,7 @@ function computeScore(row, targetCompanies, terms){
   if(row.company && (targetCompanies||[]).some(c=>c.trim().toLowerCase()===row.company.trim().toLowerCase())){
     score += 40; reasons.push(`Target company: ${row.company}`);
   }
-  // Goal relevance — does this person's title/company/profile match what you're
+  // Goal relevance - does this person's title/company/profile match what you're
   // trying to achieve? Transparent keyword match, never a black-box AI number.
   const kws = Array.isArray(terms) ? terms : goalKeywords(terms);
   if(kws.length){
@@ -407,7 +407,7 @@ function computeScore(row, targetCompanies, terms){
   return { score: Math.round(score), reasons: reasons.slice(0,4) };
 }
 
-// Honest relationship strength — recency decay + interaction count + reciprocity.
+// Honest relationship strength - recency decay + interaction count + reciprocity.
 function computeStrength(row, rowEvents){
   const ts = [row.contacted_at, row.shortlisted_at, ...rowEvents.map(e=>e.occurred_at)].filter(Boolean).map(t=>new Date(t).getTime());
   const lastContact = ts.length ? Math.max(...ts) : null;
@@ -422,7 +422,7 @@ function computeStrength(row, rowEvents){
   return { score, pips, reasons };
 }
 
-// Single "what's next" label per contact — feeds Dashboard priorities, People's
+// Single "what's next" label per contact - feeds Dashboard priorities, People's
 // Next-action column, and the Drawer callout. Nothing fabricated: every branch
 // is a plain rule over real status/timing data.
 function suggestedNextAction(row, rowEvents, followUpDays){
@@ -434,7 +434,7 @@ function suggestedNextAction(row, rowEvents, followUpDays){
       const replied = rowEvents.some(e=>e.event_type==='reply');
       if(replied) return { label:`Move to ${stageLabel('coffee_chat')}`, urgent:false, action:'coffee' };
       const days = row.contacted_at ? Math.round((now()-new Date(row.contacted_at).getTime())/864e5) : 0;
-      if(days > followUpDays) return { label:`Follow up — no reply in ${days}d`, urgent:true, action:'followup' };
+      if(days > followUpDays) return { label:`Follow up - no reply in ${days}d`, urgent:true, action:'followup' };
       return { label:'Waiting for reply', urgent:false, action:null };
     }
     case 'replied':
@@ -453,18 +453,18 @@ function suggestedNextAction(row, rowEvents, followUpDays){
   }
 }
 
-/* ============================ AI layer — shared backend proxy ============================
+/* ============================ AI layer - shared backend proxy ============================
    Every student's AI calls route through the ai-proxy Edge Function, authenticated
-   by their own Supabase session — no one ever sees or manages an API key.
+   by their own Supabase session - no one ever sees or manages an API key.
    Running as a Claude artifact (window.claude.complete) is the one exception,
    used for the builder's own testing, not the deployed student experience. */
 const inArtifact = () => typeof window!=='undefined' && window.claude && typeof window.claude.complete==='function';
 function llmMode(sb, auth){ if(inArtifact()) return 'artifact'; if(sb && auth && auth.status==='in') return 'proxy'; return 'none'; }
 // `feature` names the workload (draft_message, profile_briefing, coffee_extract,
-// daily_plan, …) — the AI Gateway routes it to the right model, caches it, and
+// daily_plan, …) - the AI Gateway routes it to the right model, caches it, and
 // bills it against the budgets. See edge-ai-proxy.ts FEATURES for the registry.
 async function llm(sb, auth, feature, system, user, maxTokens=700){
-  if(inArtifact()) return await window.claude.complete(`${system}\n\n———\n${user}`);
+  if(inArtifact()) return await window.claude.complete(`${system}\n\n - - - \n${user}`);
   if(!sb || !auth || auth.status!=='in') throw new Error('Sign in to use AI features.');
   const {data,error} = await sb.functions.invoke('ai-proxy', {body:{feature,system,user,maxTokens}});
   if(error) throw error;
@@ -491,7 +491,7 @@ function relationshipWords(row, evs){
     default: return {icon:'○', label:'Not active', sub:''};
   }
 }
-// The inverse of "Mighty knows" — what you still don't know about someone, and
+// The inverse of "Mighty knows" - what you still don't know about someone, and
 // therefore the reason to have another conversation. Anything already captured
 // drops off the list.
 const OPEN_QUESTION_BANK = [
@@ -520,7 +520,7 @@ function Avatar({row,size}){
 }
 function StagePill({status}){ const m=STAGE_META[status]||STAGE_META.prospect; return <span className="pill" style={{background:m.bg,color:m.fg}}>{stageLabel(status)}</span>; }
 function PriorityDot({priority}){ const m=PRIORITY_META[priority]||PRIORITY_META.medium; return <span style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:12.5,color:'var(--sub)'}}><span className="dot" style={{background:m.dot}}></span>{m.label}</span>; }
-// Hover detail for a person. Cards stay quiet — a face and a name — and the
+// Hover detail for a person. Cards stay quiet - a face and a name - and the
 // role, company, stage and next step appear on hover. Positioned fixed so it
 // never gets clipped by a scrolling pipeline column.
 function PersonHover({row, evs, followUpDays, children, style, className}){
@@ -559,10 +559,10 @@ function PersonHover({row, evs, followUpDays, children, style, className}){
     </div>}
   </>;
 }
-// "Who is this?" — the most recent real interaction, so a row reads like a
+// "Who is this?" - the most recent real interaction, so a row reads like a
 // relationship, not a database record.
 const EVENT_LABEL = {reply:'They replied', coffee_chat:'Coffee chat', referral:'Referral', interview:'Interview', offer:'Offer', first_message:'Message sent', connection_request:'Connection request', note:'Note added', stage_change:'Moved forward'};
-// Relationship score — deterministic, explainable, computed from real history
+// Relationship score - deterministic, explainable, computed from real history
 // only (depth of stage, reciprocity, momentum, recency). No AI, no invention.
 const STAGE_DEPTH = {prospect:0, ready_to_contact:5, contacted:18, replied:34, coffee_chat:50, referral:60, interview:66, offer:72, do_not_contact:0};
 function relationshipScore(row, evs){
@@ -589,7 +589,7 @@ function relationshipScore(row, evs){
 /* ============================ Intelligence engines ============================
    The Bible's scoring engines, ported honestly: every number is computed from
    real facts, weighted by the user's goal, and NEVER shown without a reason.
-   No black-box AI number — a human can always see why. */
+   No black-box AI number - a human can always see why. */
 
 // ---- #8 Goals engine → weight vector (§11.4) --------------------------------
 // A goal type carries base weights for the match components; named target
@@ -638,7 +638,7 @@ function matchScore(row, settings){
   const target_account = (row.company && (settings.targetCompanies||[]).some(c=>c.trim().toLowerCase()===row.company.trim().toLowerCase())) ? 1 : 0;
   const mutual = (ctx.mutualConnectionsRaw||'').match(/(\d+)\s*mutual/i);
   const warm_path = mutual ? Math.min(1, (parseInt(mutual[1],10)||0)/3) : 0;
-  // stage_fit: only meaningful for fundraising/sales — reward investor/partner titles
+  // stage_fit: only meaningful for fundraising/sales - reward investor/partner titles
   const gt = inferGoalType(settings);
   const stage_fit = (gt==='raise_funding'||gt==='sales') ? (/investor|partner|vc\b|venture|angel|managing director/.test(hay)?1:0.3) : 0.5;
 
@@ -647,7 +647,7 @@ function matchScore(row, settings){
   let score = GOAL_COMPONENTS.reduce((s,k)=>s + (comp[k]||0)*(weights[k]||0), 0);
   score = Math.round(Math.max(0,Math.min(1,score))*100);
 
-  // reason line — the top weighted contributors that actually fired
+  // reason line - the top weighted contributors that actually fired
   const contrib = GOAL_COMPONENTS.map(k=>({k, v:(comp[k]||0)*(weights[k]||0), raw:comp[k]})).filter(c=>c.raw>0.05).sort((a,b)=>b.v-a.v);
   const LBL = {
     target_account: target_account?`Target company: ${row.company}`:'',
@@ -656,7 +656,7 @@ function matchScore(row, settings){
     affiliation: (schoolHits.length?`Shared school: ${schoolHits[0]}`:(affiliation?'MIT / Sloan connection':'')),
     geography: geoHits.length?`Where you're building: ${geoHits[0]}`:'',
     warm_path: mutual?`${mutual[1]} mutual connection${mutual[1]==='1'?'':'s'}`:'',
-    stage_fit: (gt==='raise_funding'&&stage_fit===1)?'Investor — fits fundraising':'',
+    stage_fit: (gt==='raise_funding'&&stage_fit===1)?'Investor - fits fundraising':'',
   };
   const reasons = contrib.map(c=>LBL[c.k]).filter(Boolean).slice(0,3);
   const label = score>=70?'Strong match':score>=45?'Good match':score>0?'Some overlap':'No clear match';
@@ -680,23 +680,23 @@ function relationshipHealth(row, evs, memories){
     : new Date(row.contacted_at||row.shortlisted_at||row.updated_at).getTime();
   const days = Math.max(0,(now()-lastT)/864e5);
   const cadence = expectedCadence(row);
-  // 1. Recency — 1 when within cadence, decaying past it
+  // 1. Recency - 1 when within cadence, decaying past it
   const recency = Math.max(0, 1 - (days/cadence)/2);
   factors.push({k:'Recency', v:recency, note:`Last contact ${Math.round(days)}d ago`});
-  // 2. Frequency trend — last 180d vs prior 180d
+  // 2. Frequency trend - last 180d vs prior 180d
   const cut1=now()-180*864e5, cut2=now()-360*864e5;
   const recent = evs.filter(e=>new Date(e.occurred_at).getTime()>=cut1).length;
   const prior  = evs.filter(e=>{const t=new Date(e.occurred_at).getTime(); return t>=cut2 && t<cut1;}).length;
   const trend = prior===0 ? (recent>0?0.7:0.4) : Math.min(1, recent/prior);
   factors.push({k:'Momentum', v:trend, note:recent>=prior?'Holding or rising':'Slowing down'});
-  // 3. Reciprocity — did they reply / act, not just you sending
+  // 3. Reciprocity - did they reply / act, not just you sending
   const theirs = evs.filter(e=>['reply','coffee_chat','referral'].includes(e.event_type)).length;
   const recip = evs.length ? Math.min(1, theirs/Math.max(1,evs.length)) : 0.3;
   factors.push({k:'Reciprocity', v:recip, note:theirs?`${theirs} response${theirs===1?'':'s'}`:'One-directional so far'});
-  // 4. Depth — coffee chats/meetings weigh more than messages
+  // 4. Depth - coffee chats/meetings weigh more than messages
   const depth = Math.min(1, 0.3 + 0.35*evs.filter(e=>e.event_type==='coffee_chat').length + 0.1*evs.length);
   factors.push({k:'Depth', v:depth, note:evs.filter(e=>e.event_type==='coffee_chat').length?'Real conversations':'Light touch'});
-  // 5. Promise integrity — open promises YOU made, overdue drags it down
+  // 5. Promise integrity - open promises YOU made, overdue drags it down
   const openP = (memories||[]).filter(m=>m.type==='promise' && m.status!=='done').length;
   const promise = openP===0 ? 1 : Math.max(0.2, 1 - openP*0.35);
   factors.push({k:'Promises', v:promise, note:openP?`${openP} open`:'All kept'});
@@ -705,9 +705,9 @@ function relationshipHealth(row, evs, memories){
   const total = factors.reduce((s,f)=>s + f.v*(W[f.k]||0), 0);
   const b = HEALTH_BANDS.find(x=>total>=x.min) || HEALTH_BANDS[HEALTH_BANDS.length-1];
   const action = openP>0 ? 'Clear an open promise'
-    : days>cadence ? 'Reach out — it has gone quiet'
+    : days>cadence ? 'Reach out - it has gone quiet'
     : recip<0.4 ? 'They have not engaged much; try a lighter touch'
-    : 'On track — keep the rhythm';
+    : 'On track - keep the rhythm';
   return {score:Math.round(total*100), band:b.band, color:b.color, bg:b.bg, factors, action, days, cadence};
 }
 
@@ -715,7 +715,7 @@ function relationshipHealth(row, evs, memories){
    Everything here is *derived*, never entered. outreach_events is already an
    append-only interaction log, so the "insights" the Bible wanted from an
    event-sourced store are computable today without a risky schema migration.
-   Nothing is asserted without enough data behind it — small samples say so
+   Nothing is asserted without enough data behind it - small samples say so
    instead of inventing a trend. */
 const REACHED = ['contacted','replied','coffee_chat','referral','interview','offer'];
 const ENGAGED = ['replied','coffee_chat','referral','interview','offer'];
@@ -733,7 +733,7 @@ function patternInsights(log, events){
   const reached = active.filter(r=>REACHED.includes(r.status));
   const firstReplyAt = r => { const e=events.filter(x=>x.log_id===r.id && x.event_type==='reply')
       .sort((a,b)=>new Date(a.occurred_at)-new Date(b.occurred_at))[0]; return e?new Date(e.occurred_at).getTime():null; };
-  // Time to reply (days) — contacted_at → first reply
+  // Time to reply (days) - contacted_at → first reply
   const replyDays = reached.map(r=>{ const fr=firstReplyAt(r); return (fr&&r.contacted_at)?(fr-new Date(r.contacted_at).getTime())/864e5:null; })
     .filter(d=>d!=null && d>=0);
   const medReply = median(replyDays);
@@ -741,11 +741,11 @@ function patternInsights(log, events){
   const bucket = pred => { const g=reached.filter(pred); const rep=g.filter(r=>ENGAGED.includes(r.status)).length;
     return {sent:g.length, replied:rep, rate:g.length?Math.round(100*rep/g.length):null}; };
   const warm = bucket(hasWarmSignal), cold = bucket(r=>!hasWarmSignal(r));
-  // Best send window — day-of-week reply rate (only where we sent at least twice)
+  // Best send window - day-of-week reply rate (only where we sent at least twice)
   const dow = DOW.map((label,i)=>{ const g=reached.filter(r=>r.contacted_at && new Date(r.contacted_at).getDay()===i);
     const rep=g.filter(r=>ENGAGED.includes(r.status)).length; return {label, sent:g.length, replied:rep, rate:g.length?rep/g.length:0}; });
   const bestDow = dow.filter(d=>d.sent>=2).sort((a,b)=>b.rate-a.rate)[0] || null;
-  // 8-week momentum — outreach (by contacted_at) vs replies (by reply event)
+  // 8-week momentum - outreach (by contacted_at) vs replies (by reply event)
   const weeks=[]; const wk=weekStartUTC();
   for(let i=7;i>=0;i--){ const start=wk-i*7*864e5, end=start+7*864e5;
     const outreach=reached.filter(r=>r.contacted_at && new Date(r.contacted_at).getTime()>=start && new Date(r.contacted_at).getTime()<end).length;
@@ -798,20 +798,20 @@ function memoryReview(log){
 }
 
 /* ============================ Progressive disclosure (Bible v1.3 §3.5) ============================
-   Features never unlock on a timer — they unlock on meaningful user events, so
+   Features never unlock on a timer - they unlock on meaningful user events, so
    the app is tiny on Day 1 and grows as the user's data makes each screen
    non-empty. All thresholds live here; the UI only asks canSee(). "Data before
    UI": never show an empty dashboard, never show analytics without data. */
 const UNLOCKS = {
   people:   { test:(log,ev)=>log.length>=5,
               title:'People', go:'people',
-              msg:'Five relationships saved — see everyone in one place.' },
+              msg:'Five relationships saved - see everyone in one place.' },
   pipeline: { test:(log,ev)=>log.length>=5,
               title:'Pipeline view', go:'pipeline',
               msg:'Track where each relationship stands, stage by stage.' },
   insights: { test:(log,ev)=>log.filter(r=>REACHED.includes(r.status)).length>=3,
               title:'Intelligence', go:'insights',
-              msg:'Three messages out — Mighty can start showing what works.' },
+              msg:'Three messages out - Mighty can start showing what works.' },
 };
 function computeUnlocks(log, events){
   const out={}; Object.keys(UNLOCKS).forEach(k=>{ try{ out[k]=!!UNLOCKS[k].test(log,events); }catch(e){ out[k]=false; } });
@@ -822,7 +822,7 @@ function computeUnlocks(log, events){
    Networking is reciprocal: you don't just take context, you give it. Mighty
    holds your shareable assets (resume, portfolio, deck, card, scheduling link…)
    and suggests the RIGHT one to send, scored by fit × purpose × novelty × stage.
-   Nothing is auto-sent — it appends a link to a draft you approve, and records
+   Nothing is auto-sent - it appends a link to a draft you approve, and records
    what was shared with whom so you never send the same thing twice. */
 const ASSET_TYPES = {
   resume:    {label:'Resume', icon:'📄', roles:{recruiter:0.95, hiring_manager:0.95, peer:0.3, investor:0.2}},
@@ -835,7 +835,7 @@ const ASSET_TYPES = {
   card:      {label:'Digital business card', icon:'🪪', roles:{recruiter:0.6, hiring_manager:0.6, peer:0.8, investor:0.7}},
   paper:     {label:'Research / publication', icon:'📚', roles:{recruiter:0.4, hiring_manager:0.5, peer:0.6, investor:0.5}},
 };
-// Which role class is this person, for asset fit. Crude but honest — inferred
+// Which role class is this person, for asset fit. Crude but honest - inferred
 // from title, refined by the user's goal.
 function roleClassOf(row, settings){
   const t = `${row.title||''} ${row.company||''}`.toLowerCase();
@@ -872,7 +872,7 @@ function suggestAssets(settings, {row, purpose}){
    person. This is the product's moat, so it's first-class: every memory carries
    where it came from and how sure we are, a user can correct it (which pins it
    at 100% and permanently outranks the model), and it can expire. Stored as an array on
-   outreach_log.context.memories — per-person, no migration, RLS already covers
+   outreach_log.context.memories - per-person, no migration, RLS already covers
    it; promote to its own table only if cross-person memory search is needed. */
 const MEM_TYPES = {
   interest:  {bucket:'detail',  t:'Cares about'},
@@ -903,7 +903,7 @@ function newMemory(o){
     confidence:o.confidence==null?0.7:o.confidence,
     // Gate: green commits, amber is a suggestion the user must confirm, red is
     // dropped before it ever reaches here. Suggestions never feed drafts or
-    // briefings until confirmed — an uncertain guess must not become a "fact".
+    // briefings until confirmed - an uncertain guess must not become a "fact".
     status:o.status||'confirmed',
     sourceLabel:o.sourceLabel||'You', sourceKind:o.sourceKind||'user',
     visibility:o.visibility||'normal', permanent:!!o.permanent, expiresAt:o.expiresAt||null,
@@ -912,17 +912,17 @@ function newMemory(o){
 // Confidence → gate decision. Callers drop 'red', suggest 'amber', commit 'green'.
 function memGate(c){ c=(c==null?0.7:c); return c>=0.75?'commit':c>=0.5?'suggest':'drop'; }
 // Unified read: real memory records first, then legacy coffee-chat extractions
-// and briefing hints that predate the memory model — shown but not editable, so
+// and briefing hints that predate the memory model - shown but not editable, so
 // nothing already captured disappears. New writes always go to real records.
 // Amber memories awaiting the user's yes/no. Never used anywhere but the
-// confirm UI — structurally excluded from drafts, briefings and reasoning.
+// confirm UI - structurally excluded from drafts, briefings and reasoning.
 function suggestedMemories(row){
   return memList(row).filter(m=>m.status==='suggested' && !(m.expiresAt && new Date(m.expiresAt).getTime()<now() && !m.permanent));
 }
 function personMemories(row, evs){
   const out = [], seen = new Set();
   const push = m => { const k=(m.value||'').trim().toLowerCase(); if(!k||seen.has(k)) return; seen.add(k); out.push(m); };
-  // 1. Real records — confirmed only (suggestions live in their own tray), skip expired
+  // 1. Real records - confirmed only (suggestions live in their own tray), skip expired
   memList(row).forEach(m=>{ if(m.status==='suggested') return; if(m.expiresAt && new Date(m.expiresAt).getTime()<now() && !m.permanent) return; push(m); });
   // 2. Legacy extractions from the timeline
   (evs||[]).slice().sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at)).forEach(e=>{
@@ -950,12 +950,12 @@ function lastInteraction(row, evs){
 
 /* ============================ Meetings & calendar ============================
    #12 Calendar (read-only). Live Google Calendar sync needs OAuth credentials
-   the user must provision (same gate as the search CSE key) — until then this is
+   the user must provision (same gate as the search CSE key) - until then this is
    the honest, pragmatic version: add a meeting by hand, or paste an .ics file and
    Mighty matches attendees to your contacts. Meetings live per-person in
    context.meetings[] so there's no migration. Each one drives two moments that
    matter: a pre-meeting brief (who they are + what Mighty knows + your open
-   promises) and, once it's passed, a nudge to capture what happened — which feeds
+   promises) and, once it's passed, a nudge to capture what happened - which feeds
    straight into the same coffee-chat extraction that grows the memory graph. */
 const MEETING_MODES = { coffee:{icon:'☕',label:'Coffee chat'}, call:{icon:'📞',label:'Call'}, video:{icon:'🎥',label:'Video call'}, meeting:{icon:'🤝',label:'Meeting'}, interview:{icon:'💼',label:'Interview'} };
 function readMeetings(row){ const m=((row.context||{}).meetings)||[]; return Array.isArray(m)?m:[]; }
@@ -975,12 +975,12 @@ function upcomingMeetings(log, withinDays){
   const t=now(), end=withinDays?t+withinDays*864e5:Infinity;
   return allMeetings(log).filter(m=>m.ts>=t && m.ts<=end);
 }
-// Passed, not yet captured — the "how did it go?" moment.
+// Passed, not yet captured - the "how did it go?" moment.
 function meetingsToCapture(log){
   const t=now();
   return allMeetings(log).filter(m=>m.ts<t && !m.captured).sort((a,b)=>b.ts-a.ts);
 }
-// Minimal iCalendar parser — enough for real Google/Outlook/Apple .ics exports.
+// Minimal iCalendar parser - enough for real Google/Outlook/Apple .ics exports.
 // Unfolds RFC-5545 line continuations, reads SUMMARY / DTSTART / ATTENDEE(CN + mailto).
 function parseICS(text){
   if(!text) return [];
@@ -1011,7 +1011,7 @@ function parseICSDate(v){
   return new Date(+Y,+Mo-1,+D,+(h||0),+(mi||0),+(s||0)).getTime();
 }
 // Match a parsed calendar event to a tracked contact: attendee name, then a name
-// mention inside the summary. Conservative — no match is better than a wrong one.
+// mention inside the summary. Conservative - no match is better than a wrong one.
 function matchMeetingContact(log, ev){
   const norm=s=>String(s||'').toLowerCase().replace(/[^a-z\s]/g,'').trim();
   const names=(ev.attendees||[]).map(norm).filter(Boolean);
@@ -1083,7 +1083,7 @@ function App(){
   async function refreshTasks(client,u){ try{ const {data} = await client.from('tasks').select('*').eq('user_id',u.id).order('created_at',{ascending:false}); setTasks(data||[]); }catch(e){} }
 
   // Drain whatever the extension pushed. profile_context is discarded unless a
-  // matching row already exists — the privacy boundary: nothing is retained
+  // matching row already exists - the privacy boundary: nothing is retained
   // for a profile the student didn't deliberately shortlist.
   async function ingest(client, u){
     try{
@@ -1106,7 +1106,7 @@ function App(){
           } else if(row.kind==='profile_context'){
             const {data:existing} = await client.from('outreach_log').select('id,context').eq('user_id',u.id).eq('profile_url',p.profileUrl).maybeSingle();
             if(existing){
-              // MERGE rather than replace — this row may already carry location,
+              // MERGE rather than replace - this row may already carry location,
               // education and reach captured from the search snippet, and a blind
               // overwrite would silently throw all of that away.
               const prev = existing.context || {};
@@ -1125,7 +1125,7 @@ function App(){
             }, {onConflict:'user_id,profile_url'});
           }
           consumed.push(row.id);
-        }catch(e){ /* likely the weekly-cap trigger — leave unconsumed, retried next ingest */ }
+        }catch(e){ /* likely the weekly-cap trigger - leave unconsumed, retried next ingest */ }
       }
       if(consumed.length) await client.from('outreach_inbox').delete().in('id', consumed);
       return consumed.length;
@@ -1156,7 +1156,7 @@ function App(){
     let added=0;
     for(const p of people){
       try{
-        // Location / education / reach come from the search snippet — keep them
+        // Location / education / reach come from the search snippet - keep them
         // in the existing context jsonb so no schema migration is needed.
         const ctx = {};
         ['location','education','experience','followers','connections','snippet'].forEach(k=>{ if(p[k]) ctx[k]=p[k]; });
@@ -1164,7 +1164,7 @@ function App(){
         if(Object.keys(ctx).length) rowIns.context = {...ctx, source:'search'};
         await sb.from('outreach_log').upsert(rowIns, {onConflict:'user_id,profile_url'});
         added++;
-      }catch(e){ /* likely the weekly-cap trigger or a dup — skip */ }
+      }catch(e){ /* likely the weekly-cap trigger or a dup - skip */ }
     }
     await refreshLog(sb, auth.user);
     return {added};
@@ -1220,7 +1220,7 @@ function App(){
 
   // Progressive disclosure: the rail starts at Home / Discover / Settings and
   // grows as the user's data earns each screen. Pipeline and Tasks have no rail
-  // slot at all — Pipeline is a view inside People, Tasks a section inside Home.
+  // slot at all - Pipeline is a view inside People, Tasks a section inside Home.
   const un = computeUnlocks(log, events);
   const RAIL = [
     ['dashboard','home','Home'],
@@ -1261,7 +1261,7 @@ function App(){
   if(auth.status==='loading') return <div style={{display:'grid',placeItems:'center',height:'100vh'}}><div className="empty"><div className="big">⏳</div>Loading…</div></div>;
   if(auth.status==='unconfigured') return <div style={{display:'grid',placeItems:'center',height:'100vh',padding:24}}>
     <div className="panel pad" style={{maxWidth:420,textAlign:'center'}}><h2>Mighty isn't set up yet</h2>
-      <p className="note" style={{marginTop:10}}>The deployer needs to add a Supabase project URL + anon key to <span className="mono">index.html</span> — see SETUP.md.</p></div></div>;
+      <p className="note" style={{marginTop:10}}>The deployer needs to add a Supabase project URL + anon key to <span className="mono">index.html</span> - see SETUP.md.</p></div></div>;
   if(auth.status!=='in') return <Gate sb={sb}/>;
   if(!db.settings.onboardedAt) return <Onboarding sb={sb} db={db} patch={patch} auth={auth} setTab={setTab}/>;
 
@@ -1430,7 +1430,7 @@ function Onboarding({sb, db, patch, auth, setTab}){
   const finish=()=>patch('settings',{ goal:goal.trim(), networkingReasons:reasons, targetCompanies:companies, targetRoles:roles,
     homeLocation:homeLoc.trim(), targetLocations:targetLocs, schools, industries, skills, currentRole:currentRole.trim(), currentCompany:currentCompany.trim(), yearsExperience:yearsExperience.trim(),
     networkingStyle:style, hardestPart:hardest, onboardedAt:Date.now() });
-  // Resume extraction fills the local onboarding state (which finish() saves) —
+  // Resume extraction fills the local onboarding state (which finish() saves) -
   // never patches settings directly, so nothing here is lost when finish() runs.
   const onResume=e=>{
     if(e.currentRole && !currentRole) setCurrentRole(e.currentRole);
@@ -1550,7 +1550,7 @@ function Onboarding({sb, db, patch, auth, setTab}){
    The "if I had 30 minutes today, what should I do?" feature. Reasons only over
    the student's real pipeline (never invents), routed through the AI Gateway's
    daily_plan feature (Sonnet, cached, budget-governed). We assemble a compact,
-   factual digest client-side — SQL/JS does the counting; Claude does the
+   factual digest client-side - SQL/JS does the counting; Claude does the
    prioritising (Rule #1: AI thinks, it doesn't calculate). */
 function buildDailyDigest(log, events, tasks, settings){
   const followUpDays = settings.followUpDays||7;
@@ -1563,8 +1563,8 @@ function buildDailyDigest(log, events, tasks, settings){
     .map(r=>({r, days:Math.round((now()-new Date(r.contacted_at).getTime())/864e5)}));
   push('Overdue follow-ups (no reply)', waitingReply.filter(x=>x.days>followUpDays).map(x=>`${nm(x.r)} ${x.days}d`));
   push('Recently contacted, still waiting', waitingReply.filter(x=>x.days<=followUpDays).map(x=>`${nm(x.r)} ${x.days}d`));
-  push('Replied — propose a coffee chat', log.filter(r=>r.status==='replied').map(nm));
-  push('Coffee chat done — send thanks / next touch', log.filter(r=>r.status==='coffee_chat').map(nm));
+  push('Replied - propose a coffee chat', log.filter(r=>r.status==='replied').map(nm));
+  push('Coffee chat done - send thanks / next touch', log.filter(r=>r.status==='coffee_chat').map(nm));
   push('Referral / interview in progress', log.filter(r=>r.status==='referral'||r.status==='interview').map(r=>`${nm(r)} [${r.status}]`));
   const fresh = log.filter(r=>r.status==='prospect'||r.status==='ready_to_contact')
     .map(r=>({r, ...computeScore(r, settings.targetCompanies, profileKeywords(settings))})).sort((a,b)=>b.score-a.score);
@@ -1585,8 +1585,8 @@ function DailyCopilot({db, log, events, tasks, sb, auth, setDrawerId}){
     try{
       const pctx = profileContext(db.settings);
       const r = await llmJSON(sb, auth, 'daily_plan',
-        `You are Mighty's daily networking copilot for an MIT Sloan Fellows MBA student. Given their real outreach pipeline below, recommend the best use of about 30 minutes today. Use ONLY the people and facts provided — never invent anyone. Prioritise time-sensitive, high-leverage moves (overdue follow-ups, replies waiting, coffee-chat thank-yous, warm high-score intros) AND moves that advance the student's stated goal. Be specific and concise.`,
-        `${pctx?pctx+'\n\n':''}Pipeline:\n${digest}\n\nReturn JSON: {"headline": string (one short motivating line, reference the goal if relevant), "actions": [{"title": string (imperative, <8 words), "who": string (person name or "—"), "why": string (<15 words, tie to the goal when it applies), "minutes": number}]}. 3 to 4 actions, ordered by priority, total ~30 minutes.`,
+        `You are Mighty's daily networking copilot for an MIT Sloan Fellows MBA student. Given their real outreach pipeline below, recommend the best use of about 30 minutes today. Use ONLY the people and facts provided - never invent anyone. Prioritise time-sensitive, high-leverage moves (overdue follow-ups, replies waiting, coffee-chat thank-yous, warm high-score intros) AND moves that advance the student's stated goal. Be specific and concise.`,
+        `${pctx?pctx+'\n\n':''}Pipeline:\n${digest}\n\nReturn JSON: {"headline": string (one short motivating line, reference the goal if relevant), "actions": [{"title": string (imperative, <8 words), "who": string (person name or " - "), "why": string (<15 words, tie to the goal when it applies), "minutes": number}]}. 3 to 4 actions, ordered by priority, total ~30 minutes.`,
         900);
       setPlan(r);
     }catch(e){ setErr(e.message||String(e)); }
@@ -1618,7 +1618,7 @@ function DailyCopilot({db, log, events, tasks, sb, auth, setDrawerId}){
                         <div style={{width:24,height:24,flex:'none',background:'var(--brand)',color:'#fff',display:'grid',placeItems:'center',fontWeight:700,fontSize:12}}>{i+1}</div>
                         <div style={{flex:1,minWidth:0}}>
                           <div style={{fontWeight:600,fontSize:14}}>{a.title}{a.minutes?<span style={{opacity:.6,fontWeight:400}}> · {a.minutes} min</span>:null}</div>
-                          <div style={{fontSize:12.5,opacity:.82,marginTop:2}}>{a.who&&a.who!=='—'?`${a.who} — `:''}{a.why}</div>
+                          <div style={{fontSize:12.5,opacity:.82,marginTop:2}}>{a.who&&a.who!==' - '?`${a.who} - `:''}{a.why}</div>
                         </div>
                         {row && <button className="btn ghost sm" onClick={()=>setDrawerId(row.id)} style={{background:'transparent',color:'#fff',borderColor:'rgba(255,255,255,.3)'}}>Open</button>}
                       </div>; })}
@@ -1666,7 +1666,7 @@ function FindPeople({sb, auth, db, patch, addPeople, setTab}){
       return clean.length>1 ? clean : localClean(located);
     }catch(e){ return localClean(located); }
   }
-  // Open Google for the extension to capture — the free path (a normal Google
+  // Open Google for the extension to capture - the free path (a normal Google
   // search in the student's own browser; the MIghTy extension reads the page).
   // Ask the extension to run the search and hand back the profiles, so results
   // appear here rather than sending the student off to another site. Falls back
@@ -1682,7 +1682,7 @@ function FindPeople({sb, auth, db, patch, addPeople, setTab}){
     setMsg({t:'No profiles found for that search. Try different words.', err:true});
   }
 
-  // Last resort — only when the extension isn't installed.
+  // Last resort - only when the extension isn't installed.
   // Points at LinkedIn's own people search rather than Google: the extension
   // captures real photos and headlines there, so imports arrive complete.
   function openForExtension(kw){
@@ -1726,7 +1726,7 @@ function FindPeople({sb, auth, db, patch, addPeople, setTab}){
 
   return <div className="panel pad">
     <div style={{fontFamily:'var(--fh)',fontWeight:600,fontSize:17,letterSpacing:'-.02em',marginBottom:4}}>Find people anywhere</div>
-    <div className="note" style={{marginBottom:12,fontSize:13,lineHeight:1.5}}>Describe who you're looking for in plain words — Mighty finds matching profiles for you to add.</div>
+    <div className="note" style={{marginBottom:12,fontSize:13,lineHeight:1.5}}>Describe who you're looking for in plain words - Mighty finds matching profiles for you to add.</div>
     <div style={{display:'flex',gap:8}}>
       <input className="inp" value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') go(); }} placeholder="e.g. strategy people at tech companies near me"/>
       <button className="btn" onClick={go} disabled={busy||!q.trim()}>{busy?<Dots/>:'✨ Search'}</button>
@@ -1777,13 +1777,13 @@ function FindPeople({sb, auth, db, patch, addPeople, setTab}){
 
 /* ============================ Discover ============================
    The front door (Bible v1.3): intent on top, search below. Day-1 value with
-   zero history — a great search result, a brief, a draft, in 90 seconds. */
+   zero history - a great search result, a brief, a draft, in 90 seconds. */
 function Discover({sb, auth, db, patch, addPeople, setTab}){
   return <div className="page">
     <div className="panel pad" style={{display:'flex',alignItems:'center',gap:13,marginBottom:16}}>
       <span style={{fontSize:20}}>🎯</span>
       <div className="grow" style={{minWidth:0}}>
-        <div style={{fontWeight:650,fontSize:14.5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{db.settings.goal || 'Set your intent — it sharpens everything'}</div>
+        <div style={{fontWeight:650,fontSize:14.5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{db.settings.goal || 'Set your intent - it sharpens everything'}</div>
         <div className="note" style={{fontSize:12.5}}>Search, ranking, briefs and drafts all serve this goal.</div>
       </div>
       <button className="btn ghost sm" onClick={()=>setTab('settings')}>{db.settings.goal?'Edit':'Set it'}</button>
@@ -1793,7 +1793,7 @@ function Discover({sb, auth, db, patch, addPeople, setTab}){
 }
 
 /* ============================ Meetings ============================ */
-// Pre-meeting brief. Everything Mighty already knows, plus AI talking points — so
+// Pre-meeting brief. Everything Mighty already knows, plus AI talking points - so
 // you walk in warm. Reuses confirmed memories only (suggestions never leak in).
 function MeetingPrepModal({row, evs, db, sb, auth, onClose}){
   const mems = personMemories(row, evs);
@@ -1818,7 +1818,7 @@ function MeetingPrepModal({row, evs, db, sb, auth, onClose}){
     <div className="modal" style={{maxWidth:480,padding:22}} onClick={e=>e.stopPropagation()}>
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
         <Avatar row={row} size={38}/>
-        <div><div style={{fontWeight:700,fontSize:16}}>Prep — {displayName(row)}</div>
+        <div><div style={{fontWeight:700,fontSize:16}}>Prep - {displayName(row)}</div>
           <div className="note" style={{fontSize:12.5}}>{[row.title,row.company].filter(Boolean).join(' · ')||'Before you meet'}</div></div>
       </div>
       {facts.length>0 && <div style={{marginTop:14}}><div className="tag">Things you've learned</div>
@@ -1834,7 +1834,7 @@ function MeetingPrepModal({row, evs, db, sb, auth, onClose}){
         {err && <div className="note" style={{color:'var(--terra)',marginTop:6,fontSize:12.5}}>{err}</div>}
         {points && (points.length? <ol style={{margin:'8px 0 0 18px',padding:0,display:'flex',flexDirection:'column',gap:6}}>
           {points.map((p,i)=><li key={i} style={{fontSize:13.5}}>{p}</li>)}</ol>
-          : <div className="note" style={{marginTop:6}}>Capture a coffee chat first — Mighty needs something to work with.</div>)}
+          : <div className="note" style={{marginTop:6}}>Capture a coffee chat first - Mighty needs something to work with.</div>)}
       </div>
       <div style={{display:'flex',justifyContent:'flex-end',marginTop:18}}><button className="btn sm" onClick={onClose}>Done</button></div>
     </div>
@@ -1868,7 +1868,7 @@ function MeetingsStrip({log, events, db, sb, auth, updateRow, setDrawerId}){
           <span style={{fontSize:18}}>{(MEETING_MODES[m.mode]||{}).icon||'🗓'}</span>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontWeight:600,fontSize:14}}>{displayName(m.row)}</div>
-            <div className="note" style={{fontSize:12.5}}>Met {rel(m.ts)} — capture what happened so Mighty remembers</div>
+            <div className="note" style={{fontSize:12.5}}>Met {rel(m.ts)} - capture what happened so Mighty remembers</div>
           </div>
           <button className="btn sm" onClick={()=>setDrawerId(m.row.id)}>Capture</button>
           <button className="iconbtn" title="Dismiss" onClick={()=>markCaptured(m)}>✕</button>
@@ -1911,7 +1911,7 @@ function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,addPeople,s
   const repliedIds = new Set(events.filter(e=>e.event_type==='reply').map(e=>e.log_id));
   const overdue = log.filter(r=>r.status==='contacted' && !repliedIds.has(r.id) && r.contacted_at && (now()-new Date(r.contacted_at).getTime())>followUpDays*864e5)
     .map(r=>{ const days=Math.round((now()-new Date(r.contacted_at).getTime())/864e5);
-      return {row:r, kind:'followup', label:`Follow up — no reply in ${days}d`, score:Math.min(100,50+(days-followUpDays)*3), reasons:[`Sent ${days}d ago`]}; });
+      return {row:r, kind:'followup', label:`Follow up - no reply in ${days}d`, score:Math.min(100,50+(days-followUpDays)*3), reasons:[`Sent ${days}d ago`]}; });
   const priorities = [...scored, ...overdue].sort((a,b)=>b.score-a.score).slice(0,3);
 
   const hour = new Date().getHours(), tod = hour<12?'morning':hour<18?'afternoon':'evening';
@@ -1919,14 +1919,14 @@ function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,addPeople,s
 
   return <div className="page">
     <div style={{fontSize:24,fontWeight:700,letterSpacing:'-.02em'}}>Good {tod}{first?`, ${first}`:''}</div>
-    <div className="note" style={{marginTop:4,fontSize:13.5}}>{priorities.length ? `${priorities.length} thing${priorities.length!==1?'s':''} worth doing today.` : log.length ? 'Nothing urgent today.' : 'Start in Discover — find one person worth knowing.'}</div>
+    <div className="note" style={{marginTop:4,fontSize:13.5}}>{priorities.length ? `${priorities.length} thing${priorities.length!==1?'s':''} worth doing today.` : log.length ? 'Nothing urgent today.' : 'Start in Discover - find one person worth knowing.'}</div>
 
     <div style={{marginTop:20}}><DailyCopilot db={db} log={log} events={events} tasks={tasks} sb={sb} auth={auth} setDrawerId={setDrawerId}/></div>
 
     {log.length===0 && <div className="panel pad" style={{marginTop:14,display:'flex',alignItems:'center',gap:14}}>
       <span style={{fontSize:22}}>🔭</span>
       <div className="grow"><div style={{fontWeight:650,fontSize:15}}>Find your first person</div>
-        <div className="note" style={{fontSize:13}}>Describe who you're looking for in plain words — Mighty finds them, briefs you, and drafts the note.</div></div>
+        <div className="note" style={{fontSize:13}}>Describe who you're looking for in plain words - Mighty finds them, briefs you, and drafts the note.</div></div>
       <button className="btn" onClick={()=>setTab('discover')}>Open Discover</button>
     </div>}
 
@@ -1950,7 +1950,7 @@ function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,addPeople,s
           </PersonHover>)}
         </div>}</>}
 
-    {(()=>{ // Promises & tasks — Tasks has no rail slot anymore (Bible v1.3), it lives here.
+    {(()=>{ // Promises & tasks - Tasks has no rail slot anymore (Bible v1.3), it lives here.
       const open=(tasks||[]).filter(t=>!t.done).sort((a,b)=>(a.due_date||'9999')<(b.due_date||'9999')?-1:1);
       if(!open.length) return null;
       const person=t=>t.log_id!=null?log.find(r=>r.id===t.log_id):null;
@@ -1976,7 +1976,7 @@ function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,addPeople,s
 
 /* ---- Extension bridge -------------------------------------------------------
    A web page can't read a cross-origin search page or a signed LinkedIn photo
-   URL — the browser blocks both. The extension can, so the app asks it and
+   URL - the browser blocks both. The extension can, so the app asks it and
    renders the answer in place: the student never gets sent to Google or
    LinkedIn. Request/response over postMessage; with no extension installed the
    calls time out and every caller falls back gracefully. */
@@ -2006,7 +2006,7 @@ const extBridge = (()=>{
 })();
 
 /* ---- Guided enrichment ------------------------------------------------------
-   People found via search arrive with a URL and little else — search results
+   People found via search arrive with a URL and little else - search results
    carry no profile photos. The extension can recover them one at a time (it is
    throttled and capped on its side); we show honest progress while it works,
    and the student can stop at any point. Nothing opens in their face. */
@@ -2042,11 +2042,11 @@ function EnrichStrip({log, updateRow}){
       </div>
       <div className="note" style={{marginTop:2}}>
         {running
-          ? <>Fetching {current?<strong>{current}</strong>:'profiles'} in the background — you can keep working.</>
+          ? <>Fetching {current?<strong>{current}</strong>:'profiles'} in the background - you can keep working.</>
           : 'Mighty can pull their photo and headline in the background, a few seconds apart.'}
       </div>
       <div className="scorebar" style={{marginTop:9,maxWidth:320}}><i style={{width:`${pct}%`}}/></div>
-      {failed>0 && !running && <div className="note" style={{marginTop:5,color:'var(--terra2)'}}>{failed} couldn't be fetched — open those profiles yourself and they'll fill in.</div>}
+      {failed>0 && !running && <div className="note" style={{marginTop:5,color:'var(--terra2)'}}>{failed} couldn't be fetched - open those profiles yourself and they'll fill in.</div>}
     </div>
     <div style={{display:'flex',gap:8,alignItems:'center'}}>
       <span className="note">{done}/{total}</span>
@@ -2070,7 +2070,7 @@ function People({db,log,events,doIngest,setDrawerId,sb,auth,deletePeople,updateR
   // so keep the full table below instead of filtering it to nothing.
   const rows = ai ? log : log.filter(r=>!ql || `${r.name} ${r.company} ${r.title}`.toLowerCase().includes(ql));
 
-  // Semantic "ask your network" — Claude reasons over a compact index of the
+  // Semantic "ask your network" - Claude reasons over a compact index of the
   // student's own contacts (name/role/company/notes/briefing/profile snippets)
   // and returns which ones match a natural-language question, with why. Grounded
   // strictly in the index; no fabricated people. Routed through the gateway's
@@ -2089,7 +2089,7 @@ function People({db,log,events,doIngest,setDrawerId,sb,auth,deletePeople,updateR
         return bits.filter(Boolean).join(' | ');
       }).join('\n');
       const r = await llmJSON(sb, auth, 'network_search',
-        'You are a semantic search over an MIT Sloan Fellows MBA student\'s own saved contacts. Given a question and an indexed list of contacts, return the contacts that genuinely match. Use ONLY the provided index — never invent people or facts. If nothing matches, return an empty list.',
+        'You are a semantic search over an MIT Sloan Fellows MBA student\'s own saved contacts. Given a question and an indexed list of contacts, return the contacts that genuinely match. Use ONLY the provided index - never invent people or facts. If nothing matches, return an empty list.',
         `Question: ${question}\n\nContacts (one per line, prefixed with #id):\n${index}\n\nReturn JSON: {"matches": [{"id": number, "why": string (under 15 words)}]}. Ranked best-first, at most 12.`);
       setAi(r.matches||[]);
     }catch(e){ setAiErr(e.message||String(e)); }
@@ -2174,11 +2174,11 @@ function People({db,log,events,doIngest,setDrawerId,sb,auth,deletePeople,updateR
                   {r.title && <div style={{fontSize:12.5,color:'var(--mute)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:230}}>{r.title}</div>}
                 </div>
               </PersonHover></td>
-              <td style={{maxWidth:150}}><div style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.company||'—'}</div></td>
-              <td style={{maxWidth:150,color:'var(--sub)'}}><div style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{ctx.location||'—'}</div></td>
+              <td style={{maxWidth:150}}><div style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.company||' - '}</div></td>
+              <td style={{maxWidth:150,color:'var(--sub)'}}><div style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{ctx.location||' - '}</div></td>
               <td><div style={{fontSize:13.5}}>{last.label}</div><div style={{fontSize:12.5,color:'var(--mute)'}}>{last.when}</div></td>
               <td><StagePill status={r.status}/></td>
-              <td style={{color:'var(--brand2)',fontWeight:500,fontSize:13}}>{na?na.label:'—'}</td>
+              <td style={{color:'var(--brand2)',fontWeight:500,fontSize:13}}>{na?na.label:' - '}</td>
             </tr>;
           })}</tbody>
         </table>}
@@ -2230,7 +2230,7 @@ function Pipeline({log,events,followUpDays,changeStage,setTab}){
 }
 
 /* ============================ Tasks ============================ */
-// Tasks — what you've committed to. Most of this list should NOT be typed by
+// Tasks - what you've committed to. Most of this list should NOT be typed by
 // hand: promises you made in a coffee chat, follow-ups that have gone quiet and
 // next-touch dates you agreed to are already sitting in your timeline, so Mighty
 // surfaces them and you just accept. Everything here traces to a real record.
@@ -2299,7 +2299,7 @@ function Tasks({tasks,log,events,db,addTask,toggleTask,deleteTask,setDrawerId}){
   ].filter(([,items])=>items.length>0);
 
   return <div className="page" style={{maxWidth:720}}>
-    {/* Surfaced by Mighty — the 90% you shouldn't have to type */}
+    {/* Surfaced by Mighty - the 90% you shouldn't have to type */}
     <div className="tag" style={{marginBottom:8}}>Surfaced for you</div>
     {surfaced.length===0
       ? <div className="panel pad"><div className="note">Nothing outstanding. Log a coffee chat and Mighty pulls the promises you made straight out of your notes.</div></div>
@@ -2318,7 +2318,7 @@ function Tasks({tasks,log,events,db,addTask,toggleTask,deleteTask,setDrawerId}){
     {/* Your own list */}
     <div className="tag" style={{margin:'28px 0 8px'}}>Your tasks</div>
     <input className="inp" value={newTask} onChange={e=>setNewTask(e.target.value)} onKeyDown={submit} placeholder='Add one yourself and press Enter'/>
-    {groups.length===0 && <div className="note" style={{marginTop:12}}>Nothing here yet — accept something above, or add your own.</div>}
+    {groups.length===0 && <div className="note" style={{marginTop:12}}>Nothing here yet - accept something above, or add your own.</div>}
     {groups.map(([name,items])=><div key={name} style={{marginTop:22}}>
       <div className="tag" style={{marginBottom:8}}>{name}</div>
       <div className="list">{items.map(t=>{ const person = t.log_id ? log.find(r=>r.id===t.log_id) : null;
@@ -2336,7 +2336,7 @@ function Tasks({tasks,log,events,db,addTask,toggleTask,deleteTask,setDrawerId}){
 }
 
 /* ============================ Insights ============================ */
-// Intelligence — patterns you'd otherwise miss, not analytics. Everything is
+// Intelligence - patterns you'd otherwise miss, not analytics. Everything is
 // derived from your own contacts + timeline; nothing is invented.
 // Two-line 8-week momentum sparkline (outreach vs replies), pure SVG.
 function Momentum({weeks}){
@@ -2389,7 +2389,7 @@ function Insights({log,events,tasks,db,communityStats,setDrawerId,updateRow}){
   const overdueFollowups = active.filter(r=>r.status==='contacted' && !repliedIds.has(r.id) && r.contacted_at && (now()-new Date(r.contacted_at).getTime())>followUpDays*864e5);
   const riskCount = overduePromises.length + overdueFollowups.length;
 
-  // Network Health — a single honest score from activity, responsiveness, risk.
+  // Network Health - a single honest score from activity, responsiveness, risk.
   const staleRatio = active.length ? active.filter(r=>now()-lastTouch(r)>60*864e5).length/active.length : 0;
   const health = active.length===0 ? 0 : Math.max(0, Math.min(100, Math.round(62 + responseRate*0.3 - riskCount*4 - staleRatio*28)));
   const healthLabel = health>=80?'Excellent':health>=62?'Healthy':health>=42?'Needs attention':'At risk';
@@ -2412,7 +2412,7 @@ function Insights({log,events,tasks,db,communityStats,setDrawerId,updateRow}){
   const kicker = {fontSize:11.5,letterSpacing:'.12em',textTransform:'uppercase',color:'var(--mute2)'};
 
   return <div className="page">
-    {active.length===0 && <div className="panel pad"><div className="empty"><div className="big">🧠</div>Save a few people and log an interaction — Mighty starts spotting patterns once there's history.</div></div>}
+    {active.length===0 && <div className="panel pad"><div className="empty"><div className="big">🧠</div>Save a few people and log an interaction - Mighty starts spotting patterns once there's history.</div></div>}
     {active.length>0 && <>
     <div style={{display:'grid',gridTemplateColumns:'1fr 1.3fr',gap:18,alignItems:'stretch'}}>
       <div style={{...card,background:'linear-gradient(150deg, var(--bsoft), var(--psoft))',border:'none',display:'flex',flexDirection:'column',gap:4,justifyContent:'center'}}>
@@ -2426,21 +2426,21 @@ function Insights({log,events,tasks,db,communityStats,setDrawerId,updateRow}){
         {riskCount===0 ? <div className="note">Nothing slipping. Every promise is on track.</div>
           : <div className="list">
             {overduePromises.slice(0,3).map(t=><div key={'t'+t.id} className="row" style={{borderColor:'var(--line)'}}><span style={{width:7,height:7,borderRadius:99,background:'var(--terra)',flex:'none'}}/><div className="grow"><div className="t" style={{fontWeight:500}}>{t.label}</div><div className="m">Promise overdue</div></div></div>)}
-            {overdueFollowups.slice(0,Math.max(0,3-overduePromises.length)).map(r=><div key={'f'+r.id} className="row" style={{borderColor:'var(--line)',cursor:'pointer'}} onClick={()=>setDrawerId&&setDrawerId(r.id)}><span style={{width:7,height:7,borderRadius:99,background:'var(--terra)',flex:'none'}}/><div className="grow"><div className="t" style={{fontWeight:500}}>{displayName(r)}</div><div className="m">No reply — follow up</div></div></div>)}
+            {overdueFollowups.slice(0,Math.max(0,3-overduePromises.length)).map(r=><div key={'f'+r.id} className="row" style={{borderColor:'var(--line)',cursor:'pointer'}} onClick={()=>setDrawerId&&setDrawerId(r.id)}><span style={{width:7,height:7,borderRadius:99,background:'var(--terra)',flex:'none'}}/><div className="grow"><div className="t" style={{fontWeight:500}}>{displayName(r)}</div><div className="m">No reply - follow up</div></div></div>)}
           </div>}
       </div>
     </div>
 
     <div className="tag" style={{margin:'26px 0 10px'}}>What's working</div>
     {pat.sample<3
-      ? <div className="panel pad"><div className="note">Reach out to a few more people — Mighty needs at least 3 sent messages before it can tell you what's actually working. {pat.sample}/3 so far.</div></div>
+      ? <div className="panel pad"><div className="note">Reach out to a few more people - Mighty needs at least 3 sent messages before it can tell you what's actually working. {pat.sample}/3 so far.</div></div>
       : <>
       <div className="grid3">
         <div style={card}>
           <span style={kicker}>Typical reply time</span>
           {pat.medReply==null ? <div className="note" style={{marginTop:10}}>No replies with a send date yet.</div>
             : <><div style={{fontFamily:'var(--fh)',fontWeight:600,fontSize:36,marginTop:8,letterSpacing:'-.03em'}}>{pat.medReply<1?'<1':Math.round(pat.medReply)}<span style={{fontSize:16,fontWeight:500}}> day{Math.round(pat.medReply)===1?'':'s'}</span></div>
-              <div className="note" style={{marginTop:2}}>Median from send to first reply — set your follow-up cadence a touch longer.</div></>}
+              <div className="note" style={{marginTop:2}}>Median from send to first reply - set your follow-up cadence a touch longer.</div></>}
         </div>
         <div style={card}>
           <span style={kicker}>Warm intro lift</span>
@@ -2470,7 +2470,7 @@ function Insights({log,events,tasks,db,communityStats,setDrawerId,updateRow}){
 
     {connectors.length>0 && <div style={{...card,marginTop:18}}>
       <span style={kicker}>Warm paths in your network</span>
-      <div className="note" style={{marginTop:4,marginBottom:8}}>People you already know well who share a company or school with someone you're trying to reach — your fastest intro.</div>
+      <div className="note" style={{marginTop:4,marginBottom:8}}>People you already know well who share a company or school with someone you're trying to reach - your fastest intro.</div>
       <div style={{display:'flex',flexDirection:'column',gap:2}}>
         {connectors.slice(0,5).map(p=><div key={p.target.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 4px'}}>
           <Avatar row={p.via} size={30}/>
@@ -2485,7 +2485,7 @@ function Insights({log,events,tasks,db,communityStats,setDrawerId,updateRow}){
 
     {(review.toConfirm.length>0 || review.expiring.length>0) && <div style={{...card,marginTop:18}}>
       <span style={kicker}>Memory to review</span>
-      <div className="note" style={{marginTop:4,marginBottom:8}}>Things Mighty picked up but isn't sure about. Confirm what's true — nothing here reaches your drafts until you do.</div>
+      <div className="note" style={{marginTop:4,marginBottom:8}}>Things Mighty picked up but isn't sure about. Confirm what's true - nothing here reaches your drafts until you do.</div>
       <div style={{display:'flex',flexDirection:'column',gap:6}}>
         {review.toConfirm.slice(0,8).map(({row,mem})=><div key={mem.id} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',border:'1px dashed var(--amber,#d9a441)',borderRadius:10,background:'var(--asoft,rgba(217,164,65,.06))'}}>
           <div style={{flex:1,minWidth:0}}>
@@ -2522,7 +2522,7 @@ function Insights({log,events,tasks,db,communityStats,setDrawerId,updateRow}){
     <div style={{...card,marginTop:18}}>
       <span style={kicker}>You haven't talked to</span>
       <div style={{marginTop:12,display:'flex',flexDirection:'column',gap:2}}>
-        {reconnect.length===0 ? <div className="note">Everyone's fresh — nice.</div>
+        {reconnect.length===0 ? <div className="note">Everyone's fresh - nice.</div>
           : reconnect.map(({r,t})=><div key={r.id} className="row" style={{border:'none',background:'transparent',padding:'10px 4px',cursor:'pointer'}} onClick={()=>setDrawerId&&setDrawerId(r.id)}>
               <PersonHover row={r} evs={events.filter(e=>e.log_id===r.id)} followUpDays={followUpDays} style={{display:'flex',alignItems:'center',gap:12,flex:1,minWidth:0}}>
                 <Avatar row={r} size={32}/>
@@ -2539,7 +2539,7 @@ function Insights({log,events,tasks,db,communityStats,setDrawerId,updateRow}){
 }
 function CommunityInsights({communityStats}){
   return <div className="panel pad">
-    <div className="ph"><div><h2>Community insights</h2><div className="sub">Opt-in, anonymous, aggregated across Sloan Fellows — never names or messages.</div></div></div>
+    <div className="ph"><div><h2>Community insights</h2><div className="sub">Opt-in, anonymous, aggregated across Sloan Fellows - never names or messages.</div></div></div>
     {communityStats.length===0
       ? <div className="empty"><div className="big">🌐</div>No company has reached 3 contributing students yet, or you haven't opted in (Settings).</div>
       : <div className="list">{communityStats.slice(0,8).map(c=><div key={c.company} className="row">
@@ -2551,7 +2551,7 @@ function CommunityInsights({communityStats}){
 /* ============================ Settings ============================ */
 // Reads the AI Gateway's own ledger (RLS-scoped to the signed-in user) to show
 // how many assists they've used today/this month and the estimated spend. All
-// queries fail soft — if the gateway tables aren't deployed yet, it just shows
+// queries fail soft - if the gateway tables aren't deployed yet, it just shows
 // a hint instead of an error.
 // Loads pdf.js on demand (only when the student picks a PDF) so the app stays
 // light for everyone else.
@@ -2581,7 +2581,7 @@ const mergeArr=(a,b)=>{ const seen=new Set((a||[]).map(x=>x.toLowerCase())); ret
 
 // Fills most of the profile from a resume. Reads the text (PDF via pdf.js, or a
 // pasted paste), asks the gateway to extract structured facts, shows them for
-// the student to confirm, then MERGES into settings — never overwriting what's
+// the student to confirm, then MERGES into settings - never overwriting what's
 // already there. This is the "AI extracts, you confirm" step.
 function ResumeImport({sb, auth, db, patch, onApply}){
   const [text,setText]=useState(''); const [busy,setBusy]=useState(false);
@@ -2755,10 +2755,10 @@ function AssetsPanel({db,patch}){
       : <button className="btn ghost sm" onClick={()=>setAdding(true)}>＋ Add an asset</button>}
   </div>;
 }
-// Calendar import — paste an .ics export, Mighty matches attendees to your
+// Calendar import - paste an .ics export, Mighty matches attendees to your
 // contacts and files each event as an upcoming meeting. Read-only by design: it
 // never writes to your calendar. Live two-way Google Calendar sync needs OAuth
-// credentials you'd provision yourself (like the people-search key) — flagged
+// credentials you'd provision yourself (like the people-search key) - flagged
 // honestly rather than faked.
 function CalendarImport({log, updateRow}){
   const [text,setText]=useState('');
@@ -2768,7 +2768,7 @@ function CalendarImport({log, updateRow}){
     setMsg(null);
     const evs=parseICS(text).filter(e=>e.start>=now()-864e5); // today onward
     const matched=evs.map(ev=>({ev, row:matchMeetingContact(log, ev)})).filter(x=>x.row);
-    if(!evs.length){ setMsg({err:true,t:'No calendar events found — paste the full contents of a .ics file.'}); setPreview(null); return; }
+    if(!evs.length){ setMsg({err:true,t:'No calendar events found - paste the full contents of a .ics file.'}); setPreview(null); return; }
     if(!matched.length){ setMsg({err:true,t:`Found ${evs.length} event${evs.length!==1?'s':''}, but none matched a contact by name. Add the person first, or add the meeting by hand from Home.`}); setPreview(null); return; }
     setPreview(matched);
   }
@@ -2789,7 +2789,7 @@ function CalendarImport({log, updateRow}){
     setPreview(null); setText(''); setMsg({err:false,t:`Imported ${n} meeting${n!==1?'s':''}. See them on Home.`});
   }
   return <div className="panel pad">
-    <div className="note" style={{fontSize:12.5,marginBottom:8}}>Export a day/week from Google, Outlook or Apple Calendar as <b>.ics</b> and paste it here. Mighty reads it only to match attendees to your contacts — it never writes back to your calendar.</div>
+    <div className="note" style={{fontSize:12.5,marginBottom:8}}>Export a day/week from Google, Outlook or Apple Calendar as <b>.ics</b> and paste it here. Mighty reads it only to match attendees to your contacts - it never writes back to your calendar.</div>
     <textarea className="inp" rows={3} placeholder="Paste .ics contents…" value={text} onChange={e=>setText(e.target.value)}/>
     <div style={{display:'flex',gap:8,marginTop:8}}>
       <button className="btn sm" disabled={!text.trim()} onClick={scan}>Scan for meetings</button>
@@ -2806,7 +2806,7 @@ function Settings({db,patch,auth,sb,signOut,setTab,log,updateRow}){
   const [saEmail,setSaEmail]=useState(null); const [saErr,setSaErr]=useState(null); const [saBusy,setSaBusy]=useState(false); const [copied,setCopied]=useState(false);
   const [syncBusy,setSyncBusy]=useState(false); const [syncMsg,setSyncMsg]=useState(null);
   const [exporting,setExporting]=useState(false);
-  // Complete export — everything Mighty holds about you, server-side included, so
+  // Complete export - everything Mighty holds about you, server-side included, so
   // "your data is yours" is literally true and one click. Local settings plus
   // every row from every table this account owns (RLS scopes it automatically).
   async function exportData(){
@@ -2836,7 +2836,7 @@ function Settings({db,patch,auth,sb,signOut,setTab,log,updateRow}){
     try{
       const {data,error} = await sb.functions.invoke('sheets-sync', {body:{action:'sync', sheetId:db.settings.sheets.sheetId, tabName:db.settings.sheets.tabName}});
       if(error) throw error;
-      if(data.ok){ setSyncMsg({ok:true, text:`Synced — ${data.updated||0} updated, ${data.appended||0} added.`}); patch('settings', s=>({...s, sheets:{...s.sheets, lastSyncedAt:now(), lastError:null}})); }
+      if(data.ok){ setSyncMsg({ok:true, text:`Synced - ${data.updated||0} updated, ${data.appended||0} added.`}); patch('settings', s=>({...s, sheets:{...s.sheets, lastSyncedAt:now(), lastError:null}})); }
       else { setSyncMsg({ok:false, text:data.message||data.error}); patch('settings', s=>({...s, sheets:{...s.sheets, lastError:data.message||data.error}})); }
     }catch(e){ setSyncMsg({ok:false, text:e.message||String(e)}); }
     setSyncBusy(false);
@@ -2847,8 +2847,8 @@ function Settings({db,patch,auth,sb,signOut,setTab,log,updateRow}){
   const rows = [
     {t:'Account', d:auth.user.email, action:'Sign out', go:signOut},
     {t:'Message templates', d:`${db.templates.length} saved`, action:'Edit', go:()=>setTab('templates')},
-    {t:'Export everything', d:'People, memories, timeline and tasks — one complete JSON file, yours anytime', action:exporting?'Exporting…':'Export', go:exportData, disabled:exporting},
-    {t:'Privacy', d:'Notes and drafts are private to you; nothing is ever sent without your click', action:'Learn more', go:()=>alert('Mighty stores only what you put in. AI calls go through a shared proxy so no student needs an API key — your prompts are not used to train models. See the Log/Timeline for your full activity history.')},
+    {t:'Export everything', d:'People, memories, timeline and tasks - one complete JSON file, yours anytime', action:exporting?'Exporting…':'Export', go:exportData, disabled:exporting},
+    {t:'Privacy', d:'Notes and drafts are private to you; nothing is ever sent without your click', action:'Learn more', go:()=>alert('Mighty stores only what you put in. AI calls go through a shared proxy so no student needs an API key - your prompts are not used to train models. See the Log/Timeline for your full activity history.')},
   ];
 
   return <div className="page">
@@ -2873,7 +2873,7 @@ function Settings({db,patch,auth,sb,signOut,setTab,log,updateRow}){
       return <div className="panel pad">
         <div style={{marginBottom:12}}><label className="fld" style={{color:'var(--brand)'}}>★ Your goal (next 6-12 months)</label>
           <textarea className="inp" rows={2} defaultValue={db.settings.goal||''} onBlur={e=>patch('settings', s=>({...s, goal: e.target.value.trim()}))} placeholder="Break into climate-tech VC in Europe"/></div>
-        <div style={{marginBottom:12}}><label className="fld">What are you here for? <span style={{fontWeight:400,textTransform:'none',letterSpacing:0}}>— tunes how Mighty ranks people</span></label>
+        <div style={{marginBottom:12}}><label className="fld">What are you here for? <span style={{fontWeight:400,textTransform:'none',letterSpacing:0}}>- tunes how Mighty ranks people</span></label>
           <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
             {Object.entries(GOAL_TYPE_LABEL).map(([k,lbl])=>{ const on=inferGoalType(db.settings)===k; const explicit=db.settings.goalType===k;
               return <span key={k} onClick={()=>patch('settings', s=>({...s, goalType:k}))}
@@ -2898,7 +2898,7 @@ function Settings({db,patch,auth,sb,signOut,setTab,log,updateRow}){
     })()}
 
     <div className="tag" style={{margin:'26px 0 10px'}}>Your pipeline</div>
-    <div className="note" style={{margin:'-4px 0 10px',fontSize:12.5}}>Same eight steps, your vocabulary. Switching is safe — nobody moves, the stages are just renamed.</div>
+    <div className="note" style={{margin:'-4px 0 10px',fontSize:12.5}}>Same eight steps, your vocabulary. Switching is safe - nobody moves, the stages are just renamed.</div>
     <div className="panel pad">
       <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10}}>
         {Object.entries(PIPELINE_TEMPLATES).map(([key,t])=>{
@@ -2928,7 +2928,7 @@ function Settings({db,patch,auth,sb,signOut,setTab,log,updateRow}){
     </div>
 
     <div className="tag" style={{margin:'26px 0 10px'}}>Your assets to share</div>
-    <div className="note" style={{margin:'-4px 0 10px',fontSize:12.5}}>Networking is reciprocal. Add what you can offer — Mighty suggests the right one to attach when you draft a message, and never sends the same thing twice.</div>
+    <div className="note" style={{margin:'-4px 0 10px',fontSize:12.5}}>Networking is reciprocal. Add what you can offer - Mighty suggests the right one to attach when you draft a message, and never sends the same thing twice.</div>
     <AssetsPanel db={db} patch={patch}/>
 
     <div className="tag" style={{margin:'26px 0 10px'}}>Community insights</div>
@@ -2937,7 +2937,7 @@ function Settings({db,patch,auth,sb,signOut,setTab,log,updateRow}){
         <input type="checkbox" checked={db.settings.communityOptIn} onChange={e=>patch('settings', s=>({...s, communityOptIn: e.target.checked}))}/>
         <span>Contribute my outreach activity to anonymous cross-cohort insights</span>
       </label>
-      <div className="note" style={{marginTop:10}}>Only aggregated counts by company are ever shared — never your name, messages, or individual activity. A company only appears once at least 3 students have contributed, and every number is bucketed, never exact.</div>
+      <div className="note" style={{marginTop:10}}>Only aggregated counts by company are ever shared - never your name, messages, or individual activity. A company only appears once at least 3 students have contributed, and every number is bucketed, never exact.</div>
     </div>
 
     <div className="tag" style={{margin:'26px 0 10px'}}>Calendar</div>
@@ -2946,7 +2946,7 @@ function Settings({db,patch,auth,sb,signOut,setTab,log,updateRow}){
     <div className="tag" style={{margin:'26px 0 10px'}}>Google Sheets sync</div>
     <div className="panel pad">
       <label className="fld">Google Sheet ID or URL</label>
-      <input className="inp" value={db.settings.sheets.sheetId} onChange={e=>patch('settings', s=>({...s, sheets:{...s.sheets, sheetId:parseSheetId(e.target.value)}}))} placeholder="Paste the Sheet URL — the ID is extracted automatically"/>
+      <input className="inp" value={db.settings.sheets.sheetId} onChange={e=>patch('settings', s=>({...s, sheets:{...s.sheets, sheetId:parseSheetId(e.target.value)}}))} placeholder="Paste the Sheet URL - the ID is extracted automatically"/>
       <div style={{height:10}}/><label className="fld">Tab name</label>
       <input className="inp" value={db.settings.sheets.tabName} onChange={e=>patch('settings', s=>({...s, sheets:{...s.sheets, tabName:e.target.value}}))} placeholder="MIghTy Outreach"/>
       <div style={{marginTop:12,display:'flex',gap:9,alignItems:'center',flexWrap:'wrap'}}>
@@ -2961,7 +2961,7 @@ function Settings({db,patch,auth,sb,signOut,setTab,log,updateRow}){
     </div>
 
     <div className="tag" style={{margin:'26px 0 10px'}}>Extension</div>
-    <div className="panel pad"><div className="note">Load <span className="mono">extension/</span> unpacked at <span className="mono">chrome://extensions</span> — it signs in with the same account automatically once connected. Full steps in <span className="mono">extension/INSTALL.md</span>.</div></div>
+    <div className="panel pad"><div className="note">Load <span className="mono">extension/</span> unpacked at <span className="mono">chrome://extensions</span> - it signs in with the same account automatically once connected. Full steps in <span className="mono">extension/INSTALL.md</span>.</div></div>
   </div>;
 }
 
@@ -2993,11 +2993,11 @@ function Templates({db,patch,sb,auth,setTab}){
   return <div className="page">
     <button className="iconbtn" style={{marginBottom:14}} onClick={()=>setTab('settings')}>← Settings</button>
     <div className="panel pad">
-      <div className="ph"><div><h2>Templates</h2><div className="sub">Use <span className="mono">{'{{firstName}}'}</span> and <span className="mono">{'{{company}}'}</span> — filled in per profile.</div></div>
+      <div className="ph"><div><h2>Templates</h2><div className="sub">Use <span className="mono">{'{{firstName}}'}</span> and <span className="mono">{'{{company}}'}</span> - filled in per profile.</div></div>
         {editing===null && <button className="btn sm" onClick={startNew}>＋ New template</button>}</div>
       {editing!==null && <div className="row" style={{flexDirection:'column',alignItems:'stretch',gap:10,marginBottom:14}}>
         <label className="fld">Name</label>
-        <input className="inp" value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Intro — alumni outreach"/>
+        <input className="inp" value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Intro - alumni outreach"/>
         <label className="fld">Message</label>
         <textarea className="inp" rows={4} value={body} onChange={e=>setBody(e.target.value)} placeholder="Hi {{firstName}}, ..."/>
         <div style={{display:'flex',gap:8,alignItems:'center'}}>
@@ -3018,7 +3018,7 @@ function Templates({db,patch,sb,auth,setTab}){
 }
 
 /* ============================ PersonDrawer ============================ */
-// Anonymous cohort signal for this person's company — the hardest-to-copy moat.
+// Anonymous cohort signal for this person's company - the hardest-to-copy moat.
 // Reads the already-loaded community_stats (which the cron only writes once
 // >=3 students have contributed, so a row existing already means k>=3). Every
 // absolute number is bucketed; only the response *rate* is shown as a figure,
@@ -3060,7 +3060,7 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
     setBusy(true); setExtractErr(null);
     try{
       const r = await llmJSON(sb, auth, 'coffee_extract',
-        'You are helping an MIT Sloan Fellows MBA student capture structured memory right after a real coffee chat. Extract only what the notes state or clearly imply — never invent. For each memory give a type and a confidence 0-1 (how clearly the note supports it). Separate promises the STUDENT made from promises the OTHER PERSON made. Suggest a next-touch timing as a relative offset, not a calendar date.',
+        'You are helping an MIT Sloan Fellows MBA student capture structured memory right after a real coffee chat. Extract only what the notes state or clearly imply - never invent. For each memory give a type and a confidence 0-1 (how clearly the note supports it). Separate promises the STUDENT made from promises the OTHER PERSON made. Suggest a next-touch timing as a relative offset, not a calendar date.',
         `Contact: ${displayName(row)}, ${row.title||''} at ${row.company||''}.\nStudent's notes:\n${noteText.trim()}\n\nReturn JSON: {"memories": [{"type": "interest"|"personal"|"preference"|"fact"|"event", "value": string, "confidence": number}], "yourPromises": string[], "theirPromises": string[], "nextTouch": {"amount": number, "unit": "days"|"weeks"|"months", "justification": string}}`);
       const yourP = r.yourPromises||r.promises||[];
       const theirP = r.theirPromises||[];
@@ -3070,7 +3070,7 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
       const suggested_next_touch = r.nextTouch ? addOffset(now(), r.nextTouch.amount, r.nextTouch.unit) : null;
       await logEvent(row, 'coffee_chat', noteText.trim(), { extracted, suggested_next_touch });
       // First-class memory records, with type + confidence + source. Confidence
-      // gates commit vs suggest vs drop — an uncertain guess becomes a suggestion
+      // gates commit vs suggest vs drop - an uncertain guess becomes a suggestion
       // the user confirms, never a silent fact. Promises are explicit acts, so
       // they commit directly.
       const src = `Coffee chat, ${fmtDate(now())}`;
@@ -3090,7 +3090,7 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
 
   const EVENT_TYPES = [['connection_request','Connection request'],['first_message','First message'],['reply','Reply'],['coffee_chat','Coffee chat'],['referral','Referral'],['interview','Interview'],['note','Note']];
 
-  // Per-contact reasoning context for Meeting Prep + Relationship Health — built
+  // Per-contact reasoning context for Meeting Prep + Relationship Health - built
   // from what's actually on file (profile, briefing, notes, real timeline).
   function personDigest(){
     const ctx = row.context||{};
@@ -3126,7 +3126,7 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
     setHealthBusy(true); setPrepErr(null);
     try{
       const r = await llmJSON(sb, auth, 'relationship_health',
-        'Assess the health of this professional relationship for an MIT Sloan Fellows MBA student. Base it ONLY on the interaction history, status, and timing provided — never invent. Classify into exactly one of: growing, warm, fading, dormant.',
+        'Assess the health of this professional relationship for an MIT Sloan Fellows MBA student. Base it ONLY on the interaction history, status, and timing provided - never invent. Classify into exactly one of: growing, warm, fading, dormant.',
         `${personDigest()}\n\nToday is ${new Date().toISOString().slice(0,10)}.\nReturn JSON: {"status": "growing"|"warm"|"fading"|"dormant", "reason": string (under 20 words), "nextMove": string (under 15 words)}`);
       setHealth(r);
     }catch(e){ setPrepErr(e.message||String(e)); }
@@ -3191,7 +3191,7 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
           const hereIdx = Math.max(0, trail.indexOf(row.status==='ready_to_contact'?'prospect':row.status));
           const recent = rowEvents.slice().sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at)).slice(0,4).reverse();
           return <>
-            {/* Relationship health — 6-factor engine, band + why + suggested move */}
+            {/* Relationship health - 6-factor engine, band + why + suggested move */}
             {(()=>{ const rw=relationshipWords(row,rowEvents); const h=relationshipHealth(row,rowEvents,personMemories(row,rowEvents));
               const hasHistory = rowEvents.length>0;
               return <div style={{background:'linear-gradient(150deg, var(--bsoft), var(--psoft))',borderRadius:'var(--radius)',padding:'18px 22px'}}>
@@ -3221,7 +3221,7 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
                 </React.Fragment>; })}
             </div>
 
-            {/* Suggested memories — amber, awaiting confirmation. Not yet facts. */}
+            {/* Suggested memories - amber, awaiting confirmation. Not yet facts. */}
             {(()=>{ const sugg=suggestedMemories(row); if(!sugg.length) return null;
               return <>
                 <div className="tag" style={{margin:'22px 0 8px',color:'var(--amber)'}}>Did I get this right?</div>
@@ -3236,7 +3236,7 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
                   </div>; })}</div>
               </>; })()}
 
-            {/* What Mighty knows — confirmed, first-class memory records */}
+            {/* What Mighty knows - confirmed, first-class memory records */}
             <div style={{display:'flex',alignItems:'center',margin:'22px 0 8px'}}>
               <div className="tag">Things you've learned</div><div style={{flex:1}}/>
               <span className="iconbtn" style={{cursor:'pointer',fontSize:11.5,padding:'4px 9px'}} onClick={()=>setAddingMem(v=>!v)}>＋ Add</span>
@@ -3249,7 +3249,7 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
             {memories.length===0 && !addingMem
               ? <div style={{background:'var(--card2)',border:'1px solid var(--line)',borderRadius:14,padding:'14px 16px'}}>
                   <div className="note" style={{marginBottom:8}}>After your first real conversation, I'll remember:</div>
-                  {['What they care about','Promises you made — and promises they made you','Follow-up dates','Mutual interests','Introductions they offered','Their career goals','Personal details worth remembering']
+                  {['What they care about','Promises you made - and promises they made you','Follow-up dates','Mutual interests','Introductions they offered','Their career goals','Personal details worth remembering']
                     .map(x=><div key={x} style={{fontSize:13,color:'var(--sub)',lineHeight:1.7}}>✓ {x}</div>)}
                 </div>
               : <div className="list">{memories.map(m=>{ const meta=MEM_TYPES[m.type]||MEM_TYPES.personal;
@@ -3280,7 +3280,7 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
                     </div>
                   </div>; })}</div>}
 
-            {/* Open questions — what to learn next */}
+            {/* Open questions - what to learn next */}
             {(()=>{ const qs=openQuestions(row,rowEvents); if(!qs.length) return null;
               return <>
                 <div className="tag" style={{margin:'22px 0 8px'}}>Still don't know</div>
@@ -3316,13 +3316,13 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
               <div style={{display:'flex',flexDirection:'column',gap:2}}>
                 {recent.map(e=><div key={e.id} style={{display:'grid',gridTemplateColumns:'14px 1fr auto',gap:12,alignItems:'center',padding:'7px 0'}}>
                   <span style={{justifySelf:'center',width:8,height:8,borderRadius:99,background:'var(--brand)'}}/>
-                  <span style={{fontSize:13.5}}>{EVENT_LABEL[e.event_type]||e.event_type}{e.note?` — ${String(e.note).slice(0,60)}`:''}</span>
+                  <span style={{fontSize:13.5}}>{EVENT_LABEL[e.event_type]||e.event_type}{e.note?` - ${String(e.note).slice(0,60)}`:''}</span>
                   <span className="note">{rel(new Date(e.occurred_at).getTime())}</span>
                 </div>)}
               </div>
             </>}
 
-            {/* Assets shared — the reciprocal record (§15.9) */}
+            {/* Assets shared - the reciprocal record (§15.9) */}
             {(()=>{ const shared=(((row.context||{}).sharedAssets)||[]); if(!shared.length) return null;
               return <>
                 <div className="tag" style={{margin:'22px 0 8px'}}>You've shared</div>
@@ -3333,7 +3333,7 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
                 </div>
               </>; })()}
 
-            {/* Ask Mighty — an input, not a row of pills */}
+            {/* Ask Mighty - an input, not a row of pills */}
             <div className="tag" style={{margin:'22px 0 8px'}}>Ask Mighty</div>
             <input className="inp" placeholder={`Ask anything about ${displayName(row).split(' ')[0]}…`}
               onKeyDown={e=>{ if(e.key==='Enter' && e.target.value.trim()) setDrawerTab('prep'); }}/>
@@ -3415,7 +3415,7 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
           </div>}
         </>}
         {drawerTab==='notes' && <>
-          <textarea className="inp" style={{minHeight:220,lineHeight:1.6}} value={notes} onChange={e=>onNotesChange(e.target.value)} placeholder="Jot anything — it's just for you."/>
+          <textarea className="inp" style={{minHeight:220,lineHeight:1.6}} value={notes} onChange={e=>onNotesChange(e.target.value)} placeholder="Jot anything - it's just for you."/>
           <div className="note" style={{marginTop:8}}>Saved automatically. Feeds future briefings and drafts.</div>
         </>}
       </div>
@@ -3440,20 +3440,20 @@ function DraftModal({row,db,patch,sb,auth,updateRow,changeStage,onClose}){
     try{
       const ctx = row.context||{}; const br = row.briefing||{};
       const pctx = profileContext(db.settings);
-      // Voice profile — only CONFIRMED facts feed the draft, and the student's
+      // Voice profile - only CONFIRMED facts feed the draft, and the student's
       // own recent approved messages teach the model how they actually write.
       const mems = personMemories(row, []).filter(m=>m.status!=='suggested');
       const memLines = mems.slice(0,6).map(m=>`- ${(MEM_TYPES[m.type]||{}).t||''}: ${m.value}`).join('\n');
       const samples = (db.settings.voiceSamples||[]).slice(-2);
-      const voice = samples.length ? `\n\nWrite in the student's own voice. Here are messages they wrote and approved before — match this style, warmth, and length:\n${samples.map((x,i)=>`Sample ${i+1}: ${x}`).join('\n')}` : '';
+      const voice = samples.length ? `\n\nWrite in the student's own voice. Here are messages they wrote and approved before - match this style, warmth, and length:\n${samples.map((x,i)=>`Sample ${i+1}: ${x}`).join('\n')}` : '';
       const result = await llmJSON(sb, auth, 'draft_message',
-        'You are helping an MIT Sloan Fellows MBA student write a real LinkedIn outreach message. Ground it ONLY in the given context and confirmed memories — never invent facts. Match the student\'s own voice from their sample messages when provided. Follow the objective, tone, and length instructions exactly.',
-        `${pctx?pctx+'\n\n':''}Objective: ${objective}. Tone: ${tone}. Length: ${shorter?'under 60 words':'under 120 words'}. Personalization: ${personal?'heavily reference specific shared details':'lightly reference context'}.\nContact: ${row.name||''}, ${row.title||''} at ${row.company||''}\nWhat you know (confirmed):\n${memLines||'(nothing captured yet)'}\nContext — About: ${(ctx.aboutText||'').slice(0,800)} Mutual: ${ctx.mutualConnectionsRaw||''}\nBriefing: ${br.careerSummary||''}${voice}\n\nReturn JSON: {"draftMessage": string}`);
+        'You are helping an MIT Sloan Fellows MBA student write a real LinkedIn outreach message. Ground it ONLY in the given context and confirmed memories - never invent facts. Match the student\'s own voice from their sample messages when provided. Follow the objective, tone, and length instructions exactly.',
+        `${pctx?pctx+'\n\n':''}Objective: ${objective}. Tone: ${tone}. Length: ${shorter?'under 60 words':'under 120 words'}. Personalization: ${personal?'heavily reference specific shared details':'lightly reference context'}.\nContact: ${row.name||''}, ${row.title||''} at ${row.company||''}\nWhat you know (confirmed):\n${memLines||'(nothing captured yet)'}\nContext - About: ${(ctx.aboutText||'').slice(0,800)} Mutual: ${ctx.mutualConnectionsRaw||''}\nBriefing: ${br.careerSummary||''}${voice}\n\nReturn JSON: {"draftMessage": string}`);
       setText(result.draftMessage||''); setAiDraft(result.draftMessage||''); await updateRow(row, {ai_draft: result.draftMessage||'', status: row.status==='prospect'?'ready_to_contact':row.status});
     }catch(e){ setErr(e.message||String(e)); }
     setBusy(false);
   }
-  // Approval gate: the message that leaves is exactly what the student approved —
+  // Approval gate: the message that leaves is exactly what the student approved -
   // and because they approved it, it teaches the voice profile. Nothing is ever
   // sent; Mighty copies the approved text and opens LinkedIn for the human click.
   async function copyAndOpen(){
@@ -3461,7 +3461,7 @@ function DraftModal({row,db,patch,sb,auth,updateRow,changeStage,onClose}){
     if(!approved) return;
     try{ await navigator.clipboard.writeText(approved); }catch(e){}
     await updateRow(row, {message_sent:approved});
-    // Learn from the approved message — keep the last 3 as voice samples. Only
+    // Learn from the approved message - keep the last 3 as voice samples. Only
     // learn when the student actually shaped it (edited the AI draft, or wrote
     // their own), so we capture their voice, not the model's.
     if(patch && approved.length>40 && approved!==aiDraft){
@@ -3562,7 +3562,7 @@ function ExtensionPreview(){
             </div>
             <div style={{marginTop:12,background:'var(--card2)',border:'1px solid var(--line)',borderRadius:9,padding:'10px 11px'}}>
               <div className="tag">Your notes</div>
-              <div className="note" style={{marginTop:5}}>Met her on the Sloan PM panel in March — mentors career switchers.</div>
+              <div className="note" style={{marginTop:5}}>Met her on the Sloan PM panel in March - mentors career switchers.</div>
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:14}}>
               <button className="btn sm">Draft follow-up</button>
@@ -3598,7 +3598,7 @@ function InstallSteps(){
     ['Turn on Developer mode', 'Flip the "Developer mode" toggle in the top-right corner of that page.'],
     ['Download & unzip Mighty', 'Click the button below to download the extension, then double-click the .zip file to unzip it.'],
     ['Click "Load unpacked"', 'Back on chrome://extensions, click "Load unpacked" and select the unzipped mighty-extension folder.'],
-    ['Sign in', 'Click the Mighty icon in your toolbar (pin it for easy access) and sign in with your @mit.edu email — same account as the web app.'],
+    ['Sign in', 'Click the Mighty icon in your toolbar (pin it for easy access) and sign in with your @mit.edu email - same account as the web app.'],
   ];
   return <div style={{maxWidth:640,margin:'0 auto'}}>
     <div className="panel pad">
@@ -3613,7 +3613,7 @@ function InstallSteps(){
         <a className="btn" href="../install/mighty-extension.zip" download style={{textDecoration:'none'}}>⬇ Download Mighty extension (.zip)</a>
         <a className="btn ghost" href="../install/" style={{textDecoration:'none'}}>Full written guide →</a>
       </div>
-      <div className="note" style={{marginTop:14}}>Human-in-the-loop by design — it never clicks Connect or Message for you. You always click Send.</div>
+      <div className="note" style={{marginTop:14}}>Human-in-the-loop by design - it never clicks Connect or Message for you. You always click Send.</div>
     </div>
   </div>;
 }

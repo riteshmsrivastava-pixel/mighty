@@ -1,7 +1,7 @@
 // ============================================================
-// MIghTy — Google Sheets sync Edge Function.
+// MIghTy - Google Sheets sync Edge Function.
 // Pushes each student's outreach_log OUT to their own Google Sheet.
-// Never touches LinkedIn — this only moves already-collected data
+// Never touches LinkedIn - this only moves already-collected data
 // from Supabase to Sheets, on request or on a schedule.
 //
 // Deploy:
@@ -9,9 +9,9 @@
 //   2. supabase functions deploy sheets-sync
 //   3. supabase secrets set GOOGLE_SERVICE_ACCOUNT_JSON='<the full service-account key JSON, one line>'
 //      (SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY are injected automatically)
-//   4. Share your Google Sheet with the service account's client_email (Editor access) —
+//   4. Share your Google Sheet with the service account's client_email (Editor access) -
 //      the app's Settings tab fetches that email for you via the "whoami" action.
-//   5. Optional: schedule the ?all=1 cron mode — see the pg_cron snippet in SETUP.md.
+//   5. Optional: schedule the ?all=1 cron mode - see the pg_cron snippet in SETUP.md.
 // ============================================================
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -110,7 +110,7 @@ async function syncUserToSheet(rows: any[], sheetId: string, tabName: string) {
   const token = await googleAccessToken();
   const current = await sheetsGet(token, sheetId, `${tabName}!A:A`);
   if (current.status === 403) return { ok: false, error: "not_shared", message: `Share your Google Sheet with ${SERVICE_ACCOUNT.client_email} (Editor access), then try again.` };
-  if (current.status === 404) return { ok: false, error: "not_found", message: "Sheet ID not found — check it's correct and the tab name matches." };
+  if (current.status === 404) return { ok: false, error: "not_found", message: "Sheet ID not found - check it's correct and the tab name matches." };
   if (current.status >= 400) return { ok: false, error: "google_error", message: JSON.stringify(current.body).slice(0, 300) };
 
   const colA: string[] = (current.body.values || []).map((r: string[]) => r[0]);
@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   const url = new URL(req.url);
 
-  // Cron / all-users mode — service role bearer required.
+  // Cron / all-users mode - service role bearer required.
   if (url.searchParams.get("all") === "1") {
     const auth = req.headers.get("Authorization") || "";
     if (auth !== `Bearer ${SERVICE_ROLE_KEY}`) return json({ ok: false, error: "unauthorized" }, 401);
@@ -157,7 +157,7 @@ Deno.serve(async (req) => {
     return json({ ok: true, users: touched });
   }
 
-  // On-demand mode — the calling user's own JWT, forwarded by supabase.functions.invoke().
+  // On-demand mode - the calling user's own JWT, forwarded by supabase.functions.invoke().
   let body: any = {};
   try { body = await req.json(); } catch (_e) { /* no body */ }
 

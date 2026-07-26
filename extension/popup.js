@@ -1,8 +1,8 @@
-// MIghTy — LinkedIn Outreach · popup
+// MIghTy - LinkedIn Outreach · popup
 // Status + auth surface only. Shortlisting, templates, and the log all live
-// in the MIghTy web app — this popup doesn't duplicate that UI.
+// in the MIghTy web app - this popup doesn't duplicate that UI.
 //
-// Same baked-in Supabase project as index.html (see SETUP.md) — students
+// Same baked-in Supabase project as index.html (see SETUP.md) - students
 // only ever enter their @mit.edu email + password, never a URL or key.
 const SUPABASE_URL = 'https://hplyyywdftnvjajyncvj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_e_oCwuz3Qlko5N3Xl8ZwxA_zQijz_u8';
@@ -25,7 +25,7 @@ async function render() {
   const connected = !!(sb && sb.accessToken);
 
   $('statusDot').className = 'dot ' + (connected ? 'ok' : 'warn');
-  $('statusText').textContent = connected ? `Connected — ${sb.email}` : 'Not connected';
+  $('statusText').textContent = connected ? `Connected - ${sb.email}` : 'Not connected';
   $('connectedCard').style.display = connected ? 'block' : 'none';
   $('signinDetails').style.display = connected ? 'none' : 'block';
   $('signinDetails').open = !connected;
@@ -58,12 +58,12 @@ async function render() {
         $('planLine').textContent = `${label} · ${used}${cap != null ? '/' + cap : ''} assists this month`;
         $('planLine').style.display = 'block';
       }
-    } catch (e) { /* gateway not deployed — leave hidden */ }
+    } catch (e) { /* gateway not deployed - leave hidden */ }
   }
 }
 
 $('sbSignin').onclick = async () => {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) { $('sbStatus').textContent = '✕ Extension not configured yet — see SETUP.md.'; return; }
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) { $('sbStatus').textContent = '✕ Extension not configured yet - see SETUP.md.'; return; }
   const email = $('sbEmail').value.trim(), password = $('sbPass').value;
   $('sbStatus').textContent = 'Signing in…';
   try {

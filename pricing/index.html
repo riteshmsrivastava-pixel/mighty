@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mighty — pricing</title>
+<title>Mighty - pricing</title>
 <meta name="description" content="Mighty pricing. Explorer is free forever. Builder is $9/month for people who network regularly. Teams coming soon.">
 <link rel="icon" href="../favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32.png">
 <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
 <meta name="theme-color" content="#5B4BC4">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Mighty — pricing">
+<meta property="og:title" content="Mighty - pricing">
 <meta property="og:description" content="Explorer is free forever. Builder is $9/month. Teams coming soon.">
 <meta property="og:image" content="https://yourmighty.com/assets/og-image.png">
 <meta property="og:url" content="https://yourmighty.com/pricing/">
@@ -21,14 +21,14 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-/* Lilac redesign — remap the Modernist tokens + soften the boxy components. */
+/* Lilac redesign - remap the Modernist tokens + soften the boxy components. */
 :root{
-  --color-bg:#FAF9F7; --color-surface:#FFFFFF; --color-text:#1B1A1F;
-  --color-accent:#5B4BC4; --color-accent-600:#4C3EB0; --color-accent-700:#4C3EB0;
-  --color-accent-100:#EDEAFE; --color-accent-800:#4C3EB0;
-  --color-divider:rgba(27,26,31,.09);
-  --font-heading:'Figtree',system-ui,sans-serif; --font-body:'Instrument Sans',system-ui,sans-serif;
-  --font-heading-weight:600;
+ --color-bg:#FAF9F7; --color-surface:#FFFFFF; --color-text:#1B1A1F;
+ --color-accent:#5B4BC4; --color-accent-600:#4C3EB0; --color-accent-700:#4C3EB0;
+ --color-accent-100:#EDEAFE; --color-accent-800:#4C3EB0;
+ --color-divider:rgba(27,26,31,.09);
+ --font-heading:'Figtree',system-ui,sans-serif; --font-body:'Instrument Sans',system-ui,sans-serif;
+ --font-heading-weight:600;
 }
 body{background:#FAF9F7;color:#1B1A1F;font-family:'Instrument Sans',system-ui,sans-serif;}
 h1,h2,h3,h4{font-family:'Figtree',sans-serif;font-weight:600;letter-spacing:-.03em;}
@@ -153,7 +153,7 @@ html{scroll-behavior:smooth}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 (function(){
-  // Same baked publishable creds as the app — safe in client code; RLS lets the
+  // Same baked publishable creds as the app - safe in client code; RLS lets the
   // public INSERT into waitlist but never read it.
   var SUPABASE_URL='https://hplyyywdftnvjajyncvj.supabase.co';
   var SUPABASE_ANON_KEY='sb_publishable_e_oCwuz3Qlko5N3Xl8ZwxA_zQijz_u8';
@@ -181,7 +181,7 @@ html{scroll-behavior:smooth}
     if(!sb){ $('wlMsg').style.color='var(--color-accent)'; $('wlMsg').textContent='Something went wrong. Email hello@yourmighty.com instead.'; return; }
     $('wlSubmit').disabled=true; $('wlSubmit').textContent='Joining…';
     var res=await sb.from('waitlist').insert({email:email, plan:plan, source:'pricing'});
-    if(res.error){ $('wlSubmit').disabled=false; $('wlSubmit').textContent='Join'; $('wlMsg').style.color='var(--color-accent)'; $('wlMsg').textContent='Could not save right now — try again, or email hello@yourmighty.com.'; return; }
+    if(res.error){ $('wlSubmit').disabled=false; $('wlSubmit').textContent='Join'; $('wlMsg').style.color='var(--color-accent)'; $('wlMsg').textContent='Could not save right now - try again, or email hello@yourmighty.com.'; return; }
     $('wlMsg').style.color='var(--color-accent)'; $('wlMsg').textContent="You're on the list. We'll be in touch."; $('wlSubmit').textContent='Done'; $('wlSubmit').disabled=true;
     setTimeout(close,1600);
   });
@@ -205,11 +205,11 @@ html{scroll-behavior:smooth}
         <tr><td>Profile briefings</td><td class="c">✓</td><td class="c">✓</td><td class="c">✓</td></tr>
         <tr><td>Coffee-chat summaries</td><td class="c">✓</td><td class="c">✓</td><td class="c">✓</td></tr>
         <tr><td>Daily copilot</td><td class="c">✓</td><td class="c">✓</td><td class="c">✓</td></tr>
-        <tr><td>Priority relationship queue</td><td class="c">—</td><td class="c">✓</td><td class="c">✓</td></tr>
-        <tr><td>Community insights</td><td class="c">—</td><td class="c">✓</td><td class="c">✓</td></tr>
-        <tr><td>Team workspaces</td><td class="c">—</td><td class="c">—</td><td class="c">✓</td></tr>
-        <tr><td>Shared contacts</td><td class="c">—</td><td class="c">—</td><td class="c">✓</td></tr>
-        <tr><td>Admin controls</td><td class="c">—</td><td class="c">—</td><td class="c">✓</td></tr>
+        <tr><td>Priority relationship queue</td><td class="c"> - </td><td class="c">✓</td><td class="c">✓</td></tr>
+        <tr><td>Community insights</td><td class="c"> - </td><td class="c">✓</td><td class="c">✓</td></tr>
+        <tr><td>Team workspaces</td><td class="c"> - </td><td class="c"> - </td><td class="c">✓</td></tr>
+        <tr><td>Shared contacts</td><td class="c"> - </td><td class="c"> - </td><td class="c">✓</td></tr>
+        <tr><td>Admin controls</td><td class="c"> - </td><td class="c"> - </td><td class="c">✓</td></tr>
       </tbody>
     </table>
   </div>
