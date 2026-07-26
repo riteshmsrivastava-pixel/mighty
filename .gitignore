@@ -1,0 +1,19 @@
+# macOS Finder metadata. Harmless locally, but it records the folder's contents,
+# so on a public repo it can name files that were never committed.
+.DS_Store
+**/.DS_Store
+
+# Editor and OS noise
+*.swp
+*~
+.vscode/
+.idea/
+
+# Never commit real secrets. Every key in this repo is either a publishable
+# Supabase key (public by design, guarded by row-level security) or a
+# placeholder in the setup docs. Service-role and Anthropic keys live in
+# Supabase's secret store and are read via Deno.env.get - keep it that way.
+.env
+.env.*
+*.pem
+secrets.json

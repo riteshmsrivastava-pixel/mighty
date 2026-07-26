@@ -1,4 +1,4 @@
-// MIghTy — web-app bridge
+// MIghTy - web-app bridge
 //
 // Runs only on the MIghTy web app's own pages. It lets the app ask the
 // extension to do the two things a web page cannot do for itself:
@@ -10,16 +10,51 @@
 //
 // Nothing here navigates, clicks or posts anything. It answers questions the
 // student explicitly asked by pressing Search, and the results are shown in the
-// app for them to choose from — no page ever opens in their face.
+// app for them to choose from - no page ever opens in their face.
 (() => {
   const TAG_IN = 'mighty-app';   // page  -> extension
   const TAG_OUT = 'mighty-ext';  // extension -> page
 
+  // Company parsing, out here so the rules are readable rather than buried in
+  // the loop. Every one earns its place from a measured failure - see the notes
+  // at the call site.
+  // Split at a camelCase boundary OR an acronym boundary: the second is what
+  // separates "SAP" from "SAPSenior Director...", where the first cannot.
+  const CO_BOUNDARY = /(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])/;
+  const CO_ACRONYM = /^[A-Z]{2,4}$/;                                    // SAP, IBM, AWS, GE
+  const CO_ROLE_PREFIX = /^(head|vp|vice president|director|chief|svp|evp)\s+of\b/i;
+  const CO_ROLE_NOUN = /\b(analyst|manager|engineer|consultant|specialist|coordinator|intern|recruiter|designer)\b/i;
+  const CO_LEVEL = /\b(i{1,3}|iv|v)$/i;                                 // "Analyst II"
+
   function reply(id, payload) {
     window.postMessage({ source: TAG_OUT, id, ...payload }, window.location.origin);
   }
+  // Updating or reloading the extension leaves this script running in any page
+  // that was already open, with a dead chrome.runtime handle. sendMessage then
+  // throws "Extension context invalidated" synchronously, which surfaced as an
+  // uncaught rejection and left the caller waiting out its full timeout. Answer
+  // straight away instead, so the app can say something useful.
   function send(type, extra) {
-    return new Promise(resolve => chrome.runtime.sendMessage({ type, ...extra }, resolve));
+    return new Promise(resolve => {
+      try {
+        chrome.runtime.sendMessage({ type, ...extra }, (res) => {
+          if (chrome.runtime.lastError) { resolve({ ok: false, error: 'extension_reloaded' }); return; }
+          resolve(res);
+        });
+      } catch (e) {
+        resolve({ ok: false, error: 'extension_reloaded' });
+      }
+    });
+  }
+
+  // A rate-limited or challenged response is still HTTP 200 with real HTML, and
+  // it contains no /in/ links - so parsing it looks exactly like "nobody
+  // matched". That silence is the worst failure mode available: the student
+  // rewords a perfectly good query five times against a wall. Detect it and
+  // say so instead.
+  function looksBlocked(html) {
+    const head = String(html || '').slice(0, 4000).toLowerCase();
+    return /\/sorry\/index|unusual traffic|recaptcha|g-recaptcha|our systems have detected/.test(head);
   }
 
   // Google's markup rotates, so anchor on the only durable things: links that
@@ -41,13 +76,13 @@
       let title = ((h3 && h3.textContent) || '').trim();
       title = title.replace(/\s*[|·]?\s*LinkedIn\s*$/i, '').replace(/\s*[.…]+\s*$/, '').trim();
       if (!title) continue;
-      const parts = title.split(/\s+[-–—]\s+/);
+      const parts = title.split(/\s+[-\u2013\u2014]\s+/);  // hyphen, en dash, em dash: escaped so a text-level purge cannot corrupt the class
       const name = (parts[0] || '').trim();
       if (!name || name.length > 60 || /^https?:/i.test(name)) continue;
       const headline = parts.slice(1).join(' - ').trim();
       const at = headline.match(/\bat\s+(.+?)(?:\s*[·|]|$)/i) || headline.match(/@\s*(.+?)(?:\s*[·|]|$)/);
 
-      // Google's snippet carries far more than the headline — location,
+      // Google's snippet carries far more than the headline - location,
       // experience, education, follower counts. It costs nothing extra to read
       // (it's already in the page we fetched) and needs no LinkedIn request.
       let blk = card;
@@ -56,16 +91,62 @@
       snip = snip.split(title).slice(1).join(' ').trim();           // drop the heading
       snip = snip.replace(/^(LinkedIn\s*·\s*[^·]{0,60}?(?:[\d.]+K?\+?\s*followers)?\s*)+/i, '').trim();
       const grab = re => { const m = snip.match(re); return m ? m[1].replace(/\s*[·|].*$/, '').trim().slice(0, 90) : ''; };
-      const location  = grab(/Location:\s*([^·]+)/i) || grab(/^([A-Z][A-Za-z.\- ]+,\s*[A-Za-z.\- ]+(?:,\s*[A-Za-z.\- ]+)?)\s*·/);
-      const education = grab(/Education:\s*([^·]+)/i);
-      const experience= grab(/Experience:\s*([^·]+)/i);
+
+      // Google dropped the "Location:" / "Education:" labels these patterns were
+      // written against, so they now match nothing. Measured against live results
+      // on 26 July 2026: name and followers came back for 10 of 10, and location,
+      // education and experience for 0 to 1 of 10. The labelled forms are kept as
+      // a first attempt because the format still varies by locale and query type,
+      // with positional parsing below as the path that actually works.
+      //
+      // The shape now is:
+      //   <Name><n>+ followersLinkedIn · <Name><n>+ followers<LOCATION> · <TITLE> · <COMPANY><about text>
+      // Location is glued straight onto the second "followers" with no separator,
+      // and company runs into the About text with no separator either.
       const followers = grab(/([\d.,]+K?\+?)\s*followers/i);
       const connections = grab(/([\d.,]+\+?)\s*connections/i);
+
+      // The first "followers" is followed by "LinkedIn"; the second is followed by
+      // the location, so skip the one that isn't.
+      const locM = snip.match(/followers(?!LinkedIn)([A-Z][^·]{2,60}?)\s+·/);
+      const location = grab(/Location:\s*([^·]+)/i)
+        || (locM ? locM[1].trim() : '')
+        || grab(/^([A-Z][A-Za-z.\- ]+,\s*[A-Za-z.\- ]+(?:,\s*[A-Za-z.\- ]+)?)\s*·/);
+
+      // Company is the fourth middot segment, joined to the About text with no
+      // separator. Only a fallback: company parsed out of the title ("... at X")
+      // was right in every measured case and takes precedence below.
+      //
+      // Measured on the 26 July run, this slot produced three confidently wrong
+      // values out of ten, which is worse than three blanks: company reaches the
+      // draft prompt, so a wrong one comes out of the user's own mouth in a
+      // message to a stranger, and nothing in the interface would reveal it. Each
+      // rule below exists because of a specific observed failure.
+      const segs = snip.split(/\s+·\s+/);
+      const coCut = ((segs[3] || '').split(CO_BOUNDARY)[0] || '').trim();
+      const snippetCompany =
+        (!coCut || coCut.length > 45) ? ''
+        // Short is only trustworthy when acronym-shaped. "Pay" out of PayPal is a
+        // split artefact; "SAP" out of SAPSenior is the actual employer.
+        : (coCut.length < 4 && !CO_ACRONYM.test(coCut)) ? ''
+        // A job title here means the segments did not line up at all: observed
+        // "Head of Product, Crash" and "Business Analyst II" landing in this slot.
+        : (CO_ROLE_PREFIX.test(coCut) || CO_ROLE_NOUN.test(coCut) || CO_LEVEL.test(coCut)) ? ''
+        : coCut;
+
+      // Not currently returned by Google in any of the results measured. Left in
+      // so a restored label starts working again on its own, but nothing should
+      // be built on the assumption that search supplies education.
+      const education = grab(/Education:\s*([^·]+)/i);
+      const experience= grab(/Experience:\s*([^·]+)/i);
 
       seen.add(url);
       out.push({
         profileUrl: url, name, title: headline,
-        company: (at ? at[1].trim() : '') || experience,
+        // Title-derived first ("Senior Product Manager at Hi Marley" gives
+        // exactly "Hi Marley"), then the snippet's fourth segment, then the
+        // Experience label if Google happens to still be sending one.
+        company: (at ? at[1].trim() : '') || snippetCompany || experience,
         location, education, experience, followers, connections,
         snippet: snip.slice(0, 300),
       });
@@ -85,6 +166,7 @@
       const r = await send('fetchSearchHtml', { query: String(d.query || '') });
       if (!r || !r.ok) { reply(d.id, { ok: false, error: (r && r.error) || 'search_failed' }); return; }
       const people = parseProfiles(r.html);
+      if (!people.length && looksBlocked(r.html)) { reply(d.id, { ok: false, error: 'blocked' }); return; }
       reply(d.id, { ok: true, people });
       return;
     }

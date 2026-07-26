@@ -152,7 +152,7 @@ const F = React.Fragment;
 /* ===================== platform config (same project as app/v1.html) ===================== */
 const SUPABASE_URL      = 'https://hplyyywdftnvjajyncvj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_e_oCwuz3Qlko5N3Xl8ZwxA_zQijz_u8';
-const MIT_RE  = /@([a-z0-9-]+\.)*mit\.edu$/i;
+
 
 /* Primary-goal vocabulary is v1's goalType enum so both apps score alike. */
 const GOALS = [
@@ -255,10 +255,100 @@ function ChipInput({value, onChange, placeholder}){
 }
 
 /* ===================== AI (shared ai-proxy - no key ever reaches the client) ===================== */
+/* ---- Instrumentation --------------------------------------------------------
+   Our own table, not a third-party service, because we tell people that nothing
+   they write about someone leaves their account. Sending behavioural data to a
+   vendor a week after saying that would make it untrue in spirit.
+
+   Counts and categories only. safeProps() enforces that structurally rather than
+   by convention: a value survives only if it is a finite number, a boolean, or a
+   short enum-shaped string. A name has a space and a capital, an email has an @,
+   a URL has a colon and a slash - all three are dropped by the same rule, so a
+   leak requires defeating the sanitizer rather than merely forgetting the rule.
+
+   Fire and forget. Analytics must never break a feature or make the user wait,
+   so every failure here is swallowed on purpose. */
+const ENUMISH = /^[a-z0-9_]{1,32}$/;
+/* Must agree with app_events.event's check constraint (2 to 40 chars). A name
+   the client accepts and Postgres rejects is an event that vanishes silently. */
+const EVENT_NAME = /^[a-z0-9_]{2,40}$/;
+function safeProps(props){
+  const out = {};
+  if(!props || typeof props!=='object') return out;
+  for(const k of Object.keys(props).slice(0,8)){
+    if(!ENUMISH.test(k)) continue;
+    const v = props[k];
+    if(typeof v==='number' && Number.isFinite(v)) out[k] = v;
+    else if(typeof v==='boolean') out[k] = v;
+    else if(typeof v==='string' && ENUMISH.test(v)) out[k] = v;
+    // anything else - names, emails, URLs, note text, objects - is dropped
+  }
+  return out;
+}
+/* App binds these once it has a client and a session. Kept module-level rather
+   than threaded through six components as a prop: call sites stay readable, and
+   an unbound tracker is a silent no-op rather than a crash. */
+let _trkSb = null, _trkUser = null;
+function bindTracking(sb, user){ _trkSb = sb; _trkUser = user; }
+function track(event, props){
+  try{
+    if(!_trkSb || !_trkUser || !EVENT_NAME.test(String(event||''))) return;
+    _trkSb.from('app_events').insert({user_id:_trkUser.id, event, props:safeProps(props)})
+      .then(()=>{}, ()=>{});   // never surface an analytics failure
+  }catch(e){}
+}
+
+/* ---- Extension bridge -------------------------------------------------------
+   The extension can read a search results page that this page cannot: CORS
+   blocks the app, but the background worker holds host permission. It parses
+   location, education, experience and follower counts out of the same response,
+   which the API path does not return at all. Ported from v1, which used it and
+   which v2 stopped calling.
+
+   Request/response over postMessage. With no extension installed every call
+   times out and resolves {ok:false, error:'no_extension'}, so callers fall back
+   rather than hang. Nothing here navigates or opens a tab. */
+const extBridge = (()=>{
+  let seq=0; const pending=new Map(); let ready=false;
+  if(typeof window!=='undefined'){
+    window.addEventListener('message', ev=>{
+      if(ev.source!==window) return;
+      const d=ev.data; if(!d || d.source!=='mighty-ext') return;
+      if(d.ready){ ready=true; return; }
+      const cb=pending.get(d.id); if(cb){ pending.delete(d.id); cb(d); }
+    });
+  }
+  function call(kind, extra, timeoutMs){
+    return new Promise(resolve=>{
+      const id='m'+(++seq)+'-'+Date.now();
+      const t=setTimeout(()=>{ pending.delete(id); resolve({ok:false,error:'no_extension'}); }, timeoutMs||25000);
+      pending.set(id, d=>{ clearTimeout(t); resolve(d); });
+      window.postMessage({source:'mighty-app', id, kind, ...extra}, window.location.origin);
+    });
+  }
+  return {
+    isReady: ()=>ready,
+    search: (query)=>call('search',{query}),
+    photo: (profileUrl)=>call('photo',{profileUrl}, 30000),
+  };
+})();
+
+/* The proxy already tells us the plan and how much of the monthly allowance is
+   left; llm() used to return data.text and throw the rest away, so the number the
+   whole model is metered on was invisible in the app. It is reported here and the
+   App renders it. Reported on refusal too - that is exactly when it matters. */
+let _onAiMeta = null;
+function onAiMeta(fn){ _onAiMeta = fn; }
+function reportMeta(meta){ try{ if(_onAiMeta && meta) _onAiMeta(meta); }catch(e){} }
+
 async function llm(sb, feature, system, user, maxTokens){
   const {data, error} = await sb.functions.invoke('ai-proxy', {body:{feature, system, user, maxTokens:maxTokens||700}});
   if(error) throw error;
-  if(!data || data.ok===false) throw new Error((data && (data.message||data.error)) || 'AI request failed.');
+  if(data && data.meta) reportMeta(data.meta);
+  if(!data || data.ok===false){
+    if(data && data.error==='rate_limited') reportMeta({plan:data.plan, assistsLeftMonth:0, exhausted:true});
+    throw new Error((data && (data.message||data.error)) || 'AI request failed.');
+  }
   return data.text;
 }
 async function llmJSON(sb, feature, system, user, maxTokens){
@@ -673,14 +763,36 @@ function Discover({sb, settings, people, onSave, onOpen, go}){
     setErr(null); setNote(null); setNoExt(false); setRes([]); setSkip({}); setPhase('searching'); setLastQ(sentence);
     try{
       const kw = await toKeywords(sb, sentence, settings);
-      const {data, error} = await sb.functions.invoke('people-search', {body:{query:kw}});
-      if(error) throw error;
-      if(!data || data.ok===false){
-        if(data && data.error==='not_configured') setNoExt(true);
-        else setErr((data && (data.message||data.error)) || 'Search failed.');
+
+      /* Ask the extension first. It reads the results page itself, so it comes
+         back with location, education, experience and follower counts - the API
+         path returns a title and a link and nothing else. Fall back to the edge
+         function only when the extension is not installed. */
+      let found = [], via = 'ext';
+      const bridged = await extBridge.search(kw);
+      if(bridged && bridged.ok){
+        found = (bridged.people||[]).filter(p=>p && p.profileUrl);
+      } else if(bridged && bridged.error==='blocked'){
+        track('search_blocked', {});
+        setErr('Search is rate limited right now, so results would be incomplete rather than wrong. Give it a few minutes, or find them on LinkedIn and save from there.');
         setPhase('idle'); return;
+      } else {
+        const {data, error} = await sb.functions.invoke('people-search', {body:{query:kw}});
+        if(error) throw error;
+        if(!data || data.ok===false){
+          if(data && data.error==='not_configured') setNoExt(true);
+          else setErr((data && (data.message||data.error)) || 'Search failed.');
+          setPhase('idle'); return;
+        }
+        found = (data.people||[]).filter(p=>p && p.profileUrl);
+        via = 'api';
       }
-      const found = (data.people||[]).filter(p=>p && p.profileUrl);
+      /* `via` is the whole point of instrumenting this: it tells us whether the
+         extension search path actually works against live Google, which cannot
+         be established from a test harness. */
+      track('search_run', {via, results:found.length,
+        with_facts: found.filter(p=>p.location||p.education).length});
+
       if(!found.length){
         setNote('Nothing came back for that one. Naming a role and a place works best - "product leaders in Boston" beats "smart people in AI".');
         setPhase('idle'); return;
@@ -760,6 +872,13 @@ function Discover({sb, settings, people, onSave, onOpen, go}){
                   <div style={{flex:'1 1 200px',minWidth:0}}>
                     <div style={{fontSize:17,fontWeight:700,letterSpacing:'-.015em'}}>{r.name}</div>
                     <div className="sub" style={{fontSize:14,marginTop:2}}>{r.title||'No headline on the profile'}</div>
+                    {/* The search results page carries more than a headline. These are facts
+                        read off it, not a judgement, so they show before any match reasoning
+                        and stay visible whether or not the AI managed to explain anything. */}
+                    {[r.location, r.education, r.followers && r.followers+' followers'].filter(Boolean).length>0 &&
+                      <div className="meta" style={{marginTop:4}}>
+                        {[r.location, r.education, r.followers && r.followers+' followers'].filter(Boolean).join(' · ')}
+                      </div>}
                     <a href={r.profileUrl} target="_blank" rel="noopener noreferrer"
                       style={{fontSize:13,fontWeight:600,marginTop:4,display:'inline-block'}}>View on LinkedIn</a>
                   </div>
@@ -940,6 +1059,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
   const [approach,setApproach] = useState('curiosity');
   const [draft,setDraft] = useState(row.ai_draft||'');
   const [noteS,setNoteS] = useState(''); const [noteC,setNoteC] = useState(''); const [noteP,setNoteP] = useState('');
+  const [justReplied,setJustReplied] = useState(false);
   const mine = events.filter(e=>e.log_id===row.id);
   const memories = Array.isArray(ctx.memories)?ctx.memories:[];
   const myTasks = tasks.filter(t=>t.log_id===row.id && !t.done);
@@ -947,17 +1067,29 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
   useEffect(()=>{ setDraft(row.ai_draft||''); }, [row.id]);
   const flash = (m)=>{ setToast(m); setTimeout(()=>setToast(null), 2600); };
 
+  /* Everything the extension read off the rendered profile, in one place so the
+     brief and the draft cannot disagree about it. timingSignals matters most:
+     "just moved into this role" changes what is worth writing more than any
+     other single fact, and it exists nowhere else. */
+  const captured = [
+    ctx.skillsText && ('Skills listed: '+clean(ctx.skillsText).slice(0,300)),
+    ctx.certificationsText && ('Certifications: '+clean(ctx.certificationsText).slice(0,200)),
+    ctx.languagesText && ('Languages: '+clean(ctx.languagesText).slice(0,120)),
+    (Array.isArray(ctx.timingSignals)&&ctx.timingSignals.length) && ('Timing: '+ctx.timingSignals.join('; ')),
+  ].filter(Boolean).join('\n');
+
   async function makeBrief(){
     setBusy('brief'); setErr(null);
     try{
       const out = await llmJSON(sb, 'profile_briefing',
         'You prepare someone for a first conversation. Use ONLY the facts given - never invent employers, dates, achievements or posts. If you do not know something, leave that field out. Plain language, no scores, no flattery. Never use em dashes; write a spaced hyphen instead.',
-        `About the person doing the outreach:\n${strategyBrief(settings)}\n\nThe person they want to understand:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nLocation: ${ctx.location||'unknown'}\nEducation: ${ctx.education||'unknown'}\nProfile text captured: ${clean(ctx.aboutText||ctx.snippet||'').slice(0,900)}\nWhy they were saved: ${ctx.whySaved||'unknown'}\nShared ground noted at save time: ${(ctx.common||[]).join('; ')||'none noted'}\n\nReturn JSON {"careerSummary":"2-3 sentences","whyMatters":"1-2 sentences on why this person matters to THIS user's goal","shared":["real overlap"],"starters":["specific opening, grounded in the facts above"],"avoid":"one thing not to lead with, or omit"}`,
+        `About the person doing the outreach:\n${strategyBrief(settings)}\n\nThe person they want to understand:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nLocation: ${ctx.location||'unknown'}\nEducation: ${ctx.education||'unknown'}\nProfile text captured: ${clean(ctx.aboutText||ctx.snippet||'').slice(0,900)}\n${captured||''}\nWhy they were saved: ${ctx.whySaved||'unknown'}\nShared ground noted at save time: ${(ctx.common||[]).join('; ')||'none noted'}\n\nReturn JSON {"careerSummary":"2-3 sentences","whyMatters":"1-2 sentences on why this person matters to THIS user's goal","shared":["real overlap"],"starters":["specific opening, grounded in the facts above"],"avoid":"one thing not to lead with, or omit"}`,
         1000);
       const briefing = {...br, careerSummary:clean(out.careerSummary), whyMatters:clean(out.whyMatters),
         shared:Array.isArray(out.shared)?out.shared:[], conversationStarters:Array.isArray(out.starters)?out.starters:[],
         avoid:clean(out.avoid), builtAt:new Date().toISOString()};
       await onUpdate(row, {briefing});
+      track('brief_built', {shared:(briefing.shared||[]).length, starters:(briefing.conversationStarters||[]).length});
       flash('Brief ready');
     }catch(e){ setErr(e.message||String(e)); }
     setBusy(null);
@@ -969,10 +1101,11 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
     try{
       const out = await llmJSON(sb, 'draft_message',
         "You write a real first outreach message for a professional. Ground it ONLY in the given context - never invent shared history, mutual friends, articles or events. Sound like a person, not a template. No flattery, no buzzwords, no 'I hope this finds you well'. Under 110 words. Ask for one specific, easy thing. Never use em dashes; write a spaced hyphen instead.",
-        `The sender:\n${strategyBrief(settings)}\n\nThe recipient:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nWhy the sender saved them: ${ctx.whySaved||'unknown'}\nShared ground: ${((br.shared&&br.shared.length?br.shared:ctx.common)||[]).join('; ')||'none confirmed'}\nBrief: ${br.careerSummary||'none'}\nThings the sender has learned about them: ${memories.map(m=>m.value).join('; ')||'nothing captured yet'}\n\nApproach: ${a.label} - ${a.brief}.\n\nReturn JSON {"subject":"short subject line for email use","message":"the message body"}`,
+        `The sender:\n${strategyBrief(settings)}\n\nThe recipient:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nWhy the sender saved them: ${ctx.whySaved||'unknown'}\nShared ground: ${((br.shared&&br.shared.length?br.shared:ctx.common)||[]).join('; ')||'none confirmed'}\nBrief: ${br.careerSummary||'none'}\nThings the sender has learned about them: ${memories.map(m=>m.value).join('; ')||'nothing captured yet'}\n${captured||''}\n\nApproach: ${a.label} - ${a.brief}.\n\nReturn JSON {"subject":"short subject line for email use","message":"the message body"}`,
         800);
       setDraft(clean(out.message));
       await onUpdate(row, {ai_draft:clean(out.message), status: row.status==='prospect'?'ready_to_contact':row.status});
+      track('draft_written', {approach, had_brief: !!br.careerSummary, memories: memories.length});
       flash('Draft written - you always click send');
     }catch(e){ setErr(e.message||String(e)); }
     setBusy(null);
@@ -985,6 +1118,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
       await onStage(row, 'contacted');
       await onEvent(row, 'first_message', draft.slice(0,400));
     }
+    track('draft_copied', {stage: row.status});
     flash('Copied. Paste it, read it once more, then click Send yourself.');
   }
 
@@ -1013,14 +1147,37 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
           await onTask({label:clean(p), sub:'You promised '+(row.name||'them'), log_id:row.id,
             due_date:new Date(Date.now()+dueDays*DAY).toISOString().slice(0,10)});
       }catch(e){}
+      track('capture_saved', {after_reply: justReplied, fields:[noteS,noteC,noteP].filter(x=>clean(x)).length});
       setNoteS(''); setNoteC(''); setNoteP('');
+      setJustReplied(false);
       flash('Captured');
+    }catch(e){ setErr(e.message||String(e)); }
+    setBusy(null);
+  }
+
+  /* The reply signal. Two things happen and only the first one is required:
+     the stage moves and a real 'reply' event lands, which is what Today,
+     buildPlan and every later pattern read. Then capture is offered, because
+     a reply just arrived is the one moment the words are still to hand. If she
+     ignores the capture the signal is already saved - never make the cheap,
+     valuable half wait on the expensive, optional half. */
+  async function markReplied(){
+    setBusy('reply'); setErr(null);
+    try{
+      await onEvent(row, 'reply', null);
+      if(row.status!=='replied') await onStage(row, 'replied');
+      track('reply_logged', {days_since_sent: Math.max(0, Math.round(days(row.contacted_at)||0))});
+      setJustReplied(true);
+      setTab('notes');
+      flash('Logged. What did they say?');
     }catch(e){ setErr(e.message||String(e)); }
     setBusy(null);
   }
 
   const TABS = [['overview','Overview'],['brief','AI Brief'],['draft','Draft message'],['timeline','Timeline'],['notes','Notes']];
   const nextStage = ORDER[Math.min(ORDER.indexOf(row.status)+1, ORDER.length-1)];
+  /* Only asked once a message has actually gone out, and only until they answer. */
+  const askedReplied = row.status==='contacted';
 
   return (
     <div className="pad fade" style={{maxWidth:820,paddingTop:28}}>
@@ -1052,12 +1209,36 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
       </div>
       {err && <div className="banner err" style={{marginTop:14}}>{err}</div>}
 
+      {askedReplied &&
+        <div className="card" style={{marginTop:16,padding:'16px 20px',display:'flex',gap:14,
+             alignItems:'center',flexWrap:'wrap',background:'var(--brand-soft)',borderColor:'var(--brand-line)'}}>
+          <div style={{flex:'1 1 260px',minWidth:0}}>
+            <div style={{fontSize:15,fontWeight:700,color:'var(--ink)'}}>Did they reply?</div>
+            <div className="sub" style={{fontSize:13.5,marginTop:2}}>
+              You wrote to them {ago(row.contacted_at)||'recently'}. Telling Mighty is how it learns what works.
+            </div>
+          </div>
+          <button className="btn sm" onClick={markReplied} disabled={busy==='reply'}>
+            {busy==='reply' ? <span><span className="spin"/> Saving</span> : 'They replied'}
+          </button>
+        </div>}
+
       <div className="tabs" style={{marginTop:26}}>
         {TABS.map(([k,l])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)}>{l}</button>)}
       </div>
 
       {tab==='overview' &&
         <div className="stack fade" style={{gap:16,marginTop:24}}>
+          {/* A timing signal is the rare fact with a short shelf life, so it goes
+              above the reason they were saved rather than in a details table. */}
+          {Array.isArray(ctx.timingSignals) && ctx.timingSignals.length>0 &&
+            <div className="card" style={{padding:'16px 20px',background:'var(--brand-soft)',borderColor:'var(--brand-line)'}}>
+              <div className="eyebrow" style={{color:'var(--brand-ink)'}}>Worth knowing now</div>
+              <div style={{fontSize:15,fontWeight:600,color:'var(--ink2)',marginTop:5}}>
+                {ctx.timingSignals.join(' · ')}
+              </div>
+            </div>}
+
           <div className="card" style={{padding:'22px 24px'}}>
             <div className="eyebrow">Why you saved them</div>
             <div style={{fontSize:16,fontWeight:700,marginTop:7,letterSpacing:'-.01em',textWrap:'pretty'}}>
@@ -1226,12 +1407,18 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
       {tab==='notes' &&
         <div className="stack fade" style={{gap:16,marginTop:24}}>
           <div className="card" style={{padding:'22px 24px'}}>
-            <div className="h4">Quick capture</div>
-            <div className="sub" style={{fontSize:13.5,marginTop:3}}>Under a minute. Mighty structures the rest.</div>
+            <div className="h4">{justReplied ? 'What did they say?' : 'Quick capture'}</div>
+            <div className="sub" style={{fontSize:13.5,marginTop:3}}>
+              {justReplied
+                ? 'Paste their reply, or the gist of it. This is what makes the next message worth reading.'
+                : 'Under a minute. Mighty structures the rest.'}
+            </div>
             <div className="stack" style={{gap:14,marginTop:18}}>
-              <div><div className="lbl">What happened?</div>
-                <textarea className="inp" value={noteS} onChange={e=>setNoteS(e.target.value)}
-                  placeholder="Coffee at Flour, talked about their AI platform roadmap…"/></div>
+              <div><div className="lbl">{justReplied ? 'Their reply' : 'What happened?'}</div>
+                <textarea className="inp" autoFocus={justReplied} value={noteS} onChange={e=>setNoteS(e.target.value)}
+                  placeholder={justReplied
+                    ? 'Happy to chat. I am in Boston most of next week…'
+                    : 'Coffee at Flour, talked about their AI platform roadmap…'}/></div>
               <div><div className="lbl">Did either of you promise anything?</div>
                 <textarea className="inp" style={{minHeight:52}} value={noteC} onChange={e=>setNoteC(e.target.value)}
                   placeholder="I'll send the governance paper by Friday."/></div>
@@ -1731,13 +1918,18 @@ function Gate({sb}){
   const [busy,setBusy] = useState(false); const [msg,setMsg] = useState(null); const [err,setErr] = useState(null);
   async function go(){
     setErr(null); setMsg(null);
-    if(!MIT_RE.test(clean(email))){ setErr('Use your @mit.edu email address.'); return; }
+    /* Signup is open. The MIT check that used to live here was browser-side
+       only, so it excluded the founders, recruiters and investors this is for
+       while stopping nobody who opened devtools. Abuse is handled where it
+       actually costs money instead: assists are granted only once a LinkedIn
+       profile is claimed, and a profile can be claimed by one account. */
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(clean(email))){ setErr('That does not look like an email address.'); return; }
     setBusy(true);
     try{
       if(mode==='up'){
         const {error} = await sb.auth.signUp({email:clean(email), password:pw});
         if(error) throw error;
-        setMsg('Account created. Check your @mit.edu inbox for the confirmation link, then sign in.'); setMode('in');
+        setMsg('Account created. Check your inbox for the confirmation link, then sign in.'); setMode('in');
       } else if(mode==='in'){
         const {error} = await sb.auth.signInWithPassword({email:clean(email), password:pw});
         if(error) throw error;
@@ -1756,9 +1948,9 @@ function Gate({sb}){
         <h2 className="h2">{mode==='up'?'Create your account':mode==='in'?'Welcome back':'Reset your password'}</h2>
         <div className="sub" style={{marginTop:6}}>The operating system for professional relationships.</div>
         <div className="card" style={{marginTop:22,padding:'22px 24px'}}>
-          <div className="lbl">MIT email</div>
+          <div className="lbl">Email</div>
           <input className="inp" type="email" value={email} onChange={e=>setEmail(e.target.value)}
-            placeholder="you@mit.edu" autoComplete="email"/>
+            placeholder="you@work.com" autoComplete="email"/>
           {mode!=='reset' &&
             <div style={{marginTop:14}}>
               <div className="lbl">Password</div>
@@ -1809,7 +2001,7 @@ const QUESTION = {today:'What deserves my attention?', strategy:'Why am I networ
   profile:'Is this relationship worth investing in?', ask:'What should I do?',
   settings:'How does Mighty work for me?', extension:'Save people while you browse.'};
 
-function Shell({screen, go, savedCount, email, onSignOut, children}){
+function Shell({screen, go, savedCount, email, onSignOut, aiMeta, children}){
   const active = (k)=> k===screen || (k==='people'&&screen==='profile') || (k==='settings'&&screen==='extension');
   const navBtn = (on)=>({display:'flex',alignItems:'center',gap:11,padding:'10px 12px',borderRadius:10,width:'100%',
     textAlign:'left',fontSize:14.5,fontWeight:600,
@@ -1848,6 +2040,17 @@ function Shell({screen, go, savedCount, email, onSignOut, children}){
         <header className="hdr" style={{flex:'none',display:'flex',alignItems:'center',justifyContent:'space-between',
           gap:14,padding:'22px 48px',borderBottom:'1px solid #EEEAE4',background:'var(--paper)',position:'sticky',top:0,zIndex:5}}>
           <h1 style={{margin:0,fontSize:22,fontWeight:700,letterSpacing:'-.02em'}}>{QUESTION[screen]||''}</h1>
+          {/* Only shown once the proxy has actually told us a number. Guessing
+              at an allowance is worse than saying nothing about it. */}
+          {aiMeta && aiMeta.assistsLeftMonth!=null &&
+            <span className="pill" title={'Plan: '+(aiMeta.plan||'unknown')}
+              style={{background:aiMeta.assistsLeftMonth===0?'var(--red-soft)':'var(--brand-soft2)',
+                      color:aiMeta.assistsLeftMonth===0?'#8E4238':'var(--brand-ink)',
+                      padding:'5px 12px',fontSize:12.5,fontWeight:700,whiteSpace:'nowrap'}}>
+              {aiMeta.assistsLeftMonth===0
+                ? 'No assists left this month'
+                : aiMeta.assistsLeftMonth+' assist'+(aiMeta.assistsLeftMonth===1?'':'s')+' left'}
+            </span>}
           <div className="mobnav" style={{gap:7,overflowX:'auto'}}>
             {NAV.map(([k,label])=>(
               <button key={k} className={'chip'+(active(k)?' on':'')} onClick={()=>go({screen:k})}>{label}</button>))}
@@ -1873,6 +2076,7 @@ function App(){
   const [relView,setRelView] = useState('list');
   const [editStrategy,setEditStrategy] = useState(false);
   const [busySave,setBusySave] = useState(false);
+  const [aiMeta,setAiMeta] = useState(null);
   const [err,setErr] = useState(null);
   const pulled = useRef(false);
 
@@ -1938,13 +2142,24 @@ function App(){
               // Merge, never replace - the row may already carry location, education
               // and the reason it was saved, and a blind overwrite would lose them.
               const prev = existing.context||{};
+              /* The extension sends more than this used to keep. skillsText,
+                 languagesText, certificationsText and timingSignals were all
+                 parsed off the rendered profile and then dropped on the floor
+                 here, so the work was being done and thrown away. Skills feed
+                 the extension's own shared-ground scoring, and timingSignals is
+                 the only source of "just moved into this role", which is the
+                 single most useful thing to know before writing to someone. */
               const next = {...prev,
                 aboutText:p.aboutText||prev.aboutText||'',
                 experienceText:p.experienceText||prev.experienceText||'',
                 educationText:p.educationText||prev.educationText||'',
+                skillsText:p.skillsText||prev.skillsText||'',
+                languagesText:p.languagesText||prev.languagesText||'',
+                certificationsText:p.certificationsText||prev.certificationsText||'',
                 mutualConnectionsRaw:p.mutualConnectionsRaw||prev.mutualConnectionsRaw||'',
                 capturedAt:nowIso};
               if(p.location) next.location = p.location;
+              if(Array.isArray(p.timingSignals) && p.timingSignals.length) next.timingSignals = p.timingSignals;
               await sb.from('outreach_log').update({context:next, updated_at:nowIso}).eq('id',existing.id);
             }
           } else {
@@ -1983,10 +2198,19 @@ function App(){
   async function saveSettings(patch){
     if(!sb || auth.status!=='in') return;
     setBusySave(true);
+    const firstRun = !settings.goalType;
     const next = {...(blob||{}), settings:{...settings, ...patch}};
     setBlob(next);
     try{ await sb.from('user_data').upsert({user_id:auth.user.id, data:next, updated_at:new Date().toISOString()}); }
     catch(e){ setErr('Saved on this device, but syncing failed: '+(e.message||'unknown error')); }
+    /* Counts only: which goal, how many targets named, whether this was the
+       first time. Never the goal text itself, which is free prose. */
+    track(firstRun?'strategy_first_saved':'strategy_updated', {
+      goal_type: next.settings.goalType || 'none',
+      roles: (next.settings.targetRoles||[]).length,
+      companies: (next.settings.targetCompanies||[]).length,
+      schools: (next.settings.schools||[]).length,
+    });
     setBusySave(false);
   }
 
@@ -1999,6 +2223,7 @@ function App(){
       await sb.from('outreach_log').upsert({user_id:auth.user.id, profile_url:p.profileUrl,
         name:p.name||null, title:p.title||null, company:p.company||null, context:ctx,
         updated_at:new Date().toISOString()}, {onConflict:'user_id,profile_url'});
+      track('person_saved', {source:'search', verdict:p.verdict||'none', facts:[p.location,p.education,p.followers].filter(Boolean).length});
       await refreshPeople(auth.user);
     }catch(e){ setErr('Could not save that person: '+(e.message||'unknown error')); }
   }
@@ -2022,6 +2247,7 @@ function App(){
     if(to==='contacted' && !row.contacted_at) fields.contacted_at = new Date().toISOString();
     await updateRow(row, fields);
     await logEvent(row, 'stage_change', null, {extracted:{from:row.status, to}});
+    track('stage_changed', {to, from:row.status});
   }
   async function addTask(t){
     try{
@@ -2050,6 +2276,17 @@ function App(){
       window.history.replaceState({}, '', window.location.pathname);
     }
   },[people]);
+
+  /* Bind instrumentation once, and note whether the extension answered. That
+     one flag is how we learn in production whether the search bridge works,
+     which is otherwise only testable by hand in a real browser. */
+  useEffect(()=>{
+    if(auth.status!=='in' || !sb || !auth.user) return;
+    bindTracking(sb, auth.user);
+    onAiMeta(setAiMeta);
+    const t = setTimeout(()=>track('session_start', {extension: extBridge.isReady()}), 1500);
+    return ()=>clearTimeout(t);
+  },[auth.status, sb, auth.user]);
 
   /* Coming back from LinkedIn is the moment new extension saves should appear. */
   useEffect(()=>{
@@ -2092,7 +2329,7 @@ function App(){
   const signOut = async()=>{ await sb.auth.signOut(); window.location.href='../'; };
 
   return (
-    <Shell screen={screen} go={go} savedCount={people.length} email={auth.user.email} onSignOut={signOut}>
+    <Shell screen={screen} go={go} savedCount={people.length} email={auth.user.email} onSignOut={signOut} aiMeta={aiMeta}>
       {err && <div className="banner warn" style={{margin:'20px 48px 0'}}>{err}</div>}
 
       {screen==='today' &&

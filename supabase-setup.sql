@@ -27,25 +27,21 @@ drop policy if exists "own row update" on public.user_data;
 create policy "own row update" on public.user_data
   for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
--- 3. Restrict sign-up to MIT addresses (mit.edu and any *.mit.edu subdomain).
--- Server-side guard - the client also checks, but this is the real gate.
-create or replace function public.enforce_mit_email()
-returns trigger
-language plpgsql
-security definer
-as $$
-begin
-  if new.email !~* '@([a-z0-9-]+\.)*mit\.edu$' then
-    raise exception 'Registration is limited to @mit.edu email addresses.';
-  end if;
-  return new;
-end;
-$$;
-
+-- 3. Sign-up is OPEN. There used to be a trigger here restricting registration
+-- to @mit.edu addresses, enforced properly at the database level. It is removed
+-- deliberately: Mighty is for founders, recruiters, investors and operators as
+-- well as students, and an email-domain gate turned all of them away.
+--
+-- Abuse moved to where it actually costs money rather than where it is easy to
+-- check. Assists are granted only once a LinkedIn profile has been claimed, and
+-- a profile URL can be claimed by one account, so farming trials needs a new
+-- real LinkedIn profile each time - and a profile with no history is useless
+-- here, because there is nothing to import or enrich. Email addresses are free
+-- and infinite; LinkedIn profiles worth having are neither.
+--
+-- Both statements are safe to run on a database that never had the trigger.
 drop trigger if exists enforce_mit_email_trg on auth.users;
-create trigger enforce_mit_email_trg
-  before insert on auth.users
-  for each row execute function public.enforce_mit_email();
+drop function if exists public.enforce_mit_email();
 
 -- 4. Outreach inbox - the browser extension writes shortlisted profiles,
 -- send-confirmations, and captured profile context here directly (one
@@ -433,10 +429,48 @@ create policy "wl insert public" on public.waitlist
   with check (email is not null and length(email) between 3 and 200);
 -- no select/update/delete policy - entries are visible only via the service role / SQL editor.
 
+-- 9. Product events - the only instrumentation in the product, and deliberately
+-- our own table rather than a third-party analytics service. We tell users that
+-- nothing they write about a person leaves their account; shipping behavioural
+-- data to a vendor a week later would make that untrue in spirit even if the
+-- events looked harmless. Here it is subject to the same RLS, the same export
+-- and the same delete path as everything else.
+--
+-- These events are COUNTS AND CATEGORIES ONLY. No names, no emails, no URLs, no
+-- note text, ever. The client's track() enforces that structurally by dropping
+-- any string that does not look like an enum value, so a leak needs someone to
+-- defeat the sanitizer rather than merely forget the rule.
+--
+-- You read these in SQL, e.g. capture rate over the last 30 days:
+--   select count(distinct user_id) filter (where event = 'capture_saved')::float
+--        / nullif(count(distinct user_id), 0)
+--   from public.app_events where created_at > now() - interval '30 days';
+create table if not exists public.app_events (
+  id         bigint generated always as identity primary key,
+  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  event      text not null check (length(event) between 2 and 40),
+  props      jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+create index if not exists app_events_user_time_idx  on public.app_events (user_id, created_at desc);
+create index if not exists app_events_event_time_idx on public.app_events (event, created_at desc);
+
+alter table public.app_events enable row level security;
+-- Insert-only from the client. A user may write and read their own rows, which
+-- keeps the export path honest, but cannot update or delete a single event: the
+-- funnel would stop meaning anything if rows could be rewritten. Deleting the
+-- account removes them all via the cascade above, which is the real delete path.
+drop policy if exists "ev insert own" on public.app_events;
+create policy "ev insert own" on public.app_events
+  for insert to authenticated with check (auth.uid() = user_id);
+drop policy if exists "ev select own" on public.app_events;
+create policy "ev select own" on public.app_events
+  for select to authenticated using (auth.uid() = user_id);
+
 -- ============================================================
 -- Also in the dashboard (not SQL):
 -- • Authentication → Providers → Email: ENABLED, "Confirm email" ON
--- (so only someone who controls the @mit.edu inbox can activate an account).
+-- (so only someone who controls the inbox can activate an account).
 -- • Authentication → URL Configuration → Site URL: your GitHub Pages URL
 -- (so confirmation / password-reset links point back to the app).
 -- • Edge Functions → sheets-sync → Secrets: set GOOGLE_SERVICE_ACCOUNT_JSON

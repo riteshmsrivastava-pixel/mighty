@@ -1,10 +1,10 @@
 # MIghTy - setup (for whoever deploys this, not for students)
 
-A single static file (`index.html`) plus a browser extension. **Students never see or configure anything technical** - they just sign in with their `@mit.edu` email. Every backend detail below (Supabase, AI) is a one-time step for you, the deployer, baked directly into the code.
+A single static file (`index.html`) plus a browser extension. **Users never see or configure anything technical** - they just sign in with their email. Every backend detail below (Supabase, AI) is a one-time step for you, the deployer, baked directly into the code.
 
 ## 1. Create the Supabase project
 1. Create a free project at [supabase.com](https://supabase.com).
-2. **SQL Editor → New query** → paste all of [`supabase-setup.sql`](supabase-setup.sql) → **Run**. This creates every table (per-user settings, outreach log/inbox/events, tasks, AI usage, community stats), row-level security, the weekly-cap trigger, and the `@mit.edu`-only sign-up rule. Safe to re-run any time.
+2. **SQL Editor → New query** → paste all of [`supabase-setup.sql`](supabase-setup.sql) → **Run**. This creates every table (per-user settings, outreach log/inbox/events, tasks, AI usage, community stats), row-level security, the weekly-cap trigger, and the product-events table. Safe to re-run any time.
 3. **Authentication → Providers → Email**: enabled, **Confirm email ON**.
 4. **Authentication → URL Configuration → Site URL**: your GitHub Pages URL.
 5. **Project Settings → API**: copy the **Project URL** and **anon public key**.
@@ -69,5 +69,5 @@ See [`extension/INSTALL.md`](extension/INSTALL.md). Same baked-in Supabase proje
 - **Stores only what students put in** - templates, shortlisted profiles, profile context, messages sent, status, priority, notes, and the events they log (coffee chats, referrals, interviews, notes, stage changes).
 - **No LinkedIn password, ever.** The extension reads pages through the student's own logged-in browser session and only observes clicks they make - it never simulates one.
 - **No Anthropic key, ever, for students.** The shared proxy holds one key server-side; a daily cap bounds cost.
-- Sign-up is restricted to `@mit.edu` addresses.
+- Sign-up is open. Abuse is limited by requiring a claimed LinkedIn profile before assists are granted, not by email domain.
 - Community insights are opt-in and aggregate-only - see above.
