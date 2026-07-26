@@ -1067,12 +1067,23 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
   useEffect(()=>{ setDraft(row.ai_draft||''); }, [row.id]);
   const flash = (m)=>{ setToast(m); setTimeout(()=>setToast(null), 2600); };
 
+  /* Everything the extension read off the rendered profile, in one place so the
+     brief and the draft cannot disagree about it. timingSignals matters most:
+     "just moved into this role" changes what is worth writing more than any
+     other single fact, and it exists nowhere else. */
+  const captured = [
+    ctx.skillsText && ('Skills listed: '+clean(ctx.skillsText).slice(0,300)),
+    ctx.certificationsText && ('Certifications: '+clean(ctx.certificationsText).slice(0,200)),
+    ctx.languagesText && ('Languages: '+clean(ctx.languagesText).slice(0,120)),
+    (Array.isArray(ctx.timingSignals)&&ctx.timingSignals.length) && ('Timing: '+ctx.timingSignals.join('; ')),
+  ].filter(Boolean).join('\n');
+
   async function makeBrief(){
     setBusy('brief'); setErr(null);
     try{
       const out = await llmJSON(sb, 'profile_briefing',
         'You prepare someone for a first conversation. Use ONLY the facts given - never invent employers, dates, achievements or posts. If you do not know something, leave that field out. Plain language, no scores, no flattery. Never use em dashes; write a spaced hyphen instead.',
-        `About the person doing the outreach:\n${strategyBrief(settings)}\n\nThe person they want to understand:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nLocation: ${ctx.location||'unknown'}\nEducation: ${ctx.education||'unknown'}\nProfile text captured: ${clean(ctx.aboutText||ctx.snippet||'').slice(0,900)}\nWhy they were saved: ${ctx.whySaved||'unknown'}\nShared ground noted at save time: ${(ctx.common||[]).join('; ')||'none noted'}\n\nReturn JSON {"careerSummary":"2-3 sentences","whyMatters":"1-2 sentences on why this person matters to THIS user's goal","shared":["real overlap"],"starters":["specific opening, grounded in the facts above"],"avoid":"one thing not to lead with, or omit"}`,
+        `About the person doing the outreach:\n${strategyBrief(settings)}\n\nThe person they want to understand:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nLocation: ${ctx.location||'unknown'}\nEducation: ${ctx.education||'unknown'}\nProfile text captured: ${clean(ctx.aboutText||ctx.snippet||'').slice(0,900)}\n${captured||''}\nWhy they were saved: ${ctx.whySaved||'unknown'}\nShared ground noted at save time: ${(ctx.common||[]).join('; ')||'none noted'}\n\nReturn JSON {"careerSummary":"2-3 sentences","whyMatters":"1-2 sentences on why this person matters to THIS user's goal","shared":["real overlap"],"starters":["specific opening, grounded in the facts above"],"avoid":"one thing not to lead with, or omit"}`,
         1000);
       const briefing = {...br, careerSummary:clean(out.careerSummary), whyMatters:clean(out.whyMatters),
         shared:Array.isArray(out.shared)?out.shared:[], conversationStarters:Array.isArray(out.starters)?out.starters:[],
@@ -1090,7 +1101,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
     try{
       const out = await llmJSON(sb, 'draft_message',
         "You write a real first outreach message for a professional. Ground it ONLY in the given context - never invent shared history, mutual friends, articles or events. Sound like a person, not a template. No flattery, no buzzwords, no 'I hope this finds you well'. Under 110 words. Ask for one specific, easy thing. Never use em dashes; write a spaced hyphen instead.",
-        `The sender:\n${strategyBrief(settings)}\n\nThe recipient:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nWhy the sender saved them: ${ctx.whySaved||'unknown'}\nShared ground: ${((br.shared&&br.shared.length?br.shared:ctx.common)||[]).join('; ')||'none confirmed'}\nBrief: ${br.careerSummary||'none'}\nThings the sender has learned about them: ${memories.map(m=>m.value).join('; ')||'nothing captured yet'}\n\nApproach: ${a.label} - ${a.brief}.\n\nReturn JSON {"subject":"short subject line for email use","message":"the message body"}`,
+        `The sender:\n${strategyBrief(settings)}\n\nThe recipient:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nWhy the sender saved them: ${ctx.whySaved||'unknown'}\nShared ground: ${((br.shared&&br.shared.length?br.shared:ctx.common)||[]).join('; ')||'none confirmed'}\nBrief: ${br.careerSummary||'none'}\nThings the sender has learned about them: ${memories.map(m=>m.value).join('; ')||'nothing captured yet'}\n${captured||''}\n\nApproach: ${a.label} - ${a.brief}.\n\nReturn JSON {"subject":"short subject line for email use","message":"the message body"}`,
         800);
       setDraft(clean(out.message));
       await onUpdate(row, {ai_draft:clean(out.message), status: row.status==='prospect'?'ready_to_contact':row.status});
@@ -1218,6 +1229,16 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
 
       {tab==='overview' &&
         <div className="stack fade" style={{gap:16,marginTop:24}}>
+          {/* A timing signal is the rare fact with a short shelf life, so it goes
+              above the reason they were saved rather than in a details table. */}
+          {Array.isArray(ctx.timingSignals) && ctx.timingSignals.length>0 &&
+            <div className="card" style={{padding:'16px 20px',background:'var(--brand-soft)',borderColor:'var(--brand-line)'}}>
+              <div className="eyebrow" style={{color:'var(--brand-ink)'}}>Worth knowing now</div>
+              <div style={{fontSize:15,fontWeight:600,color:'var(--ink2)',marginTop:5}}>
+                {ctx.timingSignals.join(' · ')}
+              </div>
+            </div>}
+
           <div className="card" style={{padding:'22px 24px'}}>
             <div className="eyebrow">Why you saved them</div>
             <div style={{fontSize:16,fontWeight:700,marginTop:7,letterSpacing:'-.01em',textWrap:'pretty'}}>
@@ -2121,13 +2142,24 @@ function App(){
               // Merge, never replace - the row may already carry location, education
               // and the reason it was saved, and a blind overwrite would lose them.
               const prev = existing.context||{};
+              /* The extension sends more than this used to keep. skillsText,
+                 languagesText, certificationsText and timingSignals were all
+                 parsed off the rendered profile and then dropped on the floor
+                 here, so the work was being done and thrown away. Skills feed
+                 the extension's own shared-ground scoring, and timingSignals is
+                 the only source of "just moved into this role", which is the
+                 single most useful thing to know before writing to someone. */
               const next = {...prev,
                 aboutText:p.aboutText||prev.aboutText||'',
                 experienceText:p.experienceText||prev.experienceText||'',
                 educationText:p.educationText||prev.educationText||'',
+                skillsText:p.skillsText||prev.skillsText||'',
+                languagesText:p.languagesText||prev.languagesText||'',
+                certificationsText:p.certificationsText||prev.certificationsText||'',
                 mutualConnectionsRaw:p.mutualConnectionsRaw||prev.mutualConnectionsRaw||'',
                 capturedAt:nowIso};
               if(p.location) next.location = p.location;
+              if(Array.isArray(p.timingSignals) && p.timingSignals.length) next.timingSignals = p.timingSignals;
               await sb.from('outreach_log').update({context:next, updated_at:nowIso}).eq('id',existing.id);
             }
           } else {
