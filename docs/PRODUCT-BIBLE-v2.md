@@ -1871,6 +1871,49 @@ founder rule.
 - Deep passive capture (email reading, meeting transcription) - capture is
   explicit and user-confirmed first.
 
+## 6. Build Order - Vertical Slices, Not Screens
+
+Build in slices that each prove one model end to end. Building isolated pages
+validates nothing; a slice can be used, and therefore judged.
+
+**Slice 0 - Minimal intent.** Capture just enough strategy for ranking to
+mean anything: primary goal, target roles, target companies, geography. Not
+the full six-step flow - the smallest input that makes Discover personal
+rather than generic. Intent Drives Everything is a principle from the first
+search, so this cannot wait for Slice 5.
+
+**Slice 1 - Discover to Save.** Search, evaluate, save. Natural-language
+query, match cards with explanation-first reasoning, Save and Skip. Proves the
+discovery model: can Mighty find people worth meeting, and explain why?
+
+**Slice 2 - The saved relationship.** Open a saved person: profile, AI Brief,
+a Draft tab (simple is fine), Notes, Timeline placeholder. Proves the
+relationship model: is a saved person genuinely more useful inside Mighty than
+as a LinkedIn tab?
+
+**Slice 3 - Relationship management.** List, Board, Timeline, all backed by
+the same single stage field. Proves the pipeline model: can a user answer
+"where am I with everyone?" at a glance?
+
+**Slice 4 - Today.** Only now. Today recommends against real relationship
+data - "what should I recommend based on what actually exists?" Built earlier,
+Today is forced to fake work, and a faked daily plan teaches users to ignore
+it.
+
+**Slice 5 - Strategy, fully wired.** The living Strategy surface with progress
+and AI adjustments, threaded into Discover ranking, AI drafts, Today
+priorities, and Ask Mighty context. Now the product feels personalized rather
+than merely functional.
+
+This sequence validates the core loop - Strategy, Discover, Save, Understand,
+Build Relationship - early. The unlock engine, Ask Mighty depth, the
+extension, and richer intelligence all layer on top of a relationship
+operating system that already works.
+
+Note for Slices 3 and 4: Board, Timeline, and several Today behaviors sit
+behind unlocks, so development needs a seeded account to see them. Use the
+mock harness, not lowered thresholds.
+
 ---
 
 # Part V - The Unlock Engine
@@ -1963,6 +2006,14 @@ Decisions of 2026-07-25/26 that shaped v2:
     navigation, one philosophy.
 11. **One evolving document.** This file is overwritten in place as the
     Bible evolves; no v3 file. Git history is the version history.
+12. **Build in vertical slices, not screens** (Part IV.6). Each slice proves
+    one model end to end, in this order: minimal intent, Discover-to-Save,
+    the saved relationship, relationship management, Today, then Strategy
+    fully wired. Today comes late deliberately - built early it would have to
+    fake work.
+13. **Design phase closed.** The Bible is stable. New ideas earn their way in
+    through implementation and user feedback, not further restructuring.
+    Changing the architecture means changing the Bible first.
 
 Permanent rules restated: You Always Click Send. Capture is the product.
 "Mighty knows" is banned - always "Things you've learned." Never delete
