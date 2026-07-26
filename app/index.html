@@ -201,6 +201,7 @@ const DEFAULT = {
     communityOptIn: false,
     pipeline: 'job_search', // which stage vocabulary the funnel uses
     stageLabels: {},        // optional per-stage label overrides
+    unlocksSeen: null,      // progressive-disclosure: unlock keys already celebrated (null = pre-v1.3 account, seed silently)
     onboardedAt: null,      // set once the first-run setup is finished/skipped
   },
 };
@@ -341,6 +342,7 @@ function NavIcon({name}){
     intelligence: <><path d="M3 12h3l2.5-7 4 14 2.5-7H21"/></>,
     settings: <><circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.4M12 18.6V21M3 12h2.4M18.6 12H21M5.6 5.6l1.7 1.7M16.7 16.7l1.7 1.7M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7"/></>,
     extension: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9.5h18"/></>,
+    discover: <><circle cx="11" cy="11" r="6.5"/><path d="M15.8 15.8 21 21"/></>,
   };
   return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{flex:'none'}}>{P[name]}</svg>;
 }
@@ -795,6 +797,27 @@ function memoryReview(log){
   return {toConfirm, expiring};
 }
 
+/* ============================ Progressive disclosure (Bible v1.3 §3.5) ============================
+   Features never unlock on a timer — they unlock on meaningful user events, so
+   the app is tiny on Day 1 and grows as the user's data makes each screen
+   non-empty. All thresholds live here; the UI only asks canSee(). "Data before
+   UI": never show an empty dashboard, never show analytics without data. */
+const UNLOCKS = {
+  people:   { test:(log,ev)=>log.length>=5,
+              title:'People', go:'people',
+              msg:'Five relationships saved — see everyone in one place.' },
+  pipeline: { test:(log,ev)=>log.length>=5,
+              title:'Pipeline view', go:'pipeline',
+              msg:'Track where each relationship stands, stage by stage.' },
+  insights: { test:(log,ev)=>log.filter(r=>REACHED.includes(r.status)).length>=3,
+              title:'Intelligence', go:'insights',
+              msg:'Three messages out — Mighty can start showing what works.' },
+};
+function computeUnlocks(log, events){
+  const out={}; Object.keys(UNLOCKS).forEach(k=>{ try{ out[k]=!!UNLOCKS[k].test(log,events); }catch(e){ out[k]=false; } });
+  return out;
+}
+
 /* ---- #11 Identity & asset sharing (§15) -------------------------------------
    Networking is reciprocal: you don't just take context, you give it. Mighty
    holds your shareable assets (resume, portfolio, deck, card, scheduling link…)
@@ -1195,12 +1218,43 @@ function App(){
 
   async function signOut(){ if(sb){ await sb.auth.signOut(); } window.location.href = '../'; }
 
+  // Progressive disclosure: the rail starts at Home / Discover / Settings and
+  // grows as the user's data earns each screen. Pipeline and Tasks have no rail
+  // slot at all — Pipeline is a view inside People, Tasks a section inside Home.
+  const un = computeUnlocks(log, events);
   const RAIL = [
-    ['dashboard','home','Home'],['people','people','Relationships'],['pipeline','pipeline','Pipeline'],
-    ['tasks','tasks','Tasks'],['insights','intelligence','Intelligence'],['settings','settings','Settings'],
+    ['dashboard','home','Home'],
+    ['discover','discover','Discover'],
+    ...(un.people ? [['people','people','People']] : []),
+    ...(un.insights ? [['insights','intelligence','Intelligence']] : []),
+    ['settings','settings','Settings'],
   ];
-  const TITLES = {dashboard:'Home',people:'Relationships',pipeline:'Pipeline',tasks:'Tasks',insights:'Intelligence',settings:'Settings',templates:'Message templates',extpreview:'Extension preview'};
-  const SUBTITLES = {dashboard:'What should I do today?',people:'Everyone you know',pipeline:'Where everyone is in your journey',tasks:"What you've promised",insights:'What you might be missing',settings:'How Mighty works for you'};
+  // Tabs without a rail slot highlight their parent.
+  const RAIL_PARENT = {pipeline:'people', tasks:'dashboard', templates:'settings'};
+  const TITLES = {dashboard:'Home',discover:'Discover',people:'People',pipeline:'People',tasks:'Tasks',insights:'Intelligence',settings:'Settings',templates:'Message templates',extpreview:'Extension preview'};
+  const SUBTITLES = {dashboard:'What deserves my attention?',discover:'Who should I know?',people:'Everyone you know',pipeline:'Where everyone is in your journey',tasks:"What you've promised",insights:'What you might be missing',settings:'How Mighty works for you'};
+
+  // If a locked screen is somehow selected (stale state, direct link), fall home.
+  useEffect(()=>{
+    if((tab==='people'||tab==='pipeline') && !un.people) setTab('dashboard');
+    if(tab==='insights' && !un.insights) setTab('dashboard');
+    if(tab==='tasks' && log.length===0) setTab('dashboard');
+  },[tab, un.people, un.insights]);
+
+  // Celebrate new unlocks once. Pre-v1.3 accounts (unlocksSeen null) are seeded
+  // silently so long-time users don't get a toast parade on upgrade day.
+  const [unlockToast,setUnlockToast] = useState(null);
+  useEffect(()=>{
+    if(!db.settings.onboardedAt || auth.status!=='in') return;
+    const on = Object.keys(un).filter(k=>un[k]);
+    if(db.settings.unlocksSeen==null){ if(on.length) patch('settings', s=>({...s, unlocksSeen:on})); return; }
+    const fresh = on.filter(k=>!db.settings.unlocksSeen.includes(k));
+    if(!fresh.length) return;
+    patch('settings', s=>({...s, unlocksSeen:[...(s.unlocksSeen||[]), ...fresh]}));
+    const k = fresh.find(x=>UNLOCKS[x].msg); if(!k) return;
+    setUnlockToast({key:k, ...UNLOCKS[k]});
+    const t=setTimeout(()=>setUnlockToast(null), 7000); return ()=>clearTimeout(t);
+  },[log.length, events.length, auth.status]);
   const drawerRow = drawerId!=null ? log.find(r=>r.id===drawerId) : null;
   const draftRow = draftFor!=null ? log.find(r=>r.id===draftFor) : null;
 
@@ -1215,7 +1269,7 @@ function App(){
     <div className="rail">
       <div className="rail-brand"><Logo size={24}/><div className="rail-name">Mighty</div></div>
       <div className="rail-nav">
-        {RAIL.map(([id,ic,lb])=><div key={id} className={'rail-item'+(tab===id?' on':'')} onClick={()=>setTab(id)}><NavIcon name={ic}/>{lb}</div>)}
+        {RAIL.map(([id,ic,lb])=><div key={id} className={'rail-item'+((tab===id||RAIL_PARENT[tab]===id)?' on':'')} onClick={()=>setTab(id)}><NavIcon name={ic}/>{lb}</div>)}
       </div>
       <div className="rail-sp"/>
       <div className={'rail-item'+(tab==='extpreview'?' on':'')} onClick={()=>setTab('extpreview')}><NavIcon name="extension"/>Extension</div>
@@ -1229,9 +1283,10 @@ function App(){
     <div className="main">
       <div className="topbar"><h2>{TITLES[tab]}</h2>{SUBTITLES[tab] && <span className="note" style={{color:'var(--mute2)',fontSize:13.5}}>{SUBTITLES[tab]}</span>}</div>
       <div className="content">
-        {tab==='dashboard' && <Dashboard db={db} patch={patch} log={log} events={events} tasks={tasks} communityStats={communityStats} sb={sb} auth={auth} addPeople={addPeople} setTab={setTab} setDrawerId={setDrawerId} setDraftFor={setDraftFor} updateRow={updateRow}/>}
-        {tab==='people' && <People db={db} log={log} events={events} doIngest={doIngest} setDrawerId={setDrawerId} sb={sb} auth={auth} deletePeople={deletePeople} updateRow={updateRow}/>}
-        {tab==='pipeline' && <Pipeline log={log} events={events} followUpDays={db.settings.followUpDays} changeStage={changeStage}/>}
+        {tab==='dashboard' && <Dashboard db={db} patch={patch} log={log} events={events} tasks={tasks} communityStats={communityStats} sb={sb} auth={auth} addPeople={addPeople} setTab={setTab} setDrawerId={setDrawerId} setDraftFor={setDraftFor} updateRow={updateRow} toggleTask={toggleTask}/>}
+        {tab==='discover' && <Discover sb={sb} auth={auth} db={db} patch={patch} addPeople={addPeople} setTab={setTab}/>}
+        {tab==='people' && <People db={db} log={log} events={events} doIngest={doIngest} setDrawerId={setDrawerId} sb={sb} auth={auth} deletePeople={deletePeople} updateRow={updateRow} setTab={setTab} canBoard={un.pipeline}/>}
+        {tab==='pipeline' && <Pipeline log={log} events={events} followUpDays={db.settings.followUpDays} changeStage={changeStage} setTab={setTab}/>}
         {tab==='tasks' && <Tasks tasks={tasks} log={log} events={events} db={db} addTask={addTask} toggleTask={toggleTask} deleteTask={deleteTask} setDrawerId={setDrawerId}/>}
         {tab==='insights' && <Insights log={log} events={events} tasks={tasks} db={db} communityStats={communityStats} setDrawerId={setDrawerId} updateRow={updateRow}/>}
         {tab==='settings' && <Settings db={db} patch={patch} auth={auth} sb={sb} signOut={signOut} setTab={setTab} log={log} updateRow={updateRow}/>}
@@ -1244,6 +1299,18 @@ function App(){
       drawerTab={drawerTab} setDrawerTab={setDrawerTab} onClose={()=>setDrawerId(null)}
       updateRow={updateRow} logEvent={logEvent} changeStage={changeStage} openDraft={()=>setDraftFor(drawerRow.id)}/>}
     {draftRow && <DraftModal row={draftRow} db={db} patch={patch} sb={sb} auth={auth} updateRow={updateRow} changeStage={changeStage} onClose={()=>setDraftFor(null)}/>}
+
+    {unlockToast && <div onClick={()=>{ setTab(unlockToast.go); setUnlockToast(null); }}
+      style={{position:'fixed',bottom:26,left:'50%',transform:'translateX(-50%)',zIndex:80,cursor:'pointer',
+        background:'var(--ink)',color:'var(--card)',borderRadius:14,padding:'13px 20px',boxShadow:'0 18px 40px -14px rgba(0,0,0,.45)',
+        display:'flex',alignItems:'center',gap:12,maxWidth:'min(92vw,480px)'}}>
+      <span style={{fontSize:18}}>✨</span>
+      <div style={{minWidth:0}}>
+        <div style={{fontWeight:700,fontSize:13.5}}>Unlocked: {unlockToast.title}</div>
+        <div style={{fontSize:12.5,opacity:.85}}>{unlockToast.msg} <b>Take a look →</b></div>
+      </div>
+      <span onClick={e=>{ e.stopPropagation(); setUnlockToast(null); }} style={{marginLeft:6,opacity:.7,fontWeight:700}}>✕</span>
+    </div>}
   </div>;
 }
 
@@ -1472,7 +1539,7 @@ function Onboarding({sb, db, patch, auth, setTab}){
         <div style={{flex:1}}/>
         {!last && step>0 && <a onClick={finish} style={{fontSize:12.5,color:'var(--mute)',cursor:'pointer'}}>Skip setup</a>}
         {last
-          ? <button className="btn" onClick={()=>{ finish(); setTab('people'); }}>Finish - start with People</button>
+          ? <button className="btn" onClick={()=>{ finish(); setTab('discover'); }}>Finish - discover people</button>
           : <button className="btn" onClick={()=>setStep(step+1)}>Continue</button>}
       </div>
     </div>
@@ -1673,7 +1740,7 @@ function FindPeople({sb, auth, db, patch, addPeople, setTab}){
       <div className="scorebar"><i style={{width:prog+'%',transition:'width .45s cubic-bezier(.22,.61,.36,1)'}}/></div>
     </div>}
 
-    {msg && <div className={msg.err?'warnbox':'okbox'} style={{marginTop:10}}>{msg.t}{msg.go && <> <a style={{cursor:'pointer',fontWeight:700}} onClick={()=>setTab('people')}>View in People →</a></>}</div>}
+    {msg && <div className={msg.err?'warnbox':'okbox'} style={{marginTop:10}}>{msg.t}{msg.go && <> <a style={{cursor:'pointer',fontWeight:700}} onClick={()=>setTab('dashboard')}>See them on Home →</a></>}</div>}
 
     {results && <div style={{marginTop:12}}>
       {lastKw && <div className="note" style={{fontSize:12,marginBottom:8}}>Results for <b style={{color:'var(--ink)'}}>{lastKw}</b></div>}
@@ -1708,6 +1775,23 @@ function FindPeople({sb, auth, db, patch, addPeople, setTab}){
   </div>;
 }
 
+/* ============================ Discover ============================
+   The front door (Bible v1.3): intent on top, search below. Day-1 value with
+   zero history — a great search result, a brief, a draft, in 90 seconds. */
+function Discover({sb, auth, db, patch, addPeople, setTab}){
+  return <div className="page">
+    <div className="panel pad" style={{display:'flex',alignItems:'center',gap:13,marginBottom:16}}>
+      <span style={{fontSize:20}}>🎯</span>
+      <div className="grow" style={{minWidth:0}}>
+        <div style={{fontWeight:650,fontSize:14.5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{db.settings.goal || 'Set your intent — it sharpens everything'}</div>
+        <div className="note" style={{fontSize:12.5}}>Search, ranking, briefs and drafts all serve this goal.</div>
+      </div>
+      <button className="btn ghost sm" onClick={()=>setTab('settings')}>{db.settings.goal?'Edit':'Set it'}</button>
+    </div>
+    <FindPeople sb={sb} auth={auth} db={db} patch={patch} addPeople={addPeople} setTab={setTab}/>
+  </div>;
+}
+
 /* ============================ Meetings ============================ */
 // Pre-meeting brief. Everything Mighty already knows, plus AI talking points — so
 // you walk in warm. Reuses confirmed memories only (suggestions never leak in).
@@ -1737,7 +1821,7 @@ function MeetingPrepModal({row, evs, db, sb, auth, onClose}){
         <div><div style={{fontWeight:700,fontSize:16}}>Prep — {displayName(row)}</div>
           <div className="note" style={{fontSize:12.5}}>{[row.title,row.company].filter(Boolean).join(' · ')||'Before you meet'}</div></div>
       </div>
-      {facts.length>0 && <div style={{marginTop:14}}><div className="tag">What Mighty knows</div>
+      {facts.length>0 && <div style={{marginTop:14}}><div className="tag">Things you've learned</div>
         <div style={{marginTop:6,display:'flex',flexDirection:'column',gap:5}}>
           {facts.map(m=><div key={m.id} style={{fontSize:13.5,display:'flex',gap:8}}><span style={{color:'var(--muted)'}}>{(MEM_TYPES[m.type]||{}).t||'•'}</span><span>{m.value}</span></div>)}
         </div></div>}
@@ -1820,7 +1904,7 @@ function MeetingsStrip({log, events, db, sb, auth, updateRow, setDrawerId}){
 }
 
 /* ============================ Dashboard ============================ */
-function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,addPeople,setTab,setDrawerId,setDraftFor,updateRow}){
+function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,addPeople,setTab,setDrawerId,setDraftFor,updateRow,toggleTask}){
   const candidates = log.filter(r=>r.status==='prospect'||r.status==='ready_to_contact');
   const scored = candidates.map(r=>({row:r, kind:'contact', label:'Send the first message', ...computeScore(r, db.settings.targetCompanies, profileKeywords(db.settings))}));
   const followUpDays = db.settings.followUpDays||7;
@@ -1835,15 +1919,20 @@ function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,addPeople,s
 
   return <div className="page">
     <div style={{fontSize:24,fontWeight:700,letterSpacing:'-.02em'}}>Good {tod}{first?`, ${first}`:''}</div>
-    <div className="note" style={{marginTop:4,fontSize:13.5}}>{priorities.length ? `${priorities.length} thing${priorities.length!==1?'s':''} worth doing today.` : 'Nothing urgent — check People to shortlist more contacts.'}</div>
+    <div className="note" style={{marginTop:4,fontSize:13.5}}>{priorities.length ? `${priorities.length} thing${priorities.length!==1?'s':''} worth doing today.` : log.length ? 'Nothing urgent today.' : 'Start in Discover — find one person worth knowing.'}</div>
 
     <div style={{marginTop:20}}><DailyCopilot db={db} log={log} events={events} tasks={tasks} sb={sb} auth={auth} setDrawerId={setDrawerId}/></div>
 
-    <div style={{marginTop:14}}><FindPeople sb={sb} auth={auth} db={db} patch={patch} addPeople={addPeople} setTab={setTab}/></div>
+    {log.length===0 && <div className="panel pad" style={{marginTop:14,display:'flex',alignItems:'center',gap:14}}>
+      <span style={{fontSize:22}}>🔭</span>
+      <div className="grow"><div style={{fontWeight:650,fontSize:15}}>Find your first person</div>
+        <div className="note" style={{fontSize:13}}>Describe who you're looking for in plain words — Mighty finds them, briefs you, and drafts the note.</div></div>
+      <button className="btn" onClick={()=>setTab('discover')}>Open Discover</button>
+    </div>}
 
-    <MeetingsStrip log={log} events={events} db={db} sb={sb} auth={auth} updateRow={updateRow} setDrawerId={setDrawerId}/>
+    {log.length>0 && <MeetingsStrip log={log} events={events} db={db} sb={sb} auth={auth} updateRow={updateRow} setDrawerId={setDrawerId}/>}
 
-    <div className="tag" style={{margin:'28px 0 10px'}}>Today's priorities</div>
+    {log.length>0 && <><div className="tag" style={{margin:'28px 0 10px'}}>Today's priorities</div>
     {priorities.length===0
       ? <div className="panel pad"><div className="empty" style={{padding:'20px'}}><div className="big">✓</div>All caught up.</div></div>
       : <div className="panel" style={{overflow:'hidden'}}>
@@ -1859,7 +1948,29 @@ function Dashboard({db,patch,log,events,tasks,communityStats,sb,auth,addPeople,s
               {p.kind==='followup'?'Draft follow-up':'Open profile'}
             </button>
           </PersonHover>)}
-        </div>}
+        </div>}</>}
+
+    {(()=>{ // Promises & tasks — Tasks has no rail slot anymore (Bible v1.3), it lives here.
+      const open=(tasks||[]).filter(t=>!t.done).sort((a,b)=>(a.due_date||'9999')<(b.due_date||'9999')?-1:1);
+      if(!open.length) return null;
+      const person=t=>t.log_id!=null?log.find(r=>r.id===t.log_id):null;
+      return <>
+        <div className="tag" style={{margin:'28px 0 10px',display:'flex',justifyContent:'space-between'}}>
+          <span>Promises &amp; tasks</span>
+          <span style={{cursor:'pointer',color:'var(--brand)',fontWeight:600,textTransform:'none',letterSpacing:0}} onClick={()=>setTab('tasks')}>All {open.length} →</span>
+        </div>
+        <div className="panel" style={{overflow:'hidden'}}>
+          {open.slice(0,3).map((t,i)=>{ const p=person(t); const overdue=t.due_date && new Date(t.due_date).getTime()<now()-864e5;
+            return <div key={t.id} style={{display:'flex',alignItems:'center',gap:12,padding:'13px 18px',borderTop:i?'1px solid var(--line2)':'none'}}>
+              <span onClick={()=>toggleTask&&toggleTask(t)} style={{width:19,height:19,borderRadius:7,border:'1.6px solid var(--line)',cursor:'pointer',flex:'none'}}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:550,fontSize:14,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{t.label}</div>
+                <div className="note" style={{fontSize:12.5,color:overdue?'var(--terra2)':undefined}}>{[t.due_date?(overdue?'Overdue':`Due ${fmtDate(new Date(t.due_date).getTime())}`):null, p?displayName(p):null].filter(Boolean).join(' · ')||t.sub||''}</div>
+              </div>
+              {p && <button className="btn sm" style={{background:'var(--card)',color:'var(--ink)',border:'1px solid var(--line)'}} onClick={()=>setDrawerId(p.id)}>Open</button>}
+            </div>; })}
+        </div>
+      </>; })()}
   </div>;
 }
 
@@ -1948,7 +2059,7 @@ function EnrichStrip({log, updateRow}){
 }
 
 /* ============================ People ============================ */
-function People({db,log,events,doIngest,setDrawerId,sb,auth,deletePeople,updateRow}){
+function People({db,log,events,doIngest,setDrawerId,sb,auth,deletePeople,updateRow,setTab,canBoard}){
   const [q,setQ]=useState(''); const [checking,setChecking]=useState(false);
   const [ai,setAi]=useState(null); const [aiBusy,setAiBusy]=useState(false); const [aiErr,setAiErr]=useState(null);
   const [sel,setSel]=useState(()=>new Set()); const [delBusy,setDelBusy]=useState(false);
@@ -2005,6 +2116,10 @@ function People({db,log,events,doIngest,setDrawerId,sb,auth,deletePeople,updateR
       {mode!=='none' && <button className="btn sm" onClick={askNetwork} disabled={aiBusy||!q.trim()}>{aiBusy?<Dots/>:'✨ Ask'}</button>}
       <div className="note">{rows.length} of {log.length} people</div>
       <div style={{flex:1}}/>
+      {canBoard && <div style={{display:'flex',border:'1px solid var(--line)',borderRadius:10,overflow:'hidden'}}>
+        <button className="btn sm" style={{borderRadius:0,background:'var(--ink)',color:'#fff',border:'none'}}>List</button>
+        <button className="btn sm" style={{borderRadius:0,background:'var(--card)',color:'var(--sub)',border:'none'}} onClick={()=>setTab&&setTab('pipeline')}>Board</button>
+      </div>}
       <button className="btn ghost sm" onClick={async()=>{setChecking(true); await doIngest(); setChecking(false);}} disabled={checking}>{checking?<Dots/>:'↻ Check for new profiles'}</button>
     </div>
 
@@ -2072,7 +2187,7 @@ function People({db,log,events,doIngest,setDrawerId,sb,auth,deletePeople,updateR
 }
 
 /* ============================ Pipeline ============================ */
-function Pipeline({log,events,followUpDays,changeStage}){
+function Pipeline({log,events,followUpDays,changeStage,setTab}){
   const [filter,setFilter]=useState('All');
   const [dragId,setDragId]=useState(null);
   const companies = ['All', ...Array.from(new Set(log.map(r=>r.company).filter(Boolean)))];
@@ -2082,6 +2197,10 @@ function Pipeline({log,events,followUpDays,changeStage}){
       {companies.map(c=><button key={c} className="btn sm" style={{background:filter===c?'var(--ink)':'var(--card)',color:filter===c?'#fff':'var(--sub)',border:'1px solid '+(filter===c?'var(--ink)':'rgba(0,0,0,.12)')}} onClick={()=>setFilter(c)}>{c}</button>)}
       <div style={{flex:1}}/>
       <div className="note">Drag cards as relationships progress</div>
+      {setTab && <div style={{display:'flex',border:'1px solid var(--line)',borderRadius:10,overflow:'hidden',marginLeft:6}}>
+        <button className="btn sm" style={{borderRadius:0,background:'var(--card)',color:'var(--sub)',border:'none'}} onClick={()=>setTab('people')}>List</button>
+        <button className="btn sm" style={{borderRadius:0,background:'var(--ink)',color:'#fff',border:'none'}}>Board</button>
+      </div>}
     </div>
     <div className="pipeline-wrap">
       {PIPELINE_STAGES.map(st=>{
@@ -2744,7 +2863,7 @@ function Settings({db,patch,auth,sb,signOut,setTab,log,updateRow}){
     <AiUsagePanel sb={sb} auth={auth}/>
 
     <div className="tag" style={{margin:'26px 0 10px'}}>Edit profile</div>
-    <div className="note" style={{margin:'-4px 0 10px',fontSize:12.5}}>The more Mighty knows, the sharper its ranking, drafts, and daily plan. Everything here is private to you. (Import a resume anytime from onboarding.)</div>
+    <div className="note" style={{margin:'-4px 0 10px',fontSize:12.5}}>The more you share, the sharper the ranking, drafts, and daily plan. Everything here is private to you. (Import a resume anytime from onboarding.)</div>
     {(()=>{ const arrField=(label,key,ph)=><div style={{marginBottom:12}}><label className="fld">{label}</label>
         <input className="inp" defaultValue={(db.settings[key]||[]).join(', ')}
           onBlur={e=>patch('settings', s=>({...s, [key]: e.target.value.split(',').map(x=>x.trim()).filter(Boolean)}))} placeholder={ph}/></div>;
@@ -3119,7 +3238,7 @@ function PersonDrawer({row,rowEvents,db,sb,auth,communityStats,drawerTab,setDraw
 
             {/* What Mighty knows — confirmed, first-class memory records */}
             <div style={{display:'flex',alignItems:'center',margin:'22px 0 8px'}}>
-              <div className="tag">Mighty knows</div><div style={{flex:1}}/>
+              <div className="tag">Things you've learned</div><div style={{flex:1}}/>
               <span className="iconbtn" style={{cursor:'pointer',fontSize:11.5,padding:'4px 9px'}} onClick={()=>setAddingMem(v=>!v)}>＋ Add</span>
             </div>
             {addingMem && <div style={{display:'flex',gap:8,marginBottom:10}}>
