@@ -940,6 +940,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
   const [approach,setApproach] = useState('curiosity');
   const [draft,setDraft] = useState(row.ai_draft||'');
   const [noteS,setNoteS] = useState(''); const [noteC,setNoteC] = useState(''); const [noteP,setNoteP] = useState('');
+  const [justReplied,setJustReplied] = useState(false);
   const mine = events.filter(e=>e.log_id===row.id);
   const memories = Array.isArray(ctx.memories)?ctx.memories:[];
   const myTasks = tasks.filter(t=>t.log_id===row.id && !t.done);
@@ -1014,13 +1015,34 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
             due_date:new Date(Date.now()+dueDays*DAY).toISOString().slice(0,10)});
       }catch(e){}
       setNoteS(''); setNoteC(''); setNoteP('');
+      setJustReplied(false);
       flash('Captured');
+    }catch(e){ setErr(e.message||String(e)); }
+    setBusy(null);
+  }
+
+  /* The reply signal. Two things happen and only the first one is required:
+     the stage moves and a real 'reply' event lands, which is what Today,
+     buildPlan and every later pattern read. Then capture is offered, because
+     a reply just arrived is the one moment the words are still to hand. If she
+     ignores the capture the signal is already saved - never make the cheap,
+     valuable half wait on the expensive, optional half. */
+  async function markReplied(){
+    setBusy('reply'); setErr(null);
+    try{
+      await onEvent(row, 'reply', null);
+      if(row.status!=='replied') await onStage(row, 'replied');
+      setJustReplied(true);
+      setTab('notes');
+      flash('Logged. What did they say?');
     }catch(e){ setErr(e.message||String(e)); }
     setBusy(null);
   }
 
   const TABS = [['overview','Overview'],['brief','AI Brief'],['draft','Draft message'],['timeline','Timeline'],['notes','Notes']];
   const nextStage = ORDER[Math.min(ORDER.indexOf(row.status)+1, ORDER.length-1)];
+  /* Only asked once a message has actually gone out, and only until they answer. */
+  const askedReplied = row.status==='contacted';
 
   return (
     <div className="pad fade" style={{maxWidth:820,paddingTop:28}}>
@@ -1051,6 +1073,20 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
         {toast && <span style={{fontSize:13.5,fontWeight:600,color:'#0F6B49'}}>{toast}</span>}
       </div>
       {err && <div className="banner err" style={{marginTop:14}}>{err}</div>}
+
+      {askedReplied &&
+        <div className="card" style={{marginTop:16,padding:'16px 20px',display:'flex',gap:14,
+             alignItems:'center',flexWrap:'wrap',background:'var(--brand-soft)',borderColor:'var(--brand-line)'}}>
+          <div style={{flex:'1 1 260px',minWidth:0}}>
+            <div style={{fontSize:15,fontWeight:700,color:'var(--ink)'}}>Did they reply?</div>
+            <div className="sub" style={{fontSize:13.5,marginTop:2}}>
+              You wrote to them {ago(row.contacted_at)||'recently'}. Telling Mighty is how it learns what works.
+            </div>
+          </div>
+          <button className="btn sm" onClick={markReplied} disabled={busy==='reply'}>
+            {busy==='reply' ? <span><span className="spin"/> Saving</span> : 'They replied'}
+          </button>
+        </div>}
 
       <div className="tabs" style={{marginTop:26}}>
         {TABS.map(([k,l])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)}>{l}</button>)}
@@ -1226,12 +1262,18 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
       {tab==='notes' &&
         <div className="stack fade" style={{gap:16,marginTop:24}}>
           <div className="card" style={{padding:'22px 24px'}}>
-            <div className="h4">Quick capture</div>
-            <div className="sub" style={{fontSize:13.5,marginTop:3}}>Under a minute. Mighty structures the rest.</div>
+            <div className="h4">{justReplied ? 'What did they say?' : 'Quick capture'}</div>
+            <div className="sub" style={{fontSize:13.5,marginTop:3}}>
+              {justReplied
+                ? 'Paste their reply, or the gist of it. This is what makes the next message worth reading.'
+                : 'Under a minute. Mighty structures the rest.'}
+            </div>
             <div className="stack" style={{gap:14,marginTop:18}}>
-              <div><div className="lbl">What happened?</div>
-                <textarea className="inp" value={noteS} onChange={e=>setNoteS(e.target.value)}
-                  placeholder="Coffee at Flour, talked about their AI platform roadmap…"/></div>
+              <div><div className="lbl">{justReplied ? 'Their reply' : 'What happened?'}</div>
+                <textarea className="inp" autoFocus={justReplied} value={noteS} onChange={e=>setNoteS(e.target.value)}
+                  placeholder={justReplied
+                    ? 'Happy to chat. I am in Boston most of next week…'
+                    : 'Coffee at Flour, talked about their AI platform roadmap…'}/></div>
               <div><div className="lbl">Did either of you promise anything?</div>
                 <textarea className="inp" style={{minHeight:52}} value={noteC} onChange={e=>setNoteC(e.target.value)}
                   placeholder="I'll send the governance paper by Friday."/></div>
