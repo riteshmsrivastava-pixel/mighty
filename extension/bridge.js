@@ -18,8 +18,22 @@
   function reply(id, payload) {
     window.postMessage({ source: TAG_OUT, id, ...payload }, window.location.origin);
   }
+  // Updating or reloading the extension leaves this script running in any page
+  // that was already open, with a dead chrome.runtime handle. sendMessage then
+  // throws "Extension context invalidated" synchronously, which surfaced as an
+  // uncaught rejection and left the caller waiting out its full timeout. Answer
+  // straight away instead, so the app can say something useful.
   function send(type, extra) {
-    return new Promise(resolve => chrome.runtime.sendMessage({ type, ...extra }, resolve));
+    return new Promise(resolve => {
+      try {
+        chrome.runtime.sendMessage({ type, ...extra }, (res) => {
+          if (chrome.runtime.lastError) { resolve({ ok: false, error: 'extension_reloaded' }); return; }
+          resolve(res);
+        });
+      } catch (e) {
+        resolve({ ok: false, error: 'extension_reloaded' });
+      }
+    });
   }
 
   // A rate-limited or challenged response is still HTTP 200 with real HTML, and
