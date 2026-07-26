@@ -3,7 +3,7 @@
 // in the MIghTy web app - this popup doesn't duplicate that UI.
 //
 // Same baked-in Supabase project as index.html (see SETUP.md) - students
-// only ever enter their @mit.edu email + password, never a URL or key.
+// only ever enter their email + password, never a URL or key.
 const SUPABASE_URL = 'https://hplyyywdftnvjajyncvj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_e_oCwuz3Qlko5N3Xl8ZwxA_zQijz_u8';
 

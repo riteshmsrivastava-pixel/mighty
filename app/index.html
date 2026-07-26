@@ -152,7 +152,7 @@ const F = React.Fragment;
 /* ===================== platform config (same project as app/v1.html) ===================== */
 const SUPABASE_URL      = 'https://hplyyywdftnvjajyncvj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_e_oCwuz3Qlko5N3Xl8ZwxA_zQijz_u8';
-const MIT_RE  = /@([a-z0-9-]+\.)*mit\.edu$/i;
+
 
 /* Primary-goal vocabulary is v1's goalType enum so both apps score alike. */
 const GOALS = [
@@ -333,10 +333,22 @@ const extBridge = (()=>{
   };
 })();
 
+/* The proxy already tells us the plan and how much of the monthly allowance is
+   left; llm() used to return data.text and throw the rest away, so the number the
+   whole model is metered on was invisible in the app. It is reported here and the
+   App renders it. Reported on refusal too - that is exactly when it matters. */
+let _onAiMeta = null;
+function onAiMeta(fn){ _onAiMeta = fn; }
+function reportMeta(meta){ try{ if(_onAiMeta && meta) _onAiMeta(meta); }catch(e){} }
+
 async function llm(sb, feature, system, user, maxTokens){
   const {data, error} = await sb.functions.invoke('ai-proxy', {body:{feature, system, user, maxTokens:maxTokens||700}});
   if(error) throw error;
-  if(!data || data.ok===false) throw new Error((data && (data.message||data.error)) || 'AI request failed.');
+  if(data && data.meta) reportMeta(data.meta);
+  if(!data || data.ok===false){
+    if(data && data.error==='rate_limited') reportMeta({plan:data.plan, assistsLeftMonth:0, exhausted:true});
+    throw new Error((data && (data.message||data.error)) || 'AI request failed.');
+  }
   return data.text;
 }
 async function llmJSON(sb, feature, system, user, maxTokens){
@@ -1885,13 +1897,18 @@ function Gate({sb}){
   const [busy,setBusy] = useState(false); const [msg,setMsg] = useState(null); const [err,setErr] = useState(null);
   async function go(){
     setErr(null); setMsg(null);
-    if(!MIT_RE.test(clean(email))){ setErr('Use your @mit.edu email address.'); return; }
+    /* Signup is open. The MIT check that used to live here was browser-side
+       only, so it excluded the founders, recruiters and investors this is for
+       while stopping nobody who opened devtools. Abuse is handled where it
+       actually costs money instead: assists are granted only once a LinkedIn
+       profile is claimed, and a profile can be claimed by one account. */
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(clean(email))){ setErr('That does not look like an email address.'); return; }
     setBusy(true);
     try{
       if(mode==='up'){
         const {error} = await sb.auth.signUp({email:clean(email), password:pw});
         if(error) throw error;
-        setMsg('Account created. Check your @mit.edu inbox for the confirmation link, then sign in.'); setMode('in');
+        setMsg('Account created. Check your inbox for the confirmation link, then sign in.'); setMode('in');
       } else if(mode==='in'){
         const {error} = await sb.auth.signInWithPassword({email:clean(email), password:pw});
         if(error) throw error;
@@ -1910,9 +1927,9 @@ function Gate({sb}){
         <h2 className="h2">{mode==='up'?'Create your account':mode==='in'?'Welcome back':'Reset your password'}</h2>
         <div className="sub" style={{marginTop:6}}>The operating system for professional relationships.</div>
         <div className="card" style={{marginTop:22,padding:'22px 24px'}}>
-          <div className="lbl">MIT email</div>
+          <div className="lbl">Email</div>
           <input className="inp" type="email" value={email} onChange={e=>setEmail(e.target.value)}
-            placeholder="you@mit.edu" autoComplete="email"/>
+            placeholder="you@work.com" autoComplete="email"/>
           {mode!=='reset' &&
             <div style={{marginTop:14}}>
               <div className="lbl">Password</div>
@@ -1963,7 +1980,7 @@ const QUESTION = {today:'What deserves my attention?', strategy:'Why am I networ
   profile:'Is this relationship worth investing in?', ask:'What should I do?',
   settings:'How does Mighty work for me?', extension:'Save people while you browse.'};
 
-function Shell({screen, go, savedCount, email, onSignOut, children}){
+function Shell({screen, go, savedCount, email, onSignOut, aiMeta, children}){
   const active = (k)=> k===screen || (k==='people'&&screen==='profile') || (k==='settings'&&screen==='extension');
   const navBtn = (on)=>({display:'flex',alignItems:'center',gap:11,padding:'10px 12px',borderRadius:10,width:'100%',
     textAlign:'left',fontSize:14.5,fontWeight:600,
@@ -2002,6 +2019,17 @@ function Shell({screen, go, savedCount, email, onSignOut, children}){
         <header className="hdr" style={{flex:'none',display:'flex',alignItems:'center',justifyContent:'space-between',
           gap:14,padding:'22px 48px',borderBottom:'1px solid #EEEAE4',background:'var(--paper)',position:'sticky',top:0,zIndex:5}}>
           <h1 style={{margin:0,fontSize:22,fontWeight:700,letterSpacing:'-.02em'}}>{QUESTION[screen]||''}</h1>
+          {/* Only shown once the proxy has actually told us a number. Guessing
+              at an allowance is worse than saying nothing about it. */}
+          {aiMeta && aiMeta.assistsLeftMonth!=null &&
+            <span className="pill" title={'Plan: '+(aiMeta.plan||'unknown')}
+              style={{background:aiMeta.assistsLeftMonth===0?'var(--red-soft)':'var(--brand-soft2)',
+                      color:aiMeta.assistsLeftMonth===0?'#8E4238':'var(--brand-ink)',
+                      padding:'5px 12px',fontSize:12.5,fontWeight:700,whiteSpace:'nowrap'}}>
+              {aiMeta.assistsLeftMonth===0
+                ? 'No assists left this month'
+                : aiMeta.assistsLeftMonth+' assist'+(aiMeta.assistsLeftMonth===1?'':'s')+' left'}
+            </span>}
           <div className="mobnav" style={{gap:7,overflowX:'auto'}}>
             {NAV.map(([k,label])=>(
               <button key={k} className={'chip'+(active(k)?' on':'')} onClick={()=>go({screen:k})}>{label}</button>))}
@@ -2027,6 +2055,7 @@ function App(){
   const [relView,setRelView] = useState('list');
   const [editStrategy,setEditStrategy] = useState(false);
   const [busySave,setBusySave] = useState(false);
+  const [aiMeta,setAiMeta] = useState(null);
   const [err,setErr] = useState(null);
   const pulled = useRef(false);
 
@@ -2222,6 +2251,7 @@ function App(){
   useEffect(()=>{
     if(auth.status!=='in' || !sb || !auth.user) return;
     bindTracking(sb, auth.user);
+    onAiMeta(setAiMeta);
     const t = setTimeout(()=>track('session_start', {extension: extBridge.isReady()}), 1500);
     return ()=>clearTimeout(t);
   },[auth.status, sb, auth.user]);
@@ -2267,7 +2297,7 @@ function App(){
   const signOut = async()=>{ await sb.auth.signOut(); window.location.href='../'; };
 
   return (
-    <Shell screen={screen} go={go} savedCount={people.length} email={auth.user.email} onSignOut={signOut}>
+    <Shell screen={screen} go={go} savedCount={people.length} email={auth.user.email} onSignOut={signOut} aiMeta={aiMeta}>
       {err && <div className="banner warn" style={{margin:'20px 48px 0'}}>{err}</div>}
 
       {screen==='today' &&

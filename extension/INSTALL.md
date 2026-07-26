@@ -29,7 +29,7 @@ You are always the one clicking Connect and Send.
 2. Turn on **Developer mode** (top-right toggle).
 3. Click **Load unpacked** → select this folder (`~/mighty/extension`).
 4. The MIghTy icon appears in your toolbar. Pin it.
-5. Click the icon → sign in with your `@mit.edu` email and password - same
+5. Click the icon → sign in with your email and password - same
    account as the web app. That's it; no URLs or keys to paste.
 
 ## Use it

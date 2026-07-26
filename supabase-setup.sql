@@ -27,25 +27,21 @@ drop policy if exists "own row update" on public.user_data;
 create policy "own row update" on public.user_data
   for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
--- 3. Restrict sign-up to MIT addresses (mit.edu and any *.mit.edu subdomain).
--- Server-side guard - the client also checks, but this is the real gate.
-create or replace function public.enforce_mit_email()
-returns trigger
-language plpgsql
-security definer
-as $$
-begin
-  if new.email !~* '@([a-z0-9-]+\.)*mit\.edu$' then
-    raise exception 'Registration is limited to @mit.edu email addresses.';
-  end if;
-  return new;
-end;
-$$;
-
+-- 3. Sign-up is OPEN. There used to be a trigger here restricting registration
+-- to @mit.edu addresses, enforced properly at the database level. It is removed
+-- deliberately: Mighty is for founders, recruiters, investors and operators as
+-- well as students, and an email-domain gate turned all of them away.
+--
+-- Abuse moved to where it actually costs money rather than where it is easy to
+-- check. Assists are granted only once a LinkedIn profile has been claimed, and
+-- a profile URL can be claimed by one account, so farming trials needs a new
+-- real LinkedIn profile each time - and a profile with no history is useless
+-- here, because there is nothing to import or enrich. Email addresses are free
+-- and infinite; LinkedIn profiles worth having are neither.
+--
+-- Both statements are safe to run on a database that never had the trigger.
 drop trigger if exists enforce_mit_email_trg on auth.users;
-create trigger enforce_mit_email_trg
-  before insert on auth.users
-  for each row execute function public.enforce_mit_email();
+drop function if exists public.enforce_mit_email();
 
 -- 4. Outreach inbox - the browser extension writes shortlisted profiles,
 -- send-confirmations, and captured profile context here directly (one
@@ -474,7 +470,7 @@ create policy "ev select own" on public.app_events
 -- ============================================================
 -- Also in the dashboard (not SQL):
 -- • Authentication → Providers → Email: ENABLED, "Confirm email" ON
--- (so only someone who controls the @mit.edu inbox can activate an account).
+-- (so only someone who controls the inbox can activate an account).
 -- • Authentication → URL Configuration → Site URL: your GitHub Pages URL
 -- (so confirmation / password-reset links point back to the app).
 -- • Edge Functions → sheets-sync → Secrets: set GOOGLE_SERVICE_ACCOUNT_JSON
