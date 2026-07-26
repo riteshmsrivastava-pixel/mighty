@@ -255,6 +255,41 @@ function ChipInput({value, onChange, placeholder}){
 }
 
 /* ===================== AI (shared ai-proxy - no key ever reaches the client) ===================== */
+/* ---- Extension bridge -------------------------------------------------------
+   The extension can read a search results page that this page cannot: CORS
+   blocks the app, but the background worker holds host permission. It parses
+   location, education, experience and follower counts out of the same response,
+   which the API path does not return at all. Ported from v1, which used it and
+   which v2 stopped calling.
+
+   Request/response over postMessage. With no extension installed every call
+   times out and resolves {ok:false, error:'no_extension'}, so callers fall back
+   rather than hang. Nothing here navigates or opens a tab. */
+const extBridge = (()=>{
+  let seq=0; const pending=new Map(); let ready=false;
+  if(typeof window!=='undefined'){
+    window.addEventListener('message', ev=>{
+      if(ev.source!==window) return;
+      const d=ev.data; if(!d || d.source!=='mighty-ext') return;
+      if(d.ready){ ready=true; return; }
+      const cb=pending.get(d.id); if(cb){ pending.delete(d.id); cb(d); }
+    });
+  }
+  function call(kind, extra, timeoutMs){
+    return new Promise(resolve=>{
+      const id='m'+(++seq)+'-'+Date.now();
+      const t=setTimeout(()=>{ pending.delete(id); resolve({ok:false,error:'no_extension'}); }, timeoutMs||25000);
+      pending.set(id, d=>{ clearTimeout(t); resolve(d); });
+      window.postMessage({source:'mighty-app', id, kind, ...extra}, window.location.origin);
+    });
+  }
+  return {
+    isReady: ()=>ready,
+    search: (query)=>call('search',{query}),
+    photo: (profileUrl)=>call('photo',{profileUrl}, 30000),
+  };
+})();
+
 async function llm(sb, feature, system, user, maxTokens){
   const {data, error} = await sb.functions.invoke('ai-proxy', {body:{feature, system, user, maxTokens:maxTokens||700}});
   if(error) throw error;
@@ -673,14 +708,29 @@ function Discover({sb, settings, people, onSave, onOpen, go}){
     setErr(null); setNote(null); setNoExt(false); setRes([]); setSkip({}); setPhase('searching'); setLastQ(sentence);
     try{
       const kw = await toKeywords(sb, sentence, settings);
-      const {data, error} = await sb.functions.invoke('people-search', {body:{query:kw}});
-      if(error) throw error;
-      if(!data || data.ok===false){
-        if(data && data.error==='not_configured') setNoExt(true);
-        else setErr((data && (data.message||data.error)) || 'Search failed.');
+
+      /* Ask the extension first. It reads the results page itself, so it comes
+         back with location, education, experience and follower counts - the API
+         path returns a title and a link and nothing else. Fall back to the edge
+         function only when the extension is not installed. */
+      let found = [];
+      const bridged = await extBridge.search(kw);
+      if(bridged && bridged.ok){
+        found = (bridged.people||[]).filter(p=>p && p.profileUrl);
+      } else if(bridged && bridged.error==='blocked'){
+        setErr('Search is rate limited right now, so results would be incomplete rather than wrong. Give it a few minutes, or find them on LinkedIn and save from there.');
         setPhase('idle'); return;
+      } else {
+        const {data, error} = await sb.functions.invoke('people-search', {body:{query:kw}});
+        if(error) throw error;
+        if(!data || data.ok===false){
+          if(data && data.error==='not_configured') setNoExt(true);
+          else setErr((data && (data.message||data.error)) || 'Search failed.');
+          setPhase('idle'); return;
+        }
+        found = (data.people||[]).filter(p=>p && p.profileUrl);
       }
-      const found = (data.people||[]).filter(p=>p && p.profileUrl);
+
       if(!found.length){
         setNote('Nothing came back for that one. Naming a role and a place works best - "product leaders in Boston" beats "smart people in AI".');
         setPhase('idle'); return;
@@ -760,6 +810,13 @@ function Discover({sb, settings, people, onSave, onOpen, go}){
                   <div style={{flex:'1 1 200px',minWidth:0}}>
                     <div style={{fontSize:17,fontWeight:700,letterSpacing:'-.015em'}}>{r.name}</div>
                     <div className="sub" style={{fontSize:14,marginTop:2}}>{r.title||'No headline on the profile'}</div>
+                    {/* The search results page carries more than a headline. These are facts
+                        read off it, not a judgement, so they show before any match reasoning
+                        and stay visible whether or not the AI managed to explain anything. */}
+                    {[r.location, r.education, r.followers && r.followers+' followers'].filter(Boolean).length>0 &&
+                      <div className="meta" style={{marginTop:4}}>
+                        {[r.location, r.education, r.followers && r.followers+' followers'].filter(Boolean).join(' · ')}
+                      </div>}
                     <a href={r.profileUrl} target="_blank" rel="noopener noreferrer"
                       style={{fontSize:13,fontWeight:600,marginTop:4,display:'inline-block'}}>View on LinkedIn</a>
                   </div>

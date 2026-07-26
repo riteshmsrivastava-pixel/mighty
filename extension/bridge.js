@@ -1,4 +1,4 @@
-// MIghTy — web-app bridge
+// MIghTy - web-app bridge
 //
 // Runs only on the MIghTy web app's own pages. It lets the app ask the
 // extension to do the two things a web page cannot do for itself:
@@ -10,7 +10,7 @@
 //
 // Nothing here navigates, clicks or posts anything. It answers questions the
 // student explicitly asked by pressing Search, and the results are shown in the
-// app for them to choose from — no page ever opens in their face.
+// app for them to choose from - no page ever opens in their face.
 (() => {
   const TAG_IN = 'mighty-app';   // page  -> extension
   const TAG_OUT = 'mighty-ext';  // extension -> page
@@ -20,6 +20,16 @@
   }
   function send(type, extra) {
     return new Promise(resolve => chrome.runtime.sendMessage({ type, ...extra }, resolve));
+  }
+
+  // A rate-limited or challenged response is still HTTP 200 with real HTML, and
+  // it contains no /in/ links - so parsing it looks exactly like "nobody
+  // matched". That silence is the worst failure mode available: the student
+  // rewords a perfectly good query five times against a wall. Detect it and
+  // say so instead.
+  function looksBlocked(html) {
+    const head = String(html || '').slice(0, 4000).toLowerCase();
+    return /\/sorry\/index|unusual traffic|recaptcha|g-recaptcha|our systems have detected/.test(head);
   }
 
   // Google's markup rotates, so anchor on the only durable things: links that
@@ -41,13 +51,13 @@
       let title = ((h3 && h3.textContent) || '').trim();
       title = title.replace(/\s*[|·]?\s*LinkedIn\s*$/i, '').replace(/\s*[.…]+\s*$/, '').trim();
       if (!title) continue;
-      const parts = title.split(/\s+[-–—]\s+/);
+      const parts = title.split(/\s+[-\u2013\u2014]\s+/);  // hyphen, en dash, em dash: escaped so a text-level purge cannot corrupt the class
       const name = (parts[0] || '').trim();
       if (!name || name.length > 60 || /^https?:/i.test(name)) continue;
       const headline = parts.slice(1).join(' - ').trim();
       const at = headline.match(/\bat\s+(.+?)(?:\s*[·|]|$)/i) || headline.match(/@\s*(.+?)(?:\s*[·|]|$)/);
 
-      // Google's snippet carries far more than the headline — location,
+      // Google's snippet carries far more than the headline - location,
       // experience, education, follower counts. It costs nothing extra to read
       // (it's already in the page we fetched) and needs no LinkedIn request.
       let blk = card;
@@ -85,6 +95,7 @@
       const r = await send('fetchSearchHtml', { query: String(d.query || '') });
       if (!r || !r.ok) { reply(d.id, { ok: false, error: (r && r.error) || 'search_failed' }); return; }
       const people = parseProfiles(r.html);
+      if (!people.length && looksBlocked(r.html)) { reply(d.id, { ok: false, error: 'blocked' }); return; }
       reply(d.id, { ok: true, people });
       return;
     }
