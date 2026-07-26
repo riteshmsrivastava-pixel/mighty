@@ -15,6 +15,17 @@
   const TAG_IN = 'mighty-app';   // page  -> extension
   const TAG_OUT = 'mighty-ext';  // extension -> page
 
+  // Company parsing, out here so the rules are readable rather than buried in
+  // the loop. Every one earns its place from a measured failure - see the notes
+  // at the call site.
+  // Split at a camelCase boundary OR an acronym boundary: the second is what
+  // separates "SAP" from "SAPSenior Director...", where the first cannot.
+  const CO_BOUNDARY = /(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])/;
+  const CO_ACRONYM = /^[A-Z]{2,4}$/;                                    // SAP, IBM, AWS, GE
+  const CO_ROLE_PREFIX = /^(head|vp|vice president|director|chief|svp|evp)\s+of\b/i;
+  const CO_ROLE_NOUN = /\b(analyst|manager|engineer|consultant|specialist|coordinator|intern|recruiter|designer)\b/i;
+  const CO_LEVEL = /\b(i{1,3}|iv|v)$/i;                                 // "Analyst II"
+
   function reply(id, payload) {
     window.postMessage({ source: TAG_OUT, id, ...payload }, window.location.origin);
   }
@@ -102,15 +113,26 @@
         || (locM ? locM[1].trim() : '')
         || grab(/^([A-Z][A-Za-z.\- ]+,\s*[A-Za-z.\- ]+(?:,\s*[A-Za-z.\- ]+)?)\s*·/);
 
-      // Company is the fourth middot segment, joined to the About text at a
-      // lowercase-then-uppercase boundary. Only a fallback: company parsed out of
-      // the title ("... at X") is more reliable and takes precedence below.
-      // Known limitation: a camelCase brand splits wrongly, so PayPal would yield
-      // "Pay". The four-character floor rejects the worst of those rather than
-      // emitting a confident fragment.
+      // Company is the fourth middot segment, joined to the About text with no
+      // separator. Only a fallback: company parsed out of the title ("... at X")
+      // was right in every measured case and takes precedence below.
+      //
+      // Measured on the 26 July run, this slot produced three confidently wrong
+      // values out of ten, which is worse than three blanks: company reaches the
+      // draft prompt, so a wrong one comes out of the user's own mouth in a
+      // message to a stranger, and nothing in the interface would reveal it. Each
+      // rule below exists because of a specific observed failure.
       const segs = snip.split(/\s+·\s+/);
-      const coCut = ((segs[3] || '').split(/(?<=[a-z])(?=[A-Z])/)[0] || '').trim();
-      const snippetCompany = (coCut.length >= 4 && coCut.length <= 45) ? coCut : '';
+      const coCut = ((segs[3] || '').split(CO_BOUNDARY)[0] || '').trim();
+      const snippetCompany =
+        (!coCut || coCut.length > 45) ? ''
+        // Short is only trustworthy when acronym-shaped. "Pay" out of PayPal is a
+        // split artefact; "SAP" out of SAPSenior is the actual employer.
+        : (coCut.length < 4 && !CO_ACRONYM.test(coCut)) ? ''
+        // A job title here means the segments did not line up at all: observed
+        // "Head of Product, Crash" and "Business Analyst II" landing in this slot.
+        : (CO_ROLE_PREFIX.test(coCut) || CO_ROLE_NOUN.test(coCut) || CO_LEVEL.test(coCut)) ? ''
+        : coCut;
 
       // Not currently returned by Google in any of the results measured. Left in
       // so a restored label starts working again on its own, but nothing should

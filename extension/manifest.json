@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MIghTy \u2014 LinkedIn Outreach",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Shortlist LinkedIn profiles, see real match scores and a docked context panel, and log confirmed sends back to your MIghTy account. Never clicks Connect/Message for you.",
   "permissions": [
     "storage"
