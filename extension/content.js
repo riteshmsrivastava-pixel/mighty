@@ -3,7 +3,9 @@
 // Human-in-the-loop only. Everything here is foreground, on a page the
 // student themselves navigated to:
 //   1. Shortlist visible search-result cards (student checks boxes, clicks one button).
-//   2. Optionally pre-fill a drafted message into a compose box (only on explicit click).
+//   2. Optionally paste a draft the student already copied FROM the web app into a
+//      compose box (only on explicit click). The extension never writes messages:
+//      drafting and sending live in the web app, on purpose.
 //   3. Passively read a profile page's About/Experience/Education text to enrich a
 //      contact's briefing — but ONLY if that profile is already on the student's
 //      shortlist; the app discards this for anyone not already added, so nothing
@@ -571,66 +573,93 @@ function pbtn(text, kind) {
   return base + `background:${ACCENT};color:#fff;`;
 }
 
-/* In-panel drafting. Uses the same ai-proxy the web app does, through the
-   background relay, so no key ever touches the page. Mighty writes it and
-   copies it; the student pastes, reads, and clicks Send themselves. */
-async function renderDraftInPanel(host, person, fit, r) {
-  host.innerHTML = `<div style="display:flex;align-items:center;gap:9px;font-size:13.5px;color:${SUB};">
-      <span style="width:13px;height:13px;border:2px solid #DED8F7;border-top-color:${ACCENT};border-radius:50%;display:inline-block;animation:mighty-spin .7s linear infinite;"></span>
-      Writing a first message…</div>`;
-  const res = await send('generateDraft', {
-    system: 'You write a first LinkedIn outreach message for one professional to another. Ground it ONLY in the context given — never invent shared history, mutual friends, articles or events. Sound like a person, not a template. No flattery, no buzzwords, no "I hope this finds you well". Under 90 words. Ask for one specific, easy thing. Return ONLY the message text: no subject line, no preamble, no quotation marks.',
-    user: (() => {
-      const sec = person.sections || {};
-      const timing = timingSignals(sec);
-      return [
-        `The sender's goal: ${r.goal || 'building a deliberate professional network'}`,
-        (r.profile || {}).targetRoles && r.profile.targetRoles.length ? `They want to meet: ${r.profile.targetRoles.join(', ')}` : '',
-        (r.profile || {}).schools && r.profile.schools.length ? `The sender studied at: ${r.profile.schools.join(', ')}` : '',
-        `The recipient: ${person.name || ''}${person.title ? ' — ' + person.title : ''}${person.company ? ' at ' + person.company : ''}`,
-        fit.why.length ? `Why the recipient is relevant to the sender: ${fit.why.join('; ')}` : '',
-        sec.about ? `Their About section: ${sec.about.slice(0, 700)}` : '',
-        sec.experience ? `Their career history: ${sec.experience.slice(0, 900)}` : '',
-        sec.education ? `Their education: ${sec.education.slice(0, 300)}` : '',
-        sec.certifications ? `Certifications: ${sec.certifications.slice(0, 160)}` : '',
-        timing.length ? `Timing: ${timing.join('; ')}` : '',
-        (!sec.about && !sec.experience && person.text) ? `From their profile page: ${String(person.text).slice(0, 700)}` : '',
-      ].filter(Boolean).join('\n');
-    })(),
-    maxTokens: 500,
-  });
-
-  if (!res || !res.ok) {
-    host.innerHTML = `<div style="font-size:13.5px;color:#8E4238;background:#FDEDEB;border:1px solid #F6D9D4;border-radius:12px;padding:11px 13px;line-height:1.45;">
-        Could not write it just now${res && res.error ? ` — ${esc(res.error)}` : ''}. You can still draft it in Mighty.</div>`;
-    return;
+/* ---------- people already on this page ----------
+   A profile page also lists "More profiles for you" and "People you may know":
+   colleagues of the person you are looking at, alumni of their school. Those are
+   real discovery leads, and they are already rendered — no extra fetch. Each is
+   scored against the same strategy (your goal text and target companies), and
+   only Strong or Excellent matches are shown, at most three, so the panel never
+   turns into a feed. */
+/* extractCards() is built for search-results pages: it walks up to a container
+   holding a profile photo, which on a PROFILE page swallows the whole recommendation
+   block and pins the page owner's name onto someone else's link. Recommendation
+   rows need their own reader — the name is the link's own text, and the headline is
+   the nearest small container around it. Showing the wrong person's name would be
+   worse than showing nobody. */
+const NOT_A_NAME = /mutual connection|are mutual|follower|\bfollows\b|View |Show all|Message|Connect|Follow|Contact info|profile$/i;
+function nearbyCandidates() {
+  const selfName = profileName();
+  const seen = new Set();
+  const out = [];
+  for (const link of document.querySelectorAll('a[href*="/in/"]')) {
+    const name = (link.textContent || '').trim().split('\n')[0].trim();
+    if (!name || name.length < 3 || name.length > 45) continue;
+    if (name === selfName || NOT_A_NAME.test(name)) continue;
+    const url = normProfileUrl(link.href);
+    if (seen.has(url)) continue;
+    let box = link.parentElement, txt = '';
+    for (let i = 0; i < 3 && box; i++, box = box.parentElement) {
+      const t = (box.innerText || '').trim();
+      if (t.length > name.length + 8 && t.length < 400) { txt = t; break; }
+    }
+    const title = txt.split('\n').map(s => s.trim()).filter(Boolean)
+      .find(l => l !== name && l.length > 8 && !/^·|^\d|1st|2nd|3rd|^Connect$|^Message$|^Follow$|mutual|follower/i.test(l)) || '';
+    if (!title) continue;
+    seen.add(url);
+    out.push({ profileUrl: url, name, title, company: companyFromTitle(title) });
   }
-
-  const text = String(res.text || '').trim();
-  host.innerHTML = `<div style="font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:${ACCENT};">Draft</div>`;
-  const box = document.createElement('textarea');
-  box.value = text;
-  box.style.cssText = `width:100%;min-height:132px;margin-top:9px;border:1px solid #E4E0D9;background:#FCFBF9;border-radius:12px;`
-    + `padding:12px 13px;font:14.5px/1.55 ${FONT};color:${INK};resize:vertical;outline:none;box-sizing:border-box;`;
-  const rowEl = document.createElement('div');
-  rowEl.style.cssText = 'display:flex;gap:8px;margin-top:10px;';
-  const copyBtn = document.createElement('button');
-  copyBtn.textContent = 'Copy';
-  copyBtn.style.cssText = pbtn('', 'primary');
-  copyBtn.onclick = async () => {
-    try { await navigator.clipboard.writeText(box.value); copyBtn.textContent = 'Copied ✓'; }
-    catch (e) { box.select(); copyBtn.textContent = 'Press ⌘C'; }
-    setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2200);
-  };
-  const again = document.createElement('button');
-  again.textContent = 'Rewrite';
-  again.style.cssText = pbtn('', 'outline');
-  again.onclick = () => renderDraftInPanel(host, person, fit, r);
-  rowEl.append(copyBtn, again);
-  const hint = document.createElement('div');
-  hint.style.cssText = `font-size:12.5px;color:${MUTE};line-height:1.45;margin-top:10px;`;
-  hint.textContent = 'Open LinkedIn’s own message box, click "Fill draft from clipboard (Mighty)", read it once, and click Send yourself. Mighty never sends.';
-  host.append(box, rowEl, hint);
+  return out;
+}
+function nearbyPeople(r, selfUrl) {
+  const already = new Set((r.log || []).map(x => x.profile_url));
+  const out = [];
+  for (const c of nearbyCandidates()) {
+    if (c.profileUrl === selfUrl || already.has(c.profileUrl)) continue;
+    const fit = fitFromStrategy({ name: c.name, title: c.title, company: c.company, text: c.title }, r);
+    if (fit.score < 35) continue; // Strong or Excellent only
+    out.push({ ...c, fit });
+  }
+  out.sort((a, b) => b.fit.score - a.fit.score);
+  return out.slice(0, 3);
+}
+function renderNearby(el, r, selfUrl) {
+  let people = [];
+  try { people = nearbyPeople(r, selfUrl); } catch (e) { return; }
+  if (!people.length) return;
+  const wrap = document.createElement('div');
+  wrap.style.cssText = `margin-top:18px;padding-top:16px;border-top:1px solid ${LINE};`;
+  wrap.innerHTML = `<div style="font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:${MUTE};">Also on this page</div>`
+    + `<div style="font-size:12.5px;color:${SUB};margin-top:5px;line-height:1.45;">Scored against your strategy, same as above.</div>`;
+  for (const p of people) {
+    const initials = String(p.name).trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+    const rowEl = document.createElement('div');
+    rowEl.style.cssText = `display:flex;align-items:flex-start;gap:10px;padding:12px 0 0;`;
+    rowEl.innerHTML = `<div style="width:32px;height:32px;border-radius:50%;flex:none;background:${TINT};color:${ACCENT_DEEP};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">${esc(initials)}</div>
+      <div style="flex:1;min-width:0;">
+        <a href="${esc(p.profileUrl)}" target="_blank" rel="noopener" style="font-size:14px;font-weight:700;color:${INK};text-decoration:none;">${esc(p.name)}</a>
+        <div style="font-size:12.5px;color:${SUB};line-height:1.35;max-height:34px;overflow:hidden;">${esc(p.title)}</div>
+        <div style="display:flex;align-items:center;gap:7px;margin-top:5px;">
+          <span style="width:7px;height:7px;border-radius:50%;flex:none;background:${FIT_DOT[p.fit.label] || MUTE};"></span>
+          <span style="font-size:12.5px;font-weight:700;">${esc(p.fit.label)}</span>
+        </div>
+        ${p.fit.why.length ? `<div style="font-size:12.5px;color:#5B554D;margin-top:4px;line-height:1.4;">${esc(p.fit.why[0])}</div>` : ''}
+      </div>`;
+    const btn = document.createElement('button');
+    btn.textContent = 'Save';
+    btn.style.cssText = `flex:none;background:#fff;border:1px solid #E2DDD6;border-radius:999px;padding:7px 15px;`
+      + `font-weight:600;font-size:13px;cursor:pointer;font-family:${FONT};color:${INK};`;
+    btn.onclick = async () => {
+      btn.textContent = 'Saving…'; btn.disabled = true;
+      // No page context for someone whose profile we are not on — name, role and
+      // company only. The rest fills in when they open that profile.
+      const res = await send('saveProfile', { payload: { profileUrl: p.profileUrl, name: p.name, title: p.title, company: p.company } });
+      if (res && res.ok) { btn.textContent = 'Saved ✓'; await send('fetchLog', { force: true }); }
+      else { btn.textContent = 'Save'; btn.disabled = false; }
+    };
+    rowEl.appendChild(btn);
+    wrap.appendChild(rowEl);
+  }
+  el.appendChild(wrap);
 }
 
 async function renderProfileSidebar() {
@@ -703,6 +732,7 @@ async function renderProfileSidebar() {
     };
     actions.append(skip, save);
     el.appendChild(actions);
+    renderNearby(el, r, profileUrl);
     return;
   }
 
@@ -769,23 +799,17 @@ async function renderProfileSidebar() {
            <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:${SUB};">Next step</span><span style="font-weight:700;color:${ACCENT_DEEP};text-align:right;max-width:170px;">${esc(next || '—')}</span></div>
          </div>`);
 
-  // Draft lives here, in the panel — written by Mighty, sent by you.
-  const draftHost = document.createElement('div');
-  draftHost.style.cssText = `margin-top:16px;padding-top:16px;border-top:1px solid ${LINE};`;
-
-  // Stacked, not side by side — these labels are too long to share a row.
+  // Writing and sending happen in the web app, deliberately — the panel's only
+  // job is the decision. This button carries the relationship there.
   const actions = document.createElement('div');
   actions.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:20px;';
-  const draftBtn = document.createElement('button');
-  draftBtn.textContent = row.status === 'prospect' || row.status === 'ready_to_contact' ? 'Draft a message' : 'Draft a follow-up';
-  draftBtn.style.cssText = pbtn('', 'primary');
-  draftBtn.onclick = () => { el.appendChild(draftHost); renderDraftInPanel(draftHost, person, fit, r); };
   const openBtn = document.createElement('button');
-  openBtn.textContent = 'Open in Mighty';
-  openBtn.style.cssText = pbtn('', 'outline');
+  openBtn.textContent = next ? `Open in Mighty · ${next}` : 'Open in Mighty';
+  openBtn.style.cssText = pbtn('', 'primary');
   openBtn.onclick = () => window.open(`${(r.appUrl || 'https://yourmighty.com/app/')}?open=${row.id}`, '_blank');
-  actions.append(draftBtn, openBtn);
+  actions.appendChild(openBtn);
   el.appendChild(actions);
+  renderNearby(el, r, profileUrl);
 }
 
 /* ---------- 4. passive send/connect observer (never triggers a click) ---------- */
