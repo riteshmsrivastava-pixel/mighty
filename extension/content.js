@@ -27,12 +27,26 @@ const SELECTORS = {
 // LinkedIn headlines are "Title at Company", "Title @ Company", or
 // "Company | tagline | ..." — good enough to split without a real parser.
 // Returns '' rather than guessing when no company pattern is present.
+// Words that mark a phrase as an organisation rather than a job title. Used to
+// resolve the very common "Company - Title" headline (and its reverse) without
+// guessing: only when exactly one side looks like an org do we take it.
+const CO_SUFFIX = /\b(inc|llc|ltd|limited|corp|corporation|company|co|gmbh|plc|ag|s\.?a|b\.?v|n\.?v|bank|group|holdings|university|institute|school|partners|ventures|capital|labs|technologies|systems|solutions|consulting|foundation)\b\.?/i;
 function companyFromTitle(title) {
   const t = title || '';
   const at = t.match(/\bat\s+(.+?)(?:\s*[·|]|$)/i);
   if (at) return at[1].trim();
-  const atSign = t.match(/@\s*(.+?)(?:\s*[·|]|$)/);
+  const atSign = t.match(/@\s*(.+?)(?:\s*[·|｜]|$)/);
   if (atSign) return atSign[1].trim();
+  // Headlines are often pipe-separated claims ("MIT Sloan '27 | DBJ - VP"), so
+  // resolve within each segment before falling back to the whole string.
+  for (const seg of t.split(/\s*[|｜]\s*/).map(s => s.trim()).filter(Boolean)) {
+    const dash = seg.split(/\s+[-–—]\s+/);
+    if (dash.length < 2) continue;
+    const first = dash[0].trim(), rest = dash.slice(1).join(' - ').trim();
+    const firstIsCo = CO_SUFFIX.test(first), restIsCo = CO_SUFFIX.test(rest);
+    if (firstIsCo && !restIsCo && first.length < 60) return first;
+    if (restIsCo && !firstIsCo && rest.length < 60) return rest;
+  }
   if (t.includes('|')) { const b = t.split('|')[0].trim(); if (b && b.length < 50) return b; }
   return '';
 }
@@ -288,6 +302,74 @@ function mutualText() {
     .find(t => /mutual connection/i.test(t) && t.length < 160);
   return el || '';
 }
+
+/* ---------- section-aware profile read ----------
+   A rendered profile already shows far more than a single blob: About,
+   the full Experience history with dates and durations, Education, Skills,
+   Languages, certifications, and whether they post at all. LinkedIn renders
+   each section heading on its own line and rotates its class names, so
+   splitting the rendered text on those headings survives redesigns better than
+   per-section selectors. Nothing here is expanded, clicked or fetched — this is
+   only what is already on screen. */
+const PROFILE_SECTIONS = ['Highlights','About','Activity','Featured','Experience','Education',
+  'Licenses & certifications','Licenses and certifications','Skills','Languages','Interests',
+  'Recommendations','Projects','Publications','Honors & awards','Volunteering','Courses',
+  'Organizations','Test scores','Causes','More profiles for you','People you may know',
+  'You might like','Explore Premium profiles','Pages for you'];
+const STOP_SECTIONS = ['More profiles for you','People you may know','You might like',
+  'Explore Premium profiles','Pages for you'];
+// "Skills (5)" and "Experience" are the same kind of heading — drop the count.
+const normHead = (s) => s.replace(/\s*\(\d+\)\s*$/, '').trim();
+function parseProfileSections() {
+  const main = document.querySelector('main');
+  if (!main) return {};
+  const lines = (main.innerText || '').split('\n').map(s => s.trim()).filter(Boolean);
+  const heads = new Map(PROFILE_SECTIONS.map(s => [s.toLowerCase(), s]));
+  const bag = {};
+  let cur = 'top';
+  for (const line of lines) {
+    const head = heads.get(normHead(line).toLowerCase());
+    if (head) { if (STOP_SECTIONS.includes(head)) break; cur = head; continue; }
+    (bag[cur] = bag[cur] || []).push(line);
+  }
+  const get = (...names) => {
+    for (const n of names) if (bag[n]) return bag[n].join('\n');
+    return '';
+  };
+  const cap = (s, n) => (s.length > n ? s.slice(0, n) : s);
+  return {
+    top: cap(get('top'), 700),
+    about: cap(get('About'), 1600),
+    experience: cap(get('Experience'), 2400),
+    education: cap(get('Education'), 700),
+    skills: cap(get('Skills'), 400),
+    languages: cap(get('Languages'), 200),
+    certifications: cap(get('Licenses & certifications', 'Licenses and certifications'), 300),
+    activity: cap(get('Activity'), 300),
+  };
+}
+// Months from "1 yr 1 mo" / "4 yrs" / "9 mos".
+function monthsFrom(s) {
+  const y = /(\d+)\s*yrs?/i.exec(s || ''), m = /(\d+)\s*mos?/i.exec(s || '');
+  return (y ? +y[1] * 12 : 0) + (m ? +m[1] : 0);
+}
+/* Timing signals, observed rather than guessed. The current role's own duration
+   is printed on the page ("Jul 2025 - Present · 1 yr 1 mo"), and so is whether
+   they post. Both change how you open a conversation. */
+function timingSignals(sec) {
+  const out = [];
+  const presents = [...String(sec.experience || '').matchAll(/Present\s*·\s*([^\n]{0,24})/gi)]
+    .map(x => monthsFrom(x[1])).filter(n => n > 0);
+  if (presents.length) {
+    const newest = Math.min(...presents);
+    // Only a genuinely recent move is a reason to reach out now. A year in the
+    // job is just their job.
+    if (newest <= 3) out.push('Just moved into this role');
+    else if (newest <= 9) out.push(`About ${newest} months into this role`);
+  }
+  if (/no recent posts/i.test(sec.activity || '')) out.push('Does not post — do not open with their content');
+  return out;
+}
 let lastContextUrl = '';
 // `force` re-pushes for a URL already captured this session. Needed right after
 // a save: the first push happened while the profile was still untracked, so the
@@ -300,11 +382,19 @@ function captureProfileContext(force) {
   const main = profileMainText();
   if (!main || main.length < 60) return; // page likely hasn't rendered yet — retry on next scan
   lastContextUrl = profileUrl;
+  const sec = parseProfileSections();
+  const timing = timingSignals(sec);
   const payload = {
     profileUrl,
-    aboutText: main,       // the full profile body; the app reads this for briefings + scoring
-    experienceText: '',
-    educationText: '',
+    // Sections, not one blob — the app writes briefs and drafts from these, and
+    // a real career history beats a wall of text.
+    aboutText: sec.about || main,
+    experienceText: sec.experience || '',
+    educationText: sec.education || '',
+    skillsText: sec.skills || '',
+    languagesText: sec.languages || '',
+    certificationsText: sec.certifications || '',
+    timingSignals: timing,
     mutualConnectionsRaw: mutualText(),
     location: profileLocation(profileName()),
   };
@@ -398,11 +488,17 @@ function lastInteractionLabel(row, rowEvents) {
    against what is actually on this page. Same three-rung ladder as the web app. */
 function fitFromStrategy(p, r) {
   const prof = r.profile || {};
+  const sec = p.sections || {};
   const hay = `${p.title || ''} ${p.company || ''} ${p.text || ''}`.toLowerCase();
+  // Matching the right section beats matching the whole page: a school name in
+  // Education is a shared school; the same word in a job description is not.
+  const eduHay = String(sec.education || '').toLowerCase() || hay;
+  const skillHay = `${sec.skills || ''} ${sec.about || ''} ${sec.experience || ''}`.toLowerCase() || hay;
   const why = [];
   let score = 0;
   const push = (s) => { if (why.length < 4) why.push(s); };
-  const find = (list) => (list || []).find(v => { const s = String(v || '').trim(); return s.length > 1 && hay.includes(s.toLowerCase()); });
+  const findIn = (list, text) => (list || []).find(v => { const s = String(v || '').trim(); return s.length > 1 && text.includes(s.toLowerCase()); });
+  const find = (list) => findIn(list, hay);
 
   const co = String(p.company || '').trim();
   if (co && (r.targetCompanies || []).some(c => String(c).trim().toLowerCase() === co.toLowerCase())) {
@@ -410,8 +506,10 @@ function fitFromStrategy(p, r) {
   }
   const role = find(prof.targetRoles);
   if (role) { score += 25; push(`A role you are targeting: ${role}`); }
-  const school = find(prof.schools);
+  const school = findIn(prof.schools, eduHay);
   if (school) { score += 20; push(`Shared school: ${school}`); }
+  const skill = findIn(prof.skills, skillHay);
+  if (skill) { score += 10; push(`Shared ground: ${skill}`); }
   const kws = mightyGoalKeywords(r.goal || '');
   const hits = kws.filter(k => hay.includes(k));
   // Short tokens are acronyms ("ai", "vc", "pm") — lowercase reads like a typo.
@@ -482,13 +580,23 @@ async function renderDraftInPanel(host, person, fit, r) {
       Writing a first message…</div>`;
   const res = await send('generateDraft', {
     system: 'You write a first LinkedIn outreach message for one professional to another. Ground it ONLY in the context given — never invent shared history, mutual friends, articles or events. Sound like a person, not a template. No flattery, no buzzwords, no "I hope this finds you well". Under 90 words. Ask for one specific, easy thing. Return ONLY the message text: no subject line, no preamble, no quotation marks.',
-    user: [
-      `The sender's goal: ${r.goal || 'building a deliberate professional network'}`,
-      (r.profile || {}).targetRoles && r.profile.targetRoles.length ? `They want to meet: ${r.profile.targetRoles.join(', ')}` : '',
-      `The recipient: ${person.name || ''}${person.title ? ' — ' + person.title : ''}${person.company ? ' at ' + person.company : ''}`,
-      fit.why.length ? `Why the recipient is relevant to the sender: ${fit.why.join('; ')}` : '',
-      person.text ? `From the recipient's profile page: ${String(person.text).slice(0, 700)}` : '',
-    ].filter(Boolean).join('\n'),
+    user: (() => {
+      const sec = person.sections || {};
+      const timing = timingSignals(sec);
+      return [
+        `The sender's goal: ${r.goal || 'building a deliberate professional network'}`,
+        (r.profile || {}).targetRoles && r.profile.targetRoles.length ? `They want to meet: ${r.profile.targetRoles.join(', ')}` : '',
+        (r.profile || {}).schools && r.profile.schools.length ? `The sender studied at: ${r.profile.schools.join(', ')}` : '',
+        `The recipient: ${person.name || ''}${person.title ? ' — ' + person.title : ''}${person.company ? ' at ' + person.company : ''}`,
+        fit.why.length ? `Why the recipient is relevant to the sender: ${fit.why.join('; ')}` : '',
+        sec.about ? `Their About section: ${sec.about.slice(0, 700)}` : '',
+        sec.experience ? `Their career history: ${sec.experience.slice(0, 900)}` : '',
+        sec.education ? `Their education: ${sec.education.slice(0, 300)}` : '',
+        sec.certifications ? `Certifications: ${sec.certifications.slice(0, 160)}` : '',
+        timing.length ? `Timing: ${timing.join('; ')}` : '',
+        (!sec.about && !sec.experience && person.text) ? `From their profile page: ${String(person.text).slice(0, 700)}` : '',
+      ].filter(Boolean).join('\n');
+    })(),
     maxTokens: 500,
   });
 
@@ -542,9 +650,12 @@ async function renderProfileSidebar() {
   const liveLocation = profileLocation(liveName);
 
   if (!row) {
-    const pageText = profileMainText();
-    const person = { name: liveName, title: liveHeadline, company: liveCompany, text: pageText };
+    const sec = parseProfileSections();
+    const person = { name: liveName, title: liveHeadline, company: liveCompany,
+      text: [sec.about, sec.experience, sec.education, sec.skills].filter(Boolean).join('\n') || profileMainText(),
+      sections: sec };
     const fit = fitFromStrategy(person, r);
+    const timing = timingSignals(sec);
     const overlap = networkOverlap(r.log, liveCompany);
     const shared = [];
     if (overlap.count) shared.push(`${overlap.count} ${overlap.count === 1 ? 'person' : 'people'} you know at ${liveCompany}${overlap.names.length ? ` — ${overlap.names.join(', ')}` : ''}`);
@@ -562,6 +673,7 @@ async function renderProfileSidebar() {
       + panelSection('Why', fit.why.length
           ? panelLines(fit.why)
           : `<div style="font-size:14px;color:${SUB};line-height:1.45;margin-top:8px;">Nothing on this page lines up with your strategy yet.</div>`)
+      + (timing.length ? panelSection('Why now', panelLines(timing)) : '')
       + (shared.length ? panelSection('What you share', panelLines(shared)) : '')
       + panelSection('Recommendation',
           `<div style="font-size:14.5px;line-height:1.5;color:#2A2724;margin-top:7px;">${esc(fitRecommendation(fit, r))}</div>`);
@@ -627,9 +739,12 @@ async function renderProfileSidebar() {
     })();
   }
 
-  const pageText = profileMainText();
-  const person = { name, title: headline, company, text: pageText };
+  const sec = parseProfileSections();
+  const person = { name, title: headline, company,
+    text: [sec.about, sec.experience, sec.education, sec.skills].filter(Boolean).join('\n') || profileMainText(),
+    sections: sec };
   const fit = fitFromStrategy(person, r);
+  const timing = timingSignals(sec);
   const shared = [];
   if (overlap.count > 1) shared.push(`${overlap.count} people you know at ${company}`);
   const savedMut = ((row.context || {}).mutualConnectionsRaw || '').match(/(\d+)\s*mutual/i);
@@ -645,6 +760,7 @@ async function renderProfileSidebar() {
          </div>
          <div style="font-size:13px;color:${SUB};margin-top:4px;">${esc(rel.label)} · ${esc(rel.sub)}</div>`, true)
     + (fit.why.length ? panelSection('Why', panelLines(fit.why)) : '')
+    + (timing.length ? panelSection('Why now', panelLines(timing)) : '')
     + (shared.length ? panelSection('What you share', panelLines(shared)) : '')
     + panelSection('Where you are',
         `<div style="display:flex;flex-direction:column;gap:9px;font-size:13.5px;margin-top:9px;">
