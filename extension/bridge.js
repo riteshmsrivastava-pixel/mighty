@@ -66,16 +66,51 @@
       snip = snip.split(title).slice(1).join(' ').trim();           // drop the heading
       snip = snip.replace(/^(LinkedIn\s*·\s*[^·]{0,60}?(?:[\d.]+K?\+?\s*followers)?\s*)+/i, '').trim();
       const grab = re => { const m = snip.match(re); return m ? m[1].replace(/\s*[·|].*$/, '').trim().slice(0, 90) : ''; };
-      const location  = grab(/Location:\s*([^·]+)/i) || grab(/^([A-Z][A-Za-z.\- ]+,\s*[A-Za-z.\- ]+(?:,\s*[A-Za-z.\- ]+)?)\s*·/);
-      const education = grab(/Education:\s*([^·]+)/i);
-      const experience= grab(/Experience:\s*([^·]+)/i);
+
+      // Google dropped the "Location:" / "Education:" labels these patterns were
+      // written against, so they now match nothing. Measured against live results
+      // on 26 July 2026: name and followers came back for 10 of 10, and location,
+      // education and experience for 0 to 1 of 10. The labelled forms are kept as
+      // a first attempt because the format still varies by locale and query type,
+      // with positional parsing below as the path that actually works.
+      //
+      // The shape now is:
+      //   <Name><n>+ followersLinkedIn · <Name><n>+ followers<LOCATION> · <TITLE> · <COMPANY><about text>
+      // Location is glued straight onto the second "followers" with no separator,
+      // and company runs into the About text with no separator either.
       const followers = grab(/([\d.,]+K?\+?)\s*followers/i);
       const connections = grab(/([\d.,]+\+?)\s*connections/i);
+
+      // The first "followers" is followed by "LinkedIn"; the second is followed by
+      // the location, so skip the one that isn't.
+      const locM = snip.match(/followers(?!LinkedIn)([A-Z][^·]{2,60}?)\s+·/);
+      const location = grab(/Location:\s*([^·]+)/i)
+        || (locM ? locM[1].trim() : '')
+        || grab(/^([A-Z][A-Za-z.\- ]+,\s*[A-Za-z.\- ]+(?:,\s*[A-Za-z.\- ]+)?)\s*·/);
+
+      // Company is the fourth middot segment, joined to the About text at a
+      // lowercase-then-uppercase boundary. Only a fallback: company parsed out of
+      // the title ("... at X") is more reliable and takes precedence below.
+      // Known limitation: a camelCase brand splits wrongly, so PayPal would yield
+      // "Pay". The four-character floor rejects the worst of those rather than
+      // emitting a confident fragment.
+      const segs = snip.split(/\s+·\s+/);
+      const coCut = ((segs[3] || '').split(/(?<=[a-z])(?=[A-Z])/)[0] || '').trim();
+      const snippetCompany = (coCut.length >= 4 && coCut.length <= 45) ? coCut : '';
+
+      // Not currently returned by Google in any of the results measured. Left in
+      // so a restored label starts working again on its own, but nothing should
+      // be built on the assumption that search supplies education.
+      const education = grab(/Education:\s*([^·]+)/i);
+      const experience= grab(/Experience:\s*([^·]+)/i);
 
       seen.add(url);
       out.push({
         profileUrl: url, name, title: headline,
-        company: (at ? at[1].trim() : '') || experience,
+        // Title-derived first ("Senior Product Manager at Hi Marley" gives
+        // exactly "Hi Marley"), then the snippet's fourth segment, then the
+        // Experience label if Google happens to still be sending one.
+        company: (at ? at[1].trim() : '') || snippetCompany || experience,
         location, education, experience, followers, connections,
         snippet: snip.slice(0, 300),
       });
