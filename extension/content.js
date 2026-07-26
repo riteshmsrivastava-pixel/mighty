@@ -175,10 +175,13 @@ async function decorateCardsWithScores(cards) {
     badge.style.cssText = 'position:absolute;top:8px;right:8px;z-index:10;font:11px -apple-system,system-ui,sans-serif;'
       + 'padding:3px 8px;border-radius:99px;font-weight:700;';
     if (row) {
+      // Explain before you score: the label, never the number. The reasons ride
+      // along as the tooltip, which is where the actual explanation lives.
       const { score, reasons } = mightyComputeScore(row, r.targetCompanies, r.goal);
-      badge.style.background = '#EDEAFE'; badge.style.color = '#4C3EB0';
+      const label = mightyMatchLabel(score);
+      badge.style.background = TINT; badge.style.color = ACCENT_DEEP;
       badge.title = reasons.join(' · ');
-      badge.textContent = `${score}% · ${mightyMatchLabel(score)}`;
+      badge.textContent = label;
     } else {
       const text = (c.title || '') + ' ' + (c.name || '');
       const match = (r.targetCompanies || []).find(co => text.toLowerCase().includes(co.trim().toLowerCase()));
@@ -309,53 +312,47 @@ function captureProfileContext() {
    info for a stranger — that preserves the same discard-if-not-shortlisted
    boundary as profile-context capture). For an untracked profile, only a
    lighter "save?" panel appears. */
-const ACCENT = '#5B4BC4';       // lilac
-const ACCENT_DEEP = '#4C3EB0';
-const PEACH = '#F2A69B';
-const TINT = '#EDEAFE';
-const INK = '#1B1A1F';
+/* Design tokens — kept identical to the web app so the panel reads as one
+   product. See app/index.html :root. */
+const ACCENT = '#5B46E5';
+const ACCENT_DEEP = '#5540D8';
+const PEACH = '#F2A78E';
+const TINT = '#EFEBFE';
+const INK = '#1A1917';
+const SUB = '#948E85';
+const MUTE = '#A39C93';
+const LINE = '#F0EDE8';
+const FONT = "'Plus Jakarta Sans',-apple-system,system-ui,sans-serif";
+// The one match ladder, same words as the app. Keep in sync with
+// mightyMatchLabel() in scoring.js and VERDICT in app/index.html.
+const FIT_DOT = {'Excellent match':'#5B46E5','Strong match':'#22916A','Potential match':'#D9971C'};
 // Two-overlapping-circles brand mark, inline so it needs no web-accessible asset.
-const MARK_SVG = '<svg width="20" height="20" viewBox="0 0 26 26" fill="none" style="display:block;flex:none"><circle cx="9.5" cy="13" r="7.5" fill="#5B4BC4"></circle><circle cx="16.5" cy="13" r="7.5" fill="#F2A69B" fill-opacity="0.85"></circle></svg>';
+const MARK_SVG = '<svg width="20" height="20" viewBox="0 0 26 26" fill="none" style="display:block;flex:none"><circle cx="9.5" cy="13" r="7.5" fill="#5B46E5"></circle><circle cx="16.5" cy="13" r="7.5" fill="#F2A78E" fill-opacity="0.85"></circle></svg>';
 let sidebarEl = null;
+// Profiles the student skipped — the panel stays out of the way until reload.
+const skippedThisSession = new Set();
 // Profiles we've already auto-enriched this browsing session, so viewing the
 // same sparse profile twice doesn't re-write it while the log cache is warm.
 const enrichedThisSession = new Set();
 function ensureSidebar() {
   if (sidebarEl && document.body.contains(sidebarEl)) return sidebarEl;
+  if (!document.getElementById('mighty-panel-css')) {
+    const css = document.createElement('style');
+    css.id = 'mighty-panel-css';
+    css.textContent = '@keyframes mighty-spin{to{transform:rotate(360deg)}}'
+      + '#mighty-sidebar button:hover{filter:brightness(.96)}';
+    document.head.appendChild(css);
+  }
   sidebarEl = document.createElement('div');
   sidebarEl.id = 'mighty-sidebar';
-  sidebarEl.style.cssText = 'position:fixed;top:70px;right:16px;width:326px;max-height:85vh;overflow:auto;z-index:99998;'
-    + 'background:#fff;border:1px solid rgba(27,26,31,.08);border-radius:20px;box-shadow:0 30px 70px -34px rgba(27,26,31,.32);'
-    + "font:14px 'Instrument Sans',-apple-system,system-ui,sans-serif;color:#1B1A1F;padding:20px;";
+  sidebarEl.style.cssText = 'position:fixed;top:70px;right:16px;width:336px;max-height:86vh;overflow:auto;z-index:99998;'
+    + 'background:#fff;border:1px solid #EAE6E0;border-radius:16px;box-shadow:0 18px 44px rgba(26,25,23,.16);'
+    + `font:14px ${FONT};color:${INK};padding:20px 20px 18px;box-sizing:border-box;`;
   document.body.appendChild(sidebarEl);
   return sidebarEl;
 }
 function esc(s) { return (s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
-/* ---------- "Why this person?" ----------------------------------------------
-   Answered locally from the student's own goal + targets matched against what's
-   on the page. No AI call, so it works instantly and offline — and it never
-   invents a reason: every line traces to something they actually told Mighty. */
-function whyThisPerson(text, r) {
-  const hay = (text || '').toLowerCase();
-  const out = [];
-  const hit = (list, fmt) => (list || []).forEach(v => {
-    const s = String(v || '').trim(); if (!s || s.length < 2) return;
-    if (hay.includes(s.toLowerCase()) && out.length < 4) out.push(fmt(s));
-  });
-  const p = r.profile || {};
-  hit(r.targetCompanies, v => `Target company: ${v}`);
-  hit(p.targetRoles,     v => `Role you're targeting: ${v}`);
-  hit(p.schools,         v => `Shared school: ${v}`);
-  hit(p.industries,      v => `Industry you care about: ${v}`);
-  hit(p.targetLocations, v => `Where you're building: ${v}`);
-  if (out.length < 4) {
-    const kws = mightyGoalKeywords(r.goal || '');
-    const hits = kws.filter(k => hay.includes(k));
-    if (hits.length) out.push(`Matches your goal: ${hits.slice(0, 3).join(', ')}`);
-  }
-  return out;
-}
 // People already in your network at the same company — the thing LinkedIn never
 // surfaces in the context of your own relationships. Pure local lookup.
 function networkOverlap(log, company) {
@@ -391,9 +388,143 @@ function lastInteractionLabel(row, rowEvents) {
   if (row.contacted_at) return 'Message sent';
   return 'Saved';
 }
+/* ---------- relationship fit against the student's own strategy ----------
+   Local, instant, and never invented: every line traces back to something the
+   student told Mighty (goal, target companies, roles, schools, places) matched
+   against what is actually on this page. Same three-rung ladder as the web app. */
+function fitFromStrategy(p, r) {
+  const prof = r.profile || {};
+  const hay = `${p.title || ''} ${p.company || ''} ${p.text || ''}`.toLowerCase();
+  const why = [];
+  let score = 0;
+  const push = (s) => { if (why.length < 4) why.push(s); };
+  const find = (list) => (list || []).find(v => { const s = String(v || '').trim(); return s.length > 1 && hay.includes(s.toLowerCase()); });
+
+  const co = String(p.company || '').trim();
+  if (co && (r.targetCompanies || []).some(c => String(c).trim().toLowerCase() === co.toLowerCase())) {
+    score += 40; push(`On your target list: ${co}`);
+  }
+  const role = find(prof.targetRoles);
+  if (role) { score += 25; push(`A role you are targeting: ${role}`); }
+  const school = find(prof.schools);
+  if (school) { score += 20; push(`Shared school: ${school}`); }
+  const kws = mightyGoalKeywords(r.goal || '');
+  const hits = kws.filter(k => hay.includes(k));
+  // Short tokens are acronyms ("ai", "vc", "pm") — lowercase reads like a typo.
+  const pretty = (k) => (k.length <= 3 ? k.toUpperCase() : k);
+  if (hits.length) { score += Math.min(25, 10 * hits.length); push(`Matches your goal: ${hits.slice(0, 3).map(pretty).join(', ')}`); }
+  const industry = find(prof.industries);
+  if (industry) { score += 10; push(`Industry you care about: ${industry}`); }
+  const place = find(prof.targetLocations);
+  if (place) { score += 10; push(`Where you are building: ${place}`); }
+
+  return { score, why, label: mightyMatchLabel(score) };
+}
+// What to do about it, in one sentence, honest about a weak fit.
+function fitRecommendation(fit, r) {
+  const goal = String(r.goal || '').trim();
+  if (fit.label === 'Excellent match')
+    return goal ? `Save them. They line up with your goal: ${goal.replace(/\.$/, '')}.` : 'Save them — they line up with what you are building.';
+  if (fit.label === 'Strong match')
+    return 'Worth saving. Read the brief in Mighty before you write.';
+  return goal
+    ? `Save only if you are deliberately going wider than "${goal.replace(/\.$/, '')}". Otherwise, skip.`
+    : 'Save only if you are deliberately going wider than your current goal. Otherwise, skip.';
+}
+// Panel section: small caps label above content, hairline rule above.
+function panelSection(label, inner, first) {
+  return `<div style="margin-top:${first ? 18 : 16}px;padding-top:16px;border-top:1px solid ${LINE};">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:${MUTE};">${esc(label)}</div>
+      ${inner}</div>`;
+}
+function panelLines(list) {
+  return `<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
+    ${list.map(x => `<div style="font-size:14px;color:#2A2724;line-height:1.45;">${esc(x)}</div>`).join('')}</div>`;
+}
+// LinkedIn headlines usually already contain the company (and often the city),
+// so joining them again reads as a stutter: "Partner at Antler · Antler".
+function personSub(headline, company) {
+  const h = String(headline || '').trim(), c = String(company || '').trim();
+  if (!h) return c;
+  if (!c || h.toLowerCase().includes(c.toLowerCase())) return h;
+  return `${h} · ${c}`;
+}
+function panelPerson(photo, name, sub) {
+  const initials = String(name || '?').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  return `<div style="display:flex;align-items:center;gap:12px;margin-top:18px;">
+      ${photo
+        ? `<img src="${esc(photo)}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex:none;">`
+        : `<div style="width:44px;height:44px;border-radius:50%;flex:none;background:${TINT};color:${ACCENT_DEEP};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;">${esc(initials)}</div>`}
+      <div style="min-width:0;">
+        <div style="font-size:16.5px;font-weight:700;letter-spacing:-.015em;">${esc(name || 'This profile')}</div>
+        <div style="font-size:13.5px;color:${SUB};line-height:1.35;max-height:34px;overflow:hidden;">${esc(sub || '')}</div>
+      </div>
+    </div>`;
+}
+function pbtn(text, kind) {
+  const base = 'border:none;border-radius:999px;padding:11px 16px;font-weight:700;font-size:14.5px;cursor:pointer;'
+    + `flex:1;font-family:${FONT};line-height:1.2;`;
+  if (kind === 'ghost') return base + 'background:#F4F2EE;color:#5B554D;font-weight:600;';
+  if (kind === 'outline') return base + `background:#fff;color:${INK};border:1px solid #E2DDD6;font-weight:600;`;
+  return base + `background:${ACCENT};color:#fff;`;
+}
+
+/* In-panel drafting. Uses the same ai-proxy the web app does, through the
+   background relay, so no key ever touches the page. Mighty writes it and
+   copies it; the student pastes, reads, and clicks Send themselves. */
+async function renderDraftInPanel(host, person, fit, r) {
+  host.innerHTML = `<div style="display:flex;align-items:center;gap:9px;font-size:13.5px;color:${SUB};">
+      <span style="width:13px;height:13px;border:2px solid #DED8F7;border-top-color:${ACCENT};border-radius:50%;display:inline-block;animation:mighty-spin .7s linear infinite;"></span>
+      Writing a first message…</div>`;
+  const res = await send('generateDraft', {
+    system: 'You write a first LinkedIn outreach message for one professional to another. Ground it ONLY in the context given — never invent shared history, mutual friends, articles or events. Sound like a person, not a template. No flattery, no buzzwords, no "I hope this finds you well". Under 90 words. Ask for one specific, easy thing. Return ONLY the message text: no subject line, no preamble, no quotation marks.',
+    user: [
+      `The sender's goal: ${r.goal || 'building a deliberate professional network'}`,
+      (r.profile || {}).targetRoles && r.profile.targetRoles.length ? `They want to meet: ${r.profile.targetRoles.join(', ')}` : '',
+      `The recipient: ${person.name || ''}${person.title ? ' — ' + person.title : ''}${person.company ? ' at ' + person.company : ''}`,
+      fit.why.length ? `Why the recipient is relevant to the sender: ${fit.why.join('; ')}` : '',
+      person.text ? `From the recipient's profile page: ${String(person.text).slice(0, 700)}` : '',
+    ].filter(Boolean).join('\n'),
+    maxTokens: 500,
+  });
+
+  if (!res || !res.ok) {
+    host.innerHTML = `<div style="font-size:13.5px;color:#8E4238;background:#FDEDEB;border:1px solid #F6D9D4;border-radius:12px;padding:11px 13px;line-height:1.45;">
+        Could not write it just now${res && res.error ? ` — ${esc(res.error)}` : ''}. You can still draft it in Mighty.</div>`;
+    return;
+  }
+
+  const text = String(res.text || '').trim();
+  host.innerHTML = `<div style="font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:${ACCENT};">Draft</div>`;
+  const box = document.createElement('textarea');
+  box.value = text;
+  box.style.cssText = `width:100%;min-height:132px;margin-top:9px;border:1px solid #E4E0D9;background:#FCFBF9;border-radius:12px;`
+    + `padding:12px 13px;font:14.5px/1.55 ${FONT};color:${INK};resize:vertical;outline:none;box-sizing:border-box;`;
+  const rowEl = document.createElement('div');
+  rowEl.style.cssText = 'display:flex;gap:8px;margin-top:10px;';
+  const copyBtn = document.createElement('button');
+  copyBtn.textContent = 'Copy';
+  copyBtn.style.cssText = pbtn('', 'primary');
+  copyBtn.onclick = async () => {
+    try { await navigator.clipboard.writeText(box.value); copyBtn.textContent = 'Copied ✓'; }
+    catch (e) { box.select(); copyBtn.textContent = 'Press ⌘C'; }
+    setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2200);
+  };
+  const again = document.createElement('button');
+  again.textContent = 'Rewrite';
+  again.style.cssText = pbtn('', 'outline');
+  again.onclick = () => renderDraftInPanel(host, person, fit, r);
+  rowEl.append(copyBtn, again);
+  const hint = document.createElement('div');
+  hint.style.cssText = `font-size:12.5px;color:${MUTE};line-height:1.45;margin-top:10px;`;
+  hint.textContent = 'Open LinkedIn’s own message box, click "Fill draft from clipboard (Mighty)", read it once, and click Send yourself. Mighty never sends.';
+  host.append(box, rowEl, hint);
+}
+
 async function renderProfileSidebar() {
   if (!PROFILE_PAGE_RE.test(location.pathname)) { if (sidebarEl) { sidebarEl.remove(); sidebarEl = null; } return; }
   const profileUrl = normProfileUrl(location.href);
+  if (skippedThisSession.has(profileUrl)) { if (sidebarEl) { sidebarEl.remove(); sidebarEl = null; } return; }
   const r = await fetchLogCached();
   if (!r || !r.ok) return;
   const row = r.log.find(x => x.profile_url === profileUrl);
@@ -407,52 +538,54 @@ async function renderProfileSidebar() {
   const liveLocation = profileLocation(liveName);
 
   if (!row) {
-    const why = whyThisPerson(`${liveHeadline} ${liveName} ${liveCompany}`, r);
+    const pageText = profileMainText();
+    const person = { name: liveName, title: liveHeadline, company: liveCompany, text: pageText };
+    const fit = fitFromStrategy(person, r);
     const overlap = networkOverlap(r.log, liveCompany);
-    el.innerHTML = mightyBrandHead(`<span style="font-size:11.5px;font-weight:500;color:#7B7787;background:#F4F3F1;padding:4px 11px;border-radius:999px;">Not tracked</span>`)
-      + `<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-          ${livePhoto ? `<img src="${esc(livePhoto)}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex:none;">` : ''}
-          <div style="min-width:0;"><div style="font-weight:600;font-size:15.5px;">${esc(liveName) || 'This profile'}</div>
-          <div style="font-size:12.5px;color:#7B7787;line-height:1.35;max-height:32px;overflow:hidden;">${esc(liveCompany || liveHeadline)}</div></div>
-        </div>`
-      + (why.length
-          ? `<div style="background:${TINT};border-radius:14px;padding:13px 15px;margin-bottom:12px;">
-               <div style="font-size:11px;font-weight:500;letter-spacing:.09em;text-transform:uppercase;color:${ACCENT_DEEP};margin-bottom:7px;">Why this person</div>
-               ${why.map(w => `<div style="font-size:13px;color:#413A52;line-height:1.5;">• ${esc(w)}</div>`).join('')}
-             </div>`
-          : `<div style="background:#FAF9F7;border:1px solid rgba(27,26,31,.07);border-radius:14px;padding:13px 15px;margin-bottom:12px;">
-               <div style="font-size:13px;color:#7B7787;line-height:1.5;">No obvious link to your goal yet — still worth saving if they're interesting.</div>
-             </div>`)
-      + (overlap.count
-          ? `<div style="display:flex;align-items:center;gap:9px;padding:11px 14px;background:#E9F1EC;border-radius:14px;margin-bottom:12px;">
-               <span style="font-weight:600;font-size:16px;color:#3E6B52;">${overlap.count}</span>
-               <span style="font-size:12.5px;color:#3E6B52;line-height:1.4;">${overlap.count === 1 ? 'person you know' : 'people you know'} at ${esc(liveCompany)}${overlap.names.length ? ` — ${esc(overlap.names.join(', '))}` : ''}</span>
-             </div>`
-          : '')
-      + `<div style="margin-bottom:13px;">
-           <div style="font-size:11px;font-weight:500;letter-spacing:.09em;text-transform:uppercase;color:#A29EAC;margin-bottom:7px;">Save to Mighty to</div>
-           ${['Remember this person','Draft personalised outreach','Track follow-ups','Prepare before you meet']
-              .map(b => `<div style="font-size:13px;color:#4A4751;line-height:1.6;">✓ ${b}</div>`).join('')}
-         </div>`;
-    const btn = document.createElement('button');
-    btn.textContent = 'Save to Mighty';
-    btn.style.cssText = `background:${ACCENT};color:#fff;border:none;border-radius:999px;padding:13px 12px;font-weight:500;font-size:14.5px;cursor:pointer;width:100%;font-family:inherit;`;
-    btn.onclick = async () => {
-      btn.textContent = 'Saving…';
+    const shared = [];
+    if (overlap.count) shared.push(`${overlap.count} ${overlap.count === 1 ? 'person' : 'people'} you know at ${liveCompany}${overlap.names.length ? ` — ${overlap.names.join(', ')}` : ''}`);
+    const mut = (mutualText() || '').match(/(\d+)\s*mutual/i);
+    if (mut) shared.push(`${mut[1]} mutual connection${mut[1] === '1' ? '' : 's'}`);
+    if (liveLocation) shared.push(liveLocation);
+
+    el.innerHTML = mightyBrandHead('')
+      + panelPerson(livePhoto, liveName, personSub(liveHeadline, liveCompany))
+      + panelSection('Relationship fit',
+          `<div style="display:flex;align-items:center;gap:9px;margin-top:7px;">
+             <span style="width:8px;height:8px;border-radius:50%;flex:none;background:${FIT_DOT[fit.label] || MUTE};"></span>
+             <span style="font-size:17px;font-weight:700;letter-spacing:-.015em;">${esc(fit.label)}</span>
+           </div>`, true)
+      + panelSection('Why', fit.why.length
+          ? panelLines(fit.why)
+          : `<div style="font-size:14px;color:${SUB};line-height:1.45;margin-top:8px;">Nothing on this page lines up with your strategy yet.</div>`)
+      + (shared.length ? panelSection('What you share', panelLines(shared)) : '')
+      + panelSection('Recommendation',
+          `<div style="font-size:14.5px;line-height:1.5;color:#2A2724;margin-top:7px;">${esc(fitRecommendation(fit, r))}</div>`);
+
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;gap:9px;margin-top:20px;';
+    const skip = document.createElement('button');
+    skip.textContent = 'Skip';
+    skip.style.cssText = pbtn('', 'ghost');
+    skip.onclick = () => { skippedThisSession.add(profileUrl); el.remove(); sidebarEl = null; };
+    const save = document.createElement('button');
+    save.textContent = 'Save';
+    save.style.cssText = pbtn('', 'primary');
+    save.onclick = async () => {
+      save.textContent = 'Saving…'; save.disabled = true;
       const avatarData = await profilePhotoDataUrl();
       const res = await send('saveProfile', { payload: { profileUrl, name: liveName, title: liveHeadline, company: liveCompany, avatarUrl: avatarData || livePhoto, location: liveLocation } });
-      if (res && res.ok) { renderProfileSidebar(); return; }
-      btn.textContent = 'Saved ✓'; btn.disabled = true;
+      if (res && res.ok) { await send('fetchLog', { force: true }); renderProfileSidebar(); return; }
+      save.textContent = 'Saved ✓';
     };
-    el.appendChild(btn);
+    actions.append(skip, save);
+    el.appendChild(actions);
     return;
   }
 
   const rowEvents = r.events.filter(e => e.log_id === row.id);
   const next = mightySuggestedNext(row);
-  const { score, reasons } = mightyComputeScore(row, r.targetCompanies, r.goal);
   const rel = relationshipWords(row, rowEvents);
-  const why = whyThisPerson(`${row.title || liveHeadline} ${row.company || liveCompany} ${row.name || liveName}`, r);
   const overlap = networkOverlap(r.log, row.company || liveCompany);
   const name = row.name || liveName;
   const headline = row.title || liveHeadline;
@@ -483,59 +616,49 @@ async function renderProfileSidebar() {
     })();
   }
 
+  const pageText = profileMainText();
+  const person = { name, title: headline, company, text: pageText };
+  const fit = fitFromStrategy(person, r);
+  const shared = [];
+  if (overlap.count > 1) shared.push(`${overlap.count} people you know at ${company}`);
+  const savedMut = ((row.context || {}).mutualConnectionsRaw || '').match(/(\d+)\s*mutual/i);
+  if (savedMut) shared.push(`${savedMut[1]} mutual connection${savedMut[1] === '1' ? '' : 's'}`);
+
   el.innerHTML =
-    mightyBrandHead(`<span style="font-size:11.5px;font-weight:500;color:#3E6B52;background:#E9F1EC;padding:4px 11px;border-radius:999px;">Saved</span>`)
-    + `<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-        ${photo ? `<img src="${esc(photo)}" style="width:46px;height:46px;border-radius:50%;object-fit:cover;flex:none;">` : ''}
-        <div style="min-width:0;">
-          <div style="font-weight:600;font-size:15.5px;">${esc(name)}</div>
-          <div style="font-size:12.5px;color:#7B7787;line-height:1.35;max-height:32px;overflow:hidden;">${esc(company || headline)}</div>
-        </div>
-      </div>
-      <div style="background:${TINT};border-radius:14px;padding:14px 16px;margin-bottom:12px;">
-        <div style="font-weight:600;font-size:17px;letter-spacing:-.02em;color:${ACCENT_DEEP};line-height:1.15;">${rel.icon} ${esc(rel.label)}</div>
-        <div style="font-size:12.5px;color:#413A52;margin-top:3px;">${esc(rel.sub)}</div>
-      </div>`
-      + (why.length
-          ? `<div style="margin-bottom:12px;">
-               <div style="font-size:11px;font-weight:500;letter-spacing:.09em;text-transform:uppercase;color:#A29EAC;margin-bottom:6px;">Why this matters</div>
-               ${why.map(w => `<div style="font-size:12.5px;color:#4A4751;line-height:1.5;">• ${esc(w)}</div>`).join('')}
-             </div>`
-          : '')
-      + (overlap.count > 1
-          ? `<div style="display:flex;align-items:center;gap:9px;padding:10px 13px;background:#E9F1EC;border-radius:13px;margin-bottom:12px;">
-               <span style="font-weight:600;font-size:15px;color:#3E6B52;">${overlap.count}</span>
-               <span style="font-size:12px;color:#3E6B52;line-height:1.4;">people you know at ${esc(company)}</span>
-             </div>`
-          : '')
-      + `<div style="display:flex;flex-direction:column;gap:11px;font-size:13px;margin-bottom:14px;">
-        <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:#8C8898;">Stage</span><span style="font-weight:500;">${esc(statusLabel)}</span></div>
-        <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:#8C8898;">Last interaction</span><span style="font-weight:500;">${esc(lastInteractionLabel(row, rowEvents))}</span></div>
-        <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:#8C8898;">Next step</span><span style="font-weight:500;color:${ACCENT_DEEP};text-align:right;max-width:170px;">${esc(next || '—')}</span></div>
-      </div>`;
+    mightyBrandHead(`<span style="font-size:11.5px;font-weight:700;color:#0F6B49;background:#E4F3EC;padding:4px 11px;border-radius:999px;">Saved</span>`)
+    + panelPerson(photo, name, personSub(headline, company))
+    + panelSection('Relationship fit',
+        `<div style="display:flex;align-items:center;gap:9px;margin-top:7px;">
+           <span style="width:8px;height:8px;border-radius:50%;flex:none;background:${FIT_DOT[fit.label] || MUTE};"></span>
+           <span style="font-size:17px;font-weight:700;letter-spacing:-.015em;">${esc(fit.label)}</span>
+         </div>
+         <div style="font-size:13px;color:${SUB};margin-top:4px;">${esc(rel.label)} · ${esc(rel.sub)}</div>`, true)
+    + (fit.why.length ? panelSection('Why', panelLines(fit.why)) : '')
+    + (shared.length ? panelSection('What you share', panelLines(shared)) : '')
+    + panelSection('Where you are',
+        `<div style="display:flex;flex-direction:column;gap:9px;font-size:13.5px;margin-top:9px;">
+           <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:${SUB};">Stage</span><span style="font-weight:700;">${esc(statusLabel)}</span></div>
+           <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:${SUB};">Last interaction</span><span style="font-weight:700;">${esc(lastInteractionLabel(row, rowEvents))}</span></div>
+           <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:${SUB};">Next step</span><span style="font-weight:700;color:${ACCENT_DEEP};text-align:right;max-width:170px;">${esc(next || '—')}</span></div>
+         </div>`);
 
-  // notes
-  const notesWrap = document.createElement('div');
-  notesWrap.style.cssText = 'background:#FAF9F7;border:1px solid rgba(27,26,31,.07);border-radius:14px;padding:12px 14px;margin-bottom:14px;';
-  notesWrap.innerHTML = `<div style="font-size:11px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:#A29EAC;margin-bottom:6px;">Quick notes</div>`;
-  const notesBox = document.createElement('textarea');
-  notesBox.value = row.notes || ''; notesBox.placeholder = 'Jot anything…';
-  notesBox.style.cssText = 'width:100%;min-height:52px;border:none;background:transparent;padding:0;font:13.5px inherit;color:#1B1A1F;resize:vertical;outline:none;';
-  let notesTimer;
-  notesBox.addEventListener('input', () => { clearTimeout(notesTimer); notesTimer = setTimeout(() => send('patchNotes', { logId: row.id, notes: notesBox.value }), 900); });
-  notesWrap.appendChild(notesBox);
-  el.appendChild(notesWrap);
+  // Draft lives here, in the panel — written by Mighty, sent by you.
+  const draftHost = document.createElement('div');
+  draftHost.style.cssText = `margin-top:16px;padding-top:16px;border-top:1px solid ${LINE};`;
 
-  // actions
+  // Stacked, not side by side — these labels are too long to share a row.
+  const actions = document.createElement('div');
+  actions.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:20px;';
   const draftBtn = document.createElement('button');
   draftBtn.textContent = row.status === 'prospect' || row.status === 'ready_to_contact' ? 'Draft a message' : 'Draft a follow-up';
-  draftBtn.style.cssText = `background:${ACCENT};color:#fff;border:none;border-radius:999px;padding:13px 12px;font-weight:500;font-size:14.5px;cursor:pointer;width:100%;font-family:inherit;margin-bottom:8px;`;
-  draftBtn.onclick = () => window.open(`${(r.appUrl || 'https://yourmighty.com/app/')}?open=${row.id}`, '_blank');
+  draftBtn.style.cssText = pbtn('', 'primary');
+  draftBtn.onclick = () => { el.appendChild(draftHost); renderDraftInPanel(draftHost, person, fit, r); };
   const openBtn = document.createElement('button');
   openBtn.textContent = 'Open in Mighty';
-  openBtn.style.cssText = 'background:#fff;color:#1B1A1F;border:1px solid rgba(27,26,31,.12);border-radius:999px;padding:13px 12px;font-weight:500;font-size:14.5px;cursor:pointer;width:100%;font-family:inherit;';
-  openBtn.onclick = () => window.open('https://yourmighty.com/app/', '_blank');
-  el.append(draftBtn, openBtn);
+  openBtn.style.cssText = pbtn('', 'outline');
+  openBtn.onclick = () => window.open(`${(r.appUrl || 'https://yourmighty.com/app/')}?open=${row.id}`, '_blank');
+  actions.append(draftBtn, openBtn);
+  el.appendChild(actions);
 }
 
 /* ---------- 4. passive send/connect observer (never triggers a click) ---------- */
