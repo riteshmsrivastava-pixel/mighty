@@ -51,7 +51,7 @@ function parseItem(it: any) {
   const link = it.link || "";
   if (!/linkedin\.com\/in\//i.test(link)) return null;
   let title = (it.title || "").replace(/\s*[|·]?\s*LinkedIn\s*$/i, "").replace(/\s*[.…]+\s*$/, "").trim();
-  const parts = title.split(/\s+[-– - ]\s+/);
+  const parts = title.split(/\s+[-\u2013\u2014]\s+/);
   const name = (parts[0] || "").trim();
   if (!name || name.length > 60) return null;
   const headline = parts.slice(1).join(" - ").trim();

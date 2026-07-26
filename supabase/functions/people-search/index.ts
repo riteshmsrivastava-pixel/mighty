@@ -1,15 +1,15 @@
 // ============================================================
-// MIghTy — People search (Edge Function, deployed as "people-search").
+// MIghTy - People search (Edge Function, deployed as "people-search").
 //
 // The "Discover" backend. Takes a keyword query, calls Google's official
 // Programmable Search JSON API scoped to public LinkedIn profiles, parses the
-// results into people, and returns them to the app — which shows a selectable
+// results into people, and returns them to the app - which shows a selectable
 // list to import. This is the compliant way to "search in the backend": an
 // official API with a quota, never scraping Google's HTML.
 //
 // Setup (one time):
 //   1. Create a Programmable Search Engine at https://programmablesearchengine.google.com
-//      — set it to search the whole web (we scope to LinkedIn per-query). Copy its
+// - set it to search the whole web (we scope to LinkedIn per-query). Copy its
 //      "Search engine ID" (cx).
 //   2. Enable the "Custom Search API" and make an API key at
 //      https://console.cloud.google.com/apis/credentials
@@ -51,7 +51,7 @@ function parseItem(it: any) {
   const link = it.link || "";
   if (!/linkedin\.com\/in\//i.test(link)) return null;
   let title = (it.title || "").replace(/\s*[|·]?\s*LinkedIn\s*$/i, "").replace(/\s*[.…]+\s*$/, "").trim();
-  const parts = title.split(/\s+[-–—]\s+/);
+  const parts = title.split(/\s+[-\u2013\u2014]\s+/);
   const name = (parts[0] || "").trim();
   if (!name || name.length > 60) return null;
   const headline = parts.slice(1).join(" - ").trim();
@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
   const query = (body.query || "").toString().trim();
   if (!query) return json({ ok: false, error: "bad_request", message: "query is required." }, 400);
 
-  // auth — only signed-in students may search (protects the CSE quota)
+  // auth - only signed-in students may search (protects the CSE quota)
   const authHeader = req.headers.get("Authorization") || "";
   const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { global: { headers: { Authorization: authHeader } } });
   const { data: { user }, error: userErr } = await userClient.auth.getUser();
