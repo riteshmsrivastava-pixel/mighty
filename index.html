@@ -4,466 +4,473 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mighty — the operating system for professional relationships</title>
-<meta name="description" content="LinkedIn helps you find people. Mighty helps you remember them, follow through, and build relationships that compound into opportunities — from first hello to coffee chat.">
+<meta name="description" content="LinkedIn helps you discover people. Mighty helps you remember them, follow through, and turn conversations into opportunities — from first hello to years of trust.">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-<meta name="theme-color" content="#5B4BC4">
+<meta name="theme-color" content="#5B46E5">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Mighty — the operating system for professional relationships">
-<meta property="og:description" content="LinkedIn helps you find people. Mighty helps you remember them, follow through, and build relationships that compound into opportunities.">
+<meta property="og:description" content="LinkedIn helps you discover people. Mighty helps you remember them, follow through, and turn conversations into opportunities.">
 <meta property="og:image" content="https://yourmighty.com/assets/og-image.png">
 <meta property="og:url" content="https://yourmighty.com/">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  :root{ --m-accent:#5B4BC4; --m-accent-deep:#4C3EB0; --m-accent2:#F2A69B; --m-tint:#EDEAFE; --m-tint2:#FDEDEB; }
-  html { scroll-behavior: smooth; }
-  body { margin: 0; background: #FAF9F7; color: #1B1A1F; font-family: 'Instrument Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
-  a { color: inherit; text-decoration: none; }
-  a:hover { color: var(--m-accent); }
-  ::selection { background: var(--m-tint); }
-  .fig { font-family: 'Figtree', sans-serif; }
-  @keyframes m-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-  [data-reveal]{opacity:0;transform:translateY(18px);transition:opacity .8s cubic-bezier(.22,.61,.36,1),transform .8s cubic-bezier(.22,.61,.36,1);}
-  [data-reveal].in{opacity:1;transform:none;}
-  .hov{transition:transform .2s ease, box-shadow .3s ease, border-color .2s ease, background .2s ease;}
-  .cta-p:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(91,75,196,0.28);color:#fff;}
-  .cta-s:hover{transform:translateY(-2px);border-color:var(--m-accent);}
-  .card-h:hover{transform:translateY(-3px);box-shadow:0 24px 50px -32px rgba(27,26,31,0.28);}
-  .navcta:hover{background:var(--m-accent-deep);color:#fff;transform:translateY(-1px);}
-  /* How-it-works slider */
-  .hiw-stage{position:relative}
-  .slide{display:none;animation:hiwIn .45s cubic-bezier(.22,.61,.36,1)}
-  .slide.on{display:block}
-  @keyframes hiwIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-  .hiw-tab{font:inherit;font-size:13.5px;color:#615E6B;background:#FAF9F7;border:1px solid rgba(27,26,31,.09);
-    border-radius:999px;padding:9px 16px;cursor:pointer;transition:all .2s ease}
-  .hiw-tab:hover{border-color:var(--m-accent)}
-  .hiw-tab.on{background:var(--m-tint);border-color:transparent;color:var(--m-accent-deep);font-weight:500}
-  .hiw-arrow{font:inherit;font-size:15px;color:#1B1A1F;background:#fff;border:1px solid rgba(27,26,31,.1);
-    border-radius:999px;width:38px;height:38px;cursor:pointer;transition:all .2s ease}
-  .hiw-arrow:hover{border-color:var(--m-accent);color:var(--m-accent)}
-  @media(max-width:820px){ .hiw-tab{font-size:12.5px;padding:8px 13px} }
-  @media(max-width:820px){ .nav-links{display:none!important} .two{grid-template-columns:1fr!important} .sticky{position:static!important} .hero-h{font-size:48px!important} }
+  :root{
+    --paper:#FAF9F7; --card:#FFFFFF; --line:#EAE6E0; --line2:#F2EFEA;
+    --ink:#1A1917; --ink2:#2A2724; --body:#5B554D; --sub:#948E85; --mute:#A39C93; --mute2:#B0A9A0;
+    --brand:#5B46E5; --brand-h:#4B38CE; --brand-ink:#5540D8;
+    --brand-soft:#F7F5FE; --brand-soft2:#EFEBFE;
+    --peach:#F2A78E; --green:#0F6B49; --green-soft:#E4F3EC;
+    --sh:0 1px 3px rgba(26,25,23,.06); --shL:0 18px 40px rgba(26,25,23,.07);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  a{color:var(--brand);text-decoration:none}
+  a:hover{color:var(--brand-h)}
+  button{font-family:inherit;border:0;background:none;cursor:pointer;color:inherit}
+  input:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  ::selection{background:#E4DEFC}
+  h1,h2,h3{margin:0;text-wrap:balance}
+  p{margin:0;text-wrap:pretty}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:80px 48px}
+  .kicker{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--brand)}
+  .kicker.grey{color:var(--mute)}
+  .h-hero{font-size:clamp(40px,7.2vw,80px);line-height:1.02;font-weight:800;letter-spacing:-.045em}
+  .h-sec{font-size:clamp(30px,4.4vw,46px);line-height:1.08;font-weight:700;letter-spacing:-.035em}
+  .h-sub{font-size:clamp(26px,3.6vw,42px);line-height:1.1;font-weight:700;letter-spacing:-.035em}
+  .lead{font-size:clamp(17px,2vw,19px);line-height:1.6;color:var(--body)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:72px;align-items:center}
+  .card{background:var(--card);border-radius:20px;box-shadow:var(--shL)}
+  .flat{background:var(--card);border-radius:20px;box-shadow:var(--sh)}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;padding:15px 28px;border-radius:999px;
+    background:var(--brand);color:#fff;font-size:16px;font-weight:700;transition:background .16s,transform .16s,box-shadow .2s}
+  .btn:hover{background:var(--brand-h);color:#fff;transform:translateY(-1px);box-shadow:0 10px 26px rgba(91,70,229,.25)}
+  .btn.w{background:#fff;color:var(--ink);box-shadow:var(--sh)}
+  .btn.w:hover{background:#fff;color:var(--ink);box-shadow:0 8px 20px rgba(26,25,23,.10)}
+  .btn.k{background:var(--ink);color:#fff}
+  .btn.k:hover{background:#000;color:#fff}
+  .navcta{padding:10px 20px;font-size:15px}
+
+  .pill{display:inline-block;padding:8px 15px;border-radius:999px;background:#F4F2EE;
+    font-size:13.5px;font-weight:600;color:#6B655C;white-space:nowrap}
+  .pill.on{background:var(--brand);color:#fff;font-weight:700}
+  .chipbox{padding:16px 26px;border-radius:14px;background:var(--card);font-size:16px;font-weight:600;box-shadow:var(--sh);white-space:nowrap}
+  .av{width:44px;height:44px;flex:none;border-radius:50%;background:var(--brand-soft2);color:var(--brand-ink);
+    display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700}
+  .trow{display:flex;align-items:center;gap:14px;padding:13px 0;border-top:1px solid var(--line2)}
+  .dot{width:7px;height:7px;border-radius:50%;flex:none;background:#D6D0C7}
+
+  .tab{padding:10px 20px;border-radius:999px;font-size:15px;font-weight:600;white-space:nowrap;
+    border:1px solid var(--line);background:transparent;color:var(--body);transition:all .18s}
+  .tab:hover{border-color:#DED6FB;color:var(--brand-ink)}
+  .tab.on{border-color:#DED6FB;background:var(--brand-soft2);color:var(--brand-ink)}
+  .slide{display:none}
+  .slide.on{display:block;animation:fi .4s cubic-bezier(.22,.61,.36,1)}
+  @keyframes fi{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+  [data-reveal]{opacity:0;transform:translateY(18px);
+    transition:opacity .7s cubic-bezier(.22,.61,.36,1),transform .7s cubic-bezier(.22,.61,.36,1)}
+  [data-reveal].in{opacity:1;transform:none}
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    [data-reveal]{opacity:1;transform:none;transition:none}
+    .slide.on{animation:none}
+  }
+
+  @media (max-width:900px){
+    .wrap{padding:56px 22px}
+    .two{grid-template-columns:1fr;gap:34px}
+    .nav-links{display:none!important}
+    .hero{padding:76px 22px 64px!important}
+    .finale{padding:60px 24px!important}
+    .journey{gap:26px 24px!important}
+  }
 </style>
 </head>
 <body>
-<div style="background:#FAF9F7;overflow-x:hidden">
 
-  <nav style="position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;justify-content:space-between;gap:32px;padding:14px 32px;background:rgba(250,249,247,0.72);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid rgba(27,26,31,0.06)">
-    <a href="#top" style="display:flex;align-items:center;gap:10px">
-      <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true"><circle cx="9.5" cy="13" r="7.5" fill="var(--m-accent)"></circle><circle cx="16.5" cy="13" r="7.5" fill="var(--m-accent2)" fill-opacity="0.85"></circle></svg>
-      <span class="fig" style="font-weight:600;font-size:19px;letter-spacing:-0.03em">Mighty</span>
-    </a>
-    <div class="nav-links" style="display:flex;align-items:center;gap:24px;font-size:14.5px;color:#615E6B;white-space:nowrap">
-      <a href="#why">Why Mighty</a>
-      <a href="#what">What it does</a>
-      <a href="#privacy">Privacy</a>
-      <a href="/install/" style="color:#1B1A1F;font-weight:500">Get the extension</a>
-      <a href="/app/" class="navcta hov" style="display:inline-flex;align-items:center;flex:none;padding:9px 18px;border-radius:999px;background:var(--m-accent);color:#fff;font-weight:500">Get started</a>
-    </div>
+<header style="position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:28px;padding:16px 48px;
+  background:rgba(250,249,247,.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid #EEEAE4">
+  <a href="#top" style="display:flex;align-items:center;gap:10px;color:var(--ink)">
+    <span style="position:relative;width:31px;height:21px;flex:none;display:block">
+      <span style="position:absolute;left:0;top:0;width:21px;height:21px;border-radius:50%;background:var(--brand)"></span>
+      <span style="position:absolute;left:10px;top:0;width:21px;height:21px;border-radius:50%;background:var(--peach);mix-blend-mode:multiply"></span>
+    </span>
+    <span style="font-size:20px;font-weight:700;letter-spacing:-.02em">Mighty</span>
+  </a>
+  <div style="flex:1"></div>
+  <nav class="nav-links" style="display:flex;align-items:center;gap:26px">
+    <a href="#why" style="font-size:15px;font-weight:500;color:var(--body)">Why Mighty</a>
+    <a href="#journey" style="font-size:15px;font-weight:500;color:var(--body)">How it works</a>
+    <a href="/pricing/" style="font-size:15px;font-weight:500;color:var(--body)">Pricing</a>
+    <a href="#privacy" style="font-size:15px;font-weight:500;color:var(--body)">Privacy</a>
+    <a href="/install/" style="font-size:15px;font-weight:700;color:var(--ink)">Get the extension</a>
+    <a href="/app/" class="btn navcta">Get started</a>
   </nav>
+  <a href="/app/" class="btn navcta nav-mob" style="display:none">Get started</a>
+</header>
 
-  <header id="top" style="position:relative;padding:190px 32px 90px;text-align:center">
-    <div style="position:absolute;top:-140px;left:50%;transform:translateX(-50%);width:1100px;max-width:100%;height:620px;border-radius:50%;background:radial-gradient(closest-side, var(--m-tint), rgba(250,249,247,0));pointer-events:none"></div>
-    <div style="position:absolute;top:60px;left:8%;width:420px;height:420px;border-radius:50%;background:radial-gradient(closest-side, var(--m-tint2), rgba(250,249,247,0));pointer-events:none"></div>
-    <div style="position:relative;max-width:900px;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:26px">
-      <div data-reveal style="display:inline-flex;align-items:center;gap:8px;padding:7px 14px 7px 10px;border-radius:999px;background:#fff;border:1px solid rgba(27,26,31,0.07);font-size:13.5px;color:#615E6B;box-shadow:0 1px 2px rgba(27,26,31,0.04)">
-        <span style="width:7px;height:7px;border-radius:50%;background:var(--m-accent)"></span>
-        The operating system for professional relationships
+<section id="top" class="hero" style="position:relative;overflow:hidden;padding:110px 48px 96px;text-align:center">
+  <div aria-hidden="true" style="position:absolute;top:-260px;left:50%;transform:translateX(-50%);width:1100px;max-width:140%;
+    height:560px;border-radius:50%;background:radial-gradient(closest-side,rgba(155,132,240,.30),rgba(242,167,142,.16),rgba(250,249,247,0));pointer-events:none"></div>
+  <div style="position:relative;max-width:900px;margin:0 auto">
+    <div style="display:inline-flex;align-items:center;gap:9px;padding:8px 18px;border-radius:999px;background:#fff;box-shadow:var(--sh)">
+      <span class="dot" style="background:var(--brand)"></span>
+      <span style="font-size:14px;font-weight:600;color:#3B3833">The operating system for professional relationships</span>
+    </div>
+    <h1 class="h-hero" style="margin-top:26px">Build relationships that compound.</h1>
+    <p class="lead" style="margin:24px auto 0;max-width:660px">
+      LinkedIn helps you discover people. Mighty helps you remember them, follow through, and turn conversations into opportunities.
+    </p>
+    <div style="display:flex;justify-content:center;gap:12px;margin-top:34px;flex-wrap:wrap">
+      <a href="/app/" class="btn">Get started — it's free</a>
+      <a href="/install/" class="btn w">Add to your browser</a>
+    </div>
+    <div style="margin-top:20px;font-size:14px;color:var(--mute)">You always click Send.</div>
+  </div>
+</section>
+
+<section id="why" class="wrap">
+  <div class="two">
+    <div data-reveal>
+      <div class="kicker">Why it matters</div>
+      <h2 class="h-sec" style="margin-top:14px">Every opportunity begins with a relationship.</h2>
+      <p class="lead" style="margin-top:22px">The next job. Your first customer. An investor. A mentor. A recommendation.</p>
+      <p style="margin-top:16px;font-size:18px;line-height:1.6;color:var(--ink2);font-weight:500">
+        Most opportunities aren't lost because we never met the right people. They're lost because relationships quietly fade.
+      </p>
+    </div>
+    <div class="card" data-reveal style="padding:26px 28px">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div class="av">SC</div>
+        <div>
+          <div style="font-size:17px;font-weight:700;letter-spacing:-.015em">Sarah Chen</div>
+          <div style="font-size:14px;color:var(--sub)">Two years of a relationship, remembered</div>
+        </div>
       </div>
-      <h1 data-reveal class="fig hero-h" style="margin:0;font-weight:600;font-size:76px;line-height:1.02;letter-spacing:-0.045em;text-wrap:balance">Build relationships<br>that compound.</h1>
-      <p data-reveal style="margin:0;max-width:640px;font-size:19.5px;line-height:1.62;color:#615E6B;text-wrap:pretty">LinkedIn helps you find people. Mighty helps you remember them, follow through, and turn connections into relationships that create opportunities.</p>
-      <div data-reveal style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:6px">
-        <a href="/app/" class="cta-p hov" style="display:inline-flex;align-items:center;padding:15px 30px;border-radius:999px;background:var(--m-accent);color:#fff;font-size:16px;font-weight:500;box-shadow:0 8px 24px rgba(91,75,196,0.22)">Get started — it's free</a>
-        <a href="/install/" class="cta-s hov" style="display:inline-flex;align-items:center;padding:15px 30px;border-radius:999px;background:#fff;border:1px solid rgba(27,26,31,0.1);font-size:16px;font-weight:500">Add to your browser</a>
+      <div style="margin-top:20px;display:flex;flex-direction:column">
+        <div class="trow"><span class="dot"></span>
+          <span style="flex:1;font-size:15px;color:var(--ink2)">Met at the Sloan PM panel</span>
+          <span style="font-size:13.5px;color:var(--mute)">Mar '23</span></div>
+        <div class="trow"><span class="dot"></span>
+          <span style="flex:1;font-size:15px;color:var(--ink2)">Coffee chat about switching careers</span>
+          <span style="font-size:13.5px;color:var(--mute)">Apr '23</span></div>
+        <div class="trow"><span class="dot" style="background:var(--peach)"></span>
+          <span style="flex:1;font-size:15px;color:var(--ink2)">She introduced you to Alex</span>
+          <span style="font-size:13.5px;color:var(--mute)">Jul '23</span></div>
+        <div class="trow"><span class="dot"></span>
+          <span style="flex:1;font-size:15px;color:var(--ink2)">Congratulated her promotion</span>
+          <span style="font-size:13.5px;color:var(--mute)">Jan '24</span></div>
+        <div class="trow"><span class="dot" style="background:var(--brand)"></span>
+          <span style="flex:1;font-size:15px;font-weight:700;color:var(--brand-ink)">Send the paper you promised</span>
+          <span style="font-size:13.5px;font-weight:700;color:var(--brand-ink)">Today</span></div>
       </div>
-      <p data-reveal style="margin:2px 0 0;font-size:13.5px;color:#8C8898;letter-spacing:0.01em">You stay in control · You always click Send</p>
+    </div>
+  </div>
+</section>
+
+<section class="wrap" data-reveal>
+  <div class="kicker">Where Mighty fits</div>
+  <h2 class="h-sub" style="margin-top:14px;max-width:640px">Mighty doesn't replace your tools. It connects them.</h2>
+  <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:38px">
+    <div class="chipbox">LinkedIn</div>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C4BEB5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    <div class="chipbox" style="background:var(--brand);color:#fff;font-weight:700;box-shadow:none">Mighty</div>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C4BEB5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    <div class="chipbox">Email</div>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C4BEB5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    <div class="chipbox">Calendar</div>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C4BEB5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    <div class="chipbox" style="background:var(--brand-soft2);color:var(--brand-h);font-weight:700;box-shadow:none">A real relationship</div>
+  </div>
+</section>
+
+<section id="journey" class="wrap" data-reveal>
+  <div class="kicker">Relationship journey</div>
+  <h2 class="h-sub" style="margin-top:14px;max-width:620px">Seven steps, one continuous system.</h2>
+  <div class="journey" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:34px 40px;margin-top:44px">
+    <div style="padding-top:16px;border-top:2px solid var(--line)">
+      <div style="font-size:12px;font-weight:700;color:var(--brand);letter-spacing:.08em">01</div>
+      <div style="font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:8px">Strategy</div>
+      <div style="font-size:15px;line-height:1.55;color:var(--sub);margin-top:6px">Know who you are trying to meet, and why.</div>
+    </div>
+    <div style="padding-top:16px;border-top:2px solid var(--line)">
+      <div style="font-size:12px;font-weight:700;color:var(--brand);letter-spacing:.08em">02</div>
+      <div style="font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:8px">Discover</div>
+      <div style="font-size:15px;line-height:1.55;color:var(--sub);margin-top:6px">Save interesting people wherever you find them.</div>
+    </div>
+    <div style="padding-top:16px;border-top:2px solid var(--line)">
+      <div style="font-size:12px;font-weight:700;color:var(--brand);letter-spacing:.08em">03</div>
+      <div style="font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:8px">Understand</div>
+      <div style="font-size:15px;line-height:1.55;color:var(--sub);margin-top:6px">Mighty prepares the context before you reach out.</div>
+    </div>
+    <div style="padding-top:16px;border-top:2px solid var(--line)">
+      <div style="font-size:12px;font-weight:700;color:var(--brand);letter-spacing:.08em">04</div>
+      <div style="font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:8px">Reach out</div>
+      <div style="font-size:15px;line-height:1.55;color:var(--sub);margin-top:6px">Draft something thoughtful. You always click Send.</div>
+    </div>
+    <div style="padding-top:16px;border-top:2px solid var(--line)">
+      <div style="font-size:12px;font-weight:700;color:var(--brand);letter-spacing:.08em">05</div>
+      <div style="font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:8px">Build</div>
+      <div style="font-size:15px;line-height:1.55;color:var(--sub);margin-top:6px">Track conversations and the promises inside them.</div>
+    </div>
+    <div style="padding-top:16px;border-top:2px solid var(--line)">
+      <div style="font-size:12px;font-weight:700;color:var(--brand);letter-spacing:.08em">06</div>
+      <div style="font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:8px">Remember</div>
+      <div style="font-size:15px;line-height:1.55;color:var(--sub);margin-top:6px">Never lose the context that made someone matter.</div>
+    </div>
+    <div style="padding-top:16px;border-top:2px solid var(--line)">
+      <div style="font-size:12px;font-weight:700;color:var(--brand);letter-spacing:.08em">07</div>
+      <div style="font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:8px">Grow</div>
+      <div style="font-size:15px;line-height:1.55;color:var(--sub);margin-top:6px">Relationships turn into opportunities.</div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap" data-reveal>
+  <div class="kicker">How it works</div>
+  <h2 class="h-sub" style="margin-top:14px;max-width:680px">A relationship, from beginning to follow-up.</h2>
+
+  <div role="tablist" aria-label="Product screens" style="display:flex;gap:10px;margin-top:34px;flex-wrap:wrap">
+    <button class="tab on" role="tab" aria-selected="true"  aria-controls="s0" id="t0" data-i="0">01 · Today</button>
+    <button class="tab"    role="tab" aria-selected="false" aria-controls="s1" id="t1" data-i="1">02 · Person profile</button>
+    <button class="tab"    role="tab" aria-selected="false" aria-controls="s2" id="t2" data-i="2">03 · Conversation notes</button>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1.15fr;gap:64px;align-items:center;margin-top:40px" class="two">
+    <div>
+      <div class="kicker grey" id="kick">01 · Today</div>
+      <h3 class="h-sub" style="margin-top:12px;font-size:clamp(24px,3vw,34px)" id="stitle">What deserves your attention</h3>
+      <p class="lead" style="margin-top:16px;font-size:17px" id="sbody">A short, kind list instead of an endless feed. Every morning, Mighty shows you the few conversations worth continuing today.</p>
     </div>
 
-    <div data-reveal style="position:relative;max-width:880px;margin:74px auto 0;text-align:left">
-      <div style="background:#fff;border:1px solid rgba(27,26,31,0.07);border-radius:26px;padding:26px 28px 22px;box-shadow:0 30px 70px -30px rgba(27,26,31,0.22),0 2px 6px rgba(27,26,31,0.04)">
-        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px;padding-bottom:18px;border-bottom:1px solid rgba(27,26,31,0.06)">
-          <div style="display:flex;flex-direction:column;gap:4px">
-            <span style="font-size:11.5px;letter-spacing:0.12em;text-transform:uppercase;color:#A29EAC">Today</span>
-            <span class="fig" style="font-size:22px;font-weight:600;letter-spacing:-0.03em">Three people worth your time</span>
+    <div class="card" style="padding:26px 28px">
+      <div class="slide on" id="s0" role="tabpanel" aria-labelledby="t0">
+        <div class="kicker grey">Today's plan</div>
+        <div style="display:flex;flex-direction:column;gap:9px;margin-top:14px">
+          <div style="display:flex;align-items:center;gap:14px;padding:15px 18px;border-radius:12px;background:var(--brand-soft2)">
+            <span style="flex:1;font-size:16px;font-weight:700">Reply to Sarah Chen</span>
+            <span style="font-size:14px;font-weight:700;color:var(--brand-ink)">Draft ready</span>
           </div>
-          <span style="font-size:13px;color:#8C8898">Thursday</span>
+          <div style="display:flex;align-items:center;gap:14px;padding:15px 18px;border-radius:12px;background:#F7F5F2">
+            <span style="flex:1;font-size:16px;font-weight:600">David Lee</span>
+            <span style="font-size:14px;color:var(--sub)">Coffee chat · 9:30 AM</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;padding:15px 18px;border-radius:12px;background:#F7F5F2">
+            <span style="flex:1;font-size:16px;font-weight:600">James Park</span>
+            <span style="font-size:14px;color:var(--sub)">Intro promised · reconnect</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide" id="s1" role="tabpanel" aria-labelledby="t1">
+        <div style="display:flex;align-items:center;gap:14px">
+          <div class="av">SC</div>
+          <div>
+            <div style="font-size:17px;font-weight:700;letter-spacing:-.015em">Sarah Chen</div>
+            <div style="font-size:14px;color:var(--sub)">PM, Amazon · Sloan '23 · ex-Deloitte</div>
+          </div>
+        </div>
+        <div style="margin-top:18px;padding:18px 20px;border-radius:14px;background:var(--brand-soft)">
+          <div class="kicker">Briefing</div>
+          <div style="font-size:15.5px;line-height:1.6;color:var(--ink2);margin-top:7px">
+            Writes about career switching. Mentors first-time founders. A warm opening: her recent post on leaving consulting.
+          </div>
+        </div>
+        <div class="kicker grey" style="margin-top:20px">Relationship</div>
+        <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:10px">
+          <span class="pill">Saved</span><span style="color:#C4BEB5">&#8594;</span>
+          <span class="pill">Messaged</span><span style="color:#C4BEB5">&#8594;</span>
+          <span class="pill">Replied</span><span style="color:#C4BEB5">&#8594;</span>
+          <span class="pill on">Coffee chat</span>
+        </div>
+      </div>
+
+      <div class="slide" id="s2" role="tabpanel" aria-labelledby="t2">
+        <div class="kicker grey">Your raw notes</div>
+        <div style="font-size:16px;line-height:1.6;color:var(--ink2);margin-top:9px;padding:16px 18px;border-radius:12px;background:#F7F5F2">
+          loves fintech, intro to her manager?? send her the Sloan paper, circle back mid-Oct
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin:18px 0 14px">
+          <span style="width:22px;height:22px;border-radius:50%;background:var(--brand-soft2);color:var(--brand-ink);
+            display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">&#8595;</span>
+          <span style="font-size:14px;color:var(--sub)">Mighty reads it back to you</span>
         </div>
         <div style="display:flex;flex-direction:column">
-          <div style="display:grid;grid-template-columns:38px 1fr auto;gap:14px;align-items:center;padding:16px 4px;border-bottom:1px solid rgba(27,26,31,0.05)">
-            <div style="width:38px;height:38px;border-radius:50%;background:var(--m-tint);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--m-accent-deep)">SC</div>
-            <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:15.5px;font-weight:500">Sarah Chen</span><span style="font-size:13px;color:#8C8898">You promised her the Sloan paper — send it today</span></div>
-            <span style="padding:7px 14px;border-radius:999px;background:var(--m-accent);color:#fff;font-size:13px;font-weight:500">Follow up</span>
+          <div class="trow">
+            <span style="width:20px;height:20px;border-radius:6px;background:var(--green-soft);display:flex;align-items:center;justify-content:center;flex:none">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 12.5 5 5L20 6.5"/></svg>
+            </span>
+            <span style="font-size:15.5px;color:var(--ink2);font-weight:500">Send the Sloan fintech paper</span>
           </div>
-          <div style="display:grid;grid-template-columns:38px 1fr auto;gap:14px;align-items:center;padding:16px 4px;border-bottom:1px solid rgba(27,26,31,0.05)">
-            <div style="width:38px;height:38px;border-radius:50%;background:var(--m-tint2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#B5675A">DL</div>
-            <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:15.5px;font-weight:500">David Lee</span><span style="font-size:13px;color:#8C8898">Coffee chat today</span></div>
-            <span style="font-size:13px;color:#615E6B;font-weight:500">9:30 AM</span>
+          <div class="trow">
+            <span style="width:20px;height:20px;border-radius:6px;background:#F1EFEB;flex:none"></span>
+            <span style="font-size:15.5px;color:var(--ink2);font-weight:500">Ask about the manager intro</span>
           </div>
-          <div style="display:grid;grid-template-columns:38px 1fr auto;gap:14px;align-items:center;padding:16px 4px">
-            <div style="width:38px;height:38px;border-radius:50%;background:#E9F1EC;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#4B7A5E">JP</div>
-            <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:15.5px;font-weight:500">James Park</span><span style="font-size:13px;color:#8C8898">Promised an intro 2 weeks ago</span></div>
-            <span style="padding:7px 14px;border-radius:999px;background:#F4F3F1;border:1px solid rgba(27,26,31,0.07);font-size:13px;font-weight:500">Reconnect</span>
-          </div>
-        </div>
-      </div>
-      <div style="position:absolute;right:-26px;bottom:-30px;padding:14px 18px;background:#fff;border:1px solid rgba(27,26,31,0.07);border-radius:16px;box-shadow:0 18px 40px -18px rgba(27,26,31,0.25);animation:m-float 6s ease-in-out infinite;display:flex;align-items:center;gap:10px">
-        <span style="width:22px;height:22px;border-radius:50%;background:#E9F1EC;color:#4B7A5E;display:flex;align-items:center;justify-content:center;font-size:12px">✓</span>
-        <span style="font-size:13.5px;color:#615E6B">Nothing important slipped this week</span>
-      </div>
-    </div>
-
-    <p data-reveal style="margin:96px auto 0;font-size:14px;color:#A29EAC">Built by an MIT Sloan Fellow, for anyone who takes their relationships seriously.</p>
-  </header>
-
-  <section id="matters" style="padding:40px 32px 90px;max-width:1180px;margin:0 auto">
-    <div class="two" style="display:grid;grid-template-columns:1fr 1fr;gap:70px;align-items:center">
-      <div data-reveal style="display:flex;flex-direction:column;gap:22px">
-        <span style="font-size:11.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--m-accent)">Why it matters</span>
-        <h2 class="fig" style="margin:0;font-weight:600;font-size:44px;line-height:1.1;letter-spacing:-0.04em;text-wrap:balance">Every opportunity begins with a relationship.</h2>
-        <p style="margin:0;font-size:18px;line-height:1.6;color:#615E6B">The next job. Your first customer. An investor. A mentor. A co-founder. A recommendation.</p>
-        <p style="margin:0;font-size:18px;line-height:1.7;color:#1B1A1F;max-width:440px">Most of us don't lose opportunities because we never met the right people. We lose them because we forget to stay in touch.</p>
-      </div>
-      <div data-reveal style="background:#fff;border:1px solid rgba(27,26,31,0.07);border-radius:24px;padding:30px 32px;box-shadow:0 30px 70px -34px rgba(27,26,31,0.22)">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px">
-          <div style="width:40px;height:40px;border-radius:50%;background:var(--m-tint);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:var(--m-accent-deep)">SC</div>
-          <div style="display:flex;flex-direction:column;gap:2px"><span class="fig" style="font-size:17px;font-weight:600">Sarah Chen</span><span style="font-size:13px;color:#8C8898">Two years of a relationship, remembered</span></div>
-        </div>
-        <div style="display:flex;flex-direction:column">
-          <div style="display:grid;grid-template-columns:14px 1fr auto;gap:16px;align-items:center;padding:11px 0"><span style="justify-self:center;width:9px;height:9px;border-radius:50%;background:#C7C2D6"></span><span style="font-size:15px">Met at the Sloan PM panel</span><span style="font-size:12.5px;color:#A29EAC">Mar '23</span></div>
-          <div style="display:grid;grid-template-columns:14px 1fr auto;gap:16px;align-items:center;padding:11px 0"><span style="justify-self:center;width:9px;height:9px;border-radius:50%;background:#C7C2D6"></span><span style="font-size:15px">Coffee chat about switching careers</span><span style="font-size:12.5px;color:#A29EAC">Apr '23</span></div>
-          <div style="display:grid;grid-template-columns:14px 1fr auto;gap:16px;align-items:center;padding:11px 0"><span style="justify-self:center;width:9px;height:9px;border-radius:50%;background:var(--m-accent2)"></span><span style="font-size:15px">She introduced you to Alex</span><span style="font-size:12.5px;color:#A29EAC">Jul '23</span></div>
-          <div style="display:grid;grid-template-columns:14px 1fr auto;gap:16px;align-items:center;padding:11px 0"><span style="justify-self:center;width:9px;height:9px;border-radius:50%;background:#C7C2D6"></span><span style="font-size:15px">Congratulated her promotion</span><span style="font-size:12.5px;color:#A29EAC">Jan '24</span></div>
-          <div style="display:grid;grid-template-columns:14px 1fr auto;gap:16px;align-items:center;padding:11px 0"><span style="justify-self:center;width:9px;height:9px;border-radius:50%;background:var(--m-accent)"></span><span style="font-size:15px;font-weight:500;color:var(--m-accent-deep)">Send the paper you promised</span><span style="font-size:12.5px;color:var(--m-accent-deep);font-weight:500">Today</span></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="what" style="padding:60px 32px 40px;max-width:1180px;margin:0 auto">
-    <div data-reveal style="display:flex;flex-direction:column;gap:14px;max-width:640px;padding-bottom:20px">
-      <span style="font-size:11.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--m-accent)">How it works</span>
-      <h2 class="fig" style="margin:0;font-weight:600;font-size:44px;line-height:1.08;letter-spacing:-0.04em">Three quiet screens,<br>doing a lot of remembering.</h2>
-    </div>
-
-    <div class="hiw-nav" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-top:26px;border-top:1px solid rgba(27,26,31,0.08)">
-      <button class="hiw-tab on" data-go="0">01 · Home</button>
-      <button class="hiw-tab" data-go="1">02 · Person profile</button>
-      <button class="hiw-tab" data-go="2">03 · Conversation notes</button>
-      <span style="flex:1"></span>
-      <button class="hiw-arrow" data-dir="-1" aria-label="Previous">←</button>
-      <button class="hiw-arrow" data-dir="1" aria-label="Next">→</button>
-    </div>
-    <div class="hiw-stage">
-    <div class="slide on" data-slide="0">
-    <div class="two" style="display:grid;grid-template-columns:0.85fr 1.15fr;gap:70px;align-items:start;padding:34px 0">
-      <div style="display:flex;flex-direction:column;gap:16px">
-        <span style="font-size:12px;letter-spacing:0.12em;color:#A29EAC">01 · HOME</span>
-        <h3 class="fig" style="margin:0;font-weight:600;font-size:34px;line-height:1.12;letter-spacing:-0.035em">What deserves<br>your attention</h3>
-        <p style="margin:0;font-size:17px;line-height:1.65;color:#615E6B;max-width:360px">A short, kind list instead of an endless feed. Every morning, Mighty shows you the few conversations worth continuing today.</p>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:20px">
-        <div data-reveal style="background:#fff;border:1px solid rgba(27,26,31,0.07);border-radius:22px;padding:24px;box-shadow:0 20px 50px -30px rgba(27,26,31,0.2)">
-          <span style="font-size:11.5px;letter-spacing:0.12em;text-transform:uppercase;color:#A29EAC">Today's priorities</span>
-          <div style="display:flex;flex-direction:column;gap:12px;margin-top:16px">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:14px;background:var(--m-tint)">
-              <span style="font-size:15px;font-weight:500">Sarah Chen</span><span style="font-size:13px;color:var(--m-accent-deep)">Draft ready</span>
-            </div>
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:14px;background:#F6F5F3">
-              <span style="font-size:15px;font-weight:500">David Lee</span><span style="font-size:13px;color:#8C8898">Coffee chat · 9:30 AM</span>
-            </div>
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:14px;background:#F6F5F3">
-              <span style="font-size:15px;font-weight:500">James Park</span><span style="font-size:13px;color:#8C8898">Intro promised · reconnect</span>
-            </div>
-          </div>
-        </div>
-        <div data-reveal style="align-self:flex-end;max-width:420px;background:var(--m-tint2);border-radius:22px;padding:24px 26px">
-          <p class="fig" style="margin:0;font-size:19px;line-height:1.45;letter-spacing:-0.02em;color:#4A3F45">“I stopped keeping a spreadsheet of people I owed a reply.”</p>
-        </div>
-      </div>
-    </div>
-
-    </div>
-    <div class="slide" data-slide="1">
-    <div class="two" style="display:grid;grid-template-columns:0.85fr 1.15fr;gap:70px;align-items:start;padding:34px 0">
-      <div style="display:flex;flex-direction:column;gap:16px">
-        <span style="font-size:12px;letter-spacing:0.12em;color:#A29EAC">02 · PERSON PROFILE</span>
-        <h3 class="fig" style="margin:0;font-weight:600;font-size:34px;line-height:1.12;letter-spacing:-0.035em">Briefed before<br>you write</h3>
-        <p style="margin:0;font-size:17px;line-height:1.65;color:#615E6B;max-width:360px">Context, a short briefing and your whole history together — one page per person, so the first line never starts from nothing.</p>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:20px">
-        <div data-reveal style="background:#fff;border:1px solid rgba(27,26,31,0.07);border-radius:22px;padding:26px;box-shadow:0 20px 50px -30px rgba(27,26,31,0.2)">
-          <div style="display:flex;align-items:center;gap:14px">
-            <div style="width:48px;height:48px;border-radius:50%;background:var(--m-tint);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:var(--m-accent-deep)">SC</div>
-            <div style="display:flex;flex-direction:column;gap:3px">
-              <span class="fig" style="font-size:19px;font-weight:600;letter-spacing:-0.02em">Sarah Chen</span>
-              <span style="font-size:13.5px;color:#8C8898">PM, Amazon · Sloan '23 · ex-Deloitte</span>
-            </div>
-          </div>
-          <div style="margin-top:22px;padding:18px;border-radius:16px;background:#FAF9F7;border:1px solid rgba(27,26,31,0.05)">
-            <span style="font-size:11.5px;letter-spacing:0.12em;text-transform:uppercase;color:var(--m-accent)">Briefing</span>
-            <p style="margin:10px 0 0;font-size:15px;line-height:1.6;color:#4A4751">Writes about career switching. Mentors first-time founders. A warm opening: her recent post on leaving consulting.</p>
-          </div>
-          <div style="margin-top:20px;display:flex;flex-direction:column;gap:10px">
-            <span style="font-size:11.5px;letter-spacing:0.12em;text-transform:uppercase;color:#A29EAC">Relationship</span>
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px">
-              <span style="padding:6px 12px;border-radius:999px;background:#F4F3F1">Saved</span><span style="color:#C6C2CC">→</span>
-              <span style="padding:6px 12px;border-radius:999px;background:#F4F3F1">Messaged</span><span style="color:#C6C2CC">→</span>
-              <span style="padding:6px 12px;border-radius:999px;background:#F4F3F1">Replied</span><span style="color:#C6C2CC">→</span>
-              <span style="padding:6px 12px;border-radius:999px;background:var(--m-accent);color:#fff">Coffee chat</span>
-            </div>
+          <div class="trow">
+            <span style="width:20px;height:20px;border-radius:6px;background:#F1EFEB;flex:none"></span>
+            <span style="font-size:15.5px;color:var(--ink2);font-weight:500">Reconnect mid-October</span>
           </div>
         </div>
       </div>
     </div>
+  </div>
+</section>
 
+<section class="wrap" data-reveal>
+  <div class="two" style="align-items:start">
+    <div>
+      <div class="kicker">The whole product</div>
+      <h2 class="h-sub" style="margin-top:14px">What happens after you save someone?</h2>
+      <p class="lead" style="margin-top:20px;font-size:17px">
+        One click on LinkedIn starts a chain that runs for years — and you never have to maintain it.
+      </p>
     </div>
-    <div class="slide" data-slide="2">
-    <div class="two" style="display:grid;grid-template-columns:0.85fr 1.15fr;gap:70px;align-items:start;padding:34px 0">
-      <div style="display:flex;flex-direction:column;gap:16px">
-        <span style="font-size:12px;letter-spacing:0.12em;color:#A29EAC">03 · CONVERSATION NOTES</span>
-        <h3 class="fig" style="margin:0;font-weight:600;font-size:34px;line-height:1.12;letter-spacing:-0.035em">Rough notes in,<br>next steps out</h3>
-        <p style="margin:0;font-size:17px;line-height:1.65;color:#615E6B;max-width:360px">Type the way you'd scribble on a napkin. Mighty turns it into the promises you made — and reminds you when they're due.</p>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:18px">
-        <div data-reveal style="background:#fff;border:1px solid rgba(27,26,31,0.07);border-radius:22px;padding:24px;box-shadow:0 20px 50px -30px rgba(27,26,31,0.2)">
-          <span style="font-size:11.5px;letter-spacing:0.12em;text-transform:uppercase;color:#A29EAC">Your raw notes</span>
-          <p style="margin:12px 0 0;font-size:16.5px;line-height:1.6;color:#4A4751">loves fintech, intro to her manager?? send her the Sloan paper, circle back mid-Oct</p>
+    <div style="display:flex;flex-direction:column">
+      <div style="display:grid;grid-template-columns:30px 1fr;gap:16px;align-items:start">
+        <div style="display:flex;flex-direction:column;align-items:center;height:100%">
+          <span style="width:11px;height:11px;border-radius:50%;flex:none;margin-top:7px;background:#D6D0C7"></span>
+          <span style="width:2px;flex:1;background:var(--line);margin-top:4px"></span>
         </div>
-        <div style="display:flex;align-items:center;gap:10px;padding-left:6px;font-size:13.5px;color:#A29EAC">
-          <span style="width:26px;height:26px;border-radius:50%;background:var(--m-tint);color:var(--m-accent-deep);display:flex;align-items:center;justify-content:center">↓</span>
-          Mighty reads it back to you
+        <div style="padding-bottom:22px"><div style="font-size:17.5px;font-weight:700;letter-spacing:-.015em">Find someone</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:30px 1fr;gap:16px;align-items:start">
+        <div style="display:flex;flex-direction:column;align-items:center;height:100%">
+          <span style="width:11px;height:11px;border-radius:50%;flex:none;margin-top:7px;background:#D6D0C7"></span>
+          <span style="width:2px;flex:1;background:var(--line);margin-top:4px"></span>
         </div>
-        <div data-reveal style="background:#fff;border:1px solid rgba(27,26,31,0.07);border-radius:22px;padding:8px 24px;box-shadow:0 20px 50px -30px rgba(27,26,31,0.2)">
-          <div style="display:flex;align-items:center;gap:12px;padding:16px 0;border-bottom:1px solid rgba(27,26,31,0.05)">
-            <span style="width:22px;height:22px;border-radius:6px;background:#E9F1EC;color:#4B7A5E;display:flex;align-items:center;justify-content:center;font-size:12px">✓</span>
-            <span style="font-size:15.5px">Send the Sloan fintech paper</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:12px;padding:16px 0;border-bottom:1px solid rgba(27,26,31,0.05)">
-            <span style="width:22px;height:22px;border-radius:6px;background:#F4F3F1;display:flex;align-items:center;justify-content:center"></span>
-            <span style="font-size:15.5px">Ask about the manager intro</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:12px;padding:16px 0">
-            <span style="width:22px;height:22px;border-radius:6px;background:#F4F3F1;display:flex;align-items:center;justify-content:center"></span>
-            <span style="font-size:15.5px">Reconnect mid-October</span>
-          </div>
+        <div style="padding-bottom:22px"><div style="font-size:17.5px;font-weight:700;letter-spacing:-.015em">Save them</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:30px 1fr;gap:16px;align-items:start">
+        <div style="display:flex;flex-direction:column;align-items:center;height:100%">
+          <span style="width:11px;height:11px;border-radius:50%;flex:none;margin-top:7px;background:#D6D0C7"></span>
+          <span style="width:2px;flex:1;background:var(--line);margin-top:4px"></span>
         </div>
+        <div style="padding-bottom:22px"><div style="font-size:17.5px;font-weight:700;letter-spacing:-.015em">Mighty understands them</div></div>
       </div>
-    </div>
-    </div>
-    </div>
-  </section>
-
-  <section id="why" style="padding:110px 32px;background:#fff;border-top:1px solid rgba(27,26,31,0.07);border-bottom:1px solid rgba(27,26,31,0.07)">
-    <div class="two" style="max-width:1180px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:start">
-      <div data-reveal style="display:flex;flex-direction:column;gap:20px">
-        <span style="font-size:11.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--m-accent)">Why Mighty</span>
-        <h2 class="fig" style="margin:0;font-weight:600;font-size:46px;line-height:1.06;letter-spacing:-0.04em;text-wrap:balance">LinkedIn is great at helping you find people.</h2>
-        <p style="margin:0;font-size:20px;line-height:1.55;color:#615E6B;max-width:420px">It was never built to help you <em style="font-style:normal;color:#1B1A1F">know</em> them.</p>
-        <p style="margin:8px 0 0;font-size:16.5px;line-height:1.7;color:#8C8898;max-width:420px">Mighty quietly keeps track of everything, so you can spend your attention on people instead of on remembering details.</p>
-      </div>
-      <div data-reveal style="display:flex;flex-direction:column;gap:12px">
-        <p style="margin:0 0 6px;font-size:14px;color:#A29EAC">After a few weeks, the questions start:</p>
-        <div style="display:flex;align-items:center;gap:14px;padding:18px 22px;border-radius:16px;background:#FAF9F7;font-size:17px">Have I already messaged this person?</div>
-        <div style="display:flex;align-items:center;gap:14px;padding:18px 22px;border-radius:16px;background:var(--m-tint);font-size:17px">What did we actually talk about?</div>
-        <div style="display:flex;align-items:center;gap:14px;padding:18px 22px;border-radius:16px;background:#FAF9F7;font-size:17px">Did they promise an introduction?</div>
-        <div style="display:flex;align-items:center;gap:14px;padding:18px 22px;border-radius:16px;background:var(--m-tint2);font-size:17px">Should I follow up now, or wait?</div>
-        <div style="display:flex;align-items:center;gap:14px;padding:18px 22px;border-radius:16px;background:#FAF9F7;font-size:17px">Who should I reach out to today?</div>
-      </div>
-    </div>
-  </section>
-
-  <section style="padding:110px 32px;max-width:1180px;margin:0 auto">
-    <h2 data-reveal class="fig" style="margin:0 0 56px;font-weight:600;font-size:44px;line-height:1.08;letter-spacing:-0.04em;max-width:620px">What Mighty helps<br>you do</h2>
-    <div class="two" style="display:grid;grid-template-columns:repeat(2,1fr);gap:20px">
-      <div data-reveal class="card-h hov" style="background:#fff;border:1px solid rgba(27,26,31,0.07);border-radius:24px;padding:34px 34px 38px;display:flex;flex-direction:column;gap:12px">
-        <span style="font-size:13px;color:var(--m-accent);font-weight:500">01</span>
-        <h3 class="fig" style="margin:0;font-weight:600;font-size:25px;letter-spacing:-0.03em">Find the right people</h3>
-        <p style="margin:0;font-size:16.5px;line-height:1.65;color:#615E6B">Shortlist people while you browse, and organise them around your own goals — not someone else's funnel.</p>
-      </div>
-      <div data-reveal class="card-h hov" style="background:#fff;border:1px solid rgba(27,26,31,0.07);border-radius:24px;padding:34px 34px 38px;display:flex;flex-direction:column;gap:12px">
-        <span style="font-size:13px;color:var(--m-accent);font-weight:500">02</span>
-        <h3 class="fig" style="margin:0;font-weight:600;font-size:25px;letter-spacing:-0.03em">Reach out thoughtfully</h3>
-        <p style="margin:0;font-size:16.5px;line-height:1.65;color:#615E6B">Drafts built from a person's actual background, in your voice. Nothing that reads like a template.</p>
-      </div>
-      <div data-reveal class="card-h hov" style="background:#fff;border:1px solid rgba(27,26,31,0.07);border-radius:24px;padding:34px 34px 38px;display:flex;flex-direction:column;gap:12px">
-        <span style="font-size:13px;color:var(--m-accent);font-weight:500">03</span>
-        <h3 class="fig" style="margin:0;font-weight:600;font-size:25px;letter-spacing:-0.03em">Remember every interaction</h3>
-        <p style="margin:0;font-size:16.5px;line-height:1.65;color:#615E6B">Coffee chats, introductions, notes and follow-ups gathered into one gentle timeline per person.</p>
-      </div>
-      <div data-reveal class="card-h hov" style="background:var(--m-tint);border:1px solid rgba(27,26,31,0.04);border-radius:24px;padding:34px 34px 38px;display:flex;flex-direction:column;gap:12px">
-        <span style="font-size:13px;color:var(--m-accent-deep);font-weight:500">04</span>
-        <h3 class="fig" style="margin:0;font-weight:600;font-size:25px;letter-spacing:-0.03em">Know what deserves attention</h3>
-        <p style="margin:0;font-size:16.5px;line-height:1.65;color:#4A4751">Each day, a small nudge: these conversations are worth continuing, these relationships have gone quiet.</p>
-      </div>
-    </div>
-  </section>
-
-  <section style="padding:110px 32px;background:#fff;border-top:1px solid rgba(27,26,31,0.07)">
-    <div data-reveal style="max-width:900px;margin:0 auto;text-align:center;display:flex;flex-direction:column;align-items:center;gap:20px">
-      <h2 class="fig" style="margin:0;font-weight:600;font-size:44px;line-height:1.08;letter-spacing:-0.04em;text-wrap:balance">Every opportunity starts with someone.</h2>
-      <p style="margin:0;max-width:600px;font-size:18px;line-height:1.65;color:#615E6B">Job hunting is one use case, not the product. Whoever you're building toward, Mighty helps you stay intentional about the people who get you there.</p>
-      <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:14px;max-width:760px">
-        <span style="padding:11px 20px;border-radius:999px;background:var(--m-tint);font-size:15.5px">Jobs</span>
-        <span style="padding:11px 20px;border-radius:999px;background:#FAF9F7;border:1px solid rgba(27,26,31,0.07);font-size:15.5px">Customers</span>
-        <span style="padding:11px 20px;border-radius:999px;background:var(--m-tint2);font-size:15.5px">Investors</span>
-        <span style="padding:11px 20px;border-radius:999px;background:#FAF9F7;border:1px solid rgba(27,26,31,0.07);font-size:15.5px">Mentors</span>
-        <span style="padding:11px 20px;border-radius:999px;background:#E9F1EC;font-size:15.5px">Co-founders</span>
-        <span style="padding:11px 20px;border-radius:999px;background:#FAF9F7;border:1px solid rgba(27,26,31,0.07);font-size:15.5px">Partnerships</span>
-        <span style="padding:11px 20px;border-radius:999px;background:var(--m-tint);font-size:15.5px">Alumni</span>
-        <span style="padding:11px 20px;border-radius:999px;background:#FAF9F7;border:1px solid rgba(27,26,31,0.07);font-size:15.5px">Advisors</span>
-        <span style="padding:11px 20px;border-radius:999px;background:#FAF9F7;border:1px solid rgba(27,26,31,0.07);font-size:15.5px">Your next opportunity</span>
-      </div>
-    </div>
-  </section>
-
-  <section id="os" style="padding:110px 32px;background:#fff;border-top:1px solid rgba(27,26,31,0.07)">
-    <div style="max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:14px">
-      <div data-reveal style="display:flex;flex-direction:column;gap:16px;max-width:680px">
-        <span style="font-size:11.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--m-accent)">Where Mighty fits</span>
-        <h2 class="fig" style="margin:0;font-weight:600;font-size:44px;line-height:1.08;letter-spacing:-0.04em;text-wrap:balance">The operating system for<br>professional relationships.</h2>
-        <p style="margin:0;font-size:18px;line-height:1.65;color:#615E6B">You already have the tools to meet people. What's missing is the layer that remembers, connects the dots, and tells you what to do next. That's Mighty.</p>
-      </div>
-
-      <div class="two" style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:34px">
-        <div data-reveal style="background:#FAF9F7;border:1px solid rgba(27,26,31,0.07);border-radius:20px;padding:26px 24px;display:flex;flex-direction:column;gap:8px">
-          <span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#A29EAC">LinkedIn</span>
-          <span class="fig" style="font-size:21px;font-weight:600;letter-spacing:-0.02em">Discover</span>
-          <span style="font-size:14.5px;color:#8C8898;line-height:1.5">Where you find the right people.</span>
+      <div style="display:grid;grid-template-columns:30px 1fr;gap:16px;align-items:start">
+        <div style="display:flex;flex-direction:column;align-items:center;height:100%">
+          <span style="width:11px;height:11px;border-radius:50%;flex:none;margin-top:7px;background:#D6D0C7"></span>
+          <span style="width:2px;flex:1;background:var(--line);margin-top:4px"></span>
         </div>
-        <div data-reveal style="background:#FAF9F7;border:1px solid rgba(27,26,31,0.07);border-radius:20px;padding:26px 24px;display:flex;flex-direction:column;gap:8px">
-          <span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#A29EAC">Email</span>
-          <span class="fig" style="font-size:21px;font-weight:600;letter-spacing:-0.02em">Communicate</span>
-          <span style="font-size:14.5px;color:#8C8898;line-height:1.5">Where the conversation happens.</span>
+        <div style="padding-bottom:22px"><div style="font-size:17.5px;font-weight:700;letter-spacing:-.015em">Draft the first message</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:30px 1fr;gap:16px;align-items:start">
+        <div style="display:flex;flex-direction:column;align-items:center;height:100%">
+          <span style="width:11px;height:11px;border-radius:50%;flex:none;margin-top:7px;background:#D6D0C7"></span>
+          <span style="width:2px;flex:1;background:var(--line);margin-top:4px"></span>
         </div>
-        <div data-reveal style="background:#FAF9F7;border:1px solid rgba(27,26,31,0.07);border-radius:20px;padding:26px 24px;display:flex;flex-direction:column;gap:8px">
-          <span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#A29EAC">Calendar</span>
-          <span class="fig" style="font-size:21px;font-weight:600;letter-spacing:-0.02em">Meet</span>
-          <span style="font-size:14.5px;color:#8C8898;line-height:1.5">Where you actually connect.</span>
+        <div style="padding-bottom:22px"><div style="font-size:17.5px;font-weight:700;letter-spacing:-.015em">Track the relationship</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:30px 1fr;gap:16px;align-items:start">
+        <div style="display:flex;flex-direction:column;align-items:center;height:100%">
+          <span style="width:11px;height:11px;border-radius:50%;flex:none;margin-top:7px;background:#D6D0C7"></span>
+          <span style="width:2px;flex:1;background:var(--line);margin-top:4px"></span>
         </div>
-        <div data-reveal style="background:#FAF9F7;border:1px solid rgba(27,26,31,0.07);border-radius:20px;padding:26px 24px;display:flex;flex-direction:column;gap:8px">
-          <span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#A29EAC">Notes &amp; memory</span>
-          <span class="fig" style="font-size:21px;font-weight:600;letter-spacing:-0.02em">Remember</span>
-          <span style="font-size:14.5px;color:#8C8898;line-height:1.5">Where it all quietly falls apart.</span>
+        <div style="padding-bottom:22px"><div style="font-size:17.5px;font-weight:700;letter-spacing:-.015em">Know when to follow up</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:30px 1fr;gap:16px;align-items:start">
+        <div style="display:flex;flex-direction:column;align-items:center;height:100%">
+          <span style="width:11px;height:11px;border-radius:50%;flex:none;margin-top:7px;background:var(--brand)"></span>
         </div>
+        <div><div style="font-size:17.5px;font-weight:700;letter-spacing:-.015em">The relationship grows</div></div>
       </div>
+    </div>
+  </div>
+</section>
 
-      <div data-reveal style="margin-top:16px;border-radius:24px;padding:44px 46px;background:linear-gradient(150deg, var(--m-tint), var(--m-tint2));display:flex;flex-wrap:wrap;align-items:center;gap:26px;justify-content:space-between">
-        <div style="display:flex;align-items:center;gap:16px;min-width:0">
-          <svg width="40" height="40" viewBox="0 0 26 26" fill="none" aria-hidden="true" style="flex:none"><circle cx="9.5" cy="13" r="7.5" fill="var(--m-accent)"></circle><circle cx="16.5" cy="13" r="7.5" fill="var(--m-accent2)" fill-opacity="0.85"></circle></svg>
-          <div style="display:flex;flex-direction:column;gap:4px">
-            <span class="fig" style="font-size:25px;font-weight:600;letter-spacing:-0.03em">Mighty ties them together.</span>
-            <span style="font-size:16px;line-height:1.55;color:#413A52;max-width:620px">The memory, the judgment, and the daily nudge — so no relationship quietly goes cold, and every one moves forward.</span>
-          </div>
-        </div>
-        <a href="/app/" class="hov" style="display:inline-flex;align-items:center;flex:none;padding:14px 28px;border-radius:999px;background:#1B1A1F;color:#fff;font-size:15.5px;font-weight:500" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">Start with Mighty</a>
+<section id="privacy" class="wrap" data-reveal>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px" class="two">
+    <div class="flat" style="padding:36px 34px">
+      <div class="kicker">Privacy</div>
+      <h3 style="margin-top:14px;font-size:clamp(24px,3vw,30px);line-height:1.15;font-weight:700;letter-spacing:-.03em">
+        Your relationships belong to you.
+      </h3>
+      <div style="display:flex;flex-direction:column;gap:11px;margin-top:20px">
+        <div style="font-size:16.5px;color:var(--ink2)">Private by default</div>
+        <div style="font-size:16.5px;color:var(--ink2)">Export everything, anytime</div>
+        <div style="font-size:16.5px;color:var(--ink2)">Nothing is ever sent automatically</div>
       </div>
     </div>
-  </section>
+    <div style="background:var(--brand-soft2);border-radius:20px;padding:36px 34px">
+      <div class="kicker" style="color:var(--brand-ink)">You stay in control</div>
+      <h3 style="margin-top:14px;font-size:clamp(24px,3vw,30px);line-height:1.15;font-weight:700;letter-spacing:-.03em">
+        Human in the loop.
+      </h3>
+      <p style="margin-top:20px;font-size:16.5px;line-height:1.6;color:var(--ink2)">
+        Every message. Every connection. Every follow-up. Mighty prepares — you decide, and you always click Send.
+      </p>
+    </div>
+  </div>
+</section>
 
-  <section id="privacy" style="padding:110px 32px;max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:20px">
-    <div data-reveal class="two" style="background:#fff;border:1px solid rgba(27,26,31,0.07);border-radius:28px;padding:52px 56px;display:grid;grid-template-columns:0.8fr 1.2fr;gap:60px;align-items:start">
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <span style="font-size:11.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--m-accent)">You stay in control</span>
-        <h3 class="fig" style="margin:0;font-weight:600;font-size:32px;line-height:1.1;letter-spacing:-0.035em">Every message is yours.</h3>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:16px">
-        <div style="display:flex;align-items:center;gap:14px;font-size:17.5px"><span style="width:26px;height:26px;border-radius:50%;background:#FAF9F7;border:1px solid rgba(27,26,31,0.08);color:#8C8898;display:flex;align-items:center;justify-content:center;font-size:13px">✕</span>Mighty never sends messages for you.</div>
-        <div style="display:flex;align-items:center;gap:14px;font-size:17.5px"><span style="width:26px;height:26px;border-radius:50%;background:#FAF9F7;border:1px solid rgba(27,26,31,0.08);color:#8C8898;display:flex;align-items:center;justify-content:center;font-size:13px">✕</span>It never clicks Connect.</div>
-        <div style="display:flex;align-items:center;gap:14px;font-size:17.5px"><span style="width:26px;height:26px;border-radius:50%;background:#FAF9F7;border:1px solid rgba(27,26,31,0.08);color:#8C8898;display:flex;align-items:center;justify-content:center;font-size:13px">✕</span>It only ever reads — never posts, sends, or connects.</div>
-        <p style="margin:8px 0 0;font-size:16px;line-height:1.7;color:#615E6B">It helps you make better decisions about who to talk to and what to say. Every send is your click.</p>
-      </div>
+<section class="wrap" style="padding-top:40px;padding-bottom:90px">
+  <div class="finale" data-reveal style="border-radius:26px;padding:96px 48px;text-align:center;
+    background:linear-gradient(135deg,#EFEBFE 0%,#F7F1F4 50%,#FBEFE9 100%)">
+    <h2 style="font-size:clamp(30px,5.2vw,52px);line-height:1.1;font-weight:700;letter-spacing:-.04em">
+      LinkedIn helps you connect.<br />Mighty helps you stay connected.
+    </h2>
+    <div style="display:flex;justify-content:center;gap:12px;margin-top:34px;flex-wrap:wrap">
+      <a href="/app/" class="btn k">Start building relationships</a>
+      <a href="/install/" class="btn w">Add to your browser</a>
     </div>
-    <div class="two" style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
-      <div data-reveal style="background:var(--m-tint);border-radius:28px;padding:46px 44px;display:flex;flex-direction:column;gap:14px">
-        <span style="font-size:11.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--m-accent-deep)">Privacy</span>
-        <h3 class="fig" style="margin:0;font-weight:600;font-size:30px;line-height:1.12;letter-spacing:-0.035em">Your relationships belong to you.</h3>
-        <p style="margin:0;font-size:16.5px;line-height:1.7;color:#413A52">Your messages, notes and history stay private. Community insights are always anonymous, and only appear once enough members have opted in.</p>
-      </div>
-      <div data-reveal style="background:#fff;border:1px solid rgba(27,26,31,0.07);border-radius:28px;padding:46px 44px;display:flex;flex-direction:column;gap:14px">
-        <span style="font-size:11.5px;letter-spacing:0.14em;text-transform:uppercase;color:#A29EAC">About</span>
-        <h3 class="fig" style="margin:0;font-weight:600;font-size:30px;line-height:1.12;letter-spacing:-0.035em">A side project, taken seriously.</h3>
-        <p style="margin:0;font-size:16.5px;line-height:1.7;color:#615E6B">Mighty started with one person at MIT Sloan who wanted staying in touch to feel less chaotic and more human. Independently built, and not affiliated with MIT or LinkedIn.</p>
-      </div>
-    </div>
-  </section>
-
-  <section id="start" style="padding:0 32px 110px;max-width:1180px;margin:0 auto">
-    <div data-reveal style="border-radius:32px;padding:110px 60px;background:linear-gradient(160deg, var(--m-tint), var(--m-tint2));display:flex;flex-direction:column;align-items:center;text-align:center;gap:28px">
-      <h2 class="fig" style="margin:0;max-width:840px;font-weight:600;font-size:54px;line-height:1.06;letter-spacing:-0.04em;text-wrap:balance">LinkedIn helps you connect. Mighty helps you stay connected.</h2>
-      <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px">
-        <a href="/app/" class="hov" style="display:inline-flex;align-items:center;padding:16px 34px;border-radius:999px;background:#1B1A1F;color:#fff;font-size:16.5px;font-weight:500" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">Get started</a>
-        <a href="/install/" class="hov" style="display:inline-flex;align-items:center;padding:16px 34px;border-radius:999px;background:rgba(255,255,255,0.75);font-size:16.5px;font-weight:500" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">Add to your browser</a>
-      </div>
-      <p style="margin:0;font-size:13.5px;color:#6F6879">Free to start · You always click Send</p>
-    </div>
-  </section>
-
-  <footer style="padding:44px 32px 56px;border-top:1px solid rgba(27,26,31,0.08)">
-    <div style="max-width:1180px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:24px">
-      <div style="display:flex;align-items:center;gap:10px">
-        <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true"><circle cx="9.5" cy="13" r="7.5" fill="var(--m-accent)"></circle><circle cx="16.5" cy="13" r="7.5" fill="var(--m-accent2)" fill-opacity="0.85"></circle></svg>
-        <span class="fig" style="font-weight:600;font-size:17px;letter-spacing:-0.03em">Mighty</span>
-        <span style="font-size:13.5px;color:#A29EAC;margin-left:10px">Built by an MIT Sloan Fellow</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:26px;font-size:14px;color:#615E6B">
-        <a href="/install/">Get the extension</a>
-        <a href="/pricing/">Pricing</a>
-        <a href="#privacy">Privacy</a>
-        <span style="color:#A29EAC">Independently built · Not affiliated with MIT or LinkedIn</span>
-      </div>
-    </div>
-  </footer>
-</div>
+    <div style="margin-top:20px;font-size:14px;color:#8E887F">Free to start · You always click Send</div>
+    <div style="margin-top:10px;font-size:13.5px;color:var(--mute)">Accounts are currently open to @mit.edu email addresses.</div>
+  </div>
+  <div style="margin-top:34px;text-align:center;font-size:13px;color:var(--mute2)">
+    Built by an MIT Sloan Fellow. Independently built, and not affiliated with MIT or LinkedIn.
+    · <a href="/pricing/" style="color:var(--mute2)">Pricing</a>
+    · <a href="/install/" style="color:var(--mute2)">Extension</a>
+    · <a href="/app/" style="color:var(--mute2)">Sign in</a>
+  </div>
+</section>
 
 <script>
+  /* How-it-works: three panels, one at a time. */
   (function(){
-    var els = document.querySelectorAll('[data-reveal]');
-    if(!('IntersectionObserver' in window)){ els.forEach(function(e){e.classList.add('in');}); return; }
-    var obs = new IntersectionObserver(function(entries){
-      entries.forEach(function(en){ if(en.isIntersecting){ en.target.classList.add('in'); obs.unobserve(en.target); } });
-    }, { rootMargin:'0px 0px -8% 0px', threshold:0.08 });
-    els.forEach(function(e){ obs.observe(e); });
-    setTimeout(function(){ els.forEach(function(e){ e.classList.add('in'); }); }, 2600);
-  })();
-</script>
-
-<script>
-  // How-it-works slider: three panels, one at a time. Tabs, arrows, keyboard and
-  // swipe all drive the same setSlide() so nothing can drift out of sync.
-  (function(){
-    var stage=document.querySelector('.hiw-stage'); if(!stage) return;
-    var slides=[].slice.call(stage.querySelectorAll('.slide'));
-    var tabs=[].slice.call(document.querySelectorAll('.hiw-tab'));
-    var i=0;
-    function setSlide(n){
-      i=(n+slides.length)%slides.length;
-      slides.forEach(function(s,k){ s.classList.toggle('on',k===i); });
-      tabs.forEach(function(t,k){ t.classList.toggle('on',k===i); });
-      // reveal-on-scroll elements inside a hidden slide never fired; force them
-      stage.querySelectorAll('[data-reveal]').forEach(function(el){ el.classList.add('in'); });
+    var COPY = [
+      ['01 · Today','What deserves your attention','A short, kind list instead of an endless feed. Every morning, Mighty shows you the few conversations worth continuing today.'],
+      ['02 · Person profile','Briefed before you write','Context, a short briefing and your whole history together — one page per person, so the first line never starts from nothing.'],
+      ['03 · Conversation notes','Rough notes in, next steps out','Type the way you would scribble on a napkin. Mighty turns it into the promises you made — and reminds you when they are due.']
+    ];
+    var tabs = [].slice.call(document.querySelectorAll('.tab'));
+    var kick = document.getElementById('kick'),
+        title = document.getElementById('stitle'),
+        body = document.getElementById('sbody');
+    function show(i){
+      tabs.forEach(function(t,k){
+        var on = k === i;
+        t.classList.toggle('on', on);
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+        document.getElementById('s'+k).classList.toggle('on', on);
+      });
+      kick.textContent = COPY[i][0]; title.textContent = COPY[i][1]; body.textContent = COPY[i][2];
     }
-    tabs.forEach(function(t){ t.addEventListener('click',function(){ setSlide(+t.dataset.go); }); });
-    document.querySelectorAll('.hiw-arrow').forEach(function(b){
-      b.addEventListener('click',function(){ setSlide(i + (+b.dataset.dir)); });
-    });
-    document.addEventListener('keydown',function(e){
-      if(!stage.getBoundingClientRect) return;
-      var r=stage.getBoundingClientRect();
-      if(r.bottom<0 || r.top>window.innerHeight) return;   // only when in view
-      if(e.key==='ArrowLeft') setSlide(i-1);
-      if(e.key==='ArrowRight') setSlide(i+1);
-    });
-    var x0=null;
-    stage.addEventListener('touchstart',function(e){ x0=e.touches[0].clientX; },{passive:true});
-    stage.addEventListener('touchend',function(e){
-      if(x0===null) return; var dx=e.changedTouches[0].clientX-x0; x0=null;
-      if(Math.abs(dx)>50) setSlide(i + (dx<0?1:-1));
-    },{passive:true});
-    setSlide(0);
+    tabs.forEach(function(t){ t.addEventListener('click', function(){ show(+t.dataset.i); }); });
+  })();
+
+  /* Reveal on scroll, and never leave content hidden if IO is unavailable. */
+  (function(){
+    var els = [].slice.call(document.querySelectorAll('[data-reveal]'));
+    if(!('IntersectionObserver' in window)){ els.forEach(function(e){ e.classList.add('in'); }); return; }
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){ if(en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target); } });
+    }, {rootMargin:'0px 0px -8% 0px', threshold:0.06});
+    els.forEach(function(e){ io.observe(e); });
+  })();
+
+  /* The header CTA collapses to one button on small screens. */
+  (function(){
+    var mob = document.querySelector('.nav-mob');
+    function sync(){ mob.style.display = window.innerWidth <= 900 ? 'inline-flex' : 'none'; }
+    sync(); window.addEventListener('resize', sync);
   })();
 </script>
 </body>

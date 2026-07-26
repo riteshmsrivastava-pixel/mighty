@@ -1337,57 +1337,307 @@ function Ask({sb, people, events, tasks, settings, onOpen}){
 }
 
 /* ===================== Extension + Settings ===================== */
+/* Chrome-window chrome for the mockups below. Illustrative only — these are
+   pictures of the extension, not the extension itself. */
+function Frame({url, children, badge}){
+  return (
+    <div style={{border:'1px solid var(--line)',borderRadius:18,overflow:'hidden',
+      boxShadow:'0 12px 30px rgba(26,25,23,.05)',background:'#fff'}}>
+      <div className="row" style={{gap:12,padding:'14px 18px',background:'#F4F2EE'}}>
+        <div style={{display:'flex',gap:7,flex:'none'}}>
+          {['#F0685C','#F4BF4F','#61C554'].map(c=>(
+            <span key={c} style={{width:11,height:11,borderRadius:'50%',background:c}}/>))}
+        </div>
+        <div style={{flex:1,minWidth:0,padding:'8px 16px',borderRadius:999,background:'#fff',
+          fontSize:13.5,color:'var(--sub)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{url}</div>
+        {badge && <Logo small/>}
+      </div>
+      {children}
+    </div>
+  );
+}
+function ExtPanel({children}){
+  return (
+    <div style={{width:336,maxWidth:'100%',background:'#fff',borderRadius:16,
+      boxShadow:'0 18px 44px rgba(26,25,23,.16)',padding:'20px 20px 18px'}}>
+      <div className="row" style={{justifyContent:'space-between',gap:12}}>
+        <div className="row" style={{gap:9}}><Logo small/>
+          <span style={{fontSize:15,fontWeight:700,letterSpacing:'-.01em'}}>Mighty</span></div>
+      </div>
+      {children}
+    </div>
+  );
+}
+function PanelBlock({label, children, first}){
+  return (
+    <div style={{marginTop:first?18:16,paddingTop:first?16:16,borderTop:'1px solid var(--line4)'}}>
+      <div className="eyebrow">{label}</div>
+      {children}
+    </div>
+  );
+}
+function Skeleton({w}){
+  return <div style={{height:9,width:w,borderRadius:99,background:'#EDEAE4',marginTop:10}}/>;
+}
+
 function Extension(){
+  const [view,setView] = useState('search');
+  const [saved,setSaved] = useState(false);
+  const TABS = [['search','On LinkedIn search'],['profile','On a profile'],['popup','The popup'],
+    ['after','After you save'],['install','Install']];
+
+  const rows = [
+    {n:'Elena Ruiz', sub:'Group Product Manager, Platform · Stripe',
+     reasons:['MIT Sloan','Boston','Platform product'], match:'Strong match', dot:'#22916A'},
+    {n:'Marcus Hale', sub:'Director of Product · Databricks',
+     reasons:['Infrastructure','Ex-Google'], match:'Good match', dot:'#5B46E5'},
+    {n:'Dana Whitfield', sub:'Recruiter · Bain & Company',
+     reasons:['No shared ground'], match:'Weak match', dot:'#D9971C'},
+  ];
+  const journey = [
+    ['1','You browse LinkedIn normally','Posts, comments, conference speakers, rabbit holes. No change to how you use it.'],
+    ['2','Mighty evaluates whoever you are looking at','Relationship fit, why, common ground — one small panel, one decision.'],
+    ['3','You save or skip','One click, no commitment. Nothing is sent, nobody is contacted.'],
+    ['4','They appear in Relationships','With the reason you saved them attached, permanently.'],
+    ['5','You decide later, deliberately','Understand them, draft a message, send it yourself.'],
+  ];
   const steps = [
     ['1','Download the extension','Grab the .zip and unzip it anywhere you will not delete by accident.'],
     ['2','Open Chrome extensions','Visit chrome://extensions and switch on Developer mode, top right.'],
     ['3','Load unpacked','Click "Load unpacked" and choose the unzipped folder. Pin Mighty to your toolbar.'],
     ['4','Sign in once','Open the Mighty icon and sign in with the same MIT address. That links it to this account.'],
   ];
-  const journey = [
-    ['1','You browse LinkedIn normally','Posts, comments, conference speakers, rabbit holes. No change to how you use it.'],
-    ['2','Mighty evaluates the profile you are on','Relationship fit, why, common ground — one small panel, one decision.'],
-    ['3','You save or skip','Saving takes one click and no commitment. Nothing is sent, nobody is contacted.'],
-    ['4','They appear in Relationships','With the reason you saved them attached, permanently.'],
-    ['5','You decide later, deliberately','Understand them, draft a message, send it yourself.'],
-  ];
+
   return (
-    <div className="pad fade" style={{maxWidth:820,paddingTop:36}}>
+    <div className="pad fade" style={{maxWidth:960,paddingTop:36}}>
       <div style={{fontSize:16.5,lineHeight:1.6,color:'var(--body)',maxWidth:620,textWrap:'pretty'}}>
         The browser extension helps you discover and evaluate people while you browse LinkedIn. It is not a messaging
         tool. Everything else happens inside Mighty.
       </div>
-      <div className="row" style={{gap:10,marginTop:24,flexWrap:'wrap'}}>
-        <a className="btn" href="../install/mighty-extension.zip">Download the extension (.zip)</a>
-        <a className="btn g" href="../install/" target="_blank" rel="noopener noreferrer">Written guide</a>
+      <div className="row" style={{gap:10,marginTop:22,flexWrap:'wrap'}}>
+        <a className="btn sm" href="../install/mighty-extension.zip">Download the extension (.zip)</a>
+        <a className="btn g sm" href="../install/" target="_blank" rel="noopener noreferrer">Written guide</a>
       </div>
 
-      <div className="eyebrow b" style={{margin:'38px 0 14px'}}>Install</div>
-      <div className="stack" style={{gap:20}}>
-        {steps.map(([n,t,d])=>(
-          <div key={n} style={{display:'grid',gridTemplateColumns:'30px 1fr',gap:16}}>
-            <div className="av" style={{width:26,height:26,fontSize:12.5,background:'var(--brand-soft2)'}}>{n}</div>
-            <div>
-              <div className="h4">{t}</div>
-              <div className="sub" style={{fontSize:14.5,marginTop:3,lineHeight:1.5,textWrap:'pretty'}}>{d}</div>
-            </div>
-          </div>))}
+      <div className="seg" style={{marginTop:26,maxWidth:'100%',overflowX:'auto'}}>
+        {TABS.map(([k,l])=>(
+          <button key={k} className={view===k?'on':''} onClick={()=>setView(k)}>{l}</button>))}
       </div>
 
-      <div className="eyebrow b" style={{margin:'38px 0 14px'}}>What happens after you save someone</div>
-      <div className="stack" style={{gap:2}}>
-        {journey.map(([n,t,d])=>(
-          <div key={n} style={{display:'grid',gridTemplateColumns:'34px 1fr',gap:16,padding:'14px 0'}}>
-            <div className="stack" style={{alignItems:'center',gap:6}}>
-              <div className="av" style={{width:26,height:26,fontSize:12.5,background:'var(--brand-soft2)'}}>{n}</div>
-              <div style={{width:1,flex:1,background:'var(--line)'}}/>
+      {view==='search' &&
+        <div className="fade" style={{marginTop:24}}>
+          <Frame url="linkedin.com/search/results/people">
+            <div style={{padding:'26px 30px 24px'}}>
+              <div className="sub" style={{fontSize:14}}>
+                412 results · <span style={{color:'var(--ink2)',fontWeight:700}}>MIT Sloan</span>
+                {' · '}<span style={{color:'var(--ink2)',fontWeight:700}}>Bain &amp; Company</span>
+              </div>
+              <div className="stack" style={{marginTop:14}}>
+                {rows.map(r=>(
+                  <div key={r.n} className="row" style={{gap:16,padding:'18px 0',borderTop:'1px solid var(--line2)',flexWrap:'wrap'}}>
+                    <div style={{width:20,height:20,flex:'none',borderRadius:6,background:'var(--brand)',
+                      display:'flex',alignItems:'center',justifyContent:'center'}}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m4 12.5 5 5L20 6.5"/></svg>
+                    </div>
+                    <Avatar name={r.n} size={40}/>
+                    <div style={{flex:'1 1 200px',minWidth:0}}>
+                      <div className="h4" style={{fontSize:16}}>{r.n}</div>
+                      <div className="sub" style={{fontSize:13.5,marginTop:2}}>{r.sub}</div>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:7,marginTop:9}}>
+                        {r.reasons.map(x=>(
+                          <span key={x} className="tag" style={{padding:'5px 11px',fontSize:12,fontWeight:600}}>{x}</span>))}
+                      </div>
+                    </div>
+                    <div className="row" style={{gap:8,flex:'none'}}>
+                      <span className="dot" style={{background:r.dot}}/>
+                      <span style={{fontSize:14,fontWeight:700,whiteSpace:'nowrap'}}>{r.match}</span>
+                    </div>
+                  </div>))}
+              </div>
+              <div className="row" style={{gap:16,marginTop:22,padding:'14px 16px 14px 20px',borderRadius:14,background:'var(--ink)',flexWrap:'wrap'}}>
+                <Logo small dark/>
+                <div style={{flex:'1 1 140px',fontSize:14.5,color:'#F0EDE8',fontWeight:500}}>2 people worth saving</div>
+                <button className="btn sm" style={{flex:'none'}}>Save to Mighty</button>
+              </div>
             </div>
-            <div style={{paddingBottom:6}}>
-              <div className="h4">{t}</div>
-              <div className="sub" style={{fontSize:14.5,marginTop:3,textWrap:'pretty'}}>{d}</div>
+          </Frame>
+          <div className="hint" style={{marginTop:14,maxWidth:620}}>
+            The weak match is left unticked on purpose. Mighty is trying to stop low-quality outreach, not maximise saves.
+          </div>
+        </div>}
+
+      {view==='profile' &&
+        <div className="fade" style={{marginTop:24}}>
+          <Frame url="linkedin.com/in/rajiv-srivatsa" badge>
+            <div style={{position:'relative',padding:'26px 30px 40px',background:'#F1F0EE'}}>
+              <div style={{display:'flex',gap:24,alignItems:'flex-start',flexWrap:'wrap'}}>
+                <div style={{flex:'1 1 300px',minWidth:0,maxWidth:430}}>
+                  <div style={{background:'#fff',borderRadius:10,overflow:'hidden'}}>
+                    <div style={{height:78,background:'#E7ECF5'}}/>
+                    <div style={{padding:'0 20px 20px'}}>
+                      <div className="av" style={{width:70,height:70,fontSize:24,marginTop:-28,
+                        boxShadow:'0 0 0 4px #fff',background:'#D3E0F2',color:'#3E5C94'}}>RS</div>
+                      <div style={{fontSize:20,fontWeight:700,letterSpacing:'-.02em',marginTop:12}}>Rajiv Srivatsa</div>
+                      <div className="sub" style={{fontSize:14,marginTop:2}}>Partner at Antler India · Bengaluru</div>
+                      <div className="row" style={{gap:9,marginTop:14}}>
+                        <span style={{padding:'8px 18px',borderRadius:999,background:'#3E5C94',color:'#fff',fontSize:13.5,fontWeight:600}}>Connect</span>
+                        <span style={{padding:'8px 18px',borderRadius:999,border:'1px solid #3E5C94',color:'#3E5C94',fontSize:13.5,fontWeight:600}}>Message</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{marginTop:14,background:'#fff',borderRadius:10,padding:'18px 20px'}}>
+                    <Skeleton w="70%"/><Skeleton w="88%"/><Skeleton w="54%"/>
+                  </div>
+                </div>
+
+                <ExtPanel>
+                  <div className="row" style={{gap:12,marginTop:18}}>
+                    <div className="av" style={{width:44,height:44,fontSize:15}}>RS</div>
+                    <div style={{minWidth:0}}>
+                      <div style={{fontSize:16.5,fontWeight:700,letterSpacing:'-.015em'}}>Rajiv Srivatsa</div>
+                      <div className="sub" style={{fontSize:13.5}}>Partner · Antler India</div>
+                    </div>
+                  </div>
+
+                  {!saved &&
+                    <F>
+                      <PanelBlock label="Relationship fit" first>
+                        <div className="row" style={{gap:9,marginTop:7}}>
+                          <span className="dot" style={{background:'#D9971C'}}/>
+                          <span style={{fontSize:17,fontWeight:700,letterSpacing:'-.015em'}}>Potential match</span>
+                        </div>
+                      </PanelBlock>
+                      <PanelBlock label="Why">
+                        <div className="stack" style={{gap:6,marginTop:8}}>
+                          {['Invests in early-stage AI founders',
+                            'Sits outside your current goal of a product role',
+                            'No shared connections yet'].map(x=>(
+                            <div key={x} style={{fontSize:14,color:'var(--ink2)'}}>{x}</div>))}
+                        </div>
+                      </PanelBlock>
+                      <PanelBlock label="Why now">
+                        <div className="stack" style={{gap:6,marginTop:8}}>
+                          {['Recently joined Antler India','Speaking at TechSparks next week',
+                            'Backed three AI companies this quarter'].map(x=>(
+                            <div key={x} style={{fontSize:14,color:'var(--ink2)'}}>{x}</div>))}
+                        </div>
+                      </PanelBlock>
+                      <PanelBlock label="Recommendation">
+                        <div style={{fontSize:14.5,lineHeight:1.55,color:'var(--ink2)',marginTop:7,textWrap:'pretty'}}>
+                          Save if you are deliberately building an investor network. Otherwise, skip.
+                        </div>
+                      </PanelBlock>
+                      <div className="row" style={{gap:9,marginTop:20}}>
+                        <button className="btn soft" style={{flex:1,justifyContent:'center'}} onClick={()=>setSaved(true)}>Skip</button>
+                        <button className="btn" style={{flex:1}} onClick={()=>setSaved(true)}>Save</button>
+                      </div>
+                    </F>}
+
+                  {saved &&
+                    <F>
+                      <div className="row fade" style={{gap:10,marginTop:18,paddingTop:18,borderTop:'1px solid var(--line4)'}}>
+                        <div style={{width:22,height:22,borderRadius:'50%',background:'#E4F3EC',flex:'none',
+                          display:'flex',alignItems:'center',justifyContent:'center'}}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0F6B49" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m4 12.5 5 5L20 6.5"/></svg>
+                        </div>
+                        <span style={{fontSize:15.5,fontWeight:700,letterSpacing:'-.01em'}}>Saved to Mighty</span>
+                      </div>
+                      <div className="stack" style={{gap:8,marginTop:18}}>
+                        {['Review the AI brief','Draft the first message'].map(x=>(
+                          <div key={x} style={{padding:'11px 15px',borderRadius:12,background:'var(--card2)',
+                            fontSize:14.5,fontWeight:600}}>{x}</div>))}
+                        <button className="btn sm" style={{marginTop:4}} onClick={()=>setSaved(false)}>Continue browsing</button>
+                      </div>
+                      <div className="hint" style={{marginTop:14}}>No message was written. No request was sent.</div>
+                    </F>}
+                </ExtPanel>
+              </div>
             </div>
-          </div>))}
-      </div>
+          </Frame>
+          <div className="hint" style={{marginTop:14,maxWidth:620}}>
+            One question per profile: is this relationship worth investing in? Try Save or Skip above.
+          </div>
+        </div>}
+
+      {view==='popup' &&
+        <div className="fade" style={{marginTop:24}}>
+          <Frame url="linkedin.com/feed" badge>
+            <div style={{padding:'26px 30px 44px',background:'#F1F0EE'}}>
+              <div style={{display:'flex',gap:24,alignItems:'flex-start',flexWrap:'wrap'}}>
+                <div className="stack" style={{flex:'1 1 280px',gap:14,maxWidth:430}}>
+                  {[['60%','85%'],['75%','50%']].map((w,i)=>(
+                    <div key={i} style={{background:'#fff',borderRadius:10,padding:'18px 20px'}}>
+                      <div style={{height:9,width:w[0],borderRadius:99,background:'#EDEAE4'}}/><Skeleton w={w[1]}/>
+                    </div>))}
+                </div>
+                <ExtPanel>
+                  <div className="row" style={{gap:8,marginTop:16}}>
+                    <span className="dot" style={{background:'var(--green2)',width:7,height:7}}/>
+                    <span style={{fontSize:13.5,color:'#5B554D',fontWeight:500}}>Connected — your Mighty account</span>
+                  </div>
+                  <PanelBlock label="Your strategy" first>
+                    <div style={{fontSize:16,fontWeight:700,letterSpacing:'-.015em',marginTop:7}}>A product role in AI</div>
+                    <div className="sub" style={{fontSize:13.5,marginTop:3}}>Boston · Product leaders · Hiring managers</div>
+                  </PanelBlock>
+                  <PanelBlock label="Today">
+                    <div className="stack" style={{gap:7,marginTop:9}}>
+                      {[['2','people ready for outreach'],['1','follow-up due'],['1','conversation to capture']].map(([n,t])=>(
+                        <div key={t} style={{fontSize:14.5,color:'var(--ink2)'}}>
+                          <span style={{fontWeight:700}}>{n}</span> {t}
+                        </div>))}
+                    </div>
+                  </PanelBlock>
+                  <div className="stack" style={{gap:8,marginTop:20}}>
+                    <button className="btn sm">Open today's plan</button>
+                    <button className="btn soft sm">Open Mighty</button>
+                  </div>
+                </ExtPanel>
+              </div>
+            </div>
+          </Frame>
+          <div className="hint" style={{marginTop:14,maxWidth:620}}>
+            The popup is a status light, not a second app: what your strategy is, and what is waiting for you.
+          </div>
+        </div>}
+
+      {view==='after' &&
+        <div className="fade" style={{marginTop:26,maxWidth:620}}>
+          <div className="h3">What happens after you save someone?</div>
+          <div className="sub" style={{marginTop:5}}>The extension is one step in the journey, not a separate product.</div>
+          <div className="stack" style={{gap:2,marginTop:24}}>
+            {journey.map(([n,t,d],i)=>(
+              <div key={n} style={{display:'grid',gridTemplateColumns:'34px 1fr',gap:16,padding:'14px 0'}}>
+                <div className="stack" style={{alignItems:'center',gap:6}}>
+                  <div className="av" style={{width:26,height:26,fontSize:12.5,background:'var(--brand-soft2)'}}>{n}</div>
+                  {i<journey.length-1 && <div style={{width:1,flex:1,background:'var(--line)'}}/>}
+                </div>
+                <div style={{paddingBottom:6}}>
+                  <div className="h4">{t}</div>
+                  <div className="sub" style={{fontSize:14.5,marginTop:3,textWrap:'pretty'}}>{d}</div>
+                </div>
+              </div>))}
+          </div>
+        </div>}
+
+      {view==='install' &&
+        <div className="fade" style={{marginTop:26,maxWidth:620}}>
+          <div className="h3">Install Mighty</div>
+          <div className="sub" style={{marginTop:5}}>About a minute, one time per device.</div>
+          <div className="stack" style={{gap:22,marginTop:24}}>
+            {steps.map(([n,t,d])=>(
+              <div key={n} style={{display:'grid',gridTemplateColumns:'30px 1fr',gap:16}}>
+                <div className="av" style={{width:26,height:26,fontSize:12.5,background:'var(--brand-soft2)'}}>{n}</div>
+                <div>
+                  <div className="h4">{t}</div>
+                  <div className="sub" style={{fontSize:14.5,marginTop:3,lineHeight:1.5,textWrap:'pretty'}}>{d}</div>
+                </div>
+              </div>))}
+          </div>
+          <div className="row" style={{gap:10,marginTop:28,flexWrap:'wrap'}}>
+            <a className="btn" href="../install/mighty-extension.zip">Download the extension (.zip)</a>
+            <a className="btn g" href="../install/" target="_blank" rel="noopener noreferrer">Full written guide</a>
+          </div>
+        </div>}
 
       <div className="hint" style={{marginTop:34,maxWidth:620}}>
         Human in the loop by design — Mighty never clicks Connect or Message for you. You always click send.
@@ -1508,11 +1758,13 @@ function Gate({sb}){
     </div>
   );
 }
-function Logo(){
+function Logo({small, dark}){
+  const d = small ? 18 : 21;
   return (
-    <div style={{position:'relative',width:31,height:21,flex:'none'}}>
-      <div style={{position:'absolute',left:0,top:0,width:21,height:21,borderRadius:'50%',background:'var(--brand)'}}/>
-      <div style={{position:'absolute',left:10,top:0,width:21,height:21,borderRadius:'50%',background:'#F2A78E',mixBlendMode:'multiply'}}/>
+    <div style={{position:'relative',width:small?26:31,height:d,flex:'none'}}>
+      <div style={{position:'absolute',left:0,top:0,width:d,height:d,borderRadius:'50%',background:'var(--brand)'}}/>
+      <div style={{position:'absolute',left:small?8:10,top:0,width:d,height:d,borderRadius:'50%',
+        background:'#F2A78E',mixBlendMode:dark?'screen':'multiply'}}/>
     </div>
   );
 }
