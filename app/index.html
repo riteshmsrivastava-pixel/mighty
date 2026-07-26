@@ -295,18 +295,27 @@ async function toKeywords(sb, sentence, st){
     return k || localKeywords(near, st);
   }catch(e){ return localKeywords(near, st); }
 }
-const VERDICT = {strong:{label:'Strong match'}, good:{label:'Good match'}, weak:{label:'Weak match'}};
+/* One match ladder across the whole product — app, extension panel and
+   marketing all say the same three things. Keep in sync with
+   mightyMatchLabel() in extension/scoring.js. */
+const VERDICT = {
+  excellent:{label:'Excellent match', dot:'#5B46E5'},
+  strong:   {label:'Strong match',    dot:'#22916A'},
+  potential:{label:'Potential match', dot:'#D9971C'},
+};
+const VERDICT_KEYS = ['excellent','strong','potential'];
 async function evaluate(sb, people, st){
   const list = people.map((p,i)=>`${i+1}. ${p.name} — ${p.title||'(no headline)'}${p.company?' — '+p.company:''}`).join('\n');
   const out = await llmJSON(sb, 'profile_briefing',
-    'You help a professional decide who is worth building a relationship with. For each candidate, judge relevance to THEIR stated goal and explain it in plain language. Never output a numeric score. Ground every claim only in the given headline text — if the headline does not support a claim, do not make it. Be honest: say when someone is a weak match. Common ground must be real overlap between the two people; "both in tech" is not common ground.',
-    `The person doing the networking:\n${strategyBrief(st)}\n\nCandidates:\n${list}\n\nReturn JSON exactly like {"matches":[{"n":1,"verdict":"strong"|"good"|"weak","why":"one or two sentences, starts with the reason, no score","common":["short shared-ground phrase"]}]}. Include every candidate by its number n. "common" may be empty.`,
+    'You help a professional decide who is worth building a relationship with. For each candidate, judge relevance to THEIR stated goal and explain it in plain language. Never output a numeric score. Ground every claim only in the given headline text — if the headline does not support a claim, do not make it. Be honest: use "potential" and say plainly when someone is a stretch, and never inflate a weak fit. Common ground must be real overlap between the two people; "both in tech" is not common ground.',
+    `The person doing the networking:\n${strategyBrief(st)}\n\nCandidates:\n${list}\n\nReturn JSON exactly like {"matches":[{"n":1,"verdict":"excellent"|"strong"|"potential","why":"one or two sentences, starts with the reason, no score","common":["short shared-ground phrase"]}]}. Use "excellent" only when they match the goal squarely, "strong" for a clear fit, and "potential" when the connection is loose or outside the current goal. Include every candidate by its number n. "common" may be empty.`,
     1500);
   const byN = {};
   (out.matches||[]).forEach(m=>{ if(m && m.n) byN[Number(m.n)]=m; });
   return people.map((p,i)=>{
     const m = byN[i+1]||{};
-    const v = ['strong','good','weak'].indexOf(String(m.verdict||'').toLowerCase())>=0 ? String(m.verdict).toLowerCase() : 'good';
+    const raw = String(m.verdict||'').toLowerCase();
+    const v = VERDICT_KEYS.indexOf(raw)>=0 ? raw : 'strong';
     return {...p, verdict:v, why:clean(m.why), common:Array.isArray(m.common)?m.common.filter(Boolean).slice(0,4):[]};
   });
 }
@@ -643,6 +652,7 @@ function Discover({sb, settings, people, onSave, onOpen, go}){
   const [skipped,setSkip]= useState({});
   const [savingUrl,setSaving] = useState(null);
   const [lastQuery,setLastQ]  = useState('');
+  const [noExt,setNoExt] = useState(false);   // search backend not configured
 
   const savedUrls = useMemo(()=>{
     const m = {}; people.forEach(r=>{ m[r.profile_url]=r; }); return m;
@@ -659,14 +669,13 @@ function Discover({sb, settings, people, onSave, onOpen, go}){
   async function run(text){
     const sentence = clean(text!=null?text:q);
     if(!sentence || phase==='searching' || phase==='thinking') return;
-    setErr(null); setNote(null); setRes([]); setSkip({}); setPhase('searching'); setLastQ(sentence);
+    setErr(null); setNote(null); setNoExt(false); setRes([]); setSkip({}); setPhase('searching'); setLastQ(sentence);
     try{
       const kw = await toKeywords(sb, sentence, settings);
       const {data, error} = await sb.functions.invoke('people-search', {body:{query:kw}});
       if(error) throw error;
       if(!data || data.ok===false){
-        if(data && data.error==='not_configured')
-          setNote("Web search isn't switched on for this deployment yet, so Discover has nothing to search. The Chrome extension still works: open a LinkedIn profile and save from there.");
+        if(data && data.error==='not_configured') setNoExt(true);
         else setErr((data && (data.message||data.error)) || 'Search failed.');
         setPhase('idle'); return;
       }
@@ -714,6 +723,22 @@ function Discover({sb, settings, people, onSave, onOpen, go}){
 
       {err && <div className="banner err" style={{marginTop:18}}>{err}</div>}
       {notice && <div className="banner warn" style={{marginTop:18}}>{notice}</div>}
+
+      {noExt &&
+        <div className="card fade" style={{marginTop:18,padding:'26px 26px 24px'}}>
+          <div className="h3">Search isn't switched on for this account yet.</div>
+          <div className="sub" style={{marginTop:7,lineHeight:1.55,maxWidth:560}}>
+            Describing who you want to meet needs the web-search backend, which is still being set up.
+            The other way into Mighty works today and is how most people find people anyway: browse
+            LinkedIn, and save whoever is worth knowing from the extension panel.
+          </div>
+          <div className="row" style={{gap:10,marginTop:20,flexWrap:'wrap'}}>
+            <button className="btn sm" onClick={()=>go({screen:'extension'})}>Set up the extension</button>
+            <a className="btn g sm" href="https://www.linkedin.com/search/results/people/" target="_blank" rel="noopener noreferrer">
+              Open LinkedIn search
+            </a>
+          </div>
+        </div>}
 
       {results.length>0 &&
         <div>
@@ -1383,29 +1408,28 @@ function Skeleton({w}){
 function Extension(){
   const [view,setView] = useState('search');
   const [saved,setSaved] = useState(false);
-  const TABS = [['search','On LinkedIn search'],['profile','On a profile'],['popup','The popup'],
-    ['after','After you save'],['install','Install']];
+  const TABS = [['search','Discover'],['profile','Profile'],['popup','Popup'],
+    ['after','After saving'],['install','Install']];
 
   const rows = [
-    {n:'Elena Ruiz', sub:'Group Product Manager, Platform · Stripe',
-     reasons:['MIT Sloan','Boston','Platform product'], match:'Strong match', dot:'#22916A'},
-    {n:'Marcus Hale', sub:'Director of Product · Databricks',
-     reasons:['Infrastructure','Ex-Google'], match:'Good match', dot:'#5B46E5'},
-    {n:'Dana Whitfield', sub:'Recruiter · Bain & Company',
-     reasons:['No shared ground'], match:'Weak match', dot:'#D9971C'},
+    {n:'Grace Liu', sub:'Consultant at Bain & Company · MIT Sloan ’23',
+     reasons:['MIT Sloan','Former Bain','AI Product','Boston'], match:'Excellent match', dot:'#5B46E5'},
+    {n:'Omar Sheikh', sub:'Sr. Associate Consultant at Bain · MIT Sloan ’22',
+     reasons:['MIT Sloan','Consulting','Boston'], match:'Strong match', dot:'#22916A'},
+    {n:'Jenna Wolfe', sub:'Consultant at Bain & Company · MIT Sloan ’24',
+     reasons:['MIT Sloan','Early career'], match:'Potential match', dot:'#D9971C'},
   ];
   const journey = [
-    ['1','You browse LinkedIn normally','Posts, comments, conference speakers, rabbit holes. No change to how you use it.'],
-    ['2','Mighty evaluates whoever you are looking at','Relationship fit, why, common ground — one small panel, one decision.'],
-    ['3','You save or skip','One click, no commitment. Nothing is sent, nobody is contacted.'],
-    ['4','They appear in Relationships','With the reason you saved them attached, permanently.'],
-    ['5','You decide later, deliberately','Understand them, draft a message, send it yourself.'],
+    ['1','Saved to Mighty','No message sent. Nothing to fill in.'],
+    ['2','Mighty prepares an AI brief','Background, shared context, why they matter to your goal.'],
+    ['3','Draft the first message','Five approaches. You edit. You click send.'],
+    ['4','Move through your pipeline','The card moves as the relationship moves.'],
+    ['5','Remember every interaction','Notes, timeline and commitments, kept for you.'],
   ];
   const steps = [
-    ['1','Download the extension','Grab the .zip and unzip it anywhere you will not delete by accident.'],
-    ['2','Open Chrome extensions','Visit chrome://extensions and switch on Developer mode, top right.'],
-    ['3','Load unpacked','Click "Load unpacked" and choose the unzipped folder. Pin Mighty to your toolbar.'],
-    ['4','Sign in once','Open the Mighty icon and sign in with the same MIT address. That links it to this account.'],
+    ['1','Download','Grab the Mighty extension for Chrome — one file, one time.'],
+    ['2','Enable the extension','Open chrome://extensions, turn on Developer mode, load the unzipped folder.'],
+    ['3','Sign in','Click the Mighty icon in your toolbar and sign in with the same account.'],
   ];
 
   return (
@@ -1456,13 +1480,14 @@ function Extension(){
               </div>
               <div className="row" style={{gap:16,marginTop:22,padding:'14px 16px 14px 20px',borderRadius:14,background:'var(--ink)',flexWrap:'wrap'}}>
                 <Logo small dark/>
-                <div style={{flex:'1 1 140px',fontSize:14.5,color:'#F0EDE8',fontWeight:500}}>2 people worth saving</div>
+                <div style={{flex:'1 1 140px',fontSize:14.5,color:'#F0EDE8',fontWeight:500}}>3 people ready to save</div>
                 <button className="btn sm" style={{flex:'none'}}>Save to Mighty</button>
               </div>
             </div>
           </Frame>
           <div className="hint" style={{marginTop:14,maxWidth:620}}>
-            The weak match is left unticked on purpose. Mighty is trying to stop low-quality outreach, not maximise saves.
+            On a search page Mighty scores the whole list at once and you tick who is worth keeping. Nobody is
+            contacted — saving is where it stops.
           </div>
         </div>}
 

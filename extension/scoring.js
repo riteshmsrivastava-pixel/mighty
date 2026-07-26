@@ -48,10 +48,12 @@ function mightySuggestedNext(row) {
   }
 }
 
+// One match ladder across the whole product. Keep in sync with VERDICT in
+// app/index.html and the panel mockups on the app's Extension page.
 function mightyMatchLabel(score) {
-  if (score >= 65) return 'Strong match';
-  if (score >= 35) return 'Good match';
-  return 'Early match';
+  if (score >= 65) return 'Excellent match';
+  if (score >= 35) return 'Strong match';
+  return 'Potential match';
 }
 
 Object.assign(window, { mightyComputeScore, mightySuggestedNext, mightyMatchLabel });
