@@ -289,10 +289,14 @@ function mutualText() {
   return el || '';
 }
 let lastContextUrl = '';
-function captureProfileContext() {
+// `force` re-pushes for a URL already captured this session. Needed right after
+// a save: the first push happened while the profile was still untracked, so the
+// app correctly discarded it — without this the brief would stay thin until the
+// student happened to open the profile a second time.
+function captureProfileContext(force) {
   if (!PROFILE_PAGE_RE.test(location.pathname)) return;
   const profileUrl = normProfileUrl(location.href);
-  if (profileUrl === lastContextUrl) return;
+  if (!force && profileUrl === lastContextUrl) return;
   const main = profileMainText();
   if (!main || main.length < 60) return; // page likely hasn't rendered yet — retry on next scan
   lastContextUrl = profileUrl;
@@ -575,7 +579,14 @@ async function renderProfileSidebar() {
       save.textContent = 'Saving…'; save.disabled = true;
       const avatarData = await profilePhotoDataUrl();
       const res = await send('saveProfile', { payload: { profileUrl, name: liveName, title: liveHeadline, company: liveCompany, avatarUrl: avatarData || livePhoto, location: liveLocation } });
-      if (res && res.ok) { await send('fetchLog', { force: true }); renderProfileSidebar(); return; }
+      if (res && res.ok) {
+        // Now that a row exists, hand over the page text the app discarded a
+        // moment ago — that's what the AI brief is written from.
+        captureProfileContext(true);
+        await send('fetchLog', { force: true });
+        renderProfileSidebar();
+        return;
+      }
       save.textContent = 'Saved ✓';
     };
     actions.append(skip, save);
