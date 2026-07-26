@@ -1,7 +1,24 @@
+# ⚠️ Superseded
+
+This document has been fully incorporated into `PRODUCT-BIBLE-v2.md`.
+
+**Do not use this document for implementation decisions.**
+
+`PRODUCT-BIBLE-v2.md` is the single governing specification.
+
+Kept for history only. Notably outdated here: the four-item navigation
+(Home/Discover/People/Settings) and the six-stage lifecycle with Memory as a
+stage. v2 defines navigation as Today/Strategy/Discover/Relationships/Ask
+Mighty/Settings, five journey stages, and Memory as a cross-cutting engine.
+The Maturity Model and unlock mechanics below survive in v2 Part V, with one
+change: navigation is always visible and only depth unlocks.
+
+---
+
 # Product Bible Addendum v1.3 - The Maturity Model
 
-Merged 2026-07-25. These sections extend the Product Bible v1.2. Where they
-conflict with v1.2, this addendum wins.
+Merged 2026-07-25. These sections extended the Product Bible v1.2. Where they
+conflicted with v1.2, this addendum won. Both are now superseded by v2.0.
 
 ---
 
