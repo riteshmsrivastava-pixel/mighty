@@ -164,12 +164,12 @@ function ensurePanel() {
   if (panel && document.body.contains(panel)) return panel;
   panel = document.createElement('div');
   panel.id = 'mighty-shortlist-panel';
-  panel.style.cssText = 'position:fixed;bottom:18px;right:18px;z-index:99999;background:#1B1A1F;color:#F4F2EF;'
-    + "font:14px 'Instrument Sans',-apple-system,system-ui,sans-serif;padding:10px 12px 10px 18px;border-radius:999px;box-shadow:0 18px 40px -18px rgba(27,26,31,.5);"
+  panel.style.cssText = 'position:fixed;bottom:18px;right:18px;z-index:99999;background:#1A1917;color:#F4F2EF;'
+    + "font:14px 'Plus Jakarta Sans',-apple-system,system-ui,sans-serif;padding:10px 12px 10px 18px;border-radius:999px;box-shadow:0 18px 40px -18px rgba(27,26,31,.5);"
     + 'display:flex;align-items:center;gap:12px;';
   const btn = document.createElement('button');
   btn.textContent = 'Send 0 to Mighty';
-  btn.style.cssText = "background:#5B4BC4;color:#fff;border:none;border-radius:999px;padding:9px 18px;font-weight:500;font-size:14px;cursor:pointer;font-family:inherit;";
+  btn.style.cssText = "background:#5B46E5;color:#fff;border:none;border-radius:999px;padding:9px 18px;font-weight:500;font-size:14px;cursor:pointer;font-family:inherit;";
   panel.appendChild(btn);
   document.body.appendChild(panel);
   return panel;
@@ -798,7 +798,7 @@ async function renderProfileSidebar() {
   if (savedMut) shared.push(`${savedMut[1]} mutual connection${savedMut[1] === '1' ? '' : 's'}`);
 
   el.innerHTML =
-    mightyBrandHead(`<span style="font-size:11.5px;font-weight:700;color:#0F6B49;background:#E4F3EC;padding:4px 11px;border-radius:999px;">Saved</span>`)
+    mightyBrandHead(`<span style="font-size:11.5px;font-weight:700;color:#14805A;background:#E6F1EB;padding:4px 11px;border-radius:999px;">Saved</span>`)
     + panelPerson(photo, name, personSub(headline, company))
     + panelSection('Relationship fit',
         `<div style="display:flex;align-items:center;gap:9px;margin-top:7px;">
@@ -882,7 +882,7 @@ async function renderGoogleImportPanel() {
   gPanel.id = 'mighty-google-panel';
   gPanel.style.cssText = 'position:fixed;top:76px;right:16px;width:326px;max-height:78vh;overflow:auto;z-index:99999;'
     + 'background:#fff;border:1px solid rgba(27,26,31,.08);border-radius:20px;box-shadow:0 30px 70px -34px rgba(27,26,31,.32);'
-    + "font:14px 'Instrument Sans',-apple-system,system-ui,sans-serif;color:#1B1A1F;padding:20px;";
+    + "font:14px 'Plus Jakarta Sans',-apple-system,system-ui,sans-serif;color:#1A1917;padding:20px;";
   gPanel.innerHTML = mightyBrandHead(`<span style="font-size:11.5px;font-weight:500;color:#7B7787;background:#F4F3F1;padding:4px 11px;border-radius:999px;">${profiles.length} found</span>`);
 
   if (!signedIn) {
