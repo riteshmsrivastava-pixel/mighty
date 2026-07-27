@@ -185,12 +185,16 @@ as $$
            c."position", c.connected_on,
            round(extract(epoch from (now() - coalesce(c.connected_on::timestamptz, now())))
                  / 31557600.0, 1)::numeric as years_silent,
+           -- Word-boundary match, not substring. \m and \M are Postgres's own
+           -- word delimiters, so "ai" matches "AI-native" and "AI infrastructure"
+           -- but not "Raiffeisen", and "pay" no longer matches "PayPal" - the
+           -- exact false positive the extension's company parser already hit.
            (select array_agg(distinct t)
               from unnest(p_terms) t
-             where length(t) >= 3
-               and position(lower(t) in
-                     lower(coalesce(c.company,'') || ' ' || coalesce(c."position",'') || ' ' ||
-                           coalesce(c.first_name,'') || ' ' || coalesce(c.last_name,''))) > 0
+             where length(t) >= 2
+               and lower(coalesce(c.company,'') || ' ' || coalesce(c."position",'') || ' ' ||
+                         coalesce(c.first_name,'') || ' ' || coalesce(c.last_name,''))
+                   ~ ('\m' || lower(t) || '\M')
            ) as hits,
            (select oc from unnest(p_own_companies) oc
              where lower(coalesce(c.company,'')) = lower(oc) limit 1) as shared_company
