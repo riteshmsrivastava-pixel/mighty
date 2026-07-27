@@ -467,6 +467,111 @@ drop policy if exists "ev select own" on public.app_events;
 create policy "ev select own" on public.app_events
   for select to authenticated using (auth.uid() = user_id);
 
+-- 10. Connections - the user's own LinkedIn connections export. A separate pool
+-- from outreach_log on purpose: importing twenty thousand contacts into a tier
+-- that caps *relationships* at fifty would either block the user immediately or
+-- make the cap meaningless. These are never scored, never assisted, never
+-- contacted. They exist to answer one question: of the people I already know,
+-- which matter to what I am trying to do now, and which have gone quiet.
+--
+-- `connected_on` is the field that earns this table its place. It is the only
+-- dormancy signal available anywhere in the product, and it is why a 19,928-row
+-- import is worth having: 48% of that founder's network is 5+ years silent.
+--
+-- The archive is parsed IN THE BROWSER and only these columns are sent. The zip
+-- itself never leaves the user's machine, which is what makes the consent copy
+-- at onboarding honest rather than lawyerly.
+--
+-- Unique on (user_id, profile_url) so re-importing a fresh export merges rather
+-- than duplicating - the idempotency the plan requires.
+create table if not exists public.connections (
+  id           bigint generated always as identity primary key,
+  user_id      uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  profile_url  text not null,
+  first_name   text,
+  last_name    text,
+  company      text,
+  position     text,
+  connected_on date,
+  source       text not null default 'linkedin_archive',
+  imported_at  timestamptz not null default now(),
+  unique (user_id, profile_url)
+);
+create index if not exists connections_user_dormancy_idx on public.connections (user_id, connected_on);
+create index if not exists connections_user_company_idx  on public.connections (user_id, company);
+
+alter table public.connections enable row level security;
+drop policy if exists "cx select own" on public.connections;
+create policy "cx select own" on public.connections for select using (auth.uid() = user_id);
+drop policy if exists "cx insert own" on public.connections;
+create policy "cx insert own" on public.connections for insert with check (auth.uid() = user_id);
+drop policy if exists "cx update own" on public.connections;
+create policy "cx update own" on public.connections for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "cx delete own" on public.connections;
+create policy "cx delete own" on public.connections for delete using (auth.uid() = user_id);
+-- Delete is granted deliberately: this table holds names and employers of people
+-- who are not users and never agreed to be here, so the account holder must be
+-- able to remove all of it in one action.
+
+-- 11. The archive store - Mighty's knowledge base, user side.
+--
+-- The raw LinkedIn export is kept, not just the fields parsed out of it today.
+-- The reason is that the parser will get better and the questions we ask of the
+-- file will change, and re-deriving from a stored archive costs nothing while
+-- asking someone to export again costs their goodwill. It is also the honest
+-- shape of the thing: this is the user's own history, accumulating, and it is a
+-- paid-tier asset rather than a transient upload.
+--
+-- An earlier draft of this parsed the archive in the browser and deliberately
+-- did NOT store it, on the grounds that the zip never leaving the machine was a
+-- strong privacy position. It was not. The derived rows in public.connections
+-- carry the same nineteen thousand names and employers, so refusing to store the
+-- source protected nobody while giving up the ability to re-derive. Storing it
+-- is the better call, and it makes the consent copy simpler: we keep this, here
+-- is why, you can delete it.
+--
+-- Cost is not a consideration: a 3.2 MB archive at ten thousand paid users is
+-- about 34 GB, roughly seventy cents a month.
+insert into storage.buckets (id, name, public)
+  values ('archives', 'archives', false)
+  on conflict (id) do nothing;
+
+-- Objects are namespaced by user id as the first path segment: archives/<uid>/...
+-- so the policies below give each account access to its own folder and nothing
+-- else. Never make this bucket public: it holds message history containing both
+-- sides of conversations with people who are not users.
+drop policy if exists "arch read own" on storage.objects;
+create policy "arch read own" on storage.objects for select to authenticated
+  using (bucket_id = 'archives' and (storage.foldername(name))[1] = auth.uid()::text);
+drop policy if exists "arch write own" on storage.objects;
+create policy "arch write own" on storage.objects for insert to authenticated
+  with check (bucket_id = 'archives' and (storage.foldername(name))[1] = auth.uid()::text);
+drop policy if exists "arch delete own" on storage.objects;
+create policy "arch delete own" on storage.objects for delete to authenticated
+  using (bucket_id = 'archives' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- 12. Import ledger - what was ingested, when, and what came out of it. Exists so
+-- a re-import can be compared against the last one rather than guessed at, and so
+-- "where did Mighty learn that" has an answer.
+create table if not exists public.imports (
+  id           bigint generated always as identity primary key,
+  user_id      uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  kind         text not null check (kind in ('linkedin_archive','resume','manual')),
+  storage_path text,
+  file_name    text,
+  file_bytes   bigint,
+  derived      jsonb not null default '{}'::jsonb,
+  created_at   timestamptz not null default now()
+);
+create index if not exists imports_user_time_idx on public.imports (user_id, created_at desc);
+alter table public.imports enable row level security;
+drop policy if exists "im select own" on public.imports;
+create policy "im select own" on public.imports for select using (auth.uid() = user_id);
+drop policy if exists "im insert own" on public.imports;
+create policy "im insert own" on public.imports for insert with check (auth.uid() = user_id);
+drop policy if exists "im delete own" on public.imports;
+create policy "im delete own" on public.imports for delete using (auth.uid() = user_id);
+
 -- ============================================================
 -- Also in the dashboard (not SQL):
 -- • Authentication → Providers → Email: ENABLED, "Confirm email" ON
