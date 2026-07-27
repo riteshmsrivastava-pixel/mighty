@@ -46,11 +46,22 @@ const PRICING: Record<string, [number, number]> = {
 //      tier + whether the answer is cacheable. "AI should think, not calculate"
 // - everything here needs reasoning; anything mechanical stays in SQL/JS and
 //      never reaches this function. ----
-type Tier = "low" | "medium" | "high";
+type Tier = "free" | "low" | "medium" | "high";
 interface FeatureDef { model: string; tier: Tier; cache: boolean; }
 const FEATURES: Record<string, FeatureDef> = {
+  // Tier 0 - free. Two things must never carry a price.
+  //
+  // profile_briefing is free because the brief is how you decide someone is NOT
+  // worth your time. Charging for it means charging people to say no, which
+  // makes the honest answer the expensive one.
+  //
+  // network_search is Ask Mighty. It was Sonnet at tier "medium", which made a
+  // question cost twice a draft: the first thing a new user does with the
+  // product was also the most expensive thing they could do. Asking is
+  // exploration. The meter belongs on what you send, not on what you wonder.
+  profile_briefing:    { model: MODELS.sonnet, tier: "free",   cache: true  },
+  network_search:      { model: MODELS.haiku,  tier: "free",   cache: false },
   // Tier 1 - user-facing reasoning, Sonnet.
-  profile_briefing:    { model: MODELS.sonnet, tier: "low",    cache: true  },
   draft_message:       { model: MODELS.sonnet, tier: "low",    cache: false },
   meeting_prep:        { model: MODELS.sonnet, tier: "high",   cache: true  },
   daily_plan:          { model: MODELS.sonnet, tier: "medium", cache: true  },
@@ -62,15 +73,33 @@ const FEATURES: Record<string, FeatureDef> = {
   relationship_health: { model: MODELS.sonnet, tier: "medium", cache: true  },
   intro_suggestion:    { model: MODELS.sonnet, tier: "medium", cache: false },
   followup_timing:     { model: MODELS.sonnet, tier: "low",    cache: false },
-  network_search:      { model: MODELS.sonnet, tier: "medium", cache: false },
   // Tier 3 - rare, heavy, Opus.
   deep_network_report: { model: MODELS.opus,   tier: "high",   cache: true  },
 };
 const DEFAULT_FEATURE = "draft_message";
 
-// Assist "weight" per tier - what the client can show as "Uses N MIghTy Assists"
-// and what counts against the daily/monthly assist caps.
-const TIER_WEIGHT: Record<Tier, number> = { low: 1, medium: 2, high: 5 };
+// Assist "weight" per tier - what the client shows as "Uses N Assists" and what
+// counts against the monthly cap. free is 0 and is genuinely free: it is bounded
+// by a daily call guard further down, never by the assist balance.
+const TIER_WEIGHT: Record<Tier, number> = { free: 0, low: 1, medium: 2, high: 5 };
+
+// ---- Plans. A 30-day trial, then Starter / Plus / Pro. ----
+//
+// The legacy explorer/builder/leader values still exist in the database, so they
+// are mapped here rather than migrated away: a live account must not lose access
+// because we renamed a tier.
+const PLAN_LABEL: Record<string, string> = {
+  trial: "trial", starter: "Starter", plus: "Plus", pro: "Pro",
+  explorer: "Starter", builder: "Plus", leader: "Pro",
+};
+function monthlyAssists(plan: string, cfg: any): number {
+  switch (plan) {
+    case "pro": case "leader":     return Number(cfg.pro_monthly_assists     ?? 120);
+    case "plus": case "builder":   return Number(cfg.plus_monthly_assists    ?? 60);
+    case "starter": case "explorer": return Number(cfg.starter_monthly_assists ?? 30);
+    default:                       return Number(cfg.trial_monthly_assists   ?? 10);
+  }
+}
 
 // Browsers preflight every POST carrying Authorization/content-type. Without
 // these headers the OPTIONS request fails and the app sees "Failed to fetch"
@@ -101,6 +130,12 @@ Deno.serve(async (req) => {
   let body: any = {};
   try { body = await req.json(); } catch (_e) { /* no body */ }
   const { system, user: userPrompt, maxTokens } = body;
+  // An exchange is one outbound conversation with one person: the brief, the
+  // draft, and every take of that draft. It is charged once. Shape is
+  // 'ex:<log_id>:<n>', carrying no name and no profile URL.
+  const exchangeKey: string | null =
+    typeof body.exchangeKey === "string" && /^ex:\d+:\d+$/.test(body.exchangeKey)
+      ? body.exchangeKey : null;
   const feature: string = FEATURES[body.feature] ? body.feature : DEFAULT_FEATURE;
   if (!system || !userPrompt) {
     return json({ ok: false, error: "bad_request", message: "system and user are required." }, 400);
@@ -114,7 +149,17 @@ Deno.serve(async (req) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   const def = FEATURES[feature];
-  const weight = TIER_WEIGHT[def.tier];
+  let weight = TIER_WEIGHT[def.tier];
+
+  // ---- G1: has this exchange already been paid for? ----
+  // One assist buys ten takes. Without this the regenerate button would be a
+  // meter, and every user would learn to accept the first draft rather than the
+  // right one.
+  let exchangePaid = false;
+  if (weight > 0 && exchangeKey) {
+    const { data: already } = await admin.rpc("ai_exchange_paid", { p_user_id: user.id, p_key: exchangeKey });
+    if (already === true) { exchangePaid = true; weight = 0; }
+  }
 
   // ---- G2: cache hit? (content-addressed by feature+model+prompt) ----
   const cacheKey = def.cache ? hashKey(feature, def.model, system, userPrompt) : "";
@@ -124,6 +169,7 @@ Deno.serve(async (req) => {
       await admin.rpc("ai_record_call", {
         p_user_id: user.id, p_feature: feature, p_model: def.model, p_tier: def.tier,
         p_in: 0, p_out: 0, p_cost: 0, p_cache_hit: true, p_latency: 0,
+        p_assists: 0, p_exchange_key: exchangeKey,
       });
       return json({ ok: true, text: hit.response, meta: { model: def.model, tier: def.tier, cached: true, assists: 0 } });
     }
@@ -132,27 +178,50 @@ Deno.serve(async (req) => {
   // ---- precheck: one round-trip for all counters + budgets + plan ----
   const { data: pc, error: pcErr } = await admin.rpc("ai_precheck", { p_user_id: user.id });
   if (pcErr) return json({ ok: false, error: "usage_error", message: pcErr.message }, 500);
-  const cfg = (pc?.config) || { daily_company_budget_usd: 20, free_daily_assists: 30, explorer_monthly_assists: 25, builder_monthly_assists: 300, user_monthly_budget_usd: 15 };
-  const plan       = pc?.plan || "explorer";
-  const dayCount   = Number(pc?.day_count || 0);
-  const monthCount = Number(pc?.month_count || 0);
-  const userMonth$ = Number(pc?.user_month_cost || 0);
-  const company$   = Number(pc?.company_day_cost || 0);
+  const cfg = (pc?.config) || { daily_company_budget_usd: 20, free_daily_assists: 30, free_daily_calls: 200, trial_monthly_assists: 10, user_monthly_budget_usd: 15 };
+  const plan        = pc?.plan || "trial";
+  const trialEnds   = pc?.trial_ends_at ? Date.parse(pc.trial_ends_at) : null;
+  const dayAssists  = Number(pc?.day_assists || 0);
+  const monthAssists= Number(pc?.month_assists || 0);
+  const dayCalls    = Number(pc?.day_calls || 0);
+  const topup       = Number(pc?.topup_assists || 0);
+  const userMonth$  = Number(pc?.user_month_cost || 0);
+  const company$    = Number(pc?.company_day_cost || 0);
 
-  // Per-plan monthly assist cap (Explorer/Builder/Leader). Leader = unlimited.
-  const PLAN_LABEL: Record<string, string> = { explorer: "Explorer", builder: "Builder", leader: "Leader" };
-  const monthlyCap = plan === "leader" ? Infinity
-    : plan === "builder" ? Number(cfg.builder_monthly_assists ?? 300)
-    : Number(cfg.explorer_monthly_assists ?? 25);
+  // Purchased assists never expire and stack on top of the monthly allowance,
+  // so the ceiling is allowance + balance rather than allowance alone.
+  const monthlyCap = monthlyAssists(plan, cfg) + topup;
 
-  // ---- G3: per-user daily abuse guard (skipped for Leader) ----
-  if (plan !== "leader" && dayCount + weight > Number(cfg.free_daily_assists)) {
+  // ---- G2b: the trial actually ends ----
+  //
+  // trial_ends_at was being stored and returned and nothing read it, so a trial
+  // simply renewed itself every month forever. Note what is refused: only work
+  // that costs an assist. Briefs and Ask Mighty keep working after the trial,
+  // because someone deciding whether to pay should still be able to look at
+  // what they already have and ask questions about it. What stops is Mighty
+  // writing for them, which is the thing worth paying for.
+  if (weight > 0 && plan === "trial" && trialEnds && Date.now() > trialEnds) {
+    return json({ ok: false, error: "trial_over", scope: "trial", plan,
+      message: "Your thirty days are up. Everything you have given Mighty is still here and still yours, "
+             + "and reading it stays free. Writing needs a plan." });
+  }
+
+  // ---- G3a: free features are unmetered, not unbounded ----
+  // Ask Mighty costs nothing, which is a pricing decision, not an invitation to
+  // run it in a loop. A generous daily call ceiling is the guard.
+  if (weight === 0 && dayCalls >= Number(cfg.free_daily_calls ?? 200)) {
+    return json({ ok: false, error: "rate_limited", scope: "daily_calls", message: "That is a lot of questions for one day. This resets tomorrow." });
+  }
+  // ---- G3b: per-user daily abuse guard, on assists ----
+  if (weight > 0 && dayAssists + weight > Number(cfg.free_daily_assists)) {
     return json({ ok: false, error: "rate_limited", scope: "daily", message: `Daily AI limit reached (${cfg.free_daily_assists}/day). Resets tomorrow.` });
   }
   // ---- G4: per-plan monthly assist cap ----
-  if (monthCount + weight > monthlyCap) {
-    const up = plan === "explorer" ? " Upgrade to Builder for more." : "";
-    return json({ ok: false, error: "rate_limited", scope: "monthly", plan, message: `You've used all ${monthlyCap} MIghTy Assists in your ${PLAN_LABEL[plan] || plan} plan this month.${up}` });
+  if (weight > 0 && monthAssists + weight > monthlyCap) {
+    const up = plan === "trial" ? " Choose a plan to keep going."
+             : plan === "pro" || plan === "leader" ? " Top-up bundles never expire."
+             : " Buy a top-up bundle, or move up a plan.";
+    return json({ ok: false, error: "rate_limited", scope: "monthly", plan, message: `You have used all ${monthlyCap} Assists on your ${PLAN_LABEL[plan] || plan} this month.${up}` });
   }
   // ---- G6: per-user monthly $ ceiling ----
   if (userMonth$ >= Number(cfg.user_monthly_budget_usd)) {
@@ -194,6 +263,7 @@ Deno.serve(async (req) => {
   await admin.rpc("ai_record_call", {
     p_user_id: user.id, p_feature: feature, p_model: model, p_tier: def.tier,
     p_in: inTok, p_out: outTok, p_cost: cost, p_cache_hit: false, p_latency: latency,
+    p_assists: weight, p_exchange_key: exchangeKey,
   });
   if (cacheKey && text) {
     await admin.from("ai_cache").upsert({ cache_key: cacheKey, feature, model, response: text }, { onConflict: "cache_key" });
@@ -203,7 +273,9 @@ Deno.serve(async (req) => {
     ok: true, text,
     meta: {
       model, tier: def.tier, cached: false, assists: weight, plan,
-      assistsLeftMonth: monthlyCap === Infinity ? null : Math.max(0, monthlyCap - monthCount - weight),
+      planLabel: PLAN_LABEL[plan] || plan,
+      assistsLeftMonth: Math.max(0, monthlyCap - monthAssists - weight),
+      exchangePaid, exchangeKey,
       downgraded: overBudget,
     },
   });

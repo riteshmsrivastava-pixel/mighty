@@ -343,8 +343,13 @@ let _onAiMeta = null;
 function onAiMeta(fn){ _onAiMeta = fn; }
 function reportMeta(meta){ try{ if(_onAiMeta && meta) _onAiMeta(meta); }catch(e){} }
 
-async function llm(sb, feature, system, user, maxTokens){
-  const {data, error} = await sb.functions.invoke('ai-proxy', {body:{feature, system, user, maxTokens:maxTokens||700}});
+/* `exchangeKey` is how one assist buys ten takes. It identifies a single
+   outbound conversation with one person - 'ex:<log_id>:<n>' - and the gateway
+   charges the first call carrying it and nothing after. It contains no name and
+   no profile URL, so the ledger stays free of anyone who is not a user. */
+async function llm(sb, feature, system, user, maxTokens, exchangeKey){
+  const {data, error} = await sb.functions.invoke('ai-proxy',
+    {body:{feature, system, user, maxTokens:maxTokens||700, exchangeKey:exchangeKey||null}});
   if(error) throw error;
   if(data && data.meta) reportMeta(data.meta);
   if(!data || data.ok===false){
@@ -353,8 +358,8 @@ async function llm(sb, feature, system, user, maxTokens){
   }
   return data.text;
 }
-async function llmJSON(sb, feature, system, user, maxTokens){
-  const text = await llm(sb, feature, system+'\n\nRespond with ONLY valid JSON, no prose, no markdown fences.', user, maxTokens||900);
+async function llmJSON(sb, feature, system, user, maxTokens, exchangeKey){
+  const text = await llm(sb, feature, system+'\n\nRespond with ONLY valid JSON, no prose, no markdown fences.', user, maxTokens||900, exchangeKey);
   return JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}')+1));
 }
 function strategyBrief(st){
@@ -571,24 +576,151 @@ function StrategyView({settings, people, onEdit}){
           </div>))}
       </div>
 
+      {/* Labelled activity, not progress. Mighty cannot know how close anyone is
+          to a seed round or a job, so it counts what happened and lets the user
+          judge. A percentage here would be a number the product cannot stand
+          behind, which is the same class of thing as a relationship score. */}
       {canSee('progress',people) &&
         <div className="fade">
-          <div className="eyebrow b" style={{margin:'34px 0 12px'}}>Progress against this strategy</div>
-          <div className="card" style={{padding:'22px 26px',display:'flex',gap:30,flexWrap:'wrap'}}>
-            {[['Saved',people.length],['Reached out',reached],['In conversation',talked],['Met',met]].map(([k,v])=>(
-              <div key={k} style={{minWidth:110}}>
-                <div style={{fontSize:30,fontWeight:700,letterSpacing:'-.03em'}}>{v}</div>
-                <div className="sub" style={{fontSize:13.5}}>{k}</div>
-              </div>))}
+          <div className="eyebrow b" style={{margin:'34px 0 12px'}}>What has actually happened</div>
+          <div className="card" style={{padding:'22px 26px'}}>
+            <div style={{display:'flex',gap:30,flexWrap:'wrap'}}>
+              {[['Added',people.length],['Reached out',reached],['In conversation',talked],['Met',met]].map(([k,v])=>(
+                <div key={k} style={{minWidth:110}}>
+                  <div style={{fontSize:30,fontWeight:700,letterSpacing:'-.03em',fontVariantNumeric:'tabular-nums'}}>{v}</div>
+                  <div className="sub" style={{fontSize:13.5}}>{k}</div>
+                </div>))}
+            </div>
+            <div className="hint" style={{marginTop:16,maxWidth:'58ch'}}>
+              Activity, not progress. There is no percentage here because nothing can honestly compute how
+              close you are to {st.goal ? 'that' : 'your goal'} - only you can.
+            </div>
           </div>
         </div>}
 
       {!canSee('progress',people) &&
         <div className="hint" style={{marginTop:20}}>{UNLOCKS.progress.hint}</div>}
 
+      <KnowledgeBase settings={st} onEdit={onEdit}/>
+
       <div className="hint" style={{marginTop:26,maxWidth:560}}>
         {st.strategyUpdatedAt ? 'Last updated ' + ago(st.strategyUpdatedAt) + '. ' : ''}
         A strategy is never finished. Update it when you change jobs, cities or goals, and every recommendation follows.
+      </div>
+    </div>
+  );
+}
+
+/* ===================== The Knowledge Base, on screen =====================
+   Everything Mighty holds about the user, in the place where they can correct
+   it. Two things earn their space here.
+
+   First, it is auditable. "Where did Mighty learn that" has an answer, and the
+   answer is a row you can look at and change.
+
+   Second, and rarer: it states what it does NOT know. That is close to free to
+   build and almost nobody ships it, and it is the difference between a product
+   that gets corrected and one that gets quietly distrusted. */
+function KnowledgeBase({settings, onEdit}){
+  const kb = settings.knowledge || {};
+  const has = !!(kb.positions||[]).length || !!(kb.education||[]).length || !!kb.resumeText;
+  const msg = kb.messages || null;
+
+  /* Gaps, in the order they actually cost the user something. */
+  const gaps = [
+    !has && 'your LinkedIn archive, which is what Discover ranks against',
+    has && !kb.resumeText && 'your resume, which is where achievements with numbers live',
+    has && !(msg && msg.styleSamples && msg.styleSamples.length) &&
+      'a sample of how you write, so drafts sound like you rather than like a product',
+    !(kb.answers||[]).length && 'anything you have told it in your own words',
+    !(settings.targetRoles||[]).length && !(settings.targetCompanies||[]).length &&
+      'who specifically you are trying to reach, which is why the ranking stays vague',
+    'which people have already said no, so it stops suggesting them',
+  ].filter(Boolean);
+
+  const counts = [
+    (kb.positions||[]).length     && [(kb.positions||[]).length, 'roles'],
+    (kb.education||[]).length     && [(kb.education||[]).length, 'schools'],
+    (kb.skills||[]).length        && [(kb.skills||[]).length, 'skills'],
+    (kb.honors||[]).length        && [(kb.honors||[]).length, 'honours'],
+    (kb.publications||[]).length  && [(kb.publications||[]).length, 'publications'],
+    kb.connectionCount            && [kb.connectionCount, 'connections'],
+    (msg && msg.styleSamples||[]).length && [(msg.styleSamples||[]).length, 'writing samples'],
+    (kb.answers||[]).length       && [(kb.answers||[]).length, 'answers you gave'],
+  ].filter(Boolean);
+
+  return (
+    <div className="fade">
+      <div className="row" style={{margin:'34px 0 12px',justifyContent:'space-between',alignItems:'baseline',gap:14}}>
+        <div className="eyebrow b">What Mighty understands about you</div>
+        {kb.capturedAt && <span className="meta">read {ago(kb.capturedAt)||'recently'}</span>}
+      </div>
+
+      <div className="card" style={{padding:'22px 26px'}}>
+        {!has &&
+          <div>
+            <div className="h4">Nothing yet.</div>
+            <div className="sub" style={{marginTop:7,maxWidth:'58ch'}}>
+              Mighty has your goal and nothing else, so every recommendation it makes is working from one
+              sentence. Importing your LinkedIn history is the single biggest change you can make to how good
+              this gets.
+            </div>
+            <button className="btn sm" style={{marginTop:16}} onClick={onEdit}>Import my history</button>
+          </div>}
+
+        {has && <F>
+          {counts.length>0 &&
+            <div style={{display:'flex',gap:22,flexWrap:'wrap',marginBottom:18}}>
+              {counts.map(([n,label])=>(
+                <div key={label} style={{minWidth:86}}>
+                  <div style={{fontSize:19,fontWeight:700,fontVariantNumeric:'tabular-nums'}}>{Number(n).toLocaleString()}</div>
+                  <div className="sub" style={{fontSize:12.5}}>{label}</div>
+                </div>))}
+            </div>}
+
+          {(kb.positions||[]).length>0 &&
+            <div className="stack" style={{gap:1}}>
+              {(kb.positions||[]).slice(0,6).map((r,i)=>(
+                <div key={i} style={{display:'grid',gridTemplateColumns:'1fr auto',gap:14,padding:'9px 0',
+                  borderTop:i===0?'1px solid var(--line2)':'1px solid var(--line2)'}}>
+                  <div style={{fontSize:14,color:'var(--ink2)'}}>
+                    <b style={{color:'var(--ink)'}}>{r.title||'Role not named'}</b>
+                    {r.company ? ' · '+r.company : ''}
+                  </div>
+                  <div className="meta" style={{whiteSpace:'nowrap'}}>
+                    {[r.from,r.to||'now'].filter(Boolean).join(' - ')}
+                  </div>
+                </div>))}
+            </div>}
+
+          {msg && msg.identified===false && msg.received>0 &&
+            <div className="hint" style={{marginTop:14}}>
+              Your message history was read but your own name could not be matched against the sender column,
+              so no writing samples were kept. Nothing was stored rather than risk storing someone else's words
+              as if they were yours.
+            </div>}
+
+          <div className="hint" style={{marginTop:16}}>
+            Read from your own archive and resume. Anything wrong here is wrong everywhere downstream, so it is
+            worth correcting.
+          </div>
+          <button className="btn g sm" style={{marginTop:14}} onClick={onEdit}>Correct this</button>
+        </F>}
+      </div>
+
+      <div className="eyebrow b" style={{margin:'30px 0 12px'}}>What it still does not know</div>
+      <div className="card" style={{padding:'20px 26px'}}>
+        <div className="stack" style={{gap:10}}>
+          {gaps.map((g,i)=>(
+            <div key={i} className="row" style={{gap:10,alignItems:'flex-start'}}>
+              <span className="dot" style={{background:'var(--amber)',marginTop:7}}/>
+              <span style={{fontSize:14.5,color:'var(--body)',lineHeight:1.5}}>{g}</span>
+            </div>))}
+        </div>
+        <div className="hint" style={{marginTop:14,maxWidth:'58ch'}}>
+          Cheap to say and almost never said. A product that names its own gaps gets corrected; one that hides
+          them gets quietly distrusted.
+        </div>
       </div>
     </div>
   );
@@ -735,8 +867,131 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
   );
 }
 
-/* ===================== Discover ===================== */
-function Discover({sb, settings, people, onSave, onOpen, go}){
+/* ===================== Discover =====================
+   Three ways in, in the order they are actually useful.
+
+   1. An open box over the user's OWN connections. This is not a name search:
+      "folks from Boston investing in idea-stage sustainable companies" is the
+      real shape of the query. It costs nothing - no keyword extraction, no
+      evaluation, no model call at all - because the answer is already in the
+      database. That is why it goes first.
+   2. LinkedIn, for people the user is not connected to. This is the expensive
+      path (two model calls) and it is now explicitly the second choice.
+   3. The ranking nobody asked for: dormancy, goal fit, shared history.
+
+   A row only appears if something matched. Discover never pads the list with
+   people it has no reason to suggest - that is the whole difference between
+   this and scrolling LinkedIn. */
+
+/* Words that carry no retrieval signal.
+   Two-letter terms are KEPT, because AI, VC, ML and PM are the shortest and most
+   important words anyone will type here. That means the stop list has to carry
+   the short function words itself rather than leaning on a length cut-off: an
+   earlier version filtered anything under three characters, which threw away AI
+   and VC while happily keeping "and". */
+const Q_STOP = new Set([
+  // function words, including the short ones a length filter used to catch
+  'a','an','the','and','or','of','in','on','at','to','is','it','as','by','be','if','so','do','my','me',
+  'we','us','he','so','no','up','all','any','are','was','has','had','can','not','but','for','you','your',
+  'yours','who','whom','what','when','where','which','while','with','from','that','this','these','those',
+  'they','them','their','there','then','than','been','into','also','over','under','after','before','more',
+  'most','much','many','some','such','only','just','very','ever','even','same','other','others','would',
+  'could','should','will','here','out','how','why','get','got','give','given','take','taken','make','made',
+  'use','used','using','per','via','yet','far','now','off','own','see','say','set','due','one','two',
+  // words about the search rather than the person
+  'anyone','anybody','people','folks','person','someone','somebody','looking','look','find','found',
+  'about','like','want','wants','need','needs','know','knows','help','helps','best','good','ones',
+  'companies','company','working','works','work','worked']);
+
+function queryTerms(text){
+  /* Alphanumeric only, deliberately. Terms go into a Postgres regex on the other
+     side, and a stray + or * there is either a syntax error or a silent wrong
+     match. Stripping the characters here is safer than escaping them there. */
+  const seen = {}, out = [];
+  String(text||'').toLowerCase().split(/[^a-z0-9]+/).forEach(w=>{
+    if(w.length < 2 || Q_STOP.has(w) || seen[w]) return;
+    seen[w] = 1; out.push(w);
+  });
+  return out.slice(0, 10);
+}
+
+/* The terms the ranking searches on when the user has not asked anything. Roles
+   and companies and places the user named in their strategy come first because
+   they were stated rather than inferred; words from the goal sentence fill in. */
+function goalTerms(settings){
+  const s = settings || {};
+  const named = [].concat(s.targetRoles||[], s.targetCompanies||[], s.targetLocations||[])
+    .join(' ');
+  return queryTerms(named + ' ' + (s.goal||''));
+}
+
+/* Every employer the user has had, so "was there while you were" is checkable.
+   Reads the Knowledge Base the archive filled in, and falls back to whatever the
+   strategy form knows if there is no archive. */
+function ownCompanies(settings){
+  const s = settings || {}, kb = s.knowledge || {};
+  const fromKb = (kb.positions||[]).map(p=>p && p.company).filter(Boolean);
+  const all = fromKb.concat([s.currentCompany].filter(Boolean));
+  const seen = {}, out = [];
+  all.forEach(c=>{ const k = String(c).toLowerCase().trim();
+    if(k && !seen[k]){ seen[k]=1; out.push(String(c).trim()); } });
+  return out.slice(0, 25);
+}
+
+function connName(c){
+  return clean([c.first_name, c.last_name].filter(Boolean).join(' ')) || 'Unnamed connection';
+}
+
+/* Why this person is in front of you, in words, from the three signals the
+   database can actually support. Never more than two clauses: a reason nobody
+   reads is the same as no reason. */
+function connReason(c){
+  const bits = [];
+  if(c.shared_company) bits.push('Was at ' + c.shared_company + ' while you were');
+  if(c.hits && c.hits.length) bits.push('Matched on ' + c.hits.slice(0,3).join(', '));
+  const yrs = Number(c.years_silent || 0);
+  if(bits.length < 2 && c.connected_on && yrs >= 2){
+    bits.push('Connected ' + String(c.connected_on).slice(0,4) + ', nothing since');
+  }
+  return bits.slice(0,2).join('. ') + (bits.length ? '.' : '');
+}
+
+/* Turn a connections row into the shape savePerson already understands, so
+   adding from your own network and adding from a search write the same row. */
+function connToPerson(c){
+  return {
+    profileUrl: c.profile_url,
+    name: connName(c),
+    title: clean(c.position) || null,
+    company: clean(c.company) || null,
+    why: connReason(c),
+    common: (c.hits||[]).slice(0,4),
+    connectedOn: c.connected_on || null,
+  };
+}
+
+/* Relationship caps per plan. The database is authoritative (ai_config), these
+   are the same defaults so the number can be shown without a round trip. */
+const PLAN_CAPS = {trial:50, starter:100, plus:200, pro:500, explorer:100, builder:200, leader:500};
+
+async function matchConnections(sb, terms, ownCos, limit){
+  const {data, error} = await sb.rpc('connections_match', {
+    p_terms: terms || [], p_own_companies: ownCos || [], p_limit: limit || 12});
+  if(error) throw error;
+  return data || [];
+}
+
+function Discover({sb, settings, people, plan, onSave, onOpen, go}){
+  /* --- your own network --- */
+  const [total,setTotal]   = useState(null);   // how many connections were imported
+  const [mineQ,setMineQ]   = useState('');
+  const [mine,setMine]     = useState(null);   // null = not searched yet
+  const [mineBusy,setMB]   = useState(false);
+  const [mineErr,setME]    = useState(null);
+  const [sugg,setSugg]     = useState(null);
+  const [suggBusy,setSB]   = useState(true);
+
+  /* --- LinkedIn, the expensive path --- */
   const [q,setQ]         = useState('');
   const [phase,setPhase] = useState('idle');
   const [results,setRes] = useState([]);
@@ -745,19 +1000,56 @@ function Discover({sb, settings, people, onSave, onOpen, go}){
   const [skipped,setSkip]= useState({});
   const [savingUrl,setSaving] = useState(null);
   const [lastQuery,setLastQ]  = useState('');
-  const [noExt,setNoExt] = useState(false);   // search backend not configured
+  const [noExt,setNoExt] = useState(false);
+  const [webOpen,setWebOpen]  = useState(false);
 
   const savedUrls = useMemo(()=>{
-    const m = {}; people.forEach(r=>{ m[r.profile_url]=r; }); return m;
+    const m = {}; people.forEach(r=>{ if(r.profile_url) m[r.profile_url.toLowerCase()]=r; }); return m;
   },[people]);
+  const cap = PLAN_CAPS[plan||'trial'] || 50;
+  const atCap = people.length >= cap;
+
+  const terms = useMemo(()=>goalTerms(settings),[settings]);
+  const ownCos = useMemo(()=>ownCompanies(settings),[settings]);
+
+  /* The ranking loads on arrival, because a screen that asks you to press a
+     button before it shows you anything has not answered its own question. */
+  useEffect(()=>{
+    let dead = false;
+    (async()=>{
+      setSB(true);
+      try{
+        const {data:n} = await sb.rpc('connections_count');
+        if(!dead) setTotal(Number(n||0));
+        const rows = await matchConnections(sb, terms, ownCos, 8);
+        if(!dead){ setSugg(rows); track('discover_ranked', {returned:rows.length, terms:terms.length}); }
+      }catch(e){ if(!dead) setSugg([]); }
+      if(!dead) setSB(false);
+    })();
+    return ()=>{ dead = true; };
+  },[sb, terms.join(' '), ownCos.join(' ')]);
+
+  async function searchMine(text){
+    const sentence = clean(text!=null?text:mineQ);
+    if(!sentence || mineBusy) return;
+    setME(null); setMB(true);
+    const t = queryTerms(sentence);
+    try{
+      const rows = await matchConnections(sb, t, [], 5);
+      setMine({q:sentence, terms:t, rows});
+      track('discover_own_search', {terms:t.length, results:rows.length});
+    }catch(e){ setME(e.message||String(e)); }
+    setMB(false);
+  }
+
   const examples = useMemo(()=>{
-    const role=(settings.targetRoles||[])[0], co=(settings.targetCompanies||[])[0], loc=(settings.targetLocations||[])[0];
+    const role=(settings.targetRoles||[])[0], loc=(settings.targetLocations||[])[0];
     return [
-      role&&loc ? role+'s in '+loc : 'Product leaders building AI infrastructure in Boston',
-      co&&role  ? role+'s at '+co  : 'Founders who recently raised a seed round',
-      loc       ? 'MIT alumni working in '+loc : 'MIT alumni working in venture capital',
+      role&&loc ? role+'s in '+loc : 'Investors in Boston backing idea-stage companies',
+      ownCos[1] ? 'Anyone I overlapped with at '+ownCos[1] : 'Anyone I worked with before',
+      'Founders who have raised a seed round',
     ];
-  },[settings]);
+  },[settings, ownCos.join(' ')]);
 
   async function run(text){
     const sentence = clean(text!=null?text:q);
@@ -809,6 +1101,39 @@ function Discover({sb, settings, people, onSave, onOpen, go}){
   const visible = results.filter(r=>!skipped[r.profileUrl]);
   const busy = phase==='searching' || phase==='thinking';
 
+  /* One row, used by both the query results and the ranking, so a person you
+     found and a person Mighty suggested cannot drift apart visually. */
+  function ConnRow({c}){
+    const saved = savedUrls[(c.profile_url||'').toLowerCase()];
+    const reason = connReason(c);
+    return (
+      <div className="row" style={{alignItems:'flex-start',gap:13,padding:'14px 0',borderBottom:'1px solid var(--line2)'}}>
+        <Avatar name={connName(c)} size={34}/>
+        <div style={{flex:'1 1 200px',minWidth:0}}>
+          <div style={{fontSize:15,fontWeight:700}}>{connName(c)}</div>
+          <div className="sub" style={{fontSize:13.5,marginTop:1}}>
+            {[clean(c.position), clean(c.company)].filter(Boolean).join(' · ') || 'No role on the export'}
+          </div>
+          {reason && <div style={{fontSize:13,color:'var(--brand-ink)',marginTop:4,lineHeight:1.5}}>{reason}</div>}
+        </div>
+        <div style={{display:'flex',gap:8,flex:'none',alignItems:'center'}}>
+          {saved
+            ? <button className="btn g sm" onClick={()=>onOpen(saved.id)}>Open</button>
+            : <F>
+                <button className="btn sm" disabled={atCap || savingUrl===c.profile_url}
+                  onClick={async()=>{ setSaving(c.profile_url); await onSave(connToPerson(c), 'own_network'); setSaving(null); }}>
+                  {savingUrl===c.profile_url ? <span><span className="spin"/> Adding</span> : 'Add'}
+                </button>
+                <button className="btn q" style={{fontSize:13}}
+                  onClick={()=>setSugg(s=>(s||[]).filter(x=>x.profile_url!==c.profile_url))}>Skip</button>
+              </F>}
+        </div>
+      </div>
+    );
+  }
+
+  const haveConnections = total===null || total>0;
+
   return (
     <div className="pad fade" style={{maxWidth:860}}>
       <div className="row" style={{gap:12,flexWrap:'wrap'}}>
@@ -819,102 +1144,218 @@ function Discover({sb, settings, people, onSave, onOpen, go}){
         <button className="btn q" style={{fontSize:13,padding:0}} onClick={()=>go({screen:'strategy'})}>Edit</button>
       </div>
 
-      <div className="card" style={{marginTop:26,padding:'32px 30px'}}>
-        <h2 className="h2">Describe who you want to meet.</h2>
-        <div className="sub" style={{marginTop:6}}>One sentence. That's all.</div>
-        <div style={{display:'flex',gap:12,marginTop:22,alignItems:'stretch',flexWrap:'wrap'}}>
-          <input className="inp" style={{flex:'1 1 240px',minWidth:0}} value={q} placeholder={examples[0]}
-            onChange={e=>setQ(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') run(); }}/>
-          <button className="btn" style={{flex:'none',padding:'0 30px',borderRadius:'var(--rsm)'}}
-            onClick={()=>run()} disabled={busy||!clean(q)}>
-            {phase==='searching' ? <span><span className="spin"/> Searching</span>
-              : phase==='thinking' ? <span><span className="spin"/> Reading</span> : 'Discover'}
-          </button>
+      {atCap &&
+        <div className="banner warn" style={{marginTop:18}}>
+          You are at {cap} relationships, which is the cap on your plan. Mighty would rather stop you here
+          than watch a list of five hundred names go stale. Close one out, or move up a plan.
+        </div>}
+
+      {/* ---- 1. your own network, free and instant ---- */}
+      <div className="card" style={{marginTop:22,padding:'28px 28px 26px'}}>
+        <div className="row" style={{justifyContent:'space-between',alignItems:'baseline',gap:14,flexWrap:'wrap'}}>
+          <h2 className="h2">Describe who you are looking for.</h2>
+          <span className="meta">
+            {total===null ? '' : total>0 ? 'across your '+total.toLocaleString()+' connections' : 'no connections imported'}
+          </span>
         </div>
-        <div style={{display:'flex',flexWrap:'wrap',gap:9,marginTop:18}}>
-          {examples.map(x=><button key={x} className="chip" onClick={()=>{ setQ(x); run(x); }} disabled={busy}>{x}</button>)}
+        <div className="sub" style={{marginTop:6}}>
+          Not a name search. Say it however you would say it out loud.
         </div>
+        {haveConnections ? <F>
+          <div style={{display:'flex',gap:12,marginTop:20,alignItems:'stretch',flexWrap:'wrap'}}>
+            <input className="inp" style={{flex:'1 1 260px',minWidth:0}} value={mineQ}
+              placeholder="Folks from Boston who are investing in idea-stage sustainable companies"
+              onChange={e=>setMineQ(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') searchMine(); }}/>
+            <button className="btn" style={{flex:'none',padding:'0 26px',borderRadius:'var(--rsm)'}}
+              onClick={()=>searchMine()} disabled={mineBusy||!clean(mineQ)}>
+              {mineBusy ? <span><span className="spin"/> Looking</span> : 'Find them'}
+            </button>
+          </div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:9,marginTop:15}}>
+            {examples.map(x=><button key={x} className="chip" disabled={mineBusy}
+              onClick={()=>{ setMineQ(x); searchMine(x); }}>{x}</button>)}
+          </div>
+          {mineErr && <div className="banner err" style={{marginTop:16}}>{mineErr}</div>}
+
+          {mine && mine.rows.length>0 &&
+            <div style={{marginTop:20,borderTop:'1px solid var(--line)',paddingTop:6}}>
+              {mine.rows.map(c=><ConnRow key={c.profile_url} c={c}/>)}
+              <div className="meta" style={{marginTop:12}}>
+                {mine.rows.length} of {(total||0).toLocaleString()} match. Five per search is the cap, so this is
+                the best five rather than all of them.
+              </div>
+            </div>}
+
+          {mine && mine.rows.length===0 &&
+            <div style={{marginTop:20,borderTop:'1px solid var(--line)',paddingTop:16}}>
+              <div className="h4">Nobody in your network matches that.</div>
+              <div className="sub" style={{marginTop:6,maxWidth:'60ch'}}>
+                Not one of your {(total||0).toLocaleString()} connections reads as
+                {' '}{mine.terms.slice(0,3).join(' plus ')}. That is a real answer, and it beats five
+                near-misses. Search LinkedIn for it instead.
+              </div>
+              <div className="row" style={{gap:10,marginTop:16,flexWrap:'wrap'}}>
+                <button className="btn sm" onClick={()=>{ setWebOpen(true); setQ(mine.q); run(mine.q); }}>
+                  Search LinkedIn for this
+                </button>
+              </div>
+            </div>}
+
+          <div className="meta" style={{marginTop:16,lineHeight:1.55}}>
+            This matches words, not meaning: it will find Boston and investing, and it does not understand
+            idea-stage. There is deliberately no browsable list of everyone you know, because that is a
+            slower LinkedIn.
+          </div>
+        </F> : (
+          <div style={{marginTop:18}}>
+            <div className="sub" style={{maxWidth:'58ch'}}>
+              Your LinkedIn archive has not been imported, so there is nothing of your own to search yet.
+              It takes one upload and Mighty stops guessing.
+            </div>
+            <div className="row" style={{gap:10,marginTop:16,flexWrap:'wrap'}}>
+              <button className="btn sm" onClick={()=>go({screen:'strategy'})}>Import my history</button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {err && <div className="banner err" style={{marginTop:18}}>{err}</div>}
-      {notice && <div className="banner warn" style={{marginTop:18}}>{notice}</div>}
+      {/* ---- 2. outside your network ---- */}
+      <div className="card" style={{marginTop:16,padding:'24px 26px'}}>
+        <div className="row" style={{justifyContent:'space-between',alignItems:'baseline',gap:14,flexWrap:'wrap'}}>
+          <div className="h3">Someone not in your network</div>
+          {!webOpen &&
+            <button className="btn g sm" onClick={()=>setWebOpen(true)}>Search LinkedIn</button>}
+        </div>
+        <div className="sub" style={{marginTop:6,maxWidth:'62ch'}}>
+          Mighty searches LinkedIn through the extension and can list up to five people per search.
+          It cannot brief you on any of them until their profile has been opened once, because that is
+          where the detail lives.
+        </div>
 
-      {noExt &&
-        <div className="card fade" style={{marginTop:18,padding:'26px 26px 24px'}}>
-          <div className="h3">Search isn't switched on for this account yet.</div>
-          <div className="sub" style={{marginTop:7,lineHeight:1.55,maxWidth:560}}>
-            Describing who you want to meet needs the web-search backend, which is still being set up.
-            The other way into Mighty works today and is how most people find people anyway: browse
-            LinkedIn, and save whoever is worth knowing from the extension panel.
+        {webOpen && <F>
+          <div style={{display:'flex',gap:12,marginTop:18,alignItems:'stretch',flexWrap:'wrap'}}>
+            <input className="inp" style={{flex:'1 1 240px',minWidth:0}} value={q} placeholder={examples[0]}
+              onChange={e=>setQ(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') run(); }}/>
+            <button className="btn" style={{flex:'none',padding:'0 26px',borderRadius:'var(--rsm)'}}
+              onClick={()=>run()} disabled={busy||!clean(q)}>
+              {phase==='searching' ? <span><span className="spin"/> Searching</span>
+                : phase==='thinking' ? <span><span className="spin"/> Reading</span> : 'Search'}
+            </button>
           </div>
-          <div className="row" style={{gap:10,marginTop:20,flexWrap:'wrap'}}>
-            <button className="btn sm" onClick={()=>go({screen:'extension'})}>Set up the extension</button>
-            <a className="btn g sm" href="https://www.linkedin.com/search/results/people/" target="_blank" rel="noopener noreferrer">
-              Open LinkedIn search
-            </a>
-          </div>
-        </div>}
 
-      {results.length>0 &&
-        <div>
-          <div className="row" style={{marginTop:34,alignItems:'baseline',justifyContent:'space-between',gap:16}}>
-            <div className="h4">{visible.length} {visible.length===1?'person':'people'} for "{lastQuery}"</div>
-            <div className="meta">Save now, decide later</div>
-          </div>
-          {phase==='thinking' &&
-            <div className="meta" style={{marginTop:10}}><span className="spin"/> Working out why each of these matters to you…</div>}
+          {err && <div className="banner err" style={{marginTop:16}}>{err}</div>}
+          {notice && <div className="banner warn" style={{marginTop:16}}>{notice}</div>}
 
-          {visible.map(r=>{
-            const savedRow = savedUrls[r.profileUrl];
-            const v = VERDICT[r.verdict]||VERDICT.potential;
-            return (
-              <div key={r.profileUrl} className="card fade" style={{marginTop:14,padding:'22px 24px'}}>
-                <div style={{display:'flex',alignItems:'flex-start',gap:14,flexWrap:'wrap'}}>
-                  <Avatar name={r.name}/>
-                  <div style={{flex:'1 1 200px',minWidth:0}}>
-                    <div style={{fontSize:17,fontWeight:700,letterSpacing:'-.015em'}}>{r.name}</div>
-                    <div className="sub" style={{fontSize:14,marginTop:2}}>{r.title||'No headline on the profile'}</div>
-                    {/* The search results page carries more than a headline. These are facts
-                        read off it, not a judgement, so they show before any match reasoning
-                        and stay visible whether or not the AI managed to explain anything. */}
-                    {[r.location, r.education, r.followers && r.followers+' followers'].filter(Boolean).length>0 &&
-                      <div className="meta" style={{marginTop:4}}>
-                        {[r.location, r.education, r.followers && r.followers+' followers'].filter(Boolean).join(' · ')}
-                      </div>}
-                    <a href={r.profileUrl} target="_blank" rel="noopener noreferrer"
-                      style={{fontSize:13,fontWeight:600,marginTop:4,display:'inline-block'}}>View on LinkedIn</a>
-                  </div>
-                  <div style={{display:'flex',gap:9,flex:'none'}}>
-                    {savedRow
-                      ? <button className="btn g sm" onClick={()=>onOpen(savedRow.id)}>Open profile</button>
-                      : <F>
-                          <button className="btn g sm" style={{color:'var(--sub)'}}
-                            onClick={()=>setSkip(s=>({...s,[r.profileUrl]:true}))}>Skip</button>
-                          <button className="btn sm" disabled={savingUrl===r.profileUrl}
-                            onClick={async()=>{ setSaving(r.profileUrl); await onSave(r, lastQuery); setSaving(null); }}>
-                            {savingUrl===r.profileUrl ? <span><span className="spin"/> Saving</span> : 'Save'}
-                          </button>
-                        </F>}
-                  </div>
-                </div>
-                {r.why &&
-                  <div className="why" style={{marginTop:16,padding:'14px 16px'}}>
-                    <div className="eyebrow b">{v.label}</div>
-                    <div style={{fontSize:14.5,lineHeight:1.55,color:'var(--body)',marginTop:6,textWrap:'pretty'}}>{r.why}</div>
-                  </div>}
-                {r.common && r.common.length>0 &&
-                  <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:14}}>
-                    {r.common.map((c,i)=><span key={i} className="tag">{c}</span>)}
-                  </div>}
-              </div>);
-          })}
-
-          {visible.length===0 &&
-            <div style={{marginTop:14}}>
-              <Empty title="Nothing left in this batch."
-                body="Describe another kind of person, or come back tomorrow. Discovery works best a few people at a time."/>
+          {noExt &&
+            <div className="fade" style={{marginTop:16,paddingTop:16,borderTop:'1px solid var(--line)'}}>
+              <div className="h4">Search isn't switched on for this account yet.</div>
+              <div className="sub" style={{marginTop:7,lineHeight:1.55,maxWidth:560}}>
+                Searching outside your network needs either the extension or the web-search backend.
+                Browsing LinkedIn and saving from the extension panel works today.
+              </div>
+              <div className="row" style={{gap:10,marginTop:16,flexWrap:'wrap'}}>
+                <button className="btn sm" onClick={()=>go({screen:'extension'})}>Set up the extension</button>
+                <a className="btn g sm" href="https://www.linkedin.com/search/results/people/" target="_blank" rel="noopener noreferrer">
+                  Open LinkedIn search
+                </a>
+              </div>
             </div>}
-        </div>}
+
+          {results.length>0 &&
+            <div>
+              <div className="row" style={{marginTop:22,alignItems:'baseline',justifyContent:'space-between',gap:16}}>
+                <div className="h4">{visible.length} {visible.length===1?'person':'people'} for "{lastQuery}"</div>
+                <div className="meta">Add now, decide later</div>
+              </div>
+              {phase==='thinking' &&
+                <div className="meta" style={{marginTop:10}}><span className="spin"/> Working out why each of these matters to you…</div>}
+
+              {visible.map(r=>{
+                const savedRow = savedUrls[(r.profileUrl||'').toLowerCase()];
+                const v = VERDICT[r.verdict]||VERDICT.potential;
+                return (
+                  <div key={r.profileUrl} className="fade" style={{marginTop:14,paddingTop:14,borderTop:'1px solid var(--line2)'}}>
+                    <div style={{display:'flex',alignItems:'flex-start',gap:14,flexWrap:'wrap'}}>
+                      <Avatar name={r.name}/>
+                      <div style={{flex:'1 1 200px',minWidth:0}}>
+                        <div style={{fontSize:17,fontWeight:700,letterSpacing:'-.015em'}}>{r.name}</div>
+                        <div className="sub" style={{fontSize:14,marginTop:2}}>{r.title||'No headline on the profile'}</div>
+                        {/* The search results page carries more than a headline. These are facts
+                            read off it, not a judgement, so they show before any match reasoning
+                            and stay visible whether or not the AI managed to explain anything. */}
+                        {[r.location, r.education, r.followers && r.followers+' followers'].filter(Boolean).length>0 &&
+                          <div className="meta" style={{marginTop:4}}>
+                            {[r.location, r.education, r.followers && r.followers+' followers'].filter(Boolean).join(' · ')}
+                          </div>}
+                        <a href={r.profileUrl} target="_blank" rel="noopener noreferrer"
+                          style={{fontSize:13,fontWeight:600,marginTop:4,display:'inline-block'}}>View on LinkedIn</a>
+                      </div>
+                      <div style={{display:'flex',gap:9,flex:'none'}}>
+                        {savedRow
+                          ? <button className="btn g sm" onClick={()=>onOpen(savedRow.id)}>Open profile</button>
+                          : <F>
+                              <button className="btn g sm" style={{color:'var(--sub)'}}
+                                onClick={()=>setSkip(s=>({...s,[r.profileUrl]:true}))}>Skip</button>
+                              <button className="btn sm" disabled={atCap || savingUrl===r.profileUrl}
+                                onClick={async()=>{ setSaving(r.profileUrl); await onSave(r, lastQuery); setSaving(null); }}>
+                                {savingUrl===r.profileUrl ? <span><span className="spin"/> Adding</span> : 'Add'}
+                              </button>
+                            </F>}
+                      </div>
+                    </div>
+                    {r.why &&
+                      <div className="why" style={{marginTop:14,padding:'14px 16px'}}>
+                        <div className="eyebrow b">{v.label}</div>
+                        <div style={{fontSize:14.5,lineHeight:1.55,color:'var(--body)',marginTop:6,textWrap:'pretty'}}>{r.why}</div>
+                      </div>}
+                    {r.common && r.common.length>0 &&
+                      <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:12}}>
+                        {r.common.map((c,i)=><span key={i} className="tag">{c}</span>)}
+                      </div>}
+                  </div>);
+              })}
+
+              {visible.length===0 &&
+                <div className="meta" style={{marginTop:14}}>Nothing left in this batch. Try another description.</div>}
+            </div>}
+        </F>}
+      </div>
+
+      {/* ---- 3. the ranking nobody asked for ---- */}
+      <div className="card" style={{marginTop:16,padding:'24px 26px'}}>
+        <div className="row" style={{justifyContent:'space-between',alignItems:'baseline',gap:14,flexWrap:'wrap'}}>
+          <div className="h3">People you should add</div>
+          <span className="meta">{people.length} of {cap} added</span>
+        </div>
+        <div className="sub" style={{marginTop:6,maxWidth:'62ch'}}>
+          From your own history, ranked against your goal. Three signals: how long you have been silent,
+          whether their work matches what you are trying to do, and where you overlap.
+        </div>
+
+        {suggBusy &&
+          <div className="meta" style={{marginTop:16}}><span className="spin"/> Reading your history…</div>}
+
+        {!suggBusy && sugg && sugg.length>0 &&
+          <div style={{marginTop:14,borderTop:'1px solid var(--line)',paddingTop:6}}>
+            {sugg.map(c=><ConnRow key={c.profile_url} c={c}/>)}
+          </div>}
+
+        {!suggBusy && sugg && sugg.length===0 &&
+          <div style={{marginTop:16}}>
+            <div className="sub" style={{maxWidth:'60ch'}}>
+              {total ? <F>Mighty has nothing to suggest yet. Nothing in your {total.toLocaleString()} connections
+                lines up with your goal well enough to be worth interrupting you over, which usually means the
+                goal is written too broadly to match on. Naming a role or a place in it changes this
+                immediately.</F>
+              : <F>There is nothing to rank until your LinkedIn history is imported.</F>}
+            </div>
+            <div className="row" style={{gap:10,marginTop:16,flexWrap:'wrap'}}>
+              <button className="btn sm" onClick={()=>go({screen:'strategy'})}>
+                {total ? 'Sharpen my goal' : 'Import my history'}
+              </button>
+            </div>
+          </div>}
+      </div>
     </div>
   );
 }
@@ -1051,8 +1492,26 @@ const APPROACHES = [
   {id:'value',     label:'Value first',       brief:'offers something useful before asking'},
   {id:'coffee',    label:'Coffee chat',       brief:'a short, concrete request to talk'},
 ];
-function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, onStage, onEvent, onTask, tab, setTab}){
+function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, onStage, onEvent, onTask, tab, setTab, go}){
   const ctx = row.context||{};
+  /* An exchange is one outbound conversation: the brief, the draft, and every
+     take of that draft. It costs one assist. When they reply, answering them is
+     a new exchange and a new assist, because it is new work. The counter lives
+     in context so it survives a reload and needs no schema change. */
+  const exchangeNo = Math.max(1, Number(ctx.exchange || 1));
+  const exchangeKey = 'ex:' + row.id + ':' + exchangeNo;
+  const takes = Math.max(0, Number(ctx.takes || 0));
+  const TAKE_LIMIT = 10;
+  const takesLeft = Math.max(0, TAKE_LIMIT - takes);
+
+  /* Has anyone actually read this person's profile?
+     A search result is a name and a headline. A connection row out of the
+     archive is a name, an employer and a date. Neither is enough to brief on,
+     and briefing anyway produces the confident-sounding paragraph that makes
+     people stop trusting a product. The extension fills these fields in the
+     first time the profile is opened, so their presence is the evidence. */
+  const profileRead = !!(clean(ctx.aboutText) || clean(ctx.education) || clean(ctx.location)
+    || clean(ctx.skillsText) || (Array.isArray(ctx.timingSignals) && ctx.timingSignals.length));
   const br  = row.briefing||{};
   const st  = stageOf(row);
   const [busy,setBusy]   = useState(null);
@@ -1081,12 +1540,17 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
   ].filter(Boolean).join('\n');
 
   async function makeBrief(){
+    if(!profileRead){
+      setErr('Mighty has not read this profile yet, so a brief would be guesswork dressed up as research. '
+        + 'Open their LinkedIn profile once with the extension running, then come back.');
+      return;
+    }
     setBusy('brief'); setErr(null);
     try{
       const out = await llmJSON(sb, 'profile_briefing',
         'You prepare someone for a first conversation. Use ONLY the facts given - never invent employers, dates, achievements or posts. If you do not know something, leave that field out. Plain language, no scores, no flattery. Never use em dashes; write a spaced hyphen instead.',
         `About the person doing the outreach:\n${strategyBrief(settings)}\n\nThe person they want to understand:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nLocation: ${ctx.location||'unknown'}\nEducation: ${ctx.education||'unknown'}\nProfile text captured: ${clean(ctx.aboutText||ctx.snippet||'').slice(0,900)}\n${captured||''}\nWhy they were saved: ${ctx.whySaved||'unknown'}\nShared ground noted at save time: ${(ctx.common||[]).join('; ')||'none noted'}\n\nReturn JSON {"careerSummary":"2-3 sentences","whyMatters":"1-2 sentences on why this person matters to THIS user's goal","shared":["real overlap"],"starters":["specific opening, grounded in the facts above"],"avoid":"one thing not to lead with, or omit"}`,
-        1000);
+        1000, exchangeKey);
       const briefing = {...br, careerSummary:clean(out.careerSummary), whyMatters:clean(out.whyMatters),
         shared:Array.isArray(out.shared)?out.shared:[], conversationStarters:Array.isArray(out.starters)?out.starters:[],
         avoid:clean(out.avoid), builtAt:new Date().toISOString()};
@@ -1097,18 +1561,34 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
     setBusy(null);
   }
 
+  /* Verbatim samples of how this user actually writes, from their own sent
+     messages in the archive. Six is enough to establish a voice and few enough
+     to keep the prompt honest about length. Without this, reading the message
+     archive would be the fourth time in this codebase that data was fetched,
+     parsed and then dropped at the last step. */
+  const voice = (((settings.knowledge||{}).messages||{}).styleSamples||[]).slice(0, 6);
+
   async function makeDraft(){
+    if(takesLeft <= 0){
+      setErr('That is ten takes on this message, which is the limit on one assist. Send one of them, or edit '
+        + 'the last one yourself - at this point the drafts are not getting better, they are getting different.');
+      return;
+    }
     setBusy('draft'); setErr(null);
     const a = APPROACHES.find(x=>x.id===approach)||APPROACHES[1];
     try{
       const out = await llmJSON(sb, 'draft_message',
         "You write a real first outreach message for a professional. Ground it ONLY in the given context - never invent shared history, mutual friends, articles or events. Sound like a person, not a template. No flattery, no buzzwords, no 'I hope this finds you well'. Under 110 words. Ask for one specific, easy thing. Never use em dashes; write a spaced hyphen instead.",
-        `The sender:\n${strategyBrief(settings)}\n\nThe recipient:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nWhy the sender saved them: ${ctx.whySaved||'unknown'}\nShared ground: ${((br.shared&&br.shared.length?br.shared:ctx.common)||[]).join('; ')||'none confirmed'}\nBrief: ${br.careerSummary||'none'}\nThings the sender has learned about them: ${memories.map(m=>m.value).join('; ')||'nothing captured yet'}\n${captured||''}\n\nApproach: ${a.label} - ${a.brief}.\n\nReturn JSON {"subject":"short subject line for email use","message":"the message body"}`,
-        800);
+        `The sender:\n${strategyBrief(settings)}\n\nThe recipient:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nWhy the sender saved them: ${ctx.whySaved||'unknown'}\nShared ground: ${((br.shared&&br.shared.length?br.shared:ctx.common)||[]).join('; ')||'none confirmed'}\nBrief: ${br.careerSummary||'none'}\nThings the sender has learned about them: ${memories.map(m=>m.value).join('; ')||'nothing captured yet'}\n${captured||''}\n\nApproach: ${a.label} - ${a.brief}.${voice.length ? '\n\nHOW THIS SENDER ACTUALLY WRITES. These are verbatim messages they have sent before. Match their rhythm, sentence length, level of formality and habits of greeting and sign-off. Do not copy phrases from them and do not reuse their content:\n' + voice.map((v,i)=>(i+1)+'. '+v).join('\n') : ''}\n\nReturn JSON {"subject":"short subject line for email use","message":"the message body"}`,
+        800, exchangeKey);
       setDraft(clean(out.message));
-      await onUpdate(row, {ai_draft:clean(out.message), status: row.status==='prospect'?'ready_to_contact':row.status});
-      track('draft_written', {approach, had_brief: !!br.careerSummary, memories: memories.length});
-      flash('Draft written - you always click send');
+      await onUpdate(row, {ai_draft:clean(out.message),
+        status: row.status==='prospect'?'ready_to_contact':row.status,
+        context: {...ctx, exchange: exchangeNo, takes: takes + 1}});
+      track('draft_written', {approach, had_brief: !!br.careerSummary, memories: memories.length,
+        take: takes + 1, exchange: exchangeNo});
+      flash(takes === 0 ? 'Draft written. One assist covers all ten takes.'
+                        : 'Take ' + (takes+1) + ' of ' + TAKE_LIMIT + '. Same assist.');
     }catch(e){ setErr(e.message||String(e)); }
     setBusy(null);
   }
@@ -1168,7 +1648,12 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
     try{
       await onEvent(row, 'reply', null);
       if(row.status!=='replied') await onStage(row, 'replied');
-      track('reply_logged', {days_since_sent: Math.max(0, Math.round(days(row.contacted_at)||0))});
+      /* Their answer starts a new exchange: writing back is new work, so the
+         take counter resets and the next draft costs a fresh assist. The event
+         is written first, above, so a failure here cannot lose the signal. */
+      await onUpdate(row, {context: {...ctx, exchange: exchangeNo + 1, takes: 0}});
+      track('reply_logged', {days_since_sent: Math.max(0, Math.round(days(row.contacted_at)||0)),
+        exchange: exchangeNo + 1});
       setJustReplied(true);
       setTab('notes');
       flash('Logged. What did they say?');
@@ -1199,8 +1684,13 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
 
       <div className="row" style={{marginTop:18,gap:10,flexWrap:'wrap'}}>
         <button className="btn sm" onClick={()=>setTab('draft')}>Draft a message</button>
-        <button className="btn g sm" onClick={()=>{ setTab('brief'); if(!br.careerSummary) makeBrief(); }}>
-          {busy==='brief' ? <span><span className="spin"/> Preparing</span> : 'Prepare me'}
+        {/* Does not offer to prepare a brief it cannot write. When the profile
+            has never been read this takes you to the tab that explains why,
+            rather than firing a request that fails. */}
+        <button className="btn g sm"
+          onClick={()=>{ setTab('brief'); if(profileRead && !br.careerSummary) makeBrief(); }}>
+          {busy==='brief' ? <span><span className="spin"/> Preparing</span>
+            : profileRead ? 'Prepare me' : 'Why no brief yet'}
         </button>
         <a className="btn g sm" href={row.profile_url} target="_blank" rel="noopener noreferrer">LinkedIn</a>
         {row.status!=='offer' && row.status!=='do_not_contact' &&
@@ -1304,10 +1794,37 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
 
       {tab==='brief' &&
         <div className="stack fade" style={{gap:16,marginTop:24}}>
-          {!br.careerSummary &&
-            <Empty title="No brief yet."
-              body="Mighty assembles what it can from the profile and your strategy: why this person matters to your goal, what you have in common, and how to open the conversation. It never invents facts."
-              cta={busy==='brief'?'Preparing…':'Prepare me'} onCta={makeBrief}/>}
+          {!br.careerSummary && !profileRead &&
+            <div className="card" style={{padding:'26px 26px 24px'}}>
+              <div className="h4">Open their profile once first.</div>
+              <div className="sub" style={{marginTop:8,lineHeight:1.55,maxWidth:'58ch'}}>
+                All Mighty has on {row.name || 'them'} is a name{row.company ? ' and an employer' : ''}. That is
+                not enough to brief you on, and a brief written from it would sound confident and be hollow.
+                Open the profile with the extension running and Mighty reads what is actually there - location,
+                education, skills, and whether they have just changed roles.
+              </div>
+              <div className="row" style={{gap:10,marginTop:18,flexWrap:'wrap'}}>
+                <a className="btn sm" href={row.profile_url} target="_blank" rel="noopener noreferrer">
+                  Open their profile
+                </a>
+                <button className="btn g sm" onClick={()=>go({screen:'extension'})}>Extension setup</button>
+              </div>
+              <div className="hint" style={{marginTop:14}}>
+                It reads the page you are already looking at. Mighty never opens LinkedIn on your behalf.
+              </div>
+            </div>}
+
+          {!br.careerSummary && profileRead &&
+            <F>
+              <Empty title="No brief yet."
+                body="Mighty assembles what it can from the profile and your strategy: why this person matters to your goal, what you have in common, and how to open the conversation. It never invents facts."
+                cta={busy==='brief'?'Preparing…':'Prepare me'} onCta={makeBrief}/>
+              {/* Free on purpose. A brief is how you decide someone is NOT worth
+                  your time, and charging for that charges people to say no. */}
+              <div className="hint" style={{textAlign:'center'}}>
+                Free. Reading a brief and deciding they are not worth your time should cost you nothing.
+              </div>
+            </F>}
           {br.whyMatters &&
             <div className="why" style={{padding:'22px 24px'}}>
               <div className="eyebrow b">Why this person matters to you</div>
@@ -1340,7 +1857,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
               <button className="btn g sm" onClick={makeBrief} disabled={busy==='brief'}>
                 {busy==='brief'?<span><span className="spin"/> Refreshing</span>:'Rebuild brief'}
               </button>
-              <span className="meta">Built {ago(br.builtAt)||'just now'}</span>
+              <span className="meta">Built {ago(br.builtAt)||'just now'} · free</span>
             </div>}
         </div>}
 
@@ -1364,6 +1881,13 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                 <button className="btn" style={{alignSelf:'flex-start'}} onClick={makeDraft} disabled={busy==='draft'}>
                   {busy==='draft'?<span><span className="spin"/> Writing</span>:'Write the draft'}
                 </button>
+                <div className="hint">
+                  {takes===0
+                    ? 'Costs one assist, and that one assist covers every rewrite of this message - up to ten.'
+                    : 'Already paid for on this message. ' + takesLeft + ' of ' + TAKE_LIMIT + ' takes left.'}
+                  {voice.length>0 &&
+                    ' Written to match how you write, from ' + voice.length + ' of your own past messages.'}
+                </div>
               </div>}
             {draft &&
               <F>
@@ -1372,9 +1896,13 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                 <div className="row" style={{gap:10,marginTop:16,flexWrap:'wrap'}}>
                   <button className="btn sm" onClick={copyAndOpen}>Copy &amp; open LinkedIn</button>
                   <button className="btn g sm" onClick={()=>onUpdate(row,{ai_draft:draft}).then(()=>flash('Saved'))}>Save draft</button>
-                  <button className="btn g sm" onClick={makeDraft} disabled={busy==='draft'}>
-                    {busy==='draft'?<span><span className="spin"/> Rewriting</span>:'Rewrite'}
+                  <button className="btn g sm" onClick={makeDraft} disabled={busy==='draft'||takesLeft<=0}>
+                    {busy==='draft'?<span><span className="spin"/> Rewriting</span>
+                      : takesLeft<=0 ? 'No takes left' : 'Rewrite'}
                   </button>
+                  <span className="meta">
+                    {takes>0 ? 'Take '+takes+' of '+TAKE_LIMIT+' · same assist' : ''}
+                  </span>
                 </div>
                 <div className="hint" style={{marginTop:12}}>
                   Copy &amp; open puts the message on your clipboard and opens their profile. Mighty never sends it,
@@ -2004,6 +2532,11 @@ const QUESTION = {today:'What deserves my attention?', strategy:'Why am I networ
   settings:'How does Mighty work for me?', extension:'Save people while you browse.'};
 
 function Shell({screen, go, savedCount, email, onSignOut, aiMeta, children}){
+  /* Today does not exist until there is something to be doing.
+     An empty Today on day one teaches a new user that Mighty has nothing for
+     them, which is the opposite of what the first session should prove. The tab
+     appears the moment one person is added, and never goes away again. */
+  const nav = NAV.filter(([k])=> k!=='today' || savedCount>0);
   const active = (k)=> k===screen || (k==='people'&&screen==='profile') || (k==='settings'&&screen==='extension');
   const navBtn = (on)=>({display:'flex',alignItems:'center',gap:11,padding:'10px 12px',borderRadius:10,width:'100%',
     textAlign:'left',fontSize:14.5,fontWeight:600,
@@ -2016,7 +2549,7 @@ function Shell({screen, go, savedCount, email, onSignOut, aiMeta, children}){
           <Logo/><span style={{fontSize:20,fontWeight:700,letterSpacing:'-.02em'}}>Mighty</span>
         </div>
         <nav className="stack" style={{gap:2,padding:'0 12px'}}>
-          {NAV.map(([k,label,icon])=>(
+          {nav.map(([k,label,icon])=>(
             <button key={k} onClick={()=>go({screen:k})} style={navBtn(active(k))}>
               {icon}<span style={{flex:1}}>{label}</span>
               {k==='people' && savedCount>0 && <span className="meta" style={{fontWeight:600}}>{savedCount}</span>}
@@ -2054,7 +2587,7 @@ function Shell({screen, go, savedCount, email, onSignOut, aiMeta, children}){
                 : aiMeta.assistsLeftMonth+' assist'+(aiMeta.assistsLeftMonth===1?'':'s')+' left'}
             </span>}
           <div className="mobnav" style={{gap:7,overflowX:'auto'}}>
-            {NAV.map(([k,label])=>(
+            {nav.map(([k,label])=>(
               <button key={k} className={'chip'+(active(k)?' on':'')} onClick={()=>go({screen:k})}>{label}</button>))}
           </div>
         </header>
@@ -2111,6 +2644,40 @@ function csvObjects(text, mustHave){
     const o = {}; hdr.forEach((k, i) => o[k] = (r[i] || '').trim()); return o;
   });
 }
+/* What the message archive is worth, and what it is not.
+   LinkedIn's messages.csv has FROM / TO / DATE / SUBJECT / CONTENT. Matching
+   the user's own name against FROM is how we tell which half is theirs; if the
+   name cannot be matched at all we keep nothing rather than guess, because
+   guessing wrong here means storing someone else's words as if they were the
+   user's own. */
+function messageStyle(rows, profile){
+  const first = clean((profile||{})['First Name']).toLowerCase();
+  const last  = clean((profile||{})['Last Name']).toLowerCase();
+  const me    = clean(first + ' ' + last).toLowerCase();
+  const mine  = [], theirs = [];
+  (rows||[]).forEach(r=>{
+    const from = clean(r['FROM']).toLowerCase();
+    if(!from) return;
+    const isMine = me && (from === me || (first && last && from.indexOf(first)>=0 && from.indexOf(last)>=0));
+    (isMine ? mine : theirs).push(r);
+  });
+  /* No confident match on the user's own name means no samples. A smaller
+     Knowledge Base is better than one that thinks a stranger writes like you. */
+  const identified = !!me && mine.length > 0;
+  const lens = mine.map(r=>clean(r['CONTENT']).length).filter(n=>n>0);
+  const samples = identified
+    ? mine.map(r=>clean(r['CONTENT'])).filter(t=>t.length>=40 && t.length<=1200).slice(-60)
+    : [];
+  return {
+    sent: mine.length,
+    received: theirs.length,
+    identified,
+    medianSentLength: lens.length ? lens.slice().sort((a,b)=>a-b)[Math.floor(lens.length/2)] : 0,
+    /* Capped hard. This is a writing sample, not a mail archive, and the raw
+       zip is already stored if we ever need more. */
+    styleSamples: samples.slice(0, 40).map(t=>t.slice(0, 600)),
+  };
+}
 const liDate = (s)=>{                       // "26 Jul 2026" -> "2026-07-26"
   const m = String(s||'').trim().match(/^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})$/);
   if(!m) return null;
@@ -2146,7 +2713,7 @@ async function readArchive(file){
   const recs      = await grab('Recommendations_Received.csv', ['First Name']);
   const invites   = await grab('Invitations.csv', ['From','Direction']);
   const conns     = await grab('Connections.csv', ['First Name','URL','Connected On']);
-  const msgs      = find('messages.csv');
+  const msgs      = await grab('messages.csv', ['FROM','TO','CONTENT']);
 
   const p = (profile && profile[0]) || {};
   const pos = (positions || []).map(r => ({
@@ -2184,8 +2751,15 @@ async function readArchive(file){
       outgoing: (invites || []).filter(r => (r['Direction'] || '').toUpperCase() === 'OUTGOING').length,
     },
     connections,
-    /* Named rather than read. The file holds both sides of conversations with
-       people who are not users, so v1 records that it exists and stops there. */
+    /* Read, with the consent screen saying so.
+       The line is not "do we open this file" - it is whose words we keep. The
+       user's own sent messages are the only place their actual writing voice
+       exists, and a product that drafts in your voice without ever having seen
+       it is guessing. So the sent half is sampled and kept.
+       The received half is deliberately not: those are someone else's words,
+       written to one person, and they teach Mighty nothing about how the user
+       writes. Counting them is enough. */
+    messages: msgs ? messageStyle(msgs, p) : null,
     messagesPresent: !!msgs,
     missing: [
       !find('Shares.csv') && 'your posts',
@@ -2244,7 +2818,9 @@ function Onboarding({sb, user, settings, onSave, onDone}){
       setIdent({ headline: d.identity.headline, location: d.identity.location,
                  currentRole: p0.title || '', currentCompany: p0.company || '' });
       track('kb_archive_parsed', {connections:d.connections.length, positions:d.positions.length,
-                                 skills:d.skills.length, messages:d.messagesPresent});
+                                 skills:d.skills.length, messages:d.messagesPresent,
+                                 style_samples: d.messages ? d.messages.styleSamples.length : 0,
+                                 style_identified: d.messages ? d.messages.identified : false});
 
       /* Keep the file. The parser will improve and re-deriving beats asking
          someone to export again. Failure here must not lose the parse. */
@@ -2345,6 +2921,7 @@ function Onboarding({sb, user, settings, onSave, onDone}){
         invitations: arch ? arch.invitations : null,
         connectionCount: arch ? arch.connections.length : 0,
         messagesPresent: arch ? arch.messagesPresent : false,
+        messages: arch ? arch.messages : null,
         resumeText: resume ? resume.slice(0, 12000) : '',
         answers: Object.keys(answers).map(k => ({q:k, a:clean(answers[k])})).filter(x => x.a),
       };
@@ -2403,9 +2980,11 @@ function Onboarding({sb, user, settings, onSave, onDone}){
                 anything. That is worth saying plainly rather than burying: it is why the file stays in your
                 account, why nothing from it is ever pooled with other accounts, and why you can delete all of it
                 in one action.</div>
-              <div><b style={{color:'var(--ink)'}}>Your message history is in the file too.</b> Mighty does not
-                read it. It notes that it exists and stops there, because that file holds both halves of
-                conversations that were not only yours.</div>
+              <div><b style={{color:'var(--ink)'}}>Your message history is in the file, and Mighty reads it.</b>
+                Only your half. The messages you sent are the only record of how you actually write, and a product
+                that drafts in your voice without having seen it is guessing. Mighty keeps up to forty of your own
+                messages as a writing sample. The replies you received are counted and not kept, because those are
+                someone else's words. You can delete all of it, at any time, in one action.</div>
               <div><b style={{color:'var(--ink)'}}>It never trains a model.</b> Not this one, not any. The models
                 are unchanged by anything you give it.</div>
             </div>
@@ -2861,7 +3440,7 @@ function App(){
      edit surface for everything after the first run. */
   if(!hasIntent)
     return <Onboarding sb={sb} user={auth.user} settings={settings}
-      onSave={saveSettings} onDone={()=>go({screen:'today'})}/>;
+      onSave={saveSettings} onDone={()=>go({screen:'discover'})}/>;
 
   const signOut = async()=>{ await sb.auth.signOut(); window.location.href='../'; };
 
@@ -2869,7 +3448,13 @@ function App(){
     <Shell screen={screen} go={go} savedCount={people.length} email={auth.user.email} onSignOut={signOut} aiMeta={aiMeta}>
       {err && <div className="banner warn" style={{margin:'20px 48px 0'}}>{err}</div>}
 
-      {screen==='today' &&
+      {/* Guard, not just a hidden tab: a reload can restore screen='today' from
+          before the last person was deleted, and a screen with no nav entry is
+          a dead end. */}
+      {screen==='today' && people.length===0 &&
+        <Discover sb={sb} settings={settings} people={people} plan={aiMeta&&aiMeta.plan}
+          onSave={savePerson} onOpen={openPerson} go={go}/>}
+      {screen==='today' && people.length>0 &&
         <Today people={people} events={events} tasks={tasks} settings={settings} email={auth.user.email}
           go={go} onToggleTask={toggleTask} doneToday={doneToday}/>}
 
@@ -2881,7 +3466,8 @@ function App(){
           onCancel={()=>setEditStrategy(false)}/>}
 
       {screen==='discover' &&
-        <Discover sb={sb} settings={settings} people={people} onSave={savePerson} onOpen={openPerson} go={go}/>}
+        <Discover sb={sb} settings={settings} people={people} plan={aiMeta&&aiMeta.plan}
+          onSave={savePerson} onOpen={openPerson} go={go}/>}
 
       {screen==='people' &&
         <Relationships people={people} events={events} view={relView} setView={setRelView}
@@ -2890,7 +3476,7 @@ function App(){
       {screen==='profile' && person &&
         <Profile sb={sb} row={person} events={events} tasks={tasks} settings={settings} people={people}
           onBack={()=>go({screen:'people'})} onUpdate={updateRow} onStage={changeStage}
-          onEvent={logEvent} onTask={addTask} tab={tab} setTab={setTab}/>}
+          onEvent={logEvent} onTask={addTask} tab={tab} setTab={setTab} go={go}/>}
       {screen==='profile' && !person &&
         <Relationships people={people} events={events} view={relView} setView={setRelView}
           onOpen={openPerson} onStage={changeStage} go={go}/>}
