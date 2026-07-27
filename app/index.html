@@ -1492,7 +1492,7 @@ const APPROACHES = [
   {id:'value',     label:'Value first',       brief:'offers something useful before asking'},
   {id:'coffee',    label:'Coffee chat',       brief:'a short, concrete request to talk'},
 ];
-function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, onStage, onEvent, onTask, tab, setTab}){
+function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, onStage, onEvent, onTask, tab, setTab, go}){
   const ctx = row.context||{};
   /* An exchange is one outbound conversation: the brief, the draft, and every
      take of that draft. It costs one assist. When they reply, answering them is
@@ -1503,6 +1503,15 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
   const takes = Math.max(0, Number(ctx.takes || 0));
   const TAKE_LIMIT = 10;
   const takesLeft = Math.max(0, TAKE_LIMIT - takes);
+
+  /* Has anyone actually read this person's profile?
+     A search result is a name and a headline. A connection row out of the
+     archive is a name, an employer and a date. Neither is enough to brief on,
+     and briefing anyway produces the confident-sounding paragraph that makes
+     people stop trusting a product. The extension fills these fields in the
+     first time the profile is opened, so their presence is the evidence. */
+  const profileRead = !!(clean(ctx.aboutText) || clean(ctx.education) || clean(ctx.location)
+    || clean(ctx.skillsText) || (Array.isArray(ctx.timingSignals) && ctx.timingSignals.length));
   const br  = row.briefing||{};
   const st  = stageOf(row);
   const [busy,setBusy]   = useState(null);
@@ -1531,6 +1540,11 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
   ].filter(Boolean).join('\n');
 
   async function makeBrief(){
+    if(!profileRead){
+      setErr('Mighty has not read this profile yet, so a brief would be guesswork dressed up as research. '
+        + 'Open their LinkedIn profile once with the extension running, then come back.');
+      return;
+    }
     setBusy('brief'); setErr(null);
     try{
       const out = await llmJSON(sb, 'profile_briefing',
@@ -1670,8 +1684,13 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
 
       <div className="row" style={{marginTop:18,gap:10,flexWrap:'wrap'}}>
         <button className="btn sm" onClick={()=>setTab('draft')}>Draft a message</button>
-        <button className="btn g sm" onClick={()=>{ setTab('brief'); if(!br.careerSummary) makeBrief(); }}>
-          {busy==='brief' ? <span><span className="spin"/> Preparing</span> : 'Prepare me'}
+        {/* Does not offer to prepare a brief it cannot write. When the profile
+            has never been read this takes you to the tab that explains why,
+            rather than firing a request that fails. */}
+        <button className="btn g sm"
+          onClick={()=>{ setTab('brief'); if(profileRead && !br.careerSummary) makeBrief(); }}>
+          {busy==='brief' ? <span><span className="spin"/> Preparing</span>
+            : profileRead ? 'Prepare me' : 'Why no brief yet'}
         </button>
         <a className="btn g sm" href={row.profile_url} target="_blank" rel="noopener noreferrer">LinkedIn</a>
         {row.status!=='offer' && row.status!=='do_not_contact' &&
@@ -1775,7 +1794,27 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
 
       {tab==='brief' &&
         <div className="stack fade" style={{gap:16,marginTop:24}}>
-          {!br.careerSummary &&
+          {!br.careerSummary && !profileRead &&
+            <div className="card" style={{padding:'26px 26px 24px'}}>
+              <div className="h4">Open their profile once first.</div>
+              <div className="sub" style={{marginTop:8,lineHeight:1.55,maxWidth:'58ch'}}>
+                All Mighty has on {row.name || 'them'} is a name{row.company ? ' and an employer' : ''}. That is
+                not enough to brief you on, and a brief written from it would sound confident and be hollow.
+                Open the profile with the extension running and Mighty reads what is actually there - location,
+                education, skills, and whether they have just changed roles.
+              </div>
+              <div className="row" style={{gap:10,marginTop:18,flexWrap:'wrap'}}>
+                <a className="btn sm" href={row.profile_url} target="_blank" rel="noopener noreferrer">
+                  Open their profile
+                </a>
+                <button className="btn g sm" onClick={()=>go({screen:'extension'})}>Extension setup</button>
+              </div>
+              <div className="hint" style={{marginTop:14}}>
+                It reads the page you are already looking at. Mighty never opens LinkedIn on your behalf.
+              </div>
+            </div>}
+
+          {!br.careerSummary && profileRead &&
             <F>
               <Empty title="No brief yet."
                 body="Mighty assembles what it can from the profile and your strategy: why this person matters to your goal, what you have in common, and how to open the conversation. It never invents facts."
@@ -3426,7 +3465,7 @@ function App(){
       {screen==='profile' && person &&
         <Profile sb={sb} row={person} events={events} tasks={tasks} settings={settings} people={people}
           onBack={()=>go({screen:'people'})} onUpdate={updateRow} onStage={changeStage}
-          onEvent={logEvent} onTask={addTask} tab={tab} setTab={setTab}/>}
+          onEvent={logEvent} onTask={addTask} tab={tab} setTab={setTab} go={go}/>}
       {screen==='profile' && !person &&
         <Relationships people={people} events={events} view={relView} setView={setRelView}
           onOpen={openPerson} onStage={changeStage} go={go}/>}

@@ -891,13 +891,53 @@ async function renderGoogleImportPanel() {
     gPanel.appendChild(note); document.body.appendChild(gPanel); return;
   }
 
+  /* Five per search, deliberately.
+     A search results page will happily give ten names, and importing all of
+     them is how you end up with two hundred people you have no memory of
+     adding. Mighty caps the relationship list for the same reason. The cap is
+     on how many can be TICKED, not on how many are shown: seeing the rest is
+     what makes choosing five feel like a choice. */
+  const SEARCH_SAVE_CAP = 5;
   const checks = new Map();
+  const capNote = document.createElement('div');
+  capNote.style.cssText = 'font-size:11px;color:#7d7979;margin:2px 0 8px;';
+
+  function tickedCount(){
+    let n = 0; checks.forEach(c => { if (c.checked && !c.disabled) n++; }); return n;
+  }
+  /* Runs after every tick: keeps the count honest, disables what cannot be
+     ticked, and never silently un-ticks something the user chose. */
+  function syncCap(){
+    const n = tickedCount();
+    const full = n >= SEARCH_SAVE_CAP;
+    checks.forEach(c => {
+      if (c.dataset.saved === '1' || c.dataset.already === '1') return;
+      c.disabled = full && !c.checked;
+      const row = c.closest('label');
+      if (row) row.style.opacity = c.disabled ? '.45' : '1';
+    });
+    capNote.textContent = full
+      ? 'Five is the most Mighty will take from one search. Untick one to swap it.'
+      : n + ' of ' + SEARCH_SAVE_CAP + ' chosen from this search.';
+    if (btn) {
+      btn.textContent = n ? 'Import ' + n + ' to Mighty' : 'Choose up to ' + SEARCH_SAVE_CAP;
+      btn.disabled = n === 0;
+    }
+  }
+
+  let btn = null;   // declared before syncCap can touch it
   const list = document.createElement('div'); list.style.cssText = 'display:flex;flex-direction:column;gap:2px;margin-bottom:10px;';
-  profiles.forEach(p => {
+  profiles.forEach((p, idx) => {
     const already = tracked.has(p.profileUrl);
     const row = document.createElement('label');
     row.style.cssText = 'display:flex;gap:9px;align-items:flex-start;padding:7px 4px;border-bottom:1px solid #f0eded;cursor:pointer;';
-    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !already; cb.disabled = already;
+    const cb = document.createElement('input'); cb.type = 'checkbox';
+    /* Pre-tick the first five only. Ticking everything and then telling the
+       user five is the limit is a worse experience than starting at the limit. */
+    cb.checked = !already && idx < SEARCH_SAVE_CAP;
+    cb.disabled = already;
+    if (already) cb.dataset.already = '1';
+    cb.addEventListener('change', syncCap);
     cb.style.cssText = 'margin-top:2px;flex:none;'; checks.set(p.profileUrl, cb);
     const info = document.createElement('div'); info.style.cssText = 'min-width:0;flex:1;';
     info.innerHTML = `<div style="font-weight:700;font-size:12.5px;">${esc(p.name)}</div>`
@@ -907,29 +947,35 @@ async function renderGoogleImportPanel() {
   });
   gPanel.appendChild(list);
 
-  const btn = document.createElement('button');
-  const selectable = profiles.filter(p => !tracked.has(p.profileUrl));
-  btn.textContent = `Import ${selectable.length} to Mighty`;
+  gPanel.appendChild(capNote);
+
+  btn = document.createElement('button');
   btn.style.cssText = `background:${ACCENT};color:#fff;border:none;border-radius:999px;padding:13px 12px;font-weight:500;font-size:14.5px;cursor:pointer;width:100%;font-family:inherit;`;
-  btn.disabled = selectable.length === 0;
   btn.onclick = async () => {
-    const chosen = profiles.filter(p => { const c = checks.get(p.profileUrl); return c && c.checked && !c.disabled; });
+    const chosen = profiles
+      .filter(p => { const c = checks.get(p.profileUrl); return c && c.checked && !c.disabled; })
+      .slice(0, SEARCH_SAVE_CAP);
     if (!chosen.length) return;
     btn.textContent = 'Importing…'; btn.disabled = true;
     let ok = 0;
     for (const p of chosen) {
       const res = await send('saveProfile', { payload: { profileUrl: p.profileUrl, name: p.name, title: p.title, company: p.company } });
-      if (res && res.ok) { ok++; const c = checks.get(p.profileUrl); if (c) c.disabled = true; }
+      if (res && res.ok) { ok++; const c = checks.get(p.profileUrl); if (c) { c.disabled = true; c.dataset.saved = '1'; } }
     }
     btn.textContent = `Imported ${ok} ✓`;
     setTimeout(() => renderGoogleImportPanel(), 1200);
   };
   gPanel.appendChild(btn);
+  syncCap();
   const foot = document.createElement('div'); foot.style.cssText = 'font-size:10.5px;color:#7d7979;margin-top:8px;';
   // Google results carry no profile photos (only a 16px LinkedIn favicon), so
   // imported people start with initials. The photo fills itself in the first
   // time you open their profile - we never fetch LinkedIn pages on your behalf.
-  foot.textContent = 'Imported as prospects, ready to score and draft. Photos fill in when you open each profile.';
+  /* Says the quiet part: a search result is a name and a headline. Mighty will
+     not pretend it can brief you on someone from that, and opening the profile
+     once is what turns a row into something worth reading. */
+  foot.textContent = 'A search result is a name and a headline. Open each profile once and Mighty can actually '
+    + 'brief you on them - photo, location, education and the timing signals all come from the page itself.';
   gPanel.appendChild(foot);
   document.body.appendChild(gPanel);
 }
