@@ -974,8 +974,8 @@ async function renderGoogleImportPanel() {
   /* Says the quiet part: a search result is a name and a headline. Mighty will
      not pretend it can brief you on someone from that, and opening the profile
      once is what turns a row into something worth reading. */
-  foot.textContent = 'A search result is a name and a headline. Open each profile once and Mighty can actually '
-    + 'brief you on them - photo, location, education and the timing signals all come from the page itself.';
+  foot.textContent = 'A search result is a name and a headline. Open each profile once and Mighty can brief '
+    + 'you properly.';
   gPanel.appendChild(foot);
   document.body.appendChild(gPanel);
 }

@@ -449,8 +449,8 @@ function StrategyForm({settings, onSave, busy, onCancel, firstRun}){
       </h1>
       <p className="sub" style={{marginTop:8,lineHeight:1.55,textWrap:'pretty'}}>
         {firstRun
-          ? 'Four questions, about a minute. This drives every recommendation Mighty makes - from your very first search.'
-          : 'This is a living strategy, not a settings page. Change it whenever your goals change and everything downstream follows.'}
+          ? 'Four questions, about a minute. It drives every recommendation Mighty makes.'
+          : 'Change it whenever your goals change. Everything follows from it.'}
       </p>
 
       <div className="card" style={{marginTop:30,padding:'24px 26px'}}>
@@ -475,7 +475,7 @@ function StrategyForm({settings, onSave, busy, onCancel, firstRun}){
 
       <div className="card" style={{marginTop:16,padding:'24px 26px'}}>
         <div className="h4">Who do you want to meet?</div>
-        <div className="sub" style={{marginTop:4,fontSize:14}}>Roles first - this is what Mighty ranks against. Press Enter after each.</div>
+        <div className="sub" style={{marginTop:4,fontSize:14}}>Roles first, because this is what Mighty ranks against.</div>
         <div style={{marginTop:14}}><ChipInput value={roles} onChange={setRoles} placeholder="Product Manager, Founder, Hiring Manager…"/></div>
       </div>
 
@@ -693,8 +693,8 @@ function KnowledgeBase({settings, onEdit}){
 
           {msg && msg.identified===false && msg.received>0 &&
             <div className="hint" style={{marginTop:14}}>
-              Your messages were read, but your own name could not be matched to the sender, so no writing
-              samples were kept. Better than storing someone else's words as yours.
+              Your messages were read, but your name could not be matched to the sender, so no writing samples
+              were kept. Better than storing someone else's words as yours.
             </div>}
 
           <div className="hint" style={{marginTop:16}}>
@@ -2195,8 +2195,7 @@ function Extension(){
             </div>
           </Frame>
           <div className="hint" style={{marginTop:14,maxWidth:620}}>
-            On a search page Mighty scores the whole list at once and you tick who is worth keeping. Nobody is
-            contacted - saving is where it stops.
+            On a search page Mighty scores the whole list at once and you tick who to keep. Nobody is contacted.
           </div>
         </div>}
 
@@ -2416,9 +2415,9 @@ function Settings({email, settings, people, events, tasks, go, onSignOut}){
       <div className="card" style={{padding:'24px 26px'}}>
         <div className="stack" style={{gap:14}}>
           {[['You always click send','No message, connection request or reply is ever sent automatically. Mighty drafts; you decide and you send.'],
-            ['Capture is the product','Everything intelligent here depends on what you capture after conversations. It takes under a minute and it compounds.'],
+            ['Capture is the product','Everything intelligent here depends on what you capture after a conversation. It takes a minute.'],
             ['Explanations, not scores','Recommendations always say why. If Mighty cannot explain something, it should not be recommending it.'],
-            ['Your data is yours','Notes and drafts are private to you, protected per-row in the database, and exportable in full at any time.']].map(([t,d])=>(
+            ['Your data is yours','Private to you, and exportable in full at any time.']].map(([t,d])=>(
             <div key={t}>
               <div style={{fontSize:15,fontWeight:700}}>{t}</div>
               <div className="sub" style={{fontSize:14,marginTop:3,lineHeight:1.55,textWrap:'pretty'}}>{d}</div>
@@ -2986,8 +2985,8 @@ function Onboarding({sb, user, settings, onSave, onDone}){
                 <div><b style={{color:'var(--ink)'}}>Your connections</b> become the pool Discover ranks. Names,
                   companies, roles, and when you connected.</div>
                 <div><b style={{color:'var(--ink)'}}>Other people are in this file.</b> Those names belong to
-                  people who never agreed to anything, which is why nothing from your account is ever pooled
-                  with another, and why you can delete all of it at once.</div>
+                  people who never agreed to anything. Nothing from your account is ever pooled with another,
+                  and you can delete all of it at once.</div>
                 <div><b style={{color:'var(--ink)'}}>The messages you received</b> are counted and thrown away.
                   They are someone else's words.</div>
               </div>}
