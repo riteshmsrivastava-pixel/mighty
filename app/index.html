@@ -592,8 +592,7 @@ function StrategyView({settings, people, onEdit}){
                 </div>))}
             </div>
             <div className="hint" style={{marginTop:16,maxWidth:'58ch'}}>
-              Activity, not progress. There is no percentage here because nothing can honestly compute how
-              close you are to {st.goal ? 'that' : 'your goal'} - only you can.
+              Activity, not progress. Only you can judge how close you are.
             </div>
           </div>
         </div>}
@@ -661,9 +660,8 @@ function KnowledgeBase({settings, onEdit}){
           <div>
             <div className="h4">Nothing yet.</div>
             <div className="sub" style={{marginTop:7,maxWidth:'58ch'}}>
-              Mighty has your goal and nothing else, so every recommendation it makes is working from one
-              sentence. Importing your LinkedIn history is the single biggest change you can make to how good
-              this gets.
+              Mighty has your goal and nothing else, so every recommendation comes from one sentence.
+              Importing your history changes that more than anything else you can do.
             </div>
             <button className="btn sm" style={{marginTop:16}} onClick={onEdit}>Import my history</button>
           </div>}
@@ -695,14 +693,13 @@ function KnowledgeBase({settings, onEdit}){
 
           {msg && msg.identified===false && msg.received>0 &&
             <div className="hint" style={{marginTop:14}}>
-              Your message history was read but your own name could not be matched against the sender column,
-              so no writing samples were kept. Nothing was stored rather than risk storing someone else's words
-              as if they were yours.
+              Your messages were read, but your own name could not be matched to the sender, so no writing
+              samples were kept. Better than storing someone else's words as yours.
             </div>}
 
           <div className="hint" style={{marginTop:16}}>
-            Read from your own archive and resume. Anything wrong here is wrong everywhere downstream, so it is
-            worth correcting.
+            Built from your archive and resume, not assumptions. Anything wrong here is wrong everywhere
+            after it.
           </div>
           <button className="btn g sm" style={{marginTop:14}} onClick={onEdit}>Correct this</button>
         </F>}
@@ -718,8 +715,7 @@ function KnowledgeBase({settings, onEdit}){
             </div>))}
         </div>
         <div className="hint" style={{marginTop:14,maxWidth:'58ch'}}>
-          Cheap to say and almost never said. A product that names its own gaps gets corrected; one that hides
-          them gets quietly distrusted.
+          Mighty would rather tell you what it is missing than guess.
         </div>
       </div>
     </div>
@@ -1068,7 +1064,7 @@ function Discover({sb, settings, people, plan, onSave, onOpen, go}){
         found = (bridged.people||[]).filter(p=>p && p.profileUrl);
       } else if(bridged && bridged.error==='blocked'){
         track('search_blocked', {});
-        setErr('Search is rate limited right now, so results would be incomplete rather than wrong. Give it a few minutes, or find them on LinkedIn and save from there.');
+        setErr('Search is rate limited right now, so results would be incomplete. Try again in a few minutes.');
         setPhase('idle'); return;
       } else {
         const {data, error} = await sb.functions.invoke('people-search', {body:{query:kw}});
@@ -1088,7 +1084,7 @@ function Discover({sb, settings, people, plan, onSave, onOpen, go}){
         with_facts: found.filter(p=>p.location||p.education).length});
 
       if(!found.length){
-        setNote('Nothing came back for that one. Naming a role and a place works best - "product leaders in Boston" beats "smart people in AI".');
+        setNote('Nothing for that one. A role and a place works best: "product leaders in Boston" beats "smart people in AI".');
         setPhase('idle'); return;
       }
       setRes(found); setPhase('thinking');
@@ -1202,15 +1198,13 @@ function Discover({sb, settings, people, plan, onSave, onOpen, go}){
             </div>}
 
           <div className="meta" style={{marginTop:16,lineHeight:1.55}}>
-            This matches words, not meaning: it will find Boston and investing, and it does not understand
-            idea-stage. There is deliberately no browsable list of everyone you know, because that is a
-            slower LinkedIn.
+            Matches words, not meaning: it finds Boston and investing, not idea-stage. There is no list of
+            everyone you know, on purpose - Mighty picks.
           </div>
         </F> : (
           <div style={{marginTop:18}}>
             <div className="sub" style={{maxWidth:'58ch'}}>
-              Your LinkedIn archive has not been imported, so there is nothing of your own to search yet.
-              It takes one upload and Mighty stops guessing.
+              Nothing of your own to search yet. One upload and Mighty stops guessing.
             </div>
             <div className="row" style={{gap:10,marginTop:16,flexWrap:'wrap'}}>
               <button className="btn sm" onClick={()=>go({screen:'strategy'})}>Import my history</button>
@@ -1227,9 +1221,8 @@ function Discover({sb, settings, people, plan, onSave, onOpen, go}){
             <button className="btn g sm" onClick={()=>setWebOpen(true)}>Search LinkedIn</button>}
         </div>
         <div className="sub" style={{marginTop:6,maxWidth:'62ch'}}>
-          Mighty searches LinkedIn through the extension and can list up to five people per search.
-          It cannot brief you on any of them until their profile has been opened once, because that is
-          where the detail lives.
+          Five people per search, through the extension. Open a profile once and Mighty can brief you on
+          them.
         </div>
 
         {webOpen && <F>
@@ -1328,8 +1321,8 @@ function Discover({sb, settings, people, plan, onSave, onOpen, go}){
           <span className="meta">{people.length} of {cap} added</span>
         </div>
         <div className="sub" style={{marginTop:6,maxWidth:'62ch'}}>
-          From your own history, ranked against your goal. Three signals: how long you have been silent,
-          whether their work matches what you are trying to do, and where you overlap.
+          From your own history, ranked against your goal: how long you have been silent, whether their work
+          matches yours, and where you overlap.
         </div>
 
         {suggBusy &&
@@ -1381,7 +1374,7 @@ function Relationships({people, events, view, setView, onOpen, onStage, go}){
   if(!people.length)
     return <div className="pad fade" style={{maxWidth:720}}>
       <Empty title="No one here yet."
-        body="Everyone you save lands here, however you found them - search, the extension, a conference, a referral. Start with one person you genuinely want to know."
+        body="Everyone you add lands here, however you found them. Start with one person you genuinely want to know."
         cta="Discover someone" onCta={()=>go({screen:'discover'})}/>
     </div>;
 
@@ -1570,8 +1563,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
 
   async function makeDraft(){
     if(takesLeft <= 0){
-      setErr('That is ten takes on this message, which is the limit on one assist. Send one of them, or edit '
-        + 'the last one yourself - at this point the drafts are not getting better, they are getting different.');
+      setErr('Ten takes is the limit on one assist. Send one, or edit the last one yourself.');
       return;
     }
     setBusy('draft'); setErr(null);
@@ -1776,7 +1768,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                     <span style={{fontSize:15,color:'var(--body)',lineHeight:1.5}}>{m.value}</span>
                   </div>))}
               </div>
-              <div className="hint" style={{marginTop:12}}>Captured by you. Mighty only remembers it.</div>
+              <div className="hint" style={{marginTop:12}}>Your words. Mighty just remembers them.</div>
             </div>}
 
           {myTasks.length>0 &&
@@ -1798,10 +1790,9 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
             <div className="card" style={{padding:'26px 26px 24px'}}>
               <div className="h4">Open their profile once first.</div>
               <div className="sub" style={{marginTop:8,lineHeight:1.55,maxWidth:'58ch'}}>
-                All Mighty has on {row.name || 'them'} is a name{row.company ? ' and an employer' : ''}. That is
-                not enough to brief you on, and a brief written from it would sound confident and be hollow.
-                Open the profile with the extension running and Mighty reads what is actually there - location,
-                education, skills, and whether they have just changed roles.
+                All Mighty has is a name{row.company ? ' and an employer' : ''}. A brief from that would sound
+                confident and be hollow. Open their profile once with the extension running and Mighty reads
+                what is actually there: location, education, skills, and whether they just changed roles.
               </div>
               <div className="row" style={{gap:10,marginTop:18,flexWrap:'wrap'}}>
                 <a className="btn sm" href={row.profile_url} target="_blank" rel="noopener noreferrer">
@@ -1810,19 +1801,19 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                 <button className="btn g sm" onClick={()=>go({screen:'extension'})}>Extension setup</button>
               </div>
               <div className="hint" style={{marginTop:14}}>
-                It reads the page you are already looking at. Mighty never opens LinkedIn on your behalf.
+                It reads the page you are looking at. Mighty never opens LinkedIn for you.
               </div>
             </div>}
 
           {!br.careerSummary && profileRead &&
             <F>
               <Empty title="No brief yet."
-                body="Mighty assembles what it can from the profile and your strategy: why this person matters to your goal, what you have in common, and how to open the conversation. It never invents facts."
+                body="Why they matter to your goal, what you have in common, and how to open. Built only from their profile and your strategy, never invented."
                 cta={busy==='brief'?'Preparing…':'Prepare me'} onCta={makeBrief}/>
               {/* Free on purpose. A brief is how you decide someone is NOT worth
                   your time, and charging for that charges people to say no. */}
               <div className="hint" style={{textAlign:'center'}}>
-                Free. Reading a brief and deciding they are not worth your time should cost you nothing.
+                Free. Deciding someone is not worth your time should cost nothing.
               </div>
             </F>}
           {br.whyMatters &&
@@ -1905,8 +1896,8 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                   </span>
                 </div>
                 <div className="hint" style={{marginTop:12}}>
-                  Copy &amp; open puts the message on your clipboard and opens their profile. Mighty never sends it,
-                  and never clicks Connect.
+                  Copies the message and opens their profile. You send it. Mighty never sends anything, and
+                  never clicks Connect.
                 </div>
               </F>}
           </div>
@@ -2005,7 +1996,7 @@ function Ask({sb, people, events, tasks, settings, onOpen}){
     const settle = (a, ppl)=>setLog(l=>l.map(x=>x===entry?{...x, a, people:ppl||[]}:x));
 
     if(!people.length){
-      settle("I don't know yet - there's nobody in your network here. Save a few relationships and I'll start recognizing patterns: who has gone quiet, who to reach out to, who to prepare for.");
+      settle("I do not know yet. Add a few people and I can start seeing patterns, who to prepare for.");
       setBusy(false); return;
     }
     try{
@@ -2787,10 +2778,13 @@ async function readResumePdf(file){
   return out.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 }
 
-const OB_STEPS = ['Consent','Your history','Your resume','What we found','Your goal','A few questions'];
+const OB_STEPS = ['Privacy','History','Resume','Check','Goal','Questions'];
 
 function Onboarding({sb, user, settings, onSave, onDone}){
   const [step,setStep]   = useState(0);
+  /* Rule 4: mechanics go behind a link, anything we do with the user's data stays
+     on the surface. This is the link. */
+  const [detail,setDetail] = useState(false);
   const [busy,setBusy]   = useState(null);
   const [err,setErr]     = useState(null);
   const [prog,setProg]   = useState(null);
@@ -2824,7 +2818,7 @@ function Onboarding({sb, user, settings, onSave, onDone}){
 
       /* Keep the file. The parser will improve and re-deriving beats asking
          someone to export again. Failure here must not lose the parse. */
-      setProg('Saving it to your knowledge base…');
+      setProg('Saving what we read…');
       let path = null;
       try{
         path = user.id + '/linkedin-' + Date.now() + '.zip';
@@ -2865,7 +2859,7 @@ function Onboarding({sb, user, settings, onSave, onDone}){
       track('kb_resume_parsed', {chars:t.length});
     }catch(e){
       setBusy(null);
-      setErr('That PDF would not give up its text. Some are images rather than text. Paste it below instead - select all in your PDF viewer, copy, paste here.');
+      setErr('That PDF would not give up its text. Paste it below instead.');
     }
   }
 
@@ -2966,33 +2960,42 @@ function Onboarding({sb, user, settings, onSave, onDone}){
       {/* ---------- 0. consent ---------- */}
       {step===0 &&
         <div className="stack" style={{gap:18}}>
-          <H>Mighty needs to know you before it can help with anyone else.</H>
-          <Sub>Everything it learns about you goes into your <b>Knowledge Base</b>. It is yours, it only grows,
-            and nothing in it is ever shared with another account.</Sub>
+          <H>Before we begin</H>
+          <Sub>Help Mighty understand you before it recommends anyone. Two minutes, and you can skip any of it.</Sub>
 
           <div className="card" style={{padding:'22px 24px'}}>
-            <div className="h4">What you are about to hand over</div>
-            <div className="stack" style={{gap:12,marginTop:14,fontSize:14.5,color:'var(--body)'}}>
-              <div><b style={{color:'var(--ink)'}}>Your LinkedIn archive.</b> Your roles, education, skills,
-                recognition, and the list of everyone you are connected to.</div>
-              <div><b style={{color:'var(--ink)'}}>It contains other people.</b> The names and employers of every
-                connection are in that file, and those people are not Mighty users and have not agreed to
-                anything. That is worth saying plainly rather than burying: it is why the file stays in your
-                account, why nothing from it is ever pooled with other accounts, and why you can delete all of it
-                in one action.</div>
-              <div><b style={{color:'var(--ink)'}}>Your message history is in the file, and Mighty reads it.</b>
-                Only your half. The messages you sent are the only record of how you actually write, and a product
-                that drafts in your voice without having seen it is guessing. Mighty keeps up to forty of your own
-                messages as a writing sample. The replies you received are counted and not kept, because those are
-                someone else's words. You can delete all of it, at any time, in one action.</div>
-              <div><b style={{color:'var(--ink)'}}>It never trains a model.</b> Not this one, not any. The models
-                are unchanged by anything you give it.</div>
+            <div className="h4">Your data</div>
+            <div className="stack" style={{gap:10,marginTop:12,fontSize:14.5,color:'var(--body)'}}>
+              <div>Stays in your account. Never shared with another user.</div>
+              <div>Never trains AI. Not this model, not any.</div>
+              <div>Deletable in one action, whenever you want.</div>
+              {/* Stays on the surface, by the exception in docs/WRITING.md: this is
+                  something we do with a person's data, not a mechanic. */}
+              <div>Mighty reads the messages you sent, to learn how you write. It keeps forty as a writing
+                sample, and none of the replies you received.</div>
             </div>
-            <label className="row" style={{gap:10,marginTop:20,cursor:'pointer',alignItems:'flex-start'}}>
+            <button className="btn q" style={{padding:'8px 0',fontWeight:600,color:'var(--brand-ink)'}}
+              onClick={()=>setDetail(d=>!d)}>
+              What is in the file, and what Mighty does with it {detail?'\u2191':'\u2193'}
+            </button>
+            {detail &&
+              <div className="stack" style={{gap:9,marginTop:2,paddingTop:12,borderTop:'1px solid var(--line2)',
+                fontSize:13.5,color:'var(--body)'}}>
+                <div><b style={{color:'var(--ink)'}}>Roles, education, skills and recognition</b> become your
+                  profile, so Mighty knows what you have in common with people.</div>
+                <div><b style={{color:'var(--ink)'}}>Your connections</b> become the pool Discover ranks. Names,
+                  companies, roles, and when you connected.</div>
+                <div><b style={{color:'var(--ink)'}}>Other people are in this file.</b> Those names belong to
+                  people who never agreed to anything, which is why nothing from your account is ever pooled
+                  with another, and why you can delete all of it at once.</div>
+                <div><b style={{color:'var(--ink)'}}>The messages you received</b> are counted and thrown away.
+                  They are someone else's words.</div>
+              </div>}
+            <label className="row" style={{gap:10,marginTop:18,cursor:'pointer',alignItems:'flex-start'}}>
               <input type="checkbox" checked={agreed} onChange={e=>setAgreed(e.target.checked)}
                 style={{marginTop:3,width:16,height:16,accentColor:'var(--brand)'}}/>
               <span style={{fontSize:14.5,color:'var(--ink2)',fontWeight:600}}>
-                I understand, and the archive is mine to share.
+                I understand, and this data is mine to share.
               </span>
             </label>
           </div>
@@ -3006,17 +3009,13 @@ function Onboarding({sb, user, settings, onSave, onDone}){
       {/* ---------- 1. archive ---------- */}
       {step===1 &&
         <div className="stack" style={{gap:18}}>
-          <H>Give Mighty your history.</H>
-          <Sub>LinkedIn will email you a .zip. Request it, carry on, and come back when it lands - this page
-            works without it and you can add it later.</Sub>
+          <H>Import your LinkedIn history</H>
+          <Sub>Your LinkedIn history shows Mighty who you already know.</Sub>
 
           <div className="card" style={{padding:'22px 24px'}}>
-            <div className="h4">How to get it</div>
-            <ol style={{marginTop:12,paddingLeft:20,display:'flex',flexDirection:'column',gap:7,fontSize:14.5,color:'var(--body)'}}>
-              <li>Open <a href="https://www.linkedin.com/mypreferences/d/download-my-data" target="_blank" rel="noopener noreferrer">LinkedIn's download-your-data page</a>.</li>
-              <li>Choose the larger archive, the one that includes connections.</li>
-              <li>LinkedIn emails a link, usually within minutes. Download the .zip.</li>
-              <li>Drop it here. It is read on this machine and kept in your Knowledge Base.</li>
+            <ol style={{margin:0,paddingLeft:20,display:'flex',flexDirection:'column',gap:8,fontSize:14.5,color:'var(--body)'}}>
+              <li><a href="https://www.linkedin.com/mypreferences/d/download-my-data" target="_blank" rel="noopener noreferrer">Request your data from LinkedIn</a>, choosing the archive that includes connections.</li>
+              <li>Drop the .zip here when it arrives, usually within a few minutes.</li>
             </ol>
           </div>
 
@@ -3034,9 +3033,8 @@ function Onboarding({sb, user, settings, onSave, onDone}){
       {/* ---------- 2. resume ---------- */}
       {step===2 &&
         <div className="stack" style={{gap:18}}>
-          <H>Anything your resume says that LinkedIn does not.</H>
-          <Sub>Your archive already gave the roles and dates. A resume tends to carry the parts that are actually
-            useful in a first message: what you achieved, with numbers on it.</Sub>
+          <H>Complete your profile</H>
+          <Sub>Your biggest achievements usually are not on LinkedIn. Your resume fills them in.</Sub>
 
           <input ref={cvRef} type="file" accept=".pdf" style={{display:'none'}}
             onChange={e=>onResume(e.target.files && e.target.files[0])}/>
@@ -3051,7 +3049,7 @@ function Onboarding({sb, user, settings, onSave, onDone}){
           <div>
             <div className="lbl">Or paste it</div>
             <textarea className="inp" style={{minHeight:150}} value={resume} onChange={e=>setResume(e.target.value)}
-              placeholder="Select all in your PDF viewer, copy, paste here. Works every time, unlike PDF text extraction."/>
+              placeholder="Or paste the text here."/>
           </div>
 
           <div className="row" style={{gap:10}}>
@@ -3063,10 +3061,10 @@ function Onboarding({sb, user, settings, onSave, onDone}){
       {/* ---------- 3. review ---------- */}
       {step===3 &&
         <div className="stack" style={{gap:18}}>
-          <H>{arch ? 'Here is what Mighty understood.' : 'Tell Mighty the basics.'}</H>
+          <H>{arch ? 'Let us make sure we got it right' : 'Tell Mighty the basics'}</H>
           <Sub>{arch
-            ? 'Read from your own files, not guessed. Correct anything that is wrong - it is used in every message Mighty ever drafts for you.'
-            : 'No archive yet, so this is the short version. You can add the archive any time and this fills itself in.'}</Sub>
+            ? 'Built from your files, not assumptions. Correct anything wrong here, because it reaches every message Mighty drafts.'
+            : 'No archive yet, so this is the short version. Add it any time and this fills itself in.'}</Sub>
 
           {arch &&
             <div className="card" style={{padding:'20px 22px'}}>
@@ -3079,7 +3077,7 @@ function Onboarding({sb, user, settings, onSave, onDone}){
               </div>
               {arch.missing.length>0 &&
                 <div className="hint" style={{marginTop:14}}>
-                  Not in this export: {arch.missing.join(', ')}. LinkedIn leaves those out of the basic archive.
+                  Not in this export: {arch.missing.join(', ')}.
                 </div>}
             </div>}
 
@@ -3121,9 +3119,8 @@ function Onboarding({sb, user, settings, onSave, onDone}){
       {/* ---------- 4. goal ---------- */}
       {step===4 &&
         <div className="stack" style={{gap:18}}>
-          <H>The one thing no file can tell Mighty.</H>
-          <Sub>What you are trying to do. Everything else on this page was read from your history; this has to
-            come from you, and every person Mighty ever scores is weighed against it.</Sub>
+          <H>Your goal</H>
+          <Sub>Your goal decides who Mighty recommends.</Sub>
 
           <div>
             <div className="lbl">What are you trying to achieve?</div>
@@ -3149,9 +3146,8 @@ function Onboarding({sb, user, settings, onSave, onDone}){
       {/* ---------- 5. questions ---------- */}
       {step===5 &&
         <div className="stack" style={{gap:18}}>
-          <H>Three things Mighty could not work out on its own.</H>
-          <Sub>Chosen after reading everything above, so none of them ask what your own files already answered.
-            Skip any of them; they can be answered later, whenever it next matters.</Sub>
+          <H>A few things only you can tell us</H>
+          <Sub>Chosen after reading everything above, so none of them repeat what your files already said. Skip any.</Sub>
 
           {busy==='qs' && <div className="meta"><span className="spin"/> Working out what is still missing…</div>}
 
