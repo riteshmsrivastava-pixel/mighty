@@ -859,6 +859,65 @@ as $$
   select count(*)::int from public.connections where user_id = auth.uid();
 $$;
 
+
+-- ============================================================
+-- 14. Function privileges.
+--
+-- Postgres grants EXECUTE on every new function to PUBLIC, and this schema never
+-- revoked it. Four of the functions above are `security definer`, so they run as
+-- their owner and bypass RLS: the publishable anon key was enough to read the
+-- whole ai_config and to insert rows into ai_call_log as the table owner. That
+-- last one defeated the metering entirely - a crafted row could lock a user out
+-- of their plan, trip the company-wide budget for everyone, or mark an exchange
+-- as paid and get free drafts.
+--
+-- Found by probing the live project with the public key on 27 Jul 2026, after the
+-- migration that added them. Fixed here and in
+-- migrations/2026-07-27-lockdown.sql.
+-- ============================================================
+
+-- ---- 1. The gateway's internals: service_role only ----
+--
+-- revoke from public first: revoking from anon and authenticated alone leaves
+-- the PUBLIC grant in place, and PUBLIC covers both.
+revoke execute on function public.ai_precheck(uuid)      from public, anon, authenticated;
+revoke execute on function public.ai_exchange_paid(uuid, text) from public, anon, authenticated;
+revoke execute on function public.ai_record_call(uuid, text, text, text, int, int, numeric, boolean, int, int, text)
+  from public, anon, authenticated;
+revoke execute on function public.increment_ai_usage(uuid) from public, anon, authenticated;
+
+grant execute on function public.ai_precheck(uuid)      to service_role;
+grant execute on function public.ai_exchange_paid(uuid, text) to service_role;
+grant execute on function public.ai_record_call(uuid, text, text, text, int, int, numeric, boolean, int, int, text)
+  to service_role;
+grant execute on function public.increment_ai_usage(uuid) to service_role;
+
+-- ---- 2. Helpers with no legitimate caller outside the database ----
+--
+-- plan_relationship_cap is read by the enforce_relationship_cap trigger. Trigger
+-- functions do not require the acting user to hold EXECUTE, so revoking here
+-- does not break the cap.
+revoke execute on function public.plan_relationship_cap(text) from public, anon, authenticated;
+grant  execute on function public.plan_relationship_cap(text) to service_role;
+
+-- ---- 3. What the browser legitimately calls ----
+--
+-- These two are `security invoker` and filter on auth.uid(), so they were never
+-- a leak: an anon caller gets 0 and an empty array, which is exactly what the
+-- probe returned. authenticated must keep EXECUTE or Discover stops working.
+-- anon loses it because an unauthenticated caller has no business here at all.
+revoke execute on function public.connections_match(text[], text[], int) from anon;
+revoke execute on function public.connections_count() from anon;
+grant  execute on function public.connections_match(text[], text[], int) to authenticated, service_role;
+grant  execute on function public.connections_count() to authenticated, service_role;
+
+-- ---- 4. Stop the default from coming back ----
+--
+-- Everything above fixes the functions that exist today. This stops the next
+-- function anyone adds from arriving world-executable, which is the actual bug:
+-- the default, not any individual mistake.
+alter default privileges in schema public revoke execute on functions from public;
+
 -- ============================================================
 -- Also in the dashboard (not SQL):
 -- • Authentication → Providers → Email: ENABLED, "Confirm email" ON
