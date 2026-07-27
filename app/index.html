@@ -2532,6 +2532,11 @@ const QUESTION = {today:'What deserves my attention?', strategy:'Why am I networ
   settings:'How does Mighty work for me?', extension:'Save people while you browse.'};
 
 function Shell({screen, go, savedCount, email, onSignOut, aiMeta, children}){
+  /* Today does not exist until there is something to be doing.
+     An empty Today on day one teaches a new user that Mighty has nothing for
+     them, which is the opposite of what the first session should prove. The tab
+     appears the moment one person is added, and never goes away again. */
+  const nav = NAV.filter(([k])=> k!=='today' || savedCount>0);
   const active = (k)=> k===screen || (k==='people'&&screen==='profile') || (k==='settings'&&screen==='extension');
   const navBtn = (on)=>({display:'flex',alignItems:'center',gap:11,padding:'10px 12px',borderRadius:10,width:'100%',
     textAlign:'left',fontSize:14.5,fontWeight:600,
@@ -2544,7 +2549,7 @@ function Shell({screen, go, savedCount, email, onSignOut, aiMeta, children}){
           <Logo/><span style={{fontSize:20,fontWeight:700,letterSpacing:'-.02em'}}>Mighty</span>
         </div>
         <nav className="stack" style={{gap:2,padding:'0 12px'}}>
-          {NAV.map(([k,label,icon])=>(
+          {nav.map(([k,label,icon])=>(
             <button key={k} onClick={()=>go({screen:k})} style={navBtn(active(k))}>
               {icon}<span style={{flex:1}}>{label}</span>
               {k==='people' && savedCount>0 && <span className="meta" style={{fontWeight:600}}>{savedCount}</span>}
@@ -2582,7 +2587,7 @@ function Shell({screen, go, savedCount, email, onSignOut, aiMeta, children}){
                 : aiMeta.assistsLeftMonth+' assist'+(aiMeta.assistsLeftMonth===1?'':'s')+' left'}
             </span>}
           <div className="mobnav" style={{gap:7,overflowX:'auto'}}>
-            {NAV.map(([k,label])=>(
+            {nav.map(([k,label])=>(
               <button key={k} className={'chip'+(active(k)?' on':'')} onClick={()=>go({screen:k})}>{label}</button>))}
           </div>
         </header>
@@ -3435,7 +3440,7 @@ function App(){
      edit surface for everything after the first run. */
   if(!hasIntent)
     return <Onboarding sb={sb} user={auth.user} settings={settings}
-      onSave={saveSettings} onDone={()=>go({screen:'today'})}/>;
+      onSave={saveSettings} onDone={()=>go({screen:'discover'})}/>;
 
   const signOut = async()=>{ await sb.auth.signOut(); window.location.href='../'; };
 
@@ -3443,7 +3448,13 @@ function App(){
     <Shell screen={screen} go={go} savedCount={people.length} email={auth.user.email} onSignOut={signOut} aiMeta={aiMeta}>
       {err && <div className="banner warn" style={{margin:'20px 48px 0'}}>{err}</div>}
 
-      {screen==='today' &&
+      {/* Guard, not just a hidden tab: a reload can restore screen='today' from
+          before the last person was deleted, and a screen with no nav entry is
+          a dead end. */}
+      {screen==='today' && people.length===0 &&
+        <Discover sb={sb} settings={settings} people={people} plan={aiMeta&&aiMeta.plan}
+          onSave={savePerson} onOpen={openPerson} go={go}/>}
+      {screen==='today' && people.length>0 &&
         <Today people={people} events={events} tasks={tasks} settings={settings} email={auth.user.email}
           go={go} onToggleTask={toggleTask} doneToday={doneToday}/>}
 

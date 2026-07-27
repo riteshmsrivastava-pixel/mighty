@@ -180,6 +180,7 @@ Deno.serve(async (req) => {
   if (pcErr) return json({ ok: false, error: "usage_error", message: pcErr.message }, 500);
   const cfg = (pc?.config) || { daily_company_budget_usd: 20, free_daily_assists: 30, free_daily_calls: 200, trial_monthly_assists: 10, user_monthly_budget_usd: 15 };
   const plan        = pc?.plan || "trial";
+  const trialEnds   = pc?.trial_ends_at ? Date.parse(pc.trial_ends_at) : null;
   const dayAssists  = Number(pc?.day_assists || 0);
   const monthAssists= Number(pc?.month_assists || 0);
   const dayCalls    = Number(pc?.day_calls || 0);
@@ -190,6 +191,20 @@ Deno.serve(async (req) => {
   // Purchased assists never expire and stack on top of the monthly allowance,
   // so the ceiling is allowance + balance rather than allowance alone.
   const monthlyCap = monthlyAssists(plan, cfg) + topup;
+
+  // ---- G2b: the trial actually ends ----
+  //
+  // trial_ends_at was being stored and returned and nothing read it, so a trial
+  // simply renewed itself every month forever. Note what is refused: only work
+  // that costs an assist. Briefs and Ask Mighty keep working after the trial,
+  // because someone deciding whether to pay should still be able to look at
+  // what they already have and ask questions about it. What stops is Mighty
+  // writing for them, which is the thing worth paying for.
+  if (weight > 0 && plan === "trial" && trialEnds && Date.now() > trialEnds) {
+    return json({ ok: false, error: "trial_over", scope: "trial", plan,
+      message: "Your thirty days are up. Everything you have given Mighty is still here and still yours, "
+             + "and reading it stays free. Writing needs a plan." });
+  }
 
   // ---- G3a: free features are unmetered, not unbounded ----
   // Ask Mighty costs nothing, which is a pricing decision, not an invitation to

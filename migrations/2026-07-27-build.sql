@@ -139,6 +139,66 @@ as $$
   );
 $$;
 
+-- 13e. The two caps that only existed in the client.
+--
+-- A cap the browser enforces is a suggestion. Both of these are the kind of
+-- limit that decides what someone pays, so both belong in the database where a
+-- crafted insert cannot walk past them.
+
+-- How many relationships each plan allows. Reads ai_config so the numbers stay
+-- editable in SQL without a deploy.
+create or replace function public.plan_relationship_cap(p_plan text)
+returns int
+language sql
+stable
+as $$
+  select case p_plan
+    when 'pro'      then (select pro_relationships     from public.ai_config where id = 1)
+    when 'leader'   then (select pro_relationships     from public.ai_config where id = 1)
+    when 'plus'     then (select plus_relationships    from public.ai_config where id = 1)
+    when 'builder'  then (select plus_relationships    from public.ai_config where id = 1)
+    when 'starter'  then (select starter_relationships from public.ai_config where id = 1)
+    when 'explorer' then (select starter_relationships from public.ai_config where id = 1)
+    else                 (select trial_relationships   from public.ai_config where id = 1)
+  end;
+$$;
+
+-- Refuse the insert that would take someone past their plan's cap.
+--
+-- The message matters as much as the refusal. The cap exists because a list of
+-- five hundred names nobody remembers adding is worse than a list of fifty that
+-- someone actually works, so the error says that rather than "limit reached".
+create or replace function public.enforce_relationship_cap()
+returns trigger
+language plpgsql
+security definer
+as $$
+declare
+  current_plan text;
+  cap int;
+  held int;
+begin
+  select coalesce(plan, 'trial') into current_plan
+    from public.user_plans where user_id = new.user_id;
+  cap := public.plan_relationship_cap(coalesce(current_plan, 'trial'));
+  select count(*) into held from public.outreach_log where user_id = new.user_id;
+  if held >= cap then
+    raise exception
+      'You are at % relationships, which is the cap on your plan. Close one out, or move up a plan.', cap
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists enforce_relationship_cap_trg on public.outreach_log;
+create trigger enforce_relationship_cap_trg
+  before insert on public.outreach_log
+  for each row execute function public.enforce_relationship_cap();
+-- Insert only. An update must never be blocked by the cap: someone already over
+-- it (because a plan was downgraded) still has to be able to change a stage,
+-- log a reply, or delete a row to get back under.
+
 -- 13c. Retrieval over the user's own connections.
 --
 -- One function serves both jobs Discover has. The unasked ranking passes the
