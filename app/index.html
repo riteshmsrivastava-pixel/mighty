@@ -343,8 +343,13 @@ let _onAiMeta = null;
 function onAiMeta(fn){ _onAiMeta = fn; }
 function reportMeta(meta){ try{ if(_onAiMeta && meta) _onAiMeta(meta); }catch(e){} }
 
-async function llm(sb, feature, system, user, maxTokens){
-  const {data, error} = await sb.functions.invoke('ai-proxy', {body:{feature, system, user, maxTokens:maxTokens||700}});
+/* `exchangeKey` is how one assist buys ten takes. It identifies a single
+   outbound conversation with one person - 'ex:<log_id>:<n>' - and the gateway
+   charges the first call carrying it and nothing after. It contains no name and
+   no profile URL, so the ledger stays free of anyone who is not a user. */
+async function llm(sb, feature, system, user, maxTokens, exchangeKey){
+  const {data, error} = await sb.functions.invoke('ai-proxy',
+    {body:{feature, system, user, maxTokens:maxTokens||700, exchangeKey:exchangeKey||null}});
   if(error) throw error;
   if(data && data.meta) reportMeta(data.meta);
   if(!data || data.ok===false){
@@ -353,8 +358,8 @@ async function llm(sb, feature, system, user, maxTokens){
   }
   return data.text;
 }
-async function llmJSON(sb, feature, system, user, maxTokens){
-  const text = await llm(sb, feature, system+'\n\nRespond with ONLY valid JSON, no prose, no markdown fences.', user, maxTokens||900);
+async function llmJSON(sb, feature, system, user, maxTokens, exchangeKey){
+  const text = await llm(sb, feature, system+'\n\nRespond with ONLY valid JSON, no prose, no markdown fences.', user, maxTokens||900, exchangeKey);
   return JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}')+1));
 }
 function strategyBrief(st){
@@ -1362,6 +1367,15 @@ const APPROACHES = [
 ];
 function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, onStage, onEvent, onTask, tab, setTab}){
   const ctx = row.context||{};
+  /* An exchange is one outbound conversation: the brief, the draft, and every
+     take of that draft. It costs one assist. When they reply, answering them is
+     a new exchange and a new assist, because it is new work. The counter lives
+     in context so it survives a reload and needs no schema change. */
+  const exchangeNo = Math.max(1, Number(ctx.exchange || 1));
+  const exchangeKey = 'ex:' + row.id + ':' + exchangeNo;
+  const takes = Math.max(0, Number(ctx.takes || 0));
+  const TAKE_LIMIT = 10;
+  const takesLeft = Math.max(0, TAKE_LIMIT - takes);
   const br  = row.briefing||{};
   const st  = stageOf(row);
   const [busy,setBusy]   = useState(null);
@@ -1395,7 +1409,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
       const out = await llmJSON(sb, 'profile_briefing',
         'You prepare someone for a first conversation. Use ONLY the facts given - never invent employers, dates, achievements or posts. If you do not know something, leave that field out. Plain language, no scores, no flattery. Never use em dashes; write a spaced hyphen instead.',
         `About the person doing the outreach:\n${strategyBrief(settings)}\n\nThe person they want to understand:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nLocation: ${ctx.location||'unknown'}\nEducation: ${ctx.education||'unknown'}\nProfile text captured: ${clean(ctx.aboutText||ctx.snippet||'').slice(0,900)}\n${captured||''}\nWhy they were saved: ${ctx.whySaved||'unknown'}\nShared ground noted at save time: ${(ctx.common||[]).join('; ')||'none noted'}\n\nReturn JSON {"careerSummary":"2-3 sentences","whyMatters":"1-2 sentences on why this person matters to THIS user's goal","shared":["real overlap"],"starters":["specific opening, grounded in the facts above"],"avoid":"one thing not to lead with, or omit"}`,
-        1000);
+        1000, exchangeKey);
       const briefing = {...br, careerSummary:clean(out.careerSummary), whyMatters:clean(out.whyMatters),
         shared:Array.isArray(out.shared)?out.shared:[], conversationStarters:Array.isArray(out.starters)?out.starters:[],
         avoid:clean(out.avoid), builtAt:new Date().toISOString()};
@@ -1407,17 +1421,26 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
   }
 
   async function makeDraft(){
+    if(takesLeft <= 0){
+      setErr('That is ten takes on this message, which is the limit on one assist. Send one of them, or edit '
+        + 'the last one yourself - at this point the drafts are not getting better, they are getting different.');
+      return;
+    }
     setBusy('draft'); setErr(null);
     const a = APPROACHES.find(x=>x.id===approach)||APPROACHES[1];
     try{
       const out = await llmJSON(sb, 'draft_message',
         "You write a real first outreach message for a professional. Ground it ONLY in the given context - never invent shared history, mutual friends, articles or events. Sound like a person, not a template. No flattery, no buzzwords, no 'I hope this finds you well'. Under 110 words. Ask for one specific, easy thing. Never use em dashes; write a spaced hyphen instead.",
         `The sender:\n${strategyBrief(settings)}\n\nThe recipient:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nWhy the sender saved them: ${ctx.whySaved||'unknown'}\nShared ground: ${((br.shared&&br.shared.length?br.shared:ctx.common)||[]).join('; ')||'none confirmed'}\nBrief: ${br.careerSummary||'none'}\nThings the sender has learned about them: ${memories.map(m=>m.value).join('; ')||'nothing captured yet'}\n${captured||''}\n\nApproach: ${a.label} - ${a.brief}.\n\nReturn JSON {"subject":"short subject line for email use","message":"the message body"}`,
-        800);
+        800, exchangeKey);
       setDraft(clean(out.message));
-      await onUpdate(row, {ai_draft:clean(out.message), status: row.status==='prospect'?'ready_to_contact':row.status});
-      track('draft_written', {approach, had_brief: !!br.careerSummary, memories: memories.length});
-      flash('Draft written - you always click send');
+      await onUpdate(row, {ai_draft:clean(out.message),
+        status: row.status==='prospect'?'ready_to_contact':row.status,
+        context: {...ctx, exchange: exchangeNo, takes: takes + 1}});
+      track('draft_written', {approach, had_brief: !!br.careerSummary, memories: memories.length,
+        take: takes + 1, exchange: exchangeNo});
+      flash(takes === 0 ? 'Draft written. One assist covers all ten takes.'
+                        : 'Take ' + (takes+1) + ' of ' + TAKE_LIMIT + '. Same assist.');
     }catch(e){ setErr(e.message||String(e)); }
     setBusy(null);
   }
@@ -1477,7 +1500,12 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
     try{
       await onEvent(row, 'reply', null);
       if(row.status!=='replied') await onStage(row, 'replied');
-      track('reply_logged', {days_since_sent: Math.max(0, Math.round(days(row.contacted_at)||0))});
+      /* Their answer starts a new exchange: writing back is new work, so the
+         take counter resets and the next draft costs a fresh assist. The event
+         is written first, above, so a failure here cannot lose the signal. */
+      await onUpdate(row, {context: {...ctx, exchange: exchangeNo + 1, takes: 0}});
+      track('reply_logged', {days_since_sent: Math.max(0, Math.round(days(row.contacted_at)||0)),
+        exchange: exchangeNo + 1});
       setJustReplied(true);
       setTab('notes');
       flash('Logged. What did they say?');
@@ -1614,9 +1642,16 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
       {tab==='brief' &&
         <div className="stack fade" style={{gap:16,marginTop:24}}>
           {!br.careerSummary &&
-            <Empty title="No brief yet."
-              body="Mighty assembles what it can from the profile and your strategy: why this person matters to your goal, what you have in common, and how to open the conversation. It never invents facts."
-              cta={busy==='brief'?'Preparing…':'Prepare me'} onCta={makeBrief}/>}
+            <F>
+              <Empty title="No brief yet."
+                body="Mighty assembles what it can from the profile and your strategy: why this person matters to your goal, what you have in common, and how to open the conversation. It never invents facts."
+                cta={busy==='brief'?'Preparing…':'Prepare me'} onCta={makeBrief}/>
+              {/* Free on purpose. A brief is how you decide someone is NOT worth
+                  your time, and charging for that charges people to say no. */}
+              <div className="hint" style={{textAlign:'center'}}>
+                Free. Reading a brief and deciding they are not worth your time should cost you nothing.
+              </div>
+            </F>}
           {br.whyMatters &&
             <div className="why" style={{padding:'22px 24px'}}>
               <div className="eyebrow b">Why this person matters to you</div>
@@ -1649,7 +1684,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
               <button className="btn g sm" onClick={makeBrief} disabled={busy==='brief'}>
                 {busy==='brief'?<span><span className="spin"/> Refreshing</span>:'Rebuild brief'}
               </button>
-              <span className="meta">Built {ago(br.builtAt)||'just now'}</span>
+              <span className="meta">Built {ago(br.builtAt)||'just now'} · free</span>
             </div>}
         </div>}
 
@@ -1673,6 +1708,11 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                 <button className="btn" style={{alignSelf:'flex-start'}} onClick={makeDraft} disabled={busy==='draft'}>
                   {busy==='draft'?<span><span className="spin"/> Writing</span>:'Write the draft'}
                 </button>
+                <div className="hint">
+                  {takes===0
+                    ? 'Costs one assist, and that one assist covers every rewrite of this message - up to ten.'
+                    : 'Already paid for on this message. ' + takesLeft + ' of ' + TAKE_LIMIT + ' takes left.'}
+                </div>
               </div>}
             {draft &&
               <F>
@@ -1681,9 +1721,13 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                 <div className="row" style={{gap:10,marginTop:16,flexWrap:'wrap'}}>
                   <button className="btn sm" onClick={copyAndOpen}>Copy &amp; open LinkedIn</button>
                   <button className="btn g sm" onClick={()=>onUpdate(row,{ai_draft:draft}).then(()=>flash('Saved'))}>Save draft</button>
-                  <button className="btn g sm" onClick={makeDraft} disabled={busy==='draft'}>
-                    {busy==='draft'?<span><span className="spin"/> Rewriting</span>:'Rewrite'}
+                  <button className="btn g sm" onClick={makeDraft} disabled={busy==='draft'||takesLeft<=0}>
+                    {busy==='draft'?<span><span className="spin"/> Rewriting</span>
+                      : takesLeft<=0 ? 'No takes left' : 'Rewrite'}
                   </button>
+                  <span className="meta">
+                    {takes>0 ? 'Take '+takes+' of '+TAKE_LIMIT+' · same assist' : ''}
+                  </span>
                 </div>
                 <div className="hint" style={{marginTop:12}}>
                   Copy &amp; open puts the message on your clipboard and opens their profile. Mighty never sends it,
