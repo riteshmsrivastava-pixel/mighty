@@ -906,8 +906,12 @@ grant  execute on function public.plan_relationship_cap(text) to service_role;
 -- a leak: an anon caller gets 0 and an empty array, which is exactly what the
 -- probe returned. authenticated must keep EXECUTE or Discover stops working.
 -- anon loses it because an unauthenticated caller has no business here at all.
-revoke execute on function public.connections_match(text[], text[], int) from anon;
-revoke execute on function public.connections_count() from anon;
+-- from public, NOT from anon. PUBLIC is an implicit group containing every role,
+-- so anon holds EXECUTE through it and revoking from anon alone is a no-op - a
+-- mistake made in the first version of this and caught by reading the privilege
+-- listing rather than trusting the statement.
+revoke execute on function public.connections_match(text[], text[], int) from public, anon;
+revoke execute on function public.connections_count() from public, anon;
 grant  execute on function public.connections_match(text[], text[], int) to authenticated, service_role;
 grant  execute on function public.connections_count() to authenticated, service_role;
 
