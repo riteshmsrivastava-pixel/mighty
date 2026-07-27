@@ -1420,6 +1420,13 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
     setBusy(null);
   }
 
+  /* Verbatim samples of how this user actually writes, from their own sent
+     messages in the archive. Six is enough to establish a voice and few enough
+     to keep the prompt honest about length. Without this, reading the message
+     archive would be the fourth time in this codebase that data was fetched,
+     parsed and then dropped at the last step. */
+  const voice = (((settings.knowledge||{}).messages||{}).styleSamples||[]).slice(0, 6);
+
   async function makeDraft(){
     if(takesLeft <= 0){
       setErr('That is ten takes on this message, which is the limit on one assist. Send one of them, or edit '
@@ -1431,7 +1438,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
     try{
       const out = await llmJSON(sb, 'draft_message',
         "You write a real first outreach message for a professional. Ground it ONLY in the given context - never invent shared history, mutual friends, articles or events. Sound like a person, not a template. No flattery, no buzzwords, no 'I hope this finds you well'. Under 110 words. Ask for one specific, easy thing. Never use em dashes; write a spaced hyphen instead.",
-        `The sender:\n${strategyBrief(settings)}\n\nThe recipient:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nWhy the sender saved them: ${ctx.whySaved||'unknown'}\nShared ground: ${((br.shared&&br.shared.length?br.shared:ctx.common)||[]).join('; ')||'none confirmed'}\nBrief: ${br.careerSummary||'none'}\nThings the sender has learned about them: ${memories.map(m=>m.value).join('; ')||'nothing captured yet'}\n${captured||''}\n\nApproach: ${a.label} - ${a.brief}.\n\nReturn JSON {"subject":"short subject line for email use","message":"the message body"}`,
+        `The sender:\n${strategyBrief(settings)}\n\nThe recipient:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nWhy the sender saved them: ${ctx.whySaved||'unknown'}\nShared ground: ${((br.shared&&br.shared.length?br.shared:ctx.common)||[]).join('; ')||'none confirmed'}\nBrief: ${br.careerSummary||'none'}\nThings the sender has learned about them: ${memories.map(m=>m.value).join('; ')||'nothing captured yet'}\n${captured||''}\n\nApproach: ${a.label} - ${a.brief}.${voice.length ? '\n\nHOW THIS SENDER ACTUALLY WRITES. These are verbatim messages they have sent before. Match their rhythm, sentence length, level of formality and habits of greeting and sign-off. Do not copy phrases from them and do not reuse their content:\n' + voice.map((v,i)=>(i+1)+'. '+v).join('\n') : ''}\n\nReturn JSON {"subject":"short subject line for email use","message":"the message body"}`,
         800, exchangeKey);
       setDraft(clean(out.message));
       await onUpdate(row, {ai_draft:clean(out.message),
@@ -1712,6 +1719,8 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                   {takes===0
                     ? 'Costs one assist, and that one assist covers every rewrite of this message - up to ten.'
                     : 'Already paid for on this message. ' + takesLeft + ' of ' + TAKE_LIMIT + ' takes left.'}
+                  {voice.length>0 &&
+                    ' Written to match how you write, from ' + voice.length + ' of your own past messages.'}
                 </div>
               </div>}
             {draft &&
@@ -2464,6 +2473,40 @@ function csvObjects(text, mustHave){
     const o = {}; hdr.forEach((k, i) => o[k] = (r[i] || '').trim()); return o;
   });
 }
+/* What the message archive is worth, and what it is not.
+   LinkedIn's messages.csv has FROM / TO / DATE / SUBJECT / CONTENT. Matching
+   the user's own name against FROM is how we tell which half is theirs; if the
+   name cannot be matched at all we keep nothing rather than guess, because
+   guessing wrong here means storing someone else's words as if they were the
+   user's own. */
+function messageStyle(rows, profile){
+  const first = clean((profile||{})['First Name']).toLowerCase();
+  const last  = clean((profile||{})['Last Name']).toLowerCase();
+  const me    = clean(first + ' ' + last).toLowerCase();
+  const mine  = [], theirs = [];
+  (rows||[]).forEach(r=>{
+    const from = clean(r['FROM']).toLowerCase();
+    if(!from) return;
+    const isMine = me && (from === me || (first && last && from.indexOf(first)>=0 && from.indexOf(last)>=0));
+    (isMine ? mine : theirs).push(r);
+  });
+  /* No confident match on the user's own name means no samples. A smaller
+     Knowledge Base is better than one that thinks a stranger writes like you. */
+  const identified = !!me && mine.length > 0;
+  const lens = mine.map(r=>clean(r['CONTENT']).length).filter(n=>n>0);
+  const samples = identified
+    ? mine.map(r=>clean(r['CONTENT'])).filter(t=>t.length>=40 && t.length<=1200).slice(-60)
+    : [];
+  return {
+    sent: mine.length,
+    received: theirs.length,
+    identified,
+    medianSentLength: lens.length ? lens.slice().sort((a,b)=>a-b)[Math.floor(lens.length/2)] : 0,
+    /* Capped hard. This is a writing sample, not a mail archive, and the raw
+       zip is already stored if we ever need more. */
+    styleSamples: samples.slice(0, 40).map(t=>t.slice(0, 600)),
+  };
+}
 const liDate = (s)=>{                       // "26 Jul 2026" -> "2026-07-26"
   const m = String(s||'').trim().match(/^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})$/);
   if(!m) return null;
@@ -2499,7 +2542,7 @@ async function readArchive(file){
   const recs      = await grab('Recommendations_Received.csv', ['First Name']);
   const invites   = await grab('Invitations.csv', ['From','Direction']);
   const conns     = await grab('Connections.csv', ['First Name','URL','Connected On']);
-  const msgs      = find('messages.csv');
+  const msgs      = await grab('messages.csv', ['FROM','TO','CONTENT']);
 
   const p = (profile && profile[0]) || {};
   const pos = (positions || []).map(r => ({
@@ -2537,8 +2580,15 @@ async function readArchive(file){
       outgoing: (invites || []).filter(r => (r['Direction'] || '').toUpperCase() === 'OUTGOING').length,
     },
     connections,
-    /* Named rather than read. The file holds both sides of conversations with
-       people who are not users, so v1 records that it exists and stops there. */
+    /* Read, with the consent screen saying so.
+       The line is not "do we open this file" - it is whose words we keep. The
+       user's own sent messages are the only place their actual writing voice
+       exists, and a product that drafts in your voice without ever having seen
+       it is guessing. So the sent half is sampled and kept.
+       The received half is deliberately not: those are someone else's words,
+       written to one person, and they teach Mighty nothing about how the user
+       writes. Counting them is enough. */
+    messages: msgs ? messageStyle(msgs, p) : null,
     messagesPresent: !!msgs,
     missing: [
       !find('Shares.csv') && 'your posts',
@@ -2597,7 +2647,9 @@ function Onboarding({sb, user, settings, onSave, onDone}){
       setIdent({ headline: d.identity.headline, location: d.identity.location,
                  currentRole: p0.title || '', currentCompany: p0.company || '' });
       track('kb_archive_parsed', {connections:d.connections.length, positions:d.positions.length,
-                                 skills:d.skills.length, messages:d.messagesPresent});
+                                 skills:d.skills.length, messages:d.messagesPresent,
+                                 style_samples: d.messages ? d.messages.styleSamples.length : 0,
+                                 style_identified: d.messages ? d.messages.identified : false});
 
       /* Keep the file. The parser will improve and re-deriving beats asking
          someone to export again. Failure here must not lose the parse. */
@@ -2698,6 +2750,7 @@ function Onboarding({sb, user, settings, onSave, onDone}){
         invitations: arch ? arch.invitations : null,
         connectionCount: arch ? arch.connections.length : 0,
         messagesPresent: arch ? arch.messagesPresent : false,
+        messages: arch ? arch.messages : null,
         resumeText: resume ? resume.slice(0, 12000) : '',
         answers: Object.keys(answers).map(k => ({q:k, a:clean(answers[k])})).filter(x => x.a),
       };
@@ -2756,9 +2809,11 @@ function Onboarding({sb, user, settings, onSave, onDone}){
                 anything. That is worth saying plainly rather than burying: it is why the file stays in your
                 account, why nothing from it is ever pooled with other accounts, and why you can delete all of it
                 in one action.</div>
-              <div><b style={{color:'var(--ink)'}}>Your message history is in the file too.</b> Mighty does not
-                read it. It notes that it exists and stops there, because that file holds both halves of
-                conversations that were not only yours.</div>
+              <div><b style={{color:'var(--ink)'}}>Your message history is in the file, and Mighty reads it.</b>
+                Only your half. The messages you sent are the only record of how you actually write, and a product
+                that drafts in your voice without having seen it is guessing. Mighty keeps up to forty of your own
+                messages as a writing sample. The replies you received are counted and not kept, because those are
+                someone else's words. You can delete all of it, at any time, in one action.</div>
               <div><b style={{color:'var(--ink)'}}>It never trains a model.</b> Not this one, not any. The models
                 are unchanged by anything you give it.</div>
             </div>
