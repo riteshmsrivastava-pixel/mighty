@@ -64,6 +64,69 @@
   .pill.on{background:var(--brand);color:#fff;font-weight:700}
   /* the use-case chips - "every opportunity starts with someone" */  .chipbox{padding:16px 26px;border-radius:14px;background:var(--card);font-size:16px;font-weight:600;box-shadow:var(--sh);white-space:nowrap}
   /* the product tour */
+  /* the two-up demo: extension on LinkedIn, and search inside the app */
+  .duo{display:grid;gap:26px;margin-top:34px}
+  @media (min-width:960px){ .duo{grid-template-columns:1fr 1fr;gap:30px} }
+  .duo .pane{display:flex;flex-direction:column}
+  .duo .cap{font-size:15.5px;color:var(--sub);line-height:1.6;margin-top:14px;max-width:44ch}
+  .win{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;
+       box-shadow:var(--shL);position:relative}
+  .winbar{display:flex;gap:6px;align-items:center;padding:9px 13px;background:#F6F4F1;border-bottom:1px solid var(--line)}
+  .wd{width:9px;height:9px;border-radius:50%}
+  .wurl{margin-left:9px;font-size:10.5px;color:var(--mute);font-family:ui-monospace,Menlo,monospace;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .winbody{padding:16px 18px;min-height:330px;position:relative}
+  /* the LinkedIn-ish page behind the panel */
+  .li-row{display:flex;gap:11px;align-items:center;padding:11px 0;border-bottom:1px solid #F1F0F4}
+  .li-row:last-child{border-bottom:0}
+  .li-av{width:38px;height:38px;border-radius:50%;flex:none;background:#E8E5F8}
+  .li-l1{height:9px;border-radius:99px;background:#E4E1EA;width:44%}
+  .li-l2{height:8px;border-radius:99px;background:#EFEDF2;width:64%;margin-top:6px}
+  /* the Mighty panel that slides in over it */
+  .mpanel{position:absolute;top:14px;right:14px;width:250px;background:#fff;border:1px solid var(--line);
+          border-radius:14px;box-shadow:0 24px 50px -26px rgba(27,26,31,.4);padding:14px}
+  /* Hidden only when JS has said it can put it back. Without that class the
+     panel simply shows, so a failed observer never costs anyone the content. */
+  .js-anim .mpanel{opacity:0;transform:translateX(18px)}
+  .js-anim .in .mpanel{animation:slidein .55s .35s cubic-bezier(.2,.8,.3,1) forwards}
+  @keyframes slidein{to{opacity:1;transform:translateX(0)}}
+  .mhead{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:800;letter-spacing:-.02em}
+  .mmark{position:relative;width:20px;height:14px;flex:none}
+  .mmark i{position:absolute;top:0;width:14px;height:14px;border-radius:50%}
+  .mmark i:first-child{left:0;background:var(--brand)}
+  .mmark i:last-child{left:6px;background:#F2A78E;mix-blend-mode:multiply}
+  .mline{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;padding:7px 0;
+         border-bottom:1px solid #F1F0F4}
+  .mline:last-of-type{border-bottom:0}
+  .mline span{color:var(--mute)} .mline b{color:var(--ink)}
+  .mbtn{margin-top:10px;width:100%;text-align:center;background:var(--brand);color:#fff;border-radius:999px;
+        padding:9px;font-size:12.5px;font-weight:700}
+  /* the app search: a query types itself, then results appear one by one */
+  .qbox{border:1px solid var(--line);border-radius:12px;background:#FCFBF9;padding:13px 15px;font-size:14px;
+        color:var(--ink2);min-height:46px;line-height:1.5}
+  .caret{display:inline-block;width:1.5px;height:15px;background:var(--brand);vertical-align:-2px;margin-left:1px}
+  .in .caret{animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .res{display:flex;gap:11px;align-items:flex-start;padding:11px 0;border-bottom:1px solid #F1F0F4}
+  .res:last-child{border-bottom:0}
+  .js-anim .res{opacity:0}
+  .js-anim .in .res{animation:rise .5s cubic-bezier(.2,.8,.3,1) forwards}
+  .js-anim .in .res:nth-child(1){animation-delay:1.5s} .js-anim .in .res:nth-child(2){animation-delay:1.75s}
+  .js-anim .in .res:nth-child(3){animation-delay:2.0s} .js-anim .in .res:nth-child(4){animation-delay:2.25s}
+  .js-anim .in .res:nth-child(5){animation-delay:2.5s}
+  @keyframes rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+  .res .rav{width:32px;height:32px;border-radius:50%;flex:none;background:var(--brand-soft2);
+            color:var(--brand-ink);display:flex;align-items:center;justify-content:center;
+            font-size:11.5px;font-weight:700}
+  .res b{display:block;font-size:14px}
+  .res em{display:block;font-style:normal;font-size:12.5px;color:var(--sub);margin-top:1px}
+  .res i{display:block;font-style:normal;font-size:12px;color:var(--brand-ink);margin-top:3px;line-height:1.45}
+  .res .add{margin-left:auto;flex:none;font-size:12px;font-weight:700;color:var(--brand-ink);
+            border:1px solid #DCD5F8;border-radius:999px;padding:5px 12px;background:#fff}
+  @media (prefers-reduced-motion:reduce){
+    .js-anim .mpanel,.js-anim .res{opacity:1;transform:none;animation:none}
+    .in .caret{animation:none}
+  }
   .tour-tabs{display:flex;gap:6px;flex-wrap:wrap}
   .ttab{padding:9px 18px;border-radius:999px;font-size:14.5px;font-weight:700;color:var(--mute);
         background:none;border:1px solid var(--line);cursor:pointer;font-family:inherit}
@@ -260,6 +323,87 @@
       <div style="font-size:12px;font-weight:700;color:var(--brand);letter-spacing:.08em">07</div>
       <div style="font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:8px">Grow</div>
       <div style="font-size:15px;line-height:1.55;color:var(--sub);margin-top:6px">Relationships turn into opportunities.</div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap" data-reveal>
+  <div class="kicker">Two ways in</div>
+  <h2 class="h-sub" style="margin-top:14px;max-width:680px">Meet them where you already are.</h2>
+  <p class="lead" style="margin-top:18px;max-width:640px;font-size:17px">
+    Mighty rides along while you browse LinkedIn, and it answers questions about the people you already
+    know that no search box on LinkedIn will take.
+  </p>
+
+  <div class="duo">
+    <!-- left: the extension, on LinkedIn -->
+    <div class="pane">
+      <div class="win">
+        <div class="winbar">
+          <span class="wd" style="background:#F0685C"></span><span class="wd" style="background:#F4BF4F"></span>
+          <span class="wd" style="background:#61C554"></span>
+          <span class="wurl">linkedin.com/in/priya-nair</span>
+        </div>
+        <div class="winbody">
+          <div style="display:flex;gap:13px;align-items:center;padding-bottom:13px;border-bottom:1px solid #F1F0F4">
+            <span class="li-av"></span>
+            <span style="flex:1">
+              <span style="display:block;font-size:15px;font-weight:700">Priya Nair</span>
+              <span style="display:block;font-size:12.5px;color:var(--sub);margin-top:2px">Founder &amp; CEO &middot; Vellum &middot; Boston</span>
+            </span>
+          </div>
+          <div class="li-row"><span class="li-av"></span><span style="flex:1"><span class="li-l1"></span><span class="li-l2"></span></span></div>
+          <div class="li-row"><span class="li-av"></span><span style="flex:1"><span class="li-l1" style="width:52%"></span><span class="li-l2" style="width:58%"></span></span></div>
+          <div class="li-row"><span class="li-av"></span><span style="flex:1"><span class="li-l1" style="width:38%"></span><span class="li-l2" style="width:70%"></span></span></div>
+
+          <div class="mpanel">
+            <div class="mhead"><span class="mmark"><i></i><i></i></span>Mighty</div>
+            <div style="font-size:12px;color:var(--sub);margin:8px 0 10px;line-height:1.5">
+              Read from this page, not guessed.
+            </div>
+            <div class="mline"><span>Fit for your goal</span><b>Strong</b></div>
+            <div class="mline"><span>You overlap at</span><b>Novartis</b></div>
+            <div class="mline"><span>Last spoke</span><b>Never</b></div>
+            <div class="mline"><span>Timing</span><b>New role, 4 mo</b></div>
+            <div class="mbtn">Save to Mighty</div>
+          </div>
+        </div>
+      </div>
+      <div class="cap">
+        <b style="color:var(--ink)">On LinkedIn.</b> Open anyone's profile and Mighty reads what is on the
+        page: where you overlap, whether they fit what you are building, and whether the timing is unusual.
+        One click saves them. It never clicks Connect.
+      </div>
+    </div>
+
+    <!-- right: the search only Mighty can answer -->
+    <div class="pane">
+      <div class="win">
+        <div class="winbar">
+          <span class="wd" style="background:#F0685C"></span><span class="wd" style="background:#F4BF4F"></span>
+          <span class="wd" style="background:#61C554"></span>
+          <span class="wurl">yourmighty.com/app</span>
+        </div>
+        <div class="winbody">
+          <div style="font-size:13px;font-weight:700;letter-spacing:-.01em">Describe who you are looking for</div>
+          <div class="qbox" style="margin-top:9px">
+            Boston investors who back idea-stage companies and once worked in pharma<span class="caret"></span>
+          </div>
+          <div style="font-size:11.5px;color:var(--mute);margin-top:9px">5 of 19,928 connections</div>
+          <div style="margin-top:4px">
+            <div class="res"><span class="rav">SM</span><span style="flex:1;min-width:0"><b>S. Mehta</b><em>Partner, early-stage fund</em><i>Was at Novartis while you were</i></span><span class="add">Add</span></div>
+            <div class="res"><span class="rav">AI</span><span style="flex:1;min-width:0"><b>A. Iyer</b><em>Principal, seed fund &middot; Boston</em><i>Writes first cheques into health AI</i></span><span class="add">Add</span></div>
+            <div class="res"><span class="rav">PR</span><span style="flex:1;min-width:0"><b>P. Raghavan</b><em>Operating partner</em><i>Runs diligence for two Boston funds</i></span><span class="add">Add</span></div>
+            <div class="res"><span class="rav">DK</span><span style="flex:1;min-width:0"><b>D. Kaur</b><em>Angel &middot; ex-pharma commercial</em><i>Connected 2019, nothing since</i></span><span class="add">Add</span></div>
+            <div class="res"><span class="rav">TL</span><span style="flex:1;min-width:0"><b>T. Lam</b><em>Managing director</em><i>Overlaps your Jindal years</i></span><span class="add">Add</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="cap">
+        <b style="color:var(--ink)">In Mighty.</b> Ask for the thing no filter will take. Mighty searches
+        the people you are already connected to and comes back with five, each carrying the reason it
+        chose them. If nobody matches, it says so.
+      </div>
     </div>
   </div>
 </section>
@@ -510,6 +654,8 @@
   (function(){
     var els = [].slice.call(document.querySelectorAll('[data-reveal]'));
     if(!('IntersectionObserver' in window)){ els.forEach(function(e){ e.classList.add('in'); }); return; }
+    /* Only now is it safe to hide the animated pieces: this observer will reveal them. */
+    document.documentElement.classList.add('js-anim');
     var io = new IntersectionObserver(function(entries){
       entries.forEach(function(en){ if(en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target); } });
     }, {rootMargin:'0px 0px -8% 0px', threshold:0.06});
