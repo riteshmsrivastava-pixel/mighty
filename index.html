@@ -63,17 +63,120 @@
     font-size:13.5px;font-weight:600;color:#6B655C;white-space:nowrap}
   .pill.on{background:var(--brand);color:#fff;font-weight:700}
   /* the use-case chips - "every opportunity starts with someone" */  .chipbox{padding:16px 26px;border-radius:14px;background:var(--card);font-size:16px;font-weight:600;box-shadow:var(--sh);white-space:nowrap}
-  /* the product tour */
+  /* the journey: the page holds still while this section moves */
+  .jtrack{position:relative}
+  .js-anim .jtrack{height:calc(7 * 58vh)}
+  .js-anim .jsticky{position:sticky;top:12vh;height:76vh;display:grid;gap:44px;align-items:center;
+                    grid-template-columns:1fr}
+  @media (min-width:900px){ .js-anim .jsticky{grid-template-columns:.85fr 1.15fr} }
+  .jsteps{display:grid;gap:34px 40px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));margin-top:44px}
+  .js-anim .jsteps{display:block;margin:0;max-height:76vh;overflow:hidden}
+  .jstep{padding-top:16px;border-top:2px solid var(--line)}
+  .js-anim .jstep{border-top:0;padding:7px 0 7px 20px;border-left:2px solid var(--line);
+                  opacity:.34;transition:opacity .35s, border-color .35s}
+  .js-anim .jstep.on{opacity:1;border-left-color:var(--brand)}
+  .jstep .jn{font-size:12px;font-weight:700;color:var(--brand);letter-spacing:.08em}
+  .jstep .jt{font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:8px}
+  .js-anim .jstep .jt{font-size:17px;margin-top:2px}
+  .jstep .jd{font-size:15px;line-height:1.55;color:var(--sub);margin-top:6px}
+  .js-anim .jstep .jd{font-size:13.5px;max-height:0;overflow:hidden;opacity:0;transition:all .35s}
+  .js-anim .jstep.on .jd{max-height:60px;opacity:1;margin-top:4px}
+  .jscreens{display:none}
+  .js-anim .jscreens{display:block;position:relative;height:66vh;min-height:340px}
+  .jscreen{position:absolute;inset:0;background:#fff;border:1px solid var(--line);border-radius:18px;
+           box-shadow:var(--shL);padding:22px 24px;opacity:0;transform:translateY(10px);
+           transition:opacity .4s, transform .4s;pointer-events:none;overflow:hidden}
+  .jscreen.on{opacity:1;transform:none}
+  .jchips{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+  .jchips span{font-size:11.5px;font-weight:600;padding:6px 12px;border-radius:999px;
+               background:var(--brand-soft2);color:var(--brand-ink)}
+  .jline{display:flex;justify-content:space-between;gap:12px;font-size:12.5px;padding:9px 0;
+         border-bottom:1px solid var(--line2)}
+  .jline:last-child{border-bottom:0} .jline span{color:var(--sub)} .jline b{color:var(--ink)}
+  .jmark{position:absolute;width:1px;height:1px;opacity:0}
+  @media (prefers-reduced-motion:reduce){ .jscreen{transition:none} }
+  /* the hero MacBook: Jayati's four beats, looping */
+  .macwrap{position:relative;margin:52px auto 0;max-width:880px;padding:0 8px}
+  .mac{position:relative}
+  .lid{background:#1C1B20;border-radius:16px;padding:11px 11px 13px;box-shadow:0 40px 80px -40px rgba(27,26,31,.55)}
+  .notch{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:96px;height:14px;
+         background:#1C1B20;border-radius:0 0 9px 9px;z-index:3}
+  .cam{position:absolute;top:4px;left:50%;transform:translateX(-50%);width:5px;height:5px;border-radius:50%;
+       background:#3A3842;z-index:4}
+  .screen{position:relative;background:#FAF9F7;border-radius:8px;overflow:hidden;aspect-ratio:16/10.2}
+  .base{height:13px;margin:0 auto;width:104%;max-width:none;transform:translateX(-2%);
+        background:linear-gradient(#C9C6CE,#9E9BA6);border-radius:0 0 12px 12px}
+  .foot{height:6px;width:16%;margin:0 auto;background:#8D8A95;border-radius:0 0 8px 8px}
+  /* the app inside */
+  .stage{position:absolute;inset:0;font-size:12px;text-align:left}
+  .sbar{display:flex;align-items:center;gap:7px;padding:9px 12px;border-bottom:1px solid var(--line);background:#fff}
+  .sbar .mmark{width:18px;height:13px}
+  .sbar .mmark i{width:13px;height:13px}
+  .sbar .mmark i:last-child{left:5px}
+  .sbar b{font-size:12.5px;letter-spacing:-.02em}
+  .sbar .who{margin-left:auto;font-size:10.5px;color:var(--mute)}
+  .beat{position:absolute;left:0;right:0;top:33px;bottom:0;padding:14px 16px;opacity:0}
+  .js-anim .beat{animation:beat 17s infinite}
+  .js-anim .beat:nth-child(2){animation-delay:0s}
+  .js-anim .beat:nth-child(3){animation-delay:4.25s}
+  .js-anim .beat:nth-child(4){animation-delay:8.5s}
+  .js-anim .beat:nth-child(5){animation-delay:12.75s}
+  @keyframes beat{
+    0%{opacity:0;transform:translateY(7px)}
+    2.5%,23%{opacity:1;transform:none}
+    26%,100%{opacity:0;transform:translateY(-5px)}
+  }
+  .bk{font-size:9.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--mute)}
+  .bq{font-size:15px;font-weight:800;letter-spacing:-.025em;margin-top:3px}
+  .bsub{font-size:11.5px;color:var(--sub);margin-top:2px}
+  .brow{display:flex;gap:9px;align-items:flex-start;padding:9px 11px;border:1px solid var(--line);
+        border-radius:10px;margin-top:9px;background:#fff}
+  .brow.hot{border-color:#EFC9C4;background:#FBEBE9}
+  .brow .bav{width:26px;height:26px;border-radius:50%;flex:none;background:var(--brand-soft2);
+             color:var(--brand-ink);display:flex;align-items:center;justify-content:center;
+             font-size:9.5px;font-weight:700}
+  .brow b{display:block;font-size:11.5px}
+  .brow em{display:block;font-style:normal;font-size:10.5px;color:var(--mute);margin-top:1px}
+  .bcta{margin-left:auto;flex:none;font-size:10px;font-weight:700;background:var(--brand);color:#fff;
+        border-radius:999px;padding:5px 10px}
+  .bcta.g{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .bcard{margin-top:9px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;
+         font-size:11px;line-height:1.55;color:var(--body)}
+  .bcard b{color:var(--ink)}
+  .btype{font-size:11px;line-height:1.6;color:var(--ink2);white-space:pre-wrap}
+  .js-anim .btype{overflow:hidden;white-space:nowrap;width:0;
+                  animation:type 2.4s steps(46) 9.2s forwards}
+  @keyframes type{to{width:100%}}
+  .bnote{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:var(--sub);line-height:1.6}
+  @media (max-width:700px){ .macwrap{max-width:560px} .beat{top:31px;padding:11px 12px} .bq{font-size:13.5px} }
+  @media (prefers-reduced-motion:reduce){
+    .js-anim .beat{animation:none;opacity:0}
+    .js-anim .beat:nth-child(2){opacity:1}
+    .js-anim .btype{animation:none;width:auto;white-space:pre-wrap;overflow:visible}
+  }
+  /* The name, given a little weight wherever it appears in running text. */
+  .mg{font-weight:700;color:var(--ink);
+      box-shadow:inset 0 -0.30em 0 var(--brand-soft2);
+      border-radius:2px;padding:0 1px}
   .usechip{display:inline-block;padding:11px 20px;border-radius:999px;font-size:15.5px;
            font-weight:600;color:#5B554D;background:#fff;border:1px solid var(--line)}
   .usechip.v{background:var(--brand-soft2);border-color:transparent}
   .usechip.p{background:#FDEDEB;border-color:transparent}
   .usechip.g{background:#E9F1EC;border-color:transparent}
   /* the two-up demo: extension on LinkedIn, and search inside the app */
-  .duo{display:grid;gap:26px;margin-top:34px}
-  @media (min-width:960px){ .duo{grid-template-columns:1fr 1fr;gap:30px} }
-  .duo .pane{display:flex;flex-direction:column}
-  .duo .cap{font-size:15.5px;color:var(--sub);line-height:1.6;margin-top:14px;max-width:44ch}
+  .duo{display:grid;gap:20px;margin-top:34px}
+  @media (min-width:900px){ .duo{grid-template-columns:1fr 1fr;gap:22px} }
+  /* each half is its own surface: a labelled panel, not two loose mocks */
+  .duo .pane{display:flex;flex-direction:column;background:#fff;border:1px solid var(--line);
+             border-radius:22px;padding:24px 24px 26px;box-shadow:var(--sh)}
+  .duo .pane .win{box-shadow:0 18px 40px -26px rgba(27,26,31,.35)}
+  .pnum{display:inline-flex;align-items:center;gap:9px;font-size:11px;font-weight:700;letter-spacing:.12em;
+        text-transform:uppercase;color:var(--brand-ink)}
+  .pnum span{width:22px;height:22px;border-radius:50%;background:var(--brand-soft2);
+             display:flex;align-items:center;justify-content:center;font-size:11px;letter-spacing:0}
+  .ptitle{font-size:20px;font-weight:800;letter-spacing:-.025em;margin:10px 0 16px}
+  .duo .cap{font-size:14.5px;color:var(--sub);line-height:1.6;margin-top:16px;padding-top:15px;
+            border-top:1px solid var(--line2)}
   .win{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;
        box-shadow:var(--shL);position:relative}
   .winbar{display:flex;gap:6px;align-items:center;padding:9px 13px;background:#F6F4F1;border-bottom:1px solid var(--line)}
@@ -133,18 +236,6 @@
     .in .caret{animation:none}
   }
   .tour-tabs{display:flex;gap:6px;flex-wrap:wrap}
-  .ttab{padding:9px 18px;border-radius:999px;font-size:14.5px;font-weight:700;color:var(--mute);
-        background:none;border:1px solid var(--line);cursor:pointer;font-family:inherit}
-  .ttab.on{background:var(--ink);border-color:var(--ink);color:#fff}
-  .tframe{margin-top:14px;background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;
-          box-shadow:var(--shL);text-align:left}
-  .tbar{display:flex;gap:6px;align-items:center;padding:10px 14px;background:#F6F4F1;border-bottom:1px solid var(--line)}
-  .tdot{width:9px;height:9px;border-radius:50%}
-  .turl{font-size:11px;color:var(--mute);margin-left:8px;font-family:ui-monospace,Menlo,monospace}
-  .tpane{display:none;padding:26px 28px 24px;min-height:320px}
-  .tpane.on{display:block;animation:tfade .25s ease}
-  @keyframes tfade{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
-  @media (prefers-reduced-motion:reduce){.tpane.on{animation:none}}
   .tq{font-size:22px;font-weight:800;letter-spacing:-.025em}
   .tsub{font-size:14.5px;color:var(--mute);margin-top:5px}
   .tinput{margin-top:16px;padding:13px 15px;border:1px solid var(--line);border-radius:12px;background:#FCFBF9;
@@ -235,46 +326,61 @@
       <a href="/install/" class="btn w">Add to your browser</a>
     </div>
     <div style="margin-top:20px;font-size:14px;color:var(--mute)">30 days free. No card.</div>
-  </div>
-</section>
+    <div class="macwrap" data-reveal aria-label="Mighty in use: a four-step loop">
+      <div class="mac">
+        <div class="lid">
+          <span class="notch"></span><span class="cam"></span>
+          <div class="screen">
+            <div class="stage">
+              <div class="sbar">
+                <span class="mmark"><i></i><i></i></span><b>Mighty</b>
+                <span class="who">Jayati Mehra</span>
+              </div>
 
-<section id="why" class="wrap">
-  <div class="two">
-    <div data-reveal>
-      <div class="kicker">What fading costs</div>
-      <h2 class="h-sec" style="margin-top:14px">Mighty keeps the reason.</h2>
-      <p class="lead" style="margin-top:22px">
-        You met someone good. You meant to follow up. Nine months later the thread is cold and the reason
-        you liked them is gone.
-      </p>
-      <p style="margin-top:16px;font-size:19px;line-height:1.6;color:var(--ink);font-weight:700">
-        Mighty keeps the reason.
-      </p>
-    </div>
-    <div class="card" data-reveal style="padding:26px 28px">
-      <div style="display:flex;align-items:center;gap:14px">
-        <div class="av">SC</div>
-        <div>
-          <div style="font-size:17px;font-weight:700;letter-spacing:-.015em">Sarah Chen</div>
-          <div style="font-size:14px;color:var(--sub)">Two years of a relationship, remembered</div>
+              <div class="beat">
+                <div class="bk">Today</div>
+                <div class="bq">What deserves my attention?</div>
+                <div class="bsub">Good morning, Jayati. Two things are worth doing today.</div>
+                <div class="brow hot"><span class="bav">JW</span>
+                  <span style="min-width:0"><b>James Whitfield replied and you have not answered</b>
+                  <em>Two days ago. The only thing here that decays.</em></span>
+                  <span class="bcta">Reply</span></div>
+                <div class="brow"><span class="bav">SB</span>
+                  <span style="min-width:0"><b>Write to Sukrit Bansal</b><em>Writes first cheques into health AI</em></span>
+                  <span class="bcta g">Draft</span></div>
+              </div>
+
+              <div class="beat">
+                <div class="bk">James Whitfield &middot; Partner, early-stage fund</div>
+                <div class="bq">Why him, why now</div>
+                <div class="bcard"><b>Timing.</b> Moved into the partner seat four months ago, so he is
+                  writing his own cheques for the first time.</div>
+                <div class="bcard"><b>What you share.</b> You were both at Novartis, 2019 to 2021.
+                  Connected 2019, nothing since.</div>
+                <div class="bsub" style="margin-top:9px">Free. Reading a brief costs nothing.</div>
+              </div>
+
+              <div class="beat">
+                <div class="bk">Draft &middot; take 1 of 10</div>
+                <div class="bq">In your own words</div>
+                <div class="bcard" style="margin-top:10px"><div class="btype">James, we crossed paths at Novartis, though I doubt our calendars ever did.</div></div>
+                <div class="bsub" style="margin-top:9px">Written to match how you write, from your own past messages.</div>
+                <div class="brow" style="border:0;padding-left:0"><span class="bcta">Copy and open LinkedIn</span>
+                  <span class="bcta g">Try another take</span></div>
+              </div>
+
+              <div class="beat">
+                <div class="bk">After the call</div>
+                <div class="bq">Type it the way you would scribble it</div>
+                <div class="bcard"><div class="bnote">wants 2 pilot logos before term sheet - intro to Sukrit re payments - asked studio vs accelerator??</div></div>
+                <div class="bcard" style="border-color:#CFE6DA;background:#F2F8F5">
+                  <b style="color:#0F7050">Mighty remembered</b><br>
+                  Send two pilot logos &middot; Introduce Sukrit &middot; Has doubts: studio vs accelerator</div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-      <div style="margin-top:20px;display:flex;flex-direction:column">
-        <div class="trow"><span class="dot"></span>
-          <span style="flex:1;font-size:15px;color:var(--ink2)">Met at the Sloan PM panel</span>
-          <span style="font-size:13.5px;color:var(--mute)">Mar '23</span></div>
-        <div class="trow"><span class="dot"></span>
-          <span style="flex:1;font-size:15px;color:var(--ink2)">Coffee chat about switching careers</span>
-          <span style="font-size:13.5px;color:var(--mute)">Apr '23</span></div>
-        <div class="trow"><span class="dot" style="background:var(--peach)"></span>
-          <span style="flex:1;font-size:15px;color:var(--ink2)">She introduced you to Alex</span>
-          <span style="font-size:13.5px;color:var(--mute)">Jul '23</span></div>
-        <div class="trow"><span class="dot"></span>
-          <span style="flex:1;font-size:15px;color:var(--ink2)">Congratulated her promotion</span>
-          <span style="font-size:13.5px;color:var(--mute)">Jan '24</span></div>
-        <div class="trow"><span class="dot" style="background:var(--brand)"></span>
-          <span style="flex:1;font-size:15px;font-weight:700;color:var(--brand-ink)">Send the paper you promised</span>
-          <span style="font-size:13.5px;font-weight:700;color:var(--brand-ink)">Today</span></div>
+        <div class="base"></div><div class="foot"></div>
       </div>
     </div>
   </div>
@@ -302,41 +408,57 @@
 <section id="journey" class="wrap" data-reveal>
   <div class="kicker">Relationship journey</div>
   <h2 class="h-sub" style="margin-top:14px;max-width:620px">Seven steps, one continuous system.</h2>
-  <div class="journey" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:34px 40px;margin-top:44px">
-    <div style="padding-top:16px;border-top:2px solid var(--line)">
-      <div style="font-size:12px;font-weight:700;color:var(--brand);letter-spacing:.08em">01</div>
-      <div style="font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:8px">Strategy</div>
-      <div style="font-size:15px;line-height:1.55;color:var(--sub);margin-top:6px">Know who you are trying to meet, and why.</div>
-    </div>
-    <div style="padding-top:16px;border-top:2px solid var(--line)">
-      <div style="font-size:12px;font-weight:700;color:var(--brand);letter-spacing:.08em">02</div>
-      <div style="font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:8px">Discover</div>
-      <div style="font-size:15px;line-height:1.55;color:var(--sub);margin-top:6px">Save interesting people wherever you find them.</div>
-    </div>
-    <div style="padding-top:16px;border-top:2px solid var(--line)">
-      <div style="font-size:12px;font-weight:700;color:var(--brand);letter-spacing:.08em">03</div>
-      <div style="font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:8px">Understand</div>
-      <div style="font-size:15px;line-height:1.55;color:var(--sub);margin-top:6px">Mighty prepares the context before you reach out.</div>
-    </div>
-    <div style="padding-top:16px;border-top:2px solid var(--line)">
-      <div style="font-size:12px;font-weight:700;color:var(--brand);letter-spacing:.08em">04</div>
-      <div style="font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:8px">Reach out</div>
-      <div style="font-size:15px;line-height:1.55;color:var(--sub);margin-top:6px">Draft something thoughtful. Edit it until it sounds like you.</div>
-    </div>
-    <div style="padding-top:16px;border-top:2px solid var(--line)">
-      <div style="font-size:12px;font-weight:700;color:var(--brand);letter-spacing:.08em">05</div>
-      <div style="font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:8px">Build</div>
-      <div style="font-size:15px;line-height:1.55;color:var(--sub);margin-top:6px">Track conversations and the promises inside them.</div>
-    </div>
-    <div style="padding-top:16px;border-top:2px solid var(--line)">
-      <div style="font-size:12px;font-weight:700;color:var(--brand);letter-spacing:.08em">06</div>
-      <div style="font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:8px">Remember</div>
-      <div style="font-size:15px;line-height:1.55;color:var(--sub);margin-top:6px">Never lose the context that made someone matter.</div>
-    </div>
-    <div style="padding-top:16px;border-top:2px solid var(--line)">
-      <div style="font-size:12px;font-weight:700;color:var(--brand);letter-spacing:.08em">07</div>
-      <div style="font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:8px">Grow</div>
-      <div style="font-size:15px;line-height:1.55;color:var(--sub);margin-top:6px">Relationships turn into opportunities.</div>
+
+  <div class="jtrack">
+    <div class="jmark" data-s="0" style="top:0%"></div>
+    <div class="jmark" data-s="1" style="top:14%"></div>
+    <div class="jmark" data-s="2" style="top:28%"></div>
+    <div class="jmark" data-s="3" style="top:42%"></div>
+    <div class="jmark" data-s="4" style="top:57%"></div>
+    <div class="jmark" data-s="5" style="top:71%"></div>
+    <div class="jmark" data-s="6" style="top:85%"></div>
+    <div class="jsticky">
+      <div class="jsteps">
+      <div class="jstep" data-s="0"><div class="jn">01</div><div class="jt">Strategy</div><div class="jd">Know who you are trying to meet, and why.</div></div>
+      <div class="jstep" data-s="1"><div class="jn">02</div><div class="jt">Discover</div><div class="jd">Save interesting people wherever you find them.</div></div>
+      <div class="jstep" data-s="2"><div class="jn">03</div><div class="jt">Understand</div><div class="jd">Mighty prepares the context before you reach out.</div></div>
+      <div class="jstep" data-s="3"><div class="jn">04</div><div class="jt">Reach out</div><div class="jd">Draft something thoughtful. Edit it until it sounds like you.</div></div>
+      <div class="jstep" data-s="4"><div class="jn">05</div><div class="jt">Build</div><div class="jd">Track conversations and the promises inside them.</div></div>
+      <div class="jstep" data-s="5"><div class="jn">06</div><div class="jt">Remember</div><div class="jd">Never lose the context that made someone matter.</div></div>
+      <div class="jstep" data-s="6"><div class="jn">07</div><div class="jt">Grow</div><div class="jd">Relationships turn into opportunities.</div></div>
+      </div>
+      <div class="jscreens">
+        <div class="jscreen" data-s="0"><div class="bk">Your goal</div><div class="bq">What am I building?</div>
+     <div class="bcard" style="margin-top:10px">Raise a seed round for an AI-native venture studio, from
+       investors who understand enterprise AI rather than consumer.</div>
+     <div class="jchips"><span>Partner</span><span>Boston</span><span>Pre-seed</span></div></div>
+        <div class="jscreen" data-s="1"><div class="bk">Discover</div><div class="bq">Who should I know?</div>
+     <div class="brow"><span class="bav">JW</span><span style="min-width:0"><b>James Whitfield</b>
+       <em>Was at Novartis while you were</em></span><span class="bcta">Add</span></div>
+     <div class="brow"><span class="bav">SB</span><span style="min-width:0"><b>Sukrit Bansal</b>
+       <em>Writes first cheques into health AI</em></span><span class="bcta">Add</span></div></div>
+        <div class="jscreen" data-s="2"><div class="bk">James Whitfield</div><div class="bq">Why him, why now</div>
+     <div class="bcard"><b>Timing.</b> Partner seat four months ago, writing his own cheques for the first time.</div>
+     <div class="bcard"><b>Shared.</b> Novartis, 2019 to 2021. Connected 2019, nothing since.</div></div>
+        <div class="jscreen" data-s="3"><div class="bk">Draft &middot; take 1 of 10</div><div class="bq">In your own words</div>
+     <div class="bcard" style="margin-top:10px">James, we crossed paths at Novartis, though I doubt our
+       calendars ever did. Not pitching: I would value fifteen minutes on where you think this thesis is wrong.</div>
+     <div class="bsub" style="margin-top:9px">You always click Send.</div></div>
+        <div class="jscreen" data-s="4"><div class="bk">Relationships</div><div class="bq">Where am I with everyone?</div>
+     <div class="brow"><span class="bav">JW</span><span style="min-width:0"><b>James Whitfield</b>
+       <em>In conversation</em></span><span class="bcta g">Reply</span></div>
+     <div class="brow"><span class="bav">LF</span><span style="min-width:0"><b>Luiza Ferreira</b>
+       <em>Reached out &middot; 6 days</em></span><span class="bcta g">Follow up</span></div></div>
+        <div class="jscreen" data-s="5"><div class="bk">After the call</div><div class="bq">What was said</div>
+     <div class="bcard"><div class="bnote">wants 2 pilot logos before term sheet - intro to Sukrit re payments</div></div>
+     <div class="bcard" style="border-color:#CFE6DA;background:#F2F8F5"><b style="color:#0F7050">Mighty
+       remembered</b><br>Send two pilot logos &middot; Introduce Sukrit</div></div>
+        <div class="jscreen" data-s="6"><div class="bk">Two years on</div><div class="bq">The relationship compounds</div>
+     <div class="jline"><span>Met at the Sloan panel</span><b>Mar 2024</b></div>
+     <div class="jline"><span>Coffee, switching careers</span><b>Apr 2024</b></div>
+     <div class="jline"><span>Introduced you to Ashley</span><b>Jul 2024</b></div>
+     <div class="jline"><span>Term sheet conversation</span><b>Today</b></div></div>
+      </div>
     </div>
   </div>
 </section>
@@ -352,17 +474,19 @@
   <div class="duo">
     <!-- left: the extension, on LinkedIn -->
     <div class="pane">
+      <div class="pnum"><span>1</span>While you browse</div>
+      <div class="ptitle">On LinkedIn</div>
       <div class="win">
         <div class="winbar">
           <span class="wd" style="background:#F0685C"></span><span class="wd" style="background:#F4BF4F"></span>
           <span class="wd" style="background:#61C554"></span>
-          <span class="wurl">linkedin.com/in/priya-nair</span>
+          <span class="wurl">linkedin.com/in/charles-okafor</span>
         </div>
         <div class="winbody">
           <div style="display:flex;gap:13px;align-items:center;padding-bottom:13px;border-bottom:1px solid #F1F0F4">
             <span class="li-av"></span>
             <span style="flex:1">
-              <span style="display:block;font-size:15px;font-weight:700">Priya Nair</span>
+              <span style="display:block;font-size:15px;font-weight:700">Charles Okafor</span>
               <span style="display:block;font-size:12.5px;color:var(--sub);margin-top:2px">Founder &amp; CEO &middot; Vellum &middot; Boston</span>
             </span>
           </div>
@@ -384,7 +508,7 @@
         </div>
       </div>
       <div class="cap">
-        <b style="color:var(--ink)">On LinkedIn.</b> Open anyone's profile and Mighty reads what is on the
+        Open anyone's profile and Mighty reads what is on the
         page: where you overlap, whether they fit what you are building, and whether the timing is unusual.
         One click saves them. It never clicks Connect.
       </div>
@@ -392,6 +516,8 @@
 
     <!-- right: the search only Mighty can answer -->
     <div class="pane">
+      <div class="pnum"><span>2</span>When you ask</div>
+      <div class="ptitle">Inside Mighty</div>
       <div class="win">
         <div class="winbar">
           <span class="wd" style="background:#F0685C"></span><span class="wd" style="background:#F4BF4F"></span>
@@ -405,191 +531,18 @@
           </div>
           <div style="font-size:11.5px;color:var(--mute);margin-top:9px">5 of 19,928 connections</div>
           <div style="margin-top:4px">
-            <div class="res"><span class="rav">SM</span><span style="flex:1;min-width:0"><b>S. Mehta</b><em>Partner, early-stage fund</em><i>Was at Novartis while you were</i></span><span class="add">Add</span></div>
-            <div class="res"><span class="rav">AI</span><span style="flex:1;min-width:0"><b>A. Iyer</b><em>Principal, seed fund &middot; Boston</em><i>Writes first cheques into health AI</i></span><span class="add">Add</span></div>
-            <div class="res"><span class="rav">PR</span><span style="flex:1;min-width:0"><b>P. Raghavan</b><em>Operating partner</em><i>Runs diligence for two Boston funds</i></span><span class="add">Add</span></div>
-            <div class="res"><span class="rav">DK</span><span style="flex:1;min-width:0"><b>D. Kaur</b><em>Angel &middot; ex-pharma commercial</em><i>Connected 2019, nothing since</i></span><span class="add">Add</span></div>
-            <div class="res"><span class="rav">TL</span><span style="flex:1;min-width:0"><b>T. Lam</b><em>Managing director</em><i>Overlaps your Jindal years</i></span><span class="add">Add</span></div>
+            <div class="res"><span class="rav">JW</span><span style="flex:1;min-width:0"><b>James Whitfield</b><em>Partner, early-stage fund</em><i>Was at Novartis while you were</i></span><span class="add">Add</span></div>
+            <div class="res"><span class="rav">SB</span><span style="flex:1;min-width:0"><b>Sukrit Bansal</b><em>Principal, seed fund &middot; Boston</em><i>Writes first cheques into health AI</i></span><span class="add">Add</span></div>
+            <div class="res"><span class="rav">LF</span><span style="flex:1;min-width:0"><b>Luiza Ferreira</b><em>Operating partner</em><i>Runs diligence for two Boston funds</i></span><span class="add">Add</span></div>
+            <div class="res"><span class="rav">LF</span><span style="flex:1;min-width:0"><b>Luiza Ferreira</b><em>Angel &middot; ex-pharma commercial</em><i>Connected 2019, nothing since</i></span><span class="add">Add</span></div>
+            <div class="res"><span class="rav">SB</span><span style="flex:1;min-width:0"><b>Sukrit Bansal</b><em>Managing director</em><i>Overlaps your Jindal years</i></span><span class="add">Add</span></div>
           </div>
         </div>
       </div>
       <div class="cap">
-        <b style="color:var(--ink)">In Mighty.</b> Ask for the thing no filter will take. Mighty searches
+        Ask for the thing no filter will take. Mighty searches
         the people you are already connected to and comes back with five, each carrying the reason it
         chose them. If nobody matches, it says so.
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="wrap" data-reveal>
-  <div class="kicker">How it works</div>
-  <h2 class="h-sub" style="margin-top:14px;max-width:680px">A relationship, from beginning to follow-up.</h2>
-
-  <div role="tablist" aria-label="Product screens" style="display:flex;gap:10px;margin-top:34px;flex-wrap:wrap">
-    <button class="tab on" role="tab" aria-selected="true"  aria-controls="s0" id="t0" data-i="0">01 · Today</button>
-    <button class="tab"    role="tab" aria-selected="false" aria-controls="s1" id="t1" data-i="1">02 · Person profile</button>
-    <button class="tab"    role="tab" aria-selected="false" aria-controls="s2" id="t2" data-i="2">03 · Conversation notes</button>
-  </div>
-
-  <div style="display:grid;grid-template-columns:1fr 1.15fr;gap:64px;align-items:center;margin-top:40px" class="two">
-    <div>
-      <div class="kicker grey" id="kick">01 · Today</div>
-      <h3 class="h-sub" style="margin-top:12px;font-size:clamp(24px,3vw,34px)" id="stitle">What deserves your attention</h3>
-      <p class="lead" style="margin-top:16px;font-size:17px" id="sbody">Not a feed. The few conversations worth continuing today.</p>
-    </div>
-
-    <div class="card" style="padding:26px 28px">
-      <div class="slide on" id="s0" role="tabpanel" aria-labelledby="t0">
-        <div class="kicker grey">Today's plan</div>
-        <div style="display:flex;flex-direction:column;gap:9px;margin-top:14px">
-          <div style="display:flex;align-items:center;gap:14px;padding:15px 18px;border-radius:12px;background:var(--brand-soft2)">
-            <span style="flex:1;font-size:16px;font-weight:700">Reply to Sarah Chen</span>
-            <span style="font-size:14px;font-weight:700;color:var(--brand-ink)">Draft ready</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:14px;padding:15px 18px;border-radius:12px;background:#F7F5F2">
-            <span style="flex:1;font-size:16px;font-weight:600">David Lee</span>
-            <span style="font-size:14px;color:var(--sub)">Coffee chat · 9:30 AM</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:14px;padding:15px 18px;border-radius:12px;background:#F7F5F2">
-            <span style="flex:1;font-size:16px;font-weight:600">James Park</span>
-            <span style="font-size:14px;color:var(--sub)">Intro promised · reconnect</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="slide" id="s1" role="tabpanel" aria-labelledby="t1">
-        <div style="display:flex;align-items:center;gap:14px">
-          <div class="av">SC</div>
-          <div>
-            <div style="font-size:17px;font-weight:700;letter-spacing:-.015em">Sarah Chen</div>
-            <div style="font-size:14px;color:var(--sub)">PM, Amazon · Sloan '23 · ex-Deloitte</div>
-          </div>
-        </div>
-        <div style="margin-top:18px;padding:18px 20px;border-radius:14px;background:var(--brand-soft)">
-          <div class="kicker">Briefing</div>
-          <div style="font-size:15.5px;line-height:1.6;color:var(--ink2);margin-top:7px">
-            Writes about career switching. Mentors first-time founders. A warm opening: her recent post on leaving consulting.
-          </div>
-        </div>
-        <div class="kicker grey" style="margin-top:20px">Relationship</div>
-        <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:10px">
-          <span class="pill">Saved</span><span style="color:#C4BEB5">&#8594;</span>
-          <span class="pill">Messaged</span><span style="color:#C4BEB5">&#8594;</span>
-          <span class="pill">Replied</span><span style="color:#C4BEB5">&#8594;</span>
-          <span class="pill on">Coffee chat</span>
-        </div>
-      </div>
-
-      <div class="slide" id="s2" role="tabpanel" aria-labelledby="t2">
-        <div class="kicker grey">Your raw notes</div>
-        <div style="font-size:16px;line-height:1.6;color:var(--ink2);margin-top:9px;padding:16px 18px;border-radius:12px;background:#F7F5F2">
-          loves fintech, intro to her manager?? send her the Sloan paper, circle back mid-Oct
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;margin:18px 0 14px">
-          <span style="width:22px;height:22px;border-radius:50%;background:var(--brand-soft2);color:var(--brand-ink);
-            display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">&#8595;</span>
-          <span style="font-size:14px;color:var(--sub)">Mighty reads it back to you</span>
-        </div>
-        <div style="display:flex;flex-direction:column">
-          <div class="trow">
-            <span style="width:20px;height:20px;border-radius:6px;background:var(--green-soft);display:flex;align-items:center;justify-content:center;flex:none">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 12.5 5 5L20 6.5"/></svg>
-            </span>
-            <span style="font-size:15.5px;color:var(--ink2);font-weight:500">Send the Sloan fintech paper</span>
-          </div>
-          <div class="trow">
-            <span style="width:20px;height:20px;border-radius:6px;background:#F1EFEB;flex:none"></span>
-            <span style="font-size:15.5px;color:var(--ink2);font-weight:500">Ask about the manager intro</span>
-          </div>
-          <div class="trow">
-            <span style="width:20px;height:20px;border-radius:6px;background:#F1EFEB;flex:none"></span>
-            <span style="font-size:15.5px;color:var(--ink2);font-weight:500">Reconnect mid-October</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="wrap" data-reveal>
-  <div style="max-width:960px;margin:0 auto">
-    <div class="kicker">The product, not a picture of it</div>
-    <h2 class="h-sub" style="margin-top:14px;max-width:640px">Four screens, one continuous system.</h2>
-    <p class="lead" style="margin-top:18px;max-width:620px;font-size:17px">
-      These are the real screens with real copy. Click through them.
-    </p>
-
-    <div class="tour" style="margin-top:26px">
-      <div class="tour-tabs" role="tablist" aria-label="Product screens">
-        <button class="ttab on" role="tab" aria-selected="true" data-t="today">Today</button>
-        <button class="ttab" role="tab" aria-selected="false" data-t="discover">Discover</button>
-        <button class="ttab" role="tab" aria-selected="false" data-t="person">A person</button>
-        <button class="ttab" role="tab" aria-selected="false" data-t="capture">Capture</button>
-      </div>
-
-      <div class="tframe">
-        <div class="tbar"><span class="tdot" style="background:#F0685C"></span><span class="tdot" style="background:#F4BF4F"></span><span class="tdot" style="background:#61C554"></span><span class="turl">yourmighty.com/app</span></div>
-
-        <!-- Today -->
-        <div class="tpane on" data-p="today">
-          <div class="tq">What deserves my attention?</div>
-          <div class="tsub">Good morning, Ritesh. Two things are worth doing today.</div>
-          <div class="titem hot">
-            <span class="tavs">PN</span>
-            <span style="min-width:0"><span class="tk">They replied</span><b>Priya Nair replied and you have not answered</b>
-            <i>Yesterday. The only thing on this list that decays.</i></span>
-            <span class="tcta">Reply</span>
-          </div>
-          <div class="titem">
-            <span class="tavs">JL</span>
-            <span style="min-width:0"><span class="tk">Ready to reach out</span><b>Write to J. Lee</b>
-            <i>MIT, and he has closed the round you are raising.</i></span>
-            <span class="tcta g">Draft</span>
-          </div>
-          <div class="tfoot">Everything here comes from what has actually happened. Nothing is invented.</div>
-        </div>
-
-        <!-- Discover -->
-        <div class="tpane" data-p="discover">
-          <div class="tq">Describe who you are looking for.</div>
-          <div class="tsub">Not a name search. Across your 19,928 connections.</div>
-          <div class="tinput">Folks from Boston who are investing in idea-stage sustainable companies</div>
-          <div class="titem">
-            <span class="tavs">SM</span>
-            <span style="min-width:0"><span class="tk">Best match</span><b>S. Mehta &middot; Partner, early-stage fund</b>
-            <i>Was at Novartis while you were. Matched on boston, investing.</i></span>
-            <span class="tcta">Add</span>
-          </div>
-          <div class="tfoot">Every suggestion carries the reason it was made. If Mighty cannot say why, it says nothing.</div>
-        </div>
-
-        <!-- A person -->
-        <div class="tpane" data-p="person">
-          <div class="tq">S. Mehta</div>
-          <div class="tsub">Partner, early-stage fund &middot; Boston &middot; Replied</div>
-          <div class="tcard">
-            <span class="tk" style="color:var(--brand)">Why now</span>
-            <b style="display:block;margin-top:4px">She moved into the partner seat four months ago, so she is writing her own checks for the first time.</b>
-          </div>
-          <div class="tcard">
-            <span class="tk">Draft &middot; take 1 of 10</span>
-            <i style="display:block;margin-top:4px">"Not pitching. I would value fifteen minutes on where you think this thesis is wrong."</i>
-          </div>
-          <div class="tfoot">The brief is free. The draft, and all ten takes of it, cost one Assist.</div>
-        </div>
-
-        <!-- Capture -->
-        <div class="tpane" data-p="capture">
-          <div class="tq">Type it the way you would scribble it.</div>
-          <div class="tsub">Write the mess. Mighty reads it back as the promises you made.</div>
-          <div class="tinput" style="font-style:italic">wants 2 pilot logos before term sheet - intro to David re payments - she asked abt studio vs accelerator??</div>
-          <div class="tcard">
-            <span class="tk" style="color:var(--green,#14805A)">Mighty remembered</span>
-            <b style="display:block;margin-top:4px">Send two pilot logos &middot; Intro David &middot; Has doubts: studio vs accelerator</b>
-          </div>
-          <div class="tfoot">Your words. Mighty just remembers them.</div>
-        </div>
       </div>
     </div>
   </div>
@@ -641,28 +594,6 @@
 </section>
 
 <script>
-  /* How-it-works: three panels, one at a time. */
-  (function(){
-    var COPY = [
-      ['01 · Today','What deserves your attention','Not a feed. The few conversations worth continuing today.'],
-      ['02 · Person profile','Briefed before you write','Context, a short briefing and your whole history together - one page per person, so the first line never starts from nothing.'],
-      ['03 · Conversation notes','Rough notes in, next steps out','Type the way you would scribble on a napkin. Mighty turns it into the promises you made - and reminds you when they are due.']
-    ];
-    var tabs = [].slice.call(document.querySelectorAll('.tab'));
-    var kick = document.getElementById('kick'),
-        title = document.getElementById('stitle'),
-        body = document.getElementById('sbody');
-    function show(i){
-      tabs.forEach(function(t,k){
-        var on = k === i;
-        t.classList.toggle('on', on);
-        t.setAttribute('aria-selected', on ? 'true' : 'false');
-        document.getElementById('s'+k).classList.toggle('on', on);
-      });
-      kick.textContent = COPY[i][0]; title.textContent = COPY[i][1]; body.textContent = COPY[i][2];
-    }
-    tabs.forEach(function(t){ t.addEventListener('click', function(){ show(+t.dataset.i); }); });
-  })();
 
   /* Reveal on scroll, and never leave content hidden if IO is unavailable. */
   (function(){
@@ -684,14 +615,68 @@
   })();
 </script>
 <script>
-/* The tour: four buttons, four panes, nothing else. */
+/* The brand word, marked in running prose only. Headings are already loud, and
+   links and buttons have their own treatment, so both are left alone. */
 (function(){
-  var tabs = document.querySelectorAll('.ttab'), panes = document.querySelectorAll('.tpane');
-  tabs.forEach(function(t){ t.addEventListener('click', function(){
-    tabs.forEach(function(x){ x.classList.toggle('on', x===t); x.setAttribute('aria-selected', x===t ? 'true':'false'); });
-    panes.forEach(function(p){ p.classList.toggle('on', p.getAttribute('data-p')===t.getAttribute('data-t')); });
-  });});
+  var scope = document.querySelectorAll('p, li, .cap, .lead, .sub, .bsub');
+  Array.prototype.forEach.call(scope, function(el){
+    if (el.closest('h1,h2,h3,h4,a,button,.btn,.win,.mac')) return;
+    Array.prototype.slice.call(el.childNodes).forEach(function(n){
+      if (n.nodeType !== 3 || n.nodeValue.indexOf('Mighty') < 0) return;
+      var frag = document.createDocumentFragment(), parts = n.nodeValue.split(/\bMighty\b/g);
+      parts.forEach(function(txt, i){
+        if (i) { var b = document.createElement('b'); b.className = 'mg'; b.textContent = 'Mighty'; frag.appendChild(b); }
+        if (txt) frag.appendChild(document.createTextNode(txt));
+      });
+      n.parentNode.replaceChild(frag, n);
+    });
+  });
 })();
+
+
+/* The journey pins itself and advances on scroll.
+   Progress is computed from the track's own position rather than watched with an
+   IntersectionObserver: a thin observer band can be skipped entirely by a fast
+   scroll or a jump to an anchor, and it does not fire at all in a background
+   tab. This reads the number it needs, whenever it is asked. */
+(function(){
+  var track = document.querySelector('.jtrack');
+  if (!track) return;
+  var steps   = track.querySelectorAll('.jstep'),
+      screens = track.querySelectorAll('.jscreen'),
+      n = steps.length, current = -1, ticking = false;
+
+  function progress(){
+    var r = track.getBoundingClientRect();
+    /* 0 when the track's top reaches the viewport top, 1 when its bottom
+       reaches the viewport bottom. */
+    var span = r.height - window.innerHeight;
+    if (span <= 0) return 0;
+    return Math.min(1, Math.max(0, -r.top / span));
+  }
+  function show(i){
+    if (i === current) return;
+    current = i;
+    for (var k = 0; k < n; k++){
+      steps[k].classList.toggle('on', k === i);
+      screens[k].classList.toggle('on', k === i);
+    }
+  }
+  function update(){
+    ticking = false;
+    show(Math.min(n - 1, Math.floor(progress() * n)));
+  }
+  function onScroll(){
+    if (ticking) return;
+    ticking = true;
+    window.requestAnimationFrame(update);
+  }
+  window.addEventListener('scroll', onScroll, {passive:true});
+  window.addEventListener('resize', onScroll);
+  update();
+  window.__journeyUpdate = update;   /* so the behaviour can be tested directly */
+})();
+
 </script>
 </body>
 </html>
