@@ -248,13 +248,13 @@ function renderCardCheckboxes() {
     selected.forEach(c => { const b = c.el.querySelector('.mighty-badge'); if (b) b.remove(); });
     checked.clear();
     document.querySelectorAll('.mighty-check').forEach(el => { el.checked = false; });
-    btn.textContent = `Saved ✓ - Send 0 to Mighty`;
+    btn.textContent = `Saved ✓. Send 0 to Mighty`;
     decorateCardsWithScores(cards).catch(() => {});
   };
 }
 
 /* ---------- 2. opt-in compose pre-fill ----------
-   The MIghTy web app's "Copy message + Open profile" button already puts the
+   The MIghTy web app's "Copy message + open profile" button already puts the
    drafted, placeholder-filled message on the clipboard before it opens this
    tab - so filling the compose box is just reading the clipboard back, on
    explicit click only. No cross-context lookup needed. */
@@ -263,7 +263,7 @@ function wireComposeFill() {
   if (!box || box.dataset.mightyWired) return;
   box.dataset.mightyWired = '1';
   const fillBtn = document.createElement('button');
-  fillBtn.textContent = '✉️ Fill draft from clipboard (Mighty)';
+  fillBtn.textContent = 'Fill draft from clipboard (Mighty)';
   fillBtn.style.cssText = 'display:block;margin:6px 0;background:#F4EEE1;border:1px solid #E7DECB;border-radius:8px;'
     + 'padding:6px 10px;font-size:12px;cursor:pointer;';
   fillBtn.onclick = async (e) => {
@@ -422,7 +422,7 @@ const FONT = "'Plus Jakarta Sans',-apple-system,system-ui,sans-serif";
 // The one match ladder, same words as the app. Keep in sync with
 // mightyMatchLabel() in scoring.js and VERDICT in app/index.html.
 const FIT_DOT = {'Excellent match':'#5B46E5','Strong match':'#22916A','Potential match':'#D9971C',
-  'Low potential':'#B0A9A0'};
+  'Outside your goal':'#B0A9A0'};
 // Two-overlapping-circles brand mark, inline so it needs no web-accessible asset.
 const MARK_SVG = '<svg width="20" height="20" viewBox="0 0 26 26" fill="none" style="display:block;flex:none"><circle cx="9.5" cy="13" r="7.5" fill="#5B46E5"></circle><circle cx="16.5" cy="13" r="7.5" fill="#F2A78E" fill-opacity="0.85"></circle></svg>';
 let sidebarEl = null;
@@ -479,7 +479,7 @@ function mightyBrandHead(rightHtml) {
 function lastInteractionLabel(row, rowEvents) {
   const ev = rowEvents.slice().sort((a, b) => new Date(b.occurred_at) - new Date(a.occurred_at))[0];
   if (ev) {
-    const map = { stage_change: 'Stage updated', reply: 'They replied', coffee_chat: 'Coffee chat', referral: 'Referral', interview: 'Interview', first_message: 'Message sent', connection_request: 'Connection request', note: 'Note added' };
+    const map = { stage_change: 'Stage updated', reply: 'They replied', coffee_chat: 'Coffee chat', referral: 'Introduction', interview: 'Meeting', first_message: 'Message sent', connection_request: 'Connection request', note: 'Note added' };
     return map[ev.event_type] || 'Updated';
   }
   if (row.contacted_at) return 'Message sent';
@@ -974,7 +974,7 @@ async function renderGoogleImportPanel() {
   /* Says the quiet part: a search result is a name and a headline. Mighty will
      not pretend it can brief you on someone from that, and opening the profile
      once is what turns a row into something worth reading. */
-  foot.textContent = 'A search result is a name and a headline. Open each profile once and Mighty can brief '
+  foot.textContent = 'A search result is a name and a headline. Open each profile once and Mighty can brief you properly. '
     + 'you properly.';
   gPanel.appendChild(foot);
   document.body.appendChild(gPanel);

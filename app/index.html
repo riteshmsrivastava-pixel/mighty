@@ -22,7 +22,7 @@
        · Explain before you score - no numeric match scores in the UI.
        · Save is the only way a person enters Mighty; 'prospect' IS Saved.
        · Navigation is always visible; only depth unlocks, on data not time.
-       · Never "Mighty knows" - always "Things you've learned".
+       · Never "Mighty knows" - always "Things you have learned".
        · No empty dashboards: every panel hides until it has real data.
 
      Same Supabase project, tables and settings keys as app/v1.html, so both
@@ -172,13 +172,13 @@ const GOAL_LABEL = GOALS.reduce((a,g)=>{a[g.id]=g.label;return a;},{});
 const STAGE = {
   prospect:        {label:'Saved',              bg:'#F4F2EE', fg:'#5B554D', dot:'#C4BDB2'},
   ready_to_contact:{label:'Ready to reach out', bg:'#EFEBFE', fg:'#5540D8', dot:'#5B46E5'},
-  contacted:       {label:'First message sent', bg:'#FBF3E2', fg:'#6E5F3D', dot:'#D9971C'},
-  replied:         {label:'Conversation started',bg:'#E9F1EC', fg:'#14805A', dot:'#22916A'},
+  contacted:       {label:'Reached out', bg:'#FBF3E2', fg:'#6E5F3D', dot:'#D9971C'},
+  replied:         {label:'In conversation',bg:'#E9F1EC', fg:'#14805A', dot:'#22916A'},
   coffee_chat:     {label:'Met',                bg:'#E9F1EC', fg:'#14805A', dot:'#22916A'},
-  referral:        {label:'Referral',           bg:'#E9F1EC', fg:'#14805A', dot:'#22916A'},
-  interview:       {label:'Interview',          bg:'#E9F1EC', fg:'#14805A', dot:'#22916A'},
-  offer:           {label:'Offer',              bg:'#E9F1EC', fg:'#14805A', dot:'#22916A'},
-  do_not_contact:  {label:'Not interested',     bg:'#F4F2EE', fg:'#948E85', dot:'#D6D0C7'},
+  referral:        {label:'Opportunity in motion',bg:'#E9F1EC', fg:'#14805A', dot:'#22916A'},
+  interview:       {label:'Opportunity in motion',bg:'#E9F1EC', fg:'#14805A', dot:'#22916A'},
+  offer:           {label:'Growing',              bg:'#E9F1EC', fg:'#14805A', dot:'#22916A'},
+  do_not_contact:  {label:'Closed out',     bg:'#F4F2EE', fg:'#948E85', dot:'#D6D0C7'},
 };
 const stageOf = (r)=>STAGE[(r||{}).status] || STAGE.prospect;
 /* Board columns follow the Bible's default pipeline; the late statuses share
@@ -193,14 +193,14 @@ const COLUMNS = [
 ];
 const ORDER = ['prospect','ready_to_contact','contacted','replied','coffee_chat','referral','interview','offer'];
 const REACHED = ['contacted','replied','coffee_chat','referral','interview','offer'];
-const EVENT_LABEL = {connection_request:'Connection request', first_message:'First message sent',
-  reply:'They replied', coffee_chat:'Met', note:'Note captured', referral:'Referral',
-  interview:'Interview', stage_change:'Stage changed'};
+const EVENT_LABEL = {connection_request:'Connection request', first_message:'Reached out',
+  reply:'They replied', coffee_chat:'Met', note:'Note captured', referral:'Introduction made',
+  interview:'Meeting', stage_change:'Stage changed'};
 
 /* ===================== progressive disclosure =====================
    Navigation is always visible. Only depth unlocks, and only on data. */
 const UNLOCKS = {
-  board:    {test:(p)=>p.length>=5,       hint:'The board opens once five people are saved - before that a list says more.'},
+  board:    {test:(p)=>p.length>=5,       hint:'The board opens once five people are saved. Before that, a list says more.'},
   timeline: {test:(p,e)=>e.length>=3,     hint:'The timeline fills in once three things have happened.'},
   health:   {test:(p)=>p.filter(r=>REACHED.includes(r.status)).length>=3,
              hint:'Reach out to three people and Mighty can start showing what is working.'},
@@ -398,10 +398,10 @@ async function toKeywords(sb, sentence, st){
    marketing all say the same three things. Keep in sync with
    mightyMatchLabel() in extension/scoring.js. */
 const VERDICT = {
-  excellent:{label:'Excellent match', dot:'#5B46E5'},
-  strong:   {label:'Strong match',    dot:'#22916A'},
-  potential:{label:'Potential match', dot:'#D9971C'},
-  low:      {label:'Low potential',   dot:'#B0A9A0'},
+  excellent:{label:'Strong fit for your goal', dot:'#5B46E5'},
+  strong:   {label:'Good fit',    dot:'#22916A'},
+  potential:{label:'Worth a look', dot:'#D9971C'},
+  low:      {label:'Outside your goal',   dot:'#B0A9A0'},
 };
 const VERDICT_KEYS = ['excellent','strong','potential','low'];
 async function evaluate(sb, people, st){
@@ -527,7 +527,7 @@ function StrategyForm({settings, onSave, busy, onCancel, firstRun}){
           <div className="card fade" style={{marginTop:16,padding:'24px 26px'}}>
             <div className="h4">What does success look like?</div>
             <div className="sub" style={{marginTop:4,fontSize:14}}>Measurable outcomes, not aspirations. Press Enter after each.</div>
-            <div style={{marginTop:14}}><ChipInput value={metrics} onChange={setMetrics} placeholder="40 coffee chats, 10 referrals, 1 offer…"/></div>
+            <div style={{marginTop:14}}><ChipInput value={metrics} onChange={setMetrics} placeholder="40 coffee chats, 10 introductions, 1 signed term sheet…"/></div>
           </div>
         </F>}
 
@@ -827,8 +827,8 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
 
         {allDone &&
           <div style={{padding:'34px 26px 38px'}}>
-            <div className="h3">You're all caught up.</div>
-            <div className="sub" style={{marginTop:6}}>You've done today's recommended actions.</div>
+            <div className="h3">You are all caught up.</div>
+            <div className="sub" style={{marginTop:6}}>You have done today's recommended actions.</div>
             <button className="btn" style={{marginTop:20}} onClick={()=>go({screen:'discover'})}>Discover someone new</button>
           </div>}
 
@@ -842,7 +842,7 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
 
         <div className="meta" style={{padding:'16px 26px'}}>
           {people.length===0
-            ? 'Your plan is built from real relationships - save someone and it fills in.'
+            ? 'Your plan is built from real relationships. Save someone and it fills in.'
             : plan.length + (plan.length===1?' action':' actions') + ' · ' + mins + ' minutes'}
         </div>
       </div>
@@ -1186,7 +1186,7 @@ function Discover({sb, settings, people, plan, onSave, onOpen, go}){
 
           {mine && mine.rows.length===0 &&
             <div style={{marginTop:20,borderTop:'1px solid var(--line)',paddingTop:16}}>
-              <div className="h4">Nobody in your network matches that.</div>
+              <div className="h4">Nobody in your network matches that. Try the wider web, or loosen the description.</div>
               <div className="sub" style={{marginTop:6,maxWidth:'60ch'}}>
                 Not one of your {(total||0).toLocaleString()} connections reads as
                 {' '}{mine.terms.slice(0,3).join(' plus ')}. That is a real answer, and it beats five
@@ -1243,7 +1243,7 @@ function Discover({sb, settings, people, plan, onSave, onOpen, go}){
 
           {noExt &&
             <div className="fade" style={{marginTop:16,paddingTop:16,borderTop:'1px solid var(--line)'}}>
-              <div className="h4">Search isn't switched on for this account yet.</div>
+              <div className="h4">Search is not switched on for this account yet.</div>
               <div className="sub" style={{marginTop:7,lineHeight:1.55,maxWidth:560}}>
                 Searching outside your network needs either the extension or the web-search backend.
                 Browsing LinkedIn and saving from the extension panel works today.
@@ -1565,7 +1565,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
 
   async function makeDraft(){
     if(takesLeft <= 0){
-      setErr('Ten takes is the limit on one assist. Send one, or edit the last one yourself.');
+      setErr('Ten takes is the limit on one Assist. Send one, or edit the last one yourself.');
       return;
     }
     setBusy('draft'); setErr(null);
@@ -1581,8 +1581,8 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
         context: {...ctx, exchange: exchangeNo, takes: takes + 1}});
       track('draft_written', {approach, had_brief: !!br.careerSummary, memories: memories.length,
         take: takes + 1, exchange: exchangeNo});
-      flash(takes === 0 ? 'Draft written. One assist covers all ten takes.'
-                        : 'Take ' + (takes+1) + ' of ' + TAKE_LIMIT + '. Same assist.');
+      flash(takes === 0 ? 'Draft written. One Assist covers all ten takes.'
+                        : 'Take ' + (takes+1) + ' of ' + TAKE_LIMIT + '. Same Assist.');
     }catch(e){ setErr(e.message||String(e)); }
     setBusy(null);
   }
@@ -1762,7 +1762,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
 
           {memories.length>0 &&
             <div className="card" style={{padding:'22px 24px'}}>
-              <div className="eyebrow">Things you've learned</div>
+              <div className="eyebrow">Things you have learned</div>
               <div className="stack" style={{gap:9,marginTop:12}}>
                 {memories.map(m=>(
                   <div key={m.id} className="row" style={{gap:10,alignItems:'flex-start'}}>
@@ -1863,7 +1863,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
           <div className="card" style={{marginTop:16,padding:'22px 24px'}}>
             <div className="row" style={{alignItems:'baseline',justifyContent:'space-between',gap:14}}>
               <div className="eyebrow b">Draft · {(APPROACHES.find(a=>a.id===approach)||{}).label}</div>
-              <div className="meta">You always click send</div>
+              <div className="meta">You always click Send</div>
             </div>
             {!draft &&
               <div className="stack" style={{gap:14,marginTop:14}}>
@@ -1876,7 +1876,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                 </button>
                 <div className="hint">
                   {takes===0
-                    ? 'Costs one assist, and that one assist covers every rewrite of this message - up to ten.'
+                    ? 'Costs one Assist, and that Assist covers every rewrite of this message, up to ten.'
                     : 'Already paid for on this message. ' + takesLeft + ' of ' + TAKE_LIMIT + ' takes left.'}
                   {voice.length>0 &&
                     ' Written to match how you write, from ' + voice.length + ' of your own past messages.'}
@@ -1894,7 +1894,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                       : takesLeft<=0 ? 'No takes left' : 'Rewrite'}
                   </button>
                   <span className="meta">
-                    {takes>0 ? 'Take '+takes+' of '+TAKE_LIMIT+' · same assist' : ''}
+                    {takes>0 ? 'Take '+takes+' of '+TAKE_LIMIT+' · same Assist' : ''}
                   </span>
                 </div>
                 <div className="hint" style={{marginTop:12}}>
@@ -1998,7 +1998,7 @@ function Ask({sb, people, events, tasks, settings, onOpen}){
     const settle = (a, ppl)=>setLog(l=>l.map(x=>x===entry?{...x, a, people:ppl||[]}:x));
 
     if(!people.length){
-      settle("I do not know yet. Add a few people and I can start seeing patterns, who to prepare for.");
+      settle("I do not know yet. Add a few people and patterns will start to show: who to prepare for, who is going quiet.");
       setBusy(false); return;
     }
     try{
@@ -2023,7 +2023,7 @@ function Ask({sb, people, events, tasks, settings, onOpen}){
       {log.length===0 &&
         <div>
           <h2 className="h2">Ask anything about your network.</h2>
-          <div className="sub" style={{marginTop:6}}>Every answer uses what you've captured about your relationships. Nothing else.</div>
+          <div className="sub" style={{marginTop:6}}>Every answer uses what you have captured about your relationships. Nothing else.</div>
           {people.length===0 &&
             <div className="banner warn" style={{marginTop:20}}>
               There's nobody here yet, so there's nothing honest to answer from. Save a few people first.
@@ -2123,22 +2123,22 @@ function Extension(){
     ['after','After saving'],['install','Install']];
 
   const rows = [
-    {n:'Grace Liu', sub:'Consultant at Bain & Company · MIT Sloan ’23',
-     reasons:['MIT Sloan','Former Bain','AI Product','Boston'], match:'Excellent match', dot:'#5B46E5'},
-    {n:'Omar Sheikh', sub:'Sr. Associate Consultant at Bain · MIT Sloan ’22',
-     reasons:['MIT Sloan','Consulting','Boston'], match:'Strong match', dot:'#22916A'},
-    {n:'Jenna Wolfe', sub:'Consultant at Bain & Company · MIT Sloan ’24',
-     reasons:['MIT Sloan','Early career'], match:'Potential match', dot:'#D9971C'},
+    {n:'Grace Liu', sub:'Consultant at Bain & Company · MIT Sloan \'23',
+     reasons:['MIT Sloan','Former Bain','AI Product','Boston'], match:'Strong fit for your goal', dot:'#5B46E5'},
+    {n:'Omar Sheikh', sub:'Sr. Associate Consultant at Bain · MIT Sloan \'22',
+     reasons:['MIT Sloan','Consulting','Boston'], match:'Good fit', dot:'#22916A'},
+    {n:'Jenna Wolfe', sub:'Consultant at Bain & Company · MIT Sloan \'24',
+     reasons:['MIT Sloan','Early career'], match:'Worth a look', dot:'#D9971C'},
   ];
   const journey = [
     ['1','Saved to Mighty','No message sent. Nothing to fill in.'],
     ['2','Mighty prepares an AI brief','Background, shared context, why they matter to your goal.'],
-    ['3','Draft the first message','Five approaches. You edit. You click send.'],
+    ['3','Draft the first message','Five approaches. You edit. You click Send.'],
     ['4','Move through your pipeline','The card moves as the relationship moves.'],
     ['5','Remember every interaction','Notes, timeline and commitments, kept for you.'],
   ];
   const steps = [
-    ['1','Download','Grab the Mighty extension for Chrome - one file, one time.'],
+    ['1','Download','Grab the Mighty extension for Chrome. One file, one time.'],
     ['2','Enable the extension','Open chrome://extensions, turn on Developer mode, load the unzipped folder.'],
     ['3','Sign in','Click the Mighty icon in your toolbar and sign in with the same account.'],
   ];
@@ -2203,7 +2203,7 @@ function Extension(){
 
       {view==='profile' &&
         <div className="fade" style={{marginTop:24}}>
-          <Frame url="linkedin.com/in/rajiv-srivatsa" badge>
+          <Frame url="linkedin.com/in/anaya-rao" badge>
             <div style={{position:'relative',padding:'26px 30px 40px',background:'#F1F0EE'}}>
               <div style={{display:'flex',gap:24,alignItems:'flex-start',flexWrap:'wrap'}}>
                 <div style={{flex:'1 1 300px',minWidth:0,maxWidth:430}}>
@@ -2213,7 +2213,7 @@ function Extension(){
                       <div className="av" style={{width:70,height:70,fontSize:24,marginTop:-28,
                         boxShadow:'0 0 0 4px #fff',background:'#D3E0F2',color:'#3E5C94'}}>RS</div>
                       <div style={{fontSize:20,fontWeight:700,letterSpacing:'-.02em',marginTop:12}}>Rajiv Srivatsa</div>
-                      <div className="sub" style={{fontSize:14,marginTop:2}}>Partner at Antler India · Bengaluru</div>
+                      <div className="sub" style={{fontSize:14,marginTop:2}}>Partner at Crestpine Ventures · Bengaluru</div>
                       <div className="row" style={{gap:9,marginTop:14}}>
                         <span style={{padding:'8px 18px',borderRadius:999,background:'#3E5C94',color:'#fff',fontSize:13.5,fontWeight:600}}>Connect</span>
                         <span style={{padding:'8px 18px',borderRadius:999,border:'1px solid #3E5C94',color:'#3E5C94',fontSize:13.5,fontWeight:600}}>Message</span>
@@ -2230,7 +2230,7 @@ function Extension(){
                     <div className="av" style={{width:44,height:44,fontSize:15}}>RS</div>
                     <div style={{minWidth:0}}>
                       <div style={{fontSize:16.5,fontWeight:700,letterSpacing:'-.015em'}}>Rajiv Srivatsa</div>
-                      <div className="sub" style={{fontSize:13.5}}>Partner · Antler India</div>
+                      <div className="sub" style={{fontSize:13.5}}>Partner · Crestpine Ventures</div>
                     </div>
                   </div>
 
@@ -2252,7 +2252,7 @@ function Extension(){
                       </PanelBlock>
                       <PanelBlock label="Why now">
                         <div className="stack" style={{gap:6,marginTop:8}}>
-                          {['Recently joined Antler India','Speaking at TechSparks next week',
+                          {['Recently joined Crestpine','Speaking at a founder summit next week',
                             'Backed three AI companies this quarter'].map(x=>(
                             <div key={x} style={{fontSize:14,color:'var(--ink2)'}}>{x}</div>))}
                         </div>
@@ -2308,7 +2308,7 @@ function Extension(){
                 <ExtPanel>
                   <div className="row" style={{gap:8,marginTop:16}}>
                     <span className="dot" style={{background:'var(--green2)',width:7,height:7}}/>
-                    <span style={{fontSize:13.5,color:'#5B554D',fontWeight:500}}>Connected - your Mighty account</span>
+                    <span style={{fontSize:13.5,color:'#5B554D',fontWeight:500}}>Connected: your Mighty account</span>
                   </div>
                   <PanelBlock label="Your strategy" first>
                     <div style={{fontSize:16,fontWeight:700,letterSpacing:'-.015em',marginTop:7}}>A product role in AI</div>
@@ -2375,7 +2375,7 @@ function Extension(){
         </div>}
 
       <div className="hint" style={{marginTop:34,maxWidth:620}}>
-        Human in the loop by design - Mighty never clicks Connect or Message for you. You always click send.
+        Human in the loop by design - Mighty never clicks Connect or Message for you. You always click Send.
       </div>
     </div>
   );
@@ -2397,7 +2397,7 @@ function Settings({email, settings, people, events, tasks, go, onSignOut}){
     ['Relationship strategy', (settings.goal||GOAL_LABEL[settings.goalType]||'Not set')
       + (settings.strategyUpdatedAt?' · updated '+ago(settings.strategyUpdatedAt):''), 'Edit', ()=>go({screen:'strategy'})],
     ['Browser extension', 'Evaluate and save people while you browse LinkedIn', 'Open', ()=>go({screen:'extension'})],
-    ['Export everything', 'Strategy, people, timeline and commitments - one JSON file, yours anytime',
+    ['Export everything', 'Strategy, people, timeline and commitments. One JSON file, yours anytime.',
       copied?'Downloaded':'Export', exportAll],
   ];
   return (
@@ -2416,10 +2416,10 @@ function Settings({email, settings, people, events, tasks, go, onSignOut}){
       <div className="eyebrow b" style={{margin:'34px 0 12px'}}>How Mighty works</div>
       <div className="card" style={{padding:'24px 26px'}}>
         <div className="stack" style={{gap:14}}>
-          {[['You always click send','No message, connection request or reply is ever sent automatically. Mighty drafts; you decide and you send.'],
+          {[['You always click Send','No message, connection request or reply is ever sent automatically. Mighty drafts; you decide and you send.'],
             ['Capture is the product','Everything intelligent here depends on what you capture after a conversation. It takes a minute.'],
             ['Explanations, not scores','Recommendations always say why. If Mighty cannot explain something, it should not be recommending it.'],
-            ['Your data is yours','Private to you, and exportable in full at any time.']].map(([t,d])=>(
+            ['Your data is yours','Private to you, exportable in full, deletable in full. Any time.']].map(([t,d])=>(
             <div key={t}>
               <div style={{fontSize:15,fontWeight:700}}>{t}</div>
               <div className="sub" style={{fontSize:14,marginTop:3,lineHeight:1.55,textWrap:'pretty'}}>{d}</div>
@@ -2468,7 +2468,7 @@ function Gate({sb}){
           <Logo/><span style={{fontSize:20,fontWeight:700,letterSpacing:'-.02em'}}>Mighty</span>
         </div>
         <h2 className="h2">{mode==='up'?'Create your account':mode==='in'?'Welcome back':'Reset your password'}</h2>
-        <div className="sub" style={{marginTop:6}}>The operating system for professional relationships.</div>
+        <div className="sub" style={{marginTop:6}}>The memory behind lasting professional relationships.</div>
         <div className="card" style={{marginTop:22,padding:'22px 24px'}}>
           <div className="lbl">Email</div>
           <input className="inp" type="email" value={email} onChange={e=>setEmail(e.target.value)}
@@ -2575,7 +2575,7 @@ function Shell({screen, go, savedCount, email, onSignOut, aiMeta, children}){
                       color:aiMeta.assistsLeftMonth===0?'#8E4238':'var(--brand-ink)',
                       padding:'5px 12px',fontSize:12.5,fontWeight:700,whiteSpace:'nowrap'}}>
               {aiMeta.assistsLeftMonth===0
-                ? 'No assists left this month'
+                ? 'No Assists left this month. Everything free still works: briefs, search, notes, Ask Mighty. Top up or move up a plan to keep writing.'
                 : aiMeta.assistsLeftMonth+' assist'+(aiMeta.assistsLeftMonth===1?'':'s')+' left'}
             </span>}
           <div className="mobnav" style={{gap:7,overflowX:'auto'}}>
@@ -2845,7 +2845,7 @@ function Onboarding({sb, user, settings, onSave, onDone}){
       setProg(null); setBusy(null); next();
     }catch(e){
       setProg(null); setBusy(null);
-      setErr((e && e.message) || 'That file could not be read. It should be the .zip LinkedIn emails you.');
+      setErr((e && e.message) || 'That file could not be read. It should be the .zip LinkedIn emailed you.');
     }
   }
 
@@ -2962,7 +2962,7 @@ function Onboarding({sb, user, settings, onSave, onDone}){
       {step===0 &&
         <div className="stack" style={{gap:18}}>
           <H>Before we begin</H>
-          <Sub>Help Mighty understand you before it recommends anyone. Two minutes, and you can skip any of it.</Sub>
+          <Sub>One question decides who Mighty recommends: what are you trying to achieve? Everything else here is optional, adds depth when you want it, and can wait.</Sub>
 
           <div className="card" style={{padding:'22px 24px'}}>
             <div className="h4">Your data</div>
@@ -3011,7 +3011,7 @@ function Onboarding({sb, user, settings, onSave, onDone}){
       {step===1 &&
         <div className="stack" style={{gap:18}}>
           <H>Import your LinkedIn history</H>
-          <Sub>Your LinkedIn history shows Mighty who you already know.</Sub>
+          <Sub>Your LinkedIn history shows Mighty who you already know. Add it whenever you like; a typed goal is enough to start, and nothing waits on this.</Sub>
 
           <div className="card" style={{padding:'22px 24px'}}>
             <ol style={{margin:0,paddingLeft:20,display:'flex',flexDirection:'column',gap:8,fontSize:14.5,color:'var(--body)'}}>
@@ -3147,8 +3147,8 @@ function Onboarding({sb, user, settings, onSave, onDone}){
       {/* ---------- 5. questions ---------- */}
       {step===5 &&
         <div className="stack" style={{gap:18}}>
-          <H>A few things only you can tell us</H>
-          <Sub>Chosen after reading everything above, so none of them repeat what your files already said. Skip any.</Sub>
+          <H>One thing only you can tell us</H>
+          <Sub>Mighty asks the rest later, one question at a time, only when the answer would change what it does next. Never from a script, never as a form.</Sub>
 
           {busy==='qs' && <div className="meta"><span className="spin"/> Working out what is still missing…</div>}
 
@@ -3424,7 +3424,7 @@ function App(){
   if(auth.status==='unconfigured')
     return <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
       <div className="card" style={{padding:'30px 32px',maxWidth:420}}>
-        <div className="h3">Mighty isn't set up yet.</div>
+        <div className="h3">Mighty is not set up yet.</div>
         <div className="sub" style={{marginTop:6}}>The Supabase project details are missing from this build.</div>
       </div></div>;
   if(auth.status!=='in') return <Gate sb={sb}/>;
