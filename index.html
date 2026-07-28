@@ -63,6 +63,9 @@
     font-size:13.5px;font-weight:600;color:#6B655C;white-space:nowrap}
   .pill.on{background:var(--brand);color:#fff;font-weight:700}
   /* the use-case chips - "every opportunity starts with someone" */  .chipbox{padding:16px 26px;border-radius:14px;background:var(--card);font-size:16px;font-weight:600;box-shadow:var(--sh);white-space:nowrap}
+  /* drawn portraits for the demo cast */
+  .pic{border-radius:50%;flex:none;display:block;background:#EFEDF2}
+  .bav.pic,.rav.pic{background:none}
   /* the journey: the page holds still while this section moves */
   .jtrack{position:relative}
   .js-anim .jtrack{height:calc(7 * 58vh)}
@@ -287,6 +290,39 @@
 </head>
 <body>
 
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+  <symbol id="av-jw" viewBox="0 0 40 40">
+    <circle cx="20" cy="20" r="20" fill="#E4E8F5"/>
+    <path d="M20 22c6.2 0 11.4 4.6 12.6 10.7A19.9 19.9 0 0 1 20 40a19.9 19.9 0 0 1-12.6-7.3C8.6 26.6 13.8 22 20 22z" fill="#4C5B86"/>
+    <circle cx="20" cy="15.5" r="7.4" fill="#F0C9A8"/>
+    <path d="M12.6 15.4c-.3-4.6 3.1-8.3 7.4-8.3s7.7 3.7 7.4 8.3c-1-2.3-2-3.3-3.4-3.8-2.1-.7-3.6.5-6.2.2-2.3-.3-3.9.7-5.2 3.6z" fill="#2F3542"/>
+  </symbol>
+  <symbol id="av-co" viewBox="0 0 40 40">
+    <circle cx="20" cy="20" r="20" fill="#F6E6DC"/>
+    <path d="M20 22c6.2 0 11.4 4.6 12.6 10.7A19.9 19.9 0 0 1 20 40a19.9 19.9 0 0 1-12.6-7.3C8.6 26.6 13.8 22 20 22z" fill="#7A4A3A"/>
+    <circle cx="20" cy="15.8" r="7.2" fill="#7A4B2E"/>
+    <path d="M20 6.4c4.6 0 8 3 8 6.9 0 1.6-.5 2.6-1.3 3.3.2-3.3-2.6-5.3-6.7-5.3s-6.9 2-6.7 5.3c-.8-.7-1.3-1.7-1.3-3.3 0-3.9 3.4-6.9 8-6.9z" fill="#241611"/>
+  </symbol>
+  <symbol id="av-sb" viewBox="0 0 40 40">
+    <circle cx="20" cy="20" r="20" fill="#EAE5FB"/>
+    <path d="M20 22c6.2 0 11.4 4.6 12.6 10.7A19.9 19.9 0 0 1 20 40a19.9 19.9 0 0 1-12.6-7.3C8.6 26.6 13.8 22 20 22z" fill="#6357A8"/>
+    <circle cx="20" cy="15.6" r="7.3" fill="#E8B489"/>
+    <path d="M12.8 14.6c0-4.3 3.3-7.4 7.4-7.4 3.5 0 6.3 2 7.1 5-2.6.5-4.4 1.4-6.2 1.4-2.6 0-4.3-1.2-5.6.2-.9.9-1.5 1.6-2.7.8z" fill="#25201A"/>
+  </symbol>
+  <symbol id="av-lf" viewBox="0 0 40 40">
+    <circle cx="20" cy="20" r="20" fill="#FBE7E0"/>
+    <path d="M20 22c6.2 0 11.4 4.6 12.6 10.7A19.9 19.9 0 0 1 20 40a19.9 19.9 0 0 1-12.6-7.3C8.6 26.6 13.8 22 20 22z" fill="#C86B52"/>
+    <path d="M20 6.6c5 0 8.6 3.6 8.6 8.8 0 3.9-.5 7-1.3 10.4-.6 2.4-2.2 3.2-3.4 2.4.9-1.6 1.2-3.4 1.2-5.6 0-1.2-.1-2.3-.3-3.3-2.7 1.3-6.3 1.4-9.1.2-.2 1-.3 2-.3 3.1 0 2.2.3 4 1.2 5.6-1.2.8-2.8 0-3.4-2.4-.8-3.4-1.3-6.5-1.3-10.4 0-5.2 3.6-8.8 8.1-8.8z" fill="#3A2118"/>
+    <circle cx="20" cy="16" r="7" fill="#EFC09B"/>
+    <path d="M13.2 14.6c.4-4.2 3.3-6.9 6.8-6.9s6.4 2.7 6.8 6.9c-1.5-1.8-3-2.7-4.6-3-2.4-.5-4 .6-6.3 1.3-1.1.3-2 .7-2.7 1.7z" fill="#2A180F"/>
+  </symbol>
+  <symbol id="av-ac" viewBox="0 0 40 40">
+    <circle cx="20" cy="20" r="20" fill="#E2EFE8"/>
+    <path d="M20 22c6.2 0 11.4 4.6 12.6 10.7A19.9 19.9 0 0 1 20 40a19.9 19.9 0 0 1-12.6-7.3C8.6 26.6 13.8 22 20 22z" fill="#2E6B54"/>
+    <circle cx="20" cy="15.7" r="7.2" fill="#F2CBA9"/>
+    <path d="M12.8 20.6c-.9-2.6-.8-5.6.4-7.7C14.6 10.2 17.1 8.6 20 8.6s5.4 1.6 6.8 4.3c1.2 2.1 1.3 5.1.4 7.7-.6-2.4-.7-4.4-1-6-3.4 1.3-8.6 1.3-12 0-.3 1.6-.4 3.6-1 6z" fill="#1E1A17"/>
+  </symbol>
+</defs></svg>
 <header style="position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:28px;padding:16px 48px;
   background:rgba(250,249,247,.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid #EEEAE4">
   <a href="#top" style="display:flex;align-items:center;gap:10px;color:var(--ink)">
@@ -341,11 +377,11 @@
                 <div class="bk">Today</div>
                 <div class="bq">What deserves my attention?</div>
                 <div class="bsub">Good morning, Jayati. Two things are worth doing today.</div>
-                <div class="brow hot"><span class="bav">JW</span>
+                <div class="brow hot"><svg class="pic bav" width="26" height="26" role="img" aria-label="portrait"><use href="#av-jw"/></svg>
                   <span style="min-width:0"><b>James Whitfield replied and you have not answered</b>
                   <em>Two days ago. The only thing here that decays.</em></span>
                   <span class="bcta">Reply</span></div>
-                <div class="brow"><span class="bav">SB</span>
+                <div class="brow"><svg class="pic bav" width="26" height="26" role="img" aria-label="portrait"><use href="#av-sb"/></svg>
                   <span style="min-width:0"><b>Write to Sukrit Bansal</b><em>Writes first cheques into health AI</em></span>
                   <span class="bcta g">Draft</span></div>
               </div>
@@ -433,9 +469,9 @@
        investors who understand enterprise AI rather than consumer.</div>
      <div class="jchips"><span>Partner</span><span>Boston</span><span>Pre-seed</span></div></div>
         <div class="jscreen" data-s="1"><div class="bk">Discover</div><div class="bq">Who should I know?</div>
-     <div class="brow"><span class="bav">JW</span><span style="min-width:0"><b>James Whitfield</b>
+     <div class="brow"><svg class="pic bav" width="26" height="26" role="img" aria-label="portrait"><use href="#av-jw"/></svg><span style="min-width:0"><b>James Whitfield</b>
        <em>Was at Novartis while you were</em></span><span class="bcta">Add</span></div>
-     <div class="brow"><span class="bav">SB</span><span style="min-width:0"><b>Sukrit Bansal</b>
+     <div class="brow"><svg class="pic bav" width="26" height="26" role="img" aria-label="portrait"><use href="#av-sb"/></svg><span style="min-width:0"><b>Sukrit Bansal</b>
        <em>Writes first cheques into health AI</em></span><span class="bcta">Add</span></div></div>
         <div class="jscreen" data-s="2"><div class="bk">James Whitfield</div><div class="bq">Why him, why now</div>
      <div class="bcard"><b>Timing.</b> Partner seat four months ago, writing his own cheques for the first time.</div>
@@ -445,9 +481,9 @@
        calendars ever did. Not pitching: I would value fifteen minutes on where you think this thesis is wrong.</div>
      <div class="bsub" style="margin-top:9px">You always click Send.</div></div>
         <div class="jscreen" data-s="4"><div class="bk">Relationships</div><div class="bq">Where am I with everyone?</div>
-     <div class="brow"><span class="bav">JW</span><span style="min-width:0"><b>James Whitfield</b>
+     <div class="brow"><svg class="pic bav" width="26" height="26" role="img" aria-label="portrait"><use href="#av-jw"/></svg><span style="min-width:0"><b>James Whitfield</b>
        <em>In conversation</em></span><span class="bcta g">Reply</span></div>
-     <div class="brow"><span class="bav">LF</span><span style="min-width:0"><b>Luiza Ferreira</b>
+     <div class="brow"><svg class="pic bav" width="26" height="26" role="img" aria-label="portrait"><use href="#av-lf"/></svg><span style="min-width:0"><b>Luiza Ferreira</b>
        <em>Reached out &middot; 6 days</em></span><span class="bcta g">Follow up</span></div></div>
         <div class="jscreen" data-s="5"><div class="bk">After the call</div><div class="bq">What was said</div>
      <div class="bcard"><div class="bnote">wants 2 pilot logos before term sheet - intro to Sukrit re payments</div></div>
@@ -484,7 +520,7 @@
         </div>
         <div class="winbody">
           <div style="display:flex;gap:13px;align-items:center;padding-bottom:13px;border-bottom:1px solid #F1F0F4">
-            <span class="li-av"></span>
+            <svg class="pic li-av" width="38" height="38" role="img" aria-label="portrait"><use href="#av-co"/></svg>
             <span style="flex:1">
               <span style="display:block;font-size:15px;font-weight:700">Charles Okafor</span>
               <span style="display:block;font-size:12.5px;color:var(--sub);margin-top:2px">Founder &amp; CEO &middot; Vellum &middot; Boston</span>
@@ -531,11 +567,11 @@
           </div>
           <div style="font-size:11.5px;color:var(--mute);margin-top:9px">5 of 19,928 connections</div>
           <div style="margin-top:4px">
-            <div class="res"><span class="rav">JW</span><span style="flex:1;min-width:0"><b>James Whitfield</b><em>Partner, early-stage fund</em><i>Was at Novartis while you were</i></span><span class="add">Add</span></div>
-            <div class="res"><span class="rav">SB</span><span style="flex:1;min-width:0"><b>Sukrit Bansal</b><em>Principal, seed fund &middot; Boston</em><i>Writes first cheques into health AI</i></span><span class="add">Add</span></div>
-            <div class="res"><span class="rav">LF</span><span style="flex:1;min-width:0"><b>Luiza Ferreira</b><em>Operating partner</em><i>Runs diligence for two Boston funds</i></span><span class="add">Add</span></div>
-            <div class="res"><span class="rav">LF</span><span style="flex:1;min-width:0"><b>Luiza Ferreira</b><em>Angel &middot; ex-pharma commercial</em><i>Connected 2019, nothing since</i></span><span class="add">Add</span></div>
-            <div class="res"><span class="rav">SB</span><span style="flex:1;min-width:0"><b>Sukrit Bansal</b><em>Managing director</em><i>Overlaps your Jindal years</i></span><span class="add">Add</span></div>
+            <div class="res"><svg class="pic rav" width="32" height="32" role="img" aria-label="portrait"><use href="#av-jw"/></svg><span style="flex:1;min-width:0"><b>James Whitfield</b><em>Partner, early-stage fund</em><i>Was at Novartis while you were</i></span><span class="add">Add</span></div>
+            <div class="res"><svg class="pic rav" width="32" height="32" role="img" aria-label="portrait"><use href="#av-sb"/></svg><span style="flex:1;min-width:0"><b>Sukrit Bansal</b><em>Principal, seed fund &middot; Boston</em><i>Writes first cheques into health AI</i></span><span class="add">Add</span></div>
+            <div class="res"><svg class="pic rav" width="32" height="32" role="img" aria-label="portrait"><use href="#av-lf"/></svg><span style="flex:1;min-width:0"><b>Luiza Ferreira</b><em>Operating partner</em><i>Runs diligence for two Boston funds</i></span><span class="add">Add</span></div>
+            <div class="res"><svg class="pic rav" width="32" height="32" role="img" aria-label="portrait"><use href="#av-lf"/></svg><span style="flex:1;min-width:0"><b>Luiza Ferreira</b><em>Angel &middot; ex-pharma commercial</em><i>Connected 2019, nothing since</i></span><span class="add">Add</span></div>
+            <div class="res"><svg class="pic rav" width="32" height="32" role="img" aria-label="portrait"><use href="#av-sb"/></svg><span style="flex:1;min-width:0"><b>Sukrit Bansal</b><em>Managing director</em><i>Overlaps your Jindal years</i></span><span class="add">Add</span></div>
           </div>
         </div>
       </div>
