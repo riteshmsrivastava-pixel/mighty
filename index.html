@@ -40,6 +40,14 @@
   p{margin:0;text-wrap:pretty}
 
   .wrap{max-width:1180px;margin:0 auto;padding:80px 48px}
+  /* the wordmark: purple word, peach rule under it. The rule is a pseudo-element
+     so it tracks the width of the word at any size and needs no extra markup. */
+  .wm{position:relative;display:inline-block;color:var(--brand);font-weight:500;letter-spacing:-.02em;
+      line-height:1;padding-bottom:.28em}
+  .wm::after{content:"";position:absolute;left:0;right:0;bottom:0;height:.11em;min-height:2px;
+             border-radius:99px;background:var(--peach)}
+  .wm.sm{padding-bottom:.3em}
+  .wm.sm::after{height:.12em;min-height:1.5px}
   .kicker{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--brand)}
   .kicker.grey{color:var(--mute)}
   .h-hero{font-size:clamp(40px,7.2vw,80px);line-height:1.02;font-weight:800;letter-spacing:-.045em}
@@ -116,7 +124,6 @@
   .sbar .mmark{width:18px;height:13px}
   .sbar .mmark i{width:13px;height:13px}
   .sbar .mmark i:last-child{left:5px}
-  .sbar b{font-size:12.5px;letter-spacing:-.02em}
   .sbar .who{margin-left:auto;font-size:10.5px;color:var(--mute)}
   .beat{position:absolute;left:0;right:0;top:33px;bottom:0;padding:14px 16px;opacity:0}
   .js-anim .beat{animation:beat 17s infinite}
@@ -201,7 +208,7 @@
   .js-anim .mpanel{opacity:0;transform:translateX(18px)}
   .js-anim .in .mpanel{animation:slidein .55s .35s cubic-bezier(.2,.8,.3,1) forwards}
   @keyframes slidein{to{opacity:1;transform:translateX(0)}}
-  .mhead{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:800;letter-spacing:-.02em}
+  .mhead{display:flex;align-items:center;gap:7px}
   .mmark{position:relative;width:20px;height:14px;flex:none}
   .mmark i{position:absolute;top:0;width:14px;height:14px;border-radius:50%}
   .mmark i:first-child{left:0;background:var(--brand)}
@@ -330,7 +337,7 @@
       <span style="position:absolute;left:0;top:0;width:21px;height:21px;border-radius:50%;background:var(--brand)"></span>
       <span style="position:absolute;left:10px;top:0;width:21px;height:21px;border-radius:50%;background:var(--peach);mix-blend-mode:multiply"></span>
     </span>
-    <span style="font-size:20px;font-weight:700;letter-spacing:-.02em">Mighty</span>
+    <span class="wm" style="font-size:20px">Mighty</span>
   </a>
   <div style="flex:1"></div>
   <nav class="nav-links" style="display:flex;align-items:center;gap:26px">
@@ -369,7 +376,7 @@
           <div class="screen">
             <div class="stage">
               <div class="sbar">
-                <span class="mmark"><i></i><i></i></span><b>Mighty</b>
+                <span class="mmark"><i></i><i></i></span><span class="wm sm" style="font-size:12.5px">Mighty</span>
                 <span class="who">Jayati Mehra</span>
               </div>
 
@@ -531,7 +538,7 @@
           <div class="li-row"><span class="li-av"></span><span style="flex:1"><span class="li-l1" style="width:38%"></span><span class="li-l2" style="width:70%"></span></span></div>
 
           <div class="mpanel">
-            <div class="mhead"><span class="mmark"><i></i><i></i></span>Mighty</div>
+            <div class="mhead"><span class="mmark"><i></i><i></i></span><span class="wm sm" style="font-size:13px">Mighty</span></div>
             <div style="font-size:12px;color:var(--sub);margin:8px 0 10px;line-height:1.5">
               Read from this page, not guessed.
             </div>
