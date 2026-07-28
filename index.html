@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mighty - the operating system for professional relationships</title>
 <meta name="description" content="LinkedIn helps you discover people. Mighty helps you remember them, follow through, and turn conversations into opportunities - from first hello to years of trust.">
-<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="icon" href="favicon.ico?v=2" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=2">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <meta name="theme-color" content="#5B46E5">
 <meta property="og:type" content="website">
@@ -68,6 +69,37 @@
   .usechip.p{background:#FDEDEB;border-color:transparent}
   .usechip.g{background:#E9F1EC;border-color:transparent}
   .chipbox{padding:16px 26px;border-radius:14px;background:var(--card);font-size:16px;font-weight:600;box-shadow:var(--sh);white-space:nowrap}
+  /* the product tour */
+  .tour-tabs{display:flex;gap:6px;flex-wrap:wrap}
+  .ttab{padding:9px 18px;border-radius:999px;font-size:14.5px;font-weight:700;color:var(--mute);
+        background:none;border:1px solid var(--line);cursor:pointer;font-family:inherit}
+  .ttab.on{background:var(--ink);border-color:var(--ink);color:#fff}
+  .tframe{margin-top:14px;background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;
+          box-shadow:var(--shL);text-align:left}
+  .tbar{display:flex;gap:6px;align-items:center;padding:10px 14px;background:#F6F4F1;border-bottom:1px solid var(--line)}
+  .tdot{width:9px;height:9px;border-radius:50%}
+  .turl{font-size:11px;color:var(--mute);margin-left:8px;font-family:ui-monospace,Menlo,monospace}
+  .tpane{display:none;padding:26px 28px 24px;min-height:320px}
+  .tpane.on{display:block;animation:tfade .25s ease}
+  @keyframes tfade{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
+  @media (prefers-reduced-motion:reduce){.tpane.on{animation:none}}
+  .tq{font-size:22px;font-weight:800;letter-spacing:-.025em}
+  .tsub{font-size:14.5px;color:var(--mute);margin-top:5px}
+  .tinput{margin-top:16px;padding:13px 15px;border:1px solid var(--line);border-radius:12px;background:#FCFBF9;
+          font-size:14.5px;color:var(--ink2)}
+  .titem{display:flex;gap:13px;align-items:flex-start;margin-top:14px;padding:15px 16px;border:1px solid var(--line);
+         border-radius:14px}
+  .titem.hot{border-color:#EFC9C4;background:#FBEBE9}
+  .titem b{display:block;font-size:15px;letter-spacing:-.01em}
+  .titem i{display:block;font-style:normal;font-size:13px;color:var(--mute);margin-top:3px}
+  .tavs{width:34px;height:34px;flex:none;border-radius:50%;background:var(--brand-soft2);color:var(--brand-ink);
+        display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+  .tk{display:block;font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--mute)}
+  .tcta{margin-left:auto;flex:none;padding:8px 16px;border-radius:999px;background:var(--brand);color:#fff;
+        font-size:13px;font-weight:700}
+  .tcta.g{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .tcard{margin-top:14px;padding:15px 17px;border:1px solid var(--line);border-radius:14px;font-size:14.5px}
+  .tfoot{margin-top:16px;font-size:12.5px;color:var(--mute)}
   .av{width:44px;height:44px;flex:none;border-radius:50%;background:var(--brand-soft2);color:var(--brand-ink);
     display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700}
   .trow{display:flex;align-items:center;gap:14px;padding:13px 0;border-top:1px solid var(--line2)}
@@ -131,9 +163,11 @@
       <span class="dot" style="background:var(--brand)"></span>
       <span style="font-size:14px;font-weight:600;color:#3B3833">The operating system for professional relationships</span>
     </div>
-    <h1 class="h-hero" style="margin-top:26px">Build relationships that compound.</h1>
+    <h1 class="h-hero" style="margin-top:26px">It learns you.<br>
+      <span style="color:var(--mute)">Then it knows who you should know.</span></h1>
     <p class="lead" style="margin:24px auto 0;max-width:660px">
-      LinkedIn helps you discover people. Mighty helps you remember them, follow through, and turn conversations into opportunities.
+      Mighty reads your own history, remembers every conversation, and each morning names the few people
+      worth your time. It writes the first draft. You always click Send.
     </p>
     <div style="display:flex;justify-content:center;gap:12px;margin-top:34px;flex-wrap:wrap">
       <a href="/app/" class="btn">Start 30 days free</a>
@@ -147,10 +181,13 @@
   <div class="two">
     <div data-reveal>
       <div class="kicker">Why it matters</div>
-      <h2 class="h-sec" style="margin-top:14px">Every opportunity begins with a relationship.</h2>
-      <p class="lead" style="margin-top:22px">The next job. Your first customer. An investor. A mentor. A recommendation.</p>
-      <p style="margin-top:16px;font-size:18px;line-height:1.6;color:var(--ink2);font-weight:500">
-        Most opportunities are not lost because we never met the right people. They are lost because relationships quietly fade.
+      <h2 class="h-sec" style="margin-top:14px">Relationships do not fail loudly. They fade.</h2>
+      <p class="lead" style="margin-top:22px">
+        You met someone good. You meant to follow up. Nine months later the thread is cold and the reason
+        you liked them is gone.
+      </p>
+      <p style="margin-top:16px;font-size:19px;line-height:1.6;color:var(--ink);font-weight:700">
+        Mighty keeps the reason.
       </p>
     </div>
     <div class="card" data-reveal style="padding:26px 28px">
@@ -352,64 +389,96 @@
 </section>
 
 <section class="wrap" data-reveal>
-  <div class="two" style="align-items:start">
-    <div>
-      <div class="kicker">The whole product</div>
-      <h2 class="h-sub" style="margin-top:14px">What happens after you save someone?</h2>
-      <p class="lead" style="margin-top:20px;font-size:17px">
-        One click on LinkedIn starts a chain that runs for years - and you never have to maintain it.
-      </p>
+  <div style="max-width:960px;margin:0 auto">
+    <div class="kicker">The product, not a picture of it</div>
+    <h2 class="h-sub" style="margin-top:14px;max-width:640px">Four screens, one continuous system.</h2>
+    <p class="lead" style="margin-top:18px;max-width:620px;font-size:17px">
+      These are the real screens with real copy. Click through them.
+    </p>
+
+    <div class="tour" style="margin-top:26px">
+      <div class="tour-tabs" role="tablist" aria-label="Product screens">
+        <button class="ttab on" role="tab" aria-selected="true" data-t="today">Today</button>
+        <button class="ttab" role="tab" aria-selected="false" data-t="discover">Discover</button>
+        <button class="ttab" role="tab" aria-selected="false" data-t="person">A person</button>
+        <button class="ttab" role="tab" aria-selected="false" data-t="capture">Capture</button>
+      </div>
+
+      <div class="tframe">
+        <div class="tbar"><span class="tdot" style="background:#F0685C"></span><span class="tdot" style="background:#F4BF4F"></span><span class="tdot" style="background:#61C554"></span><span class="turl">yourmighty.com/app</span></div>
+
+        <!-- Today -->
+        <div class="tpane on" data-p="today">
+          <div class="tq">What deserves my attention?</div>
+          <div class="tsub">Good morning, Ritesh. Two things are worth doing today.</div>
+          <div class="titem hot">
+            <span class="tavs">PN</span>
+            <span style="min-width:0"><span class="tk">They replied</span><b>Priya Nair replied and you have not answered</b>
+            <i>Yesterday. The only thing on this list that decays.</i></span>
+            <span class="tcta">Reply</span>
+          </div>
+          <div class="titem">
+            <span class="tavs">JL</span>
+            <span style="min-width:0"><span class="tk">Ready to reach out</span><b>Write to J. Lee</b>
+            <i>MIT, and he has closed the round you are raising.</i></span>
+            <span class="tcta g">Draft</span>
+          </div>
+          <div class="tfoot">Everything here comes from what has actually happened. Nothing is invented.</div>
+        </div>
+
+        <!-- Discover -->
+        <div class="tpane" data-p="discover">
+          <div class="tq">Describe who you are looking for.</div>
+          <div class="tsub">Not a name search. Across your 19,928 connections.</div>
+          <div class="tinput">Folks from Boston who are investing in idea-stage sustainable companies</div>
+          <div class="titem">
+            <span class="tavs">SM</span>
+            <span style="min-width:0"><span class="tk">Best match</span><b>S. Mehta &middot; Partner, early-stage fund</b>
+            <i>Was at Novartis while you were. Matched on boston, investing.</i></span>
+            <span class="tcta">Add</span>
+          </div>
+          <div class="tfoot">Every suggestion carries the reason it was made. If Mighty cannot say why, it says nothing.</div>
+        </div>
+
+        <!-- A person -->
+        <div class="tpane" data-p="person">
+          <div class="tq">S. Mehta</div>
+          <div class="tsub">Partner, early-stage fund &middot; Boston &middot; Replied</div>
+          <div class="tcard">
+            <span class="tk" style="color:var(--brand)">Why now</span>
+            <b style="display:block;margin-top:4px">She moved into the partner seat four months ago, so she is writing her own cheques for the first time.</b>
+          </div>
+          <div class="tcard">
+            <span class="tk">Draft &middot; take 1 of 10</span>
+            <i style="display:block;margin-top:4px">"Not pitching. I would value fifteen minutes on where you think this thesis is wrong."</i>
+          </div>
+          <div class="tfoot">One assist covers the brief, the draft, and all ten takes. You always click Send.</div>
+        </div>
+
+        <!-- Capture -->
+        <div class="tpane" data-p="capture">
+          <div class="tq">Type it the way you would scribble it.</div>
+          <div class="tsub">Write the mess. Mighty reads it back as the promises you made.</div>
+          <div class="tinput" style="font-style:italic">wants 2 pilot logos before term sheet - intro to David re payments - she asked abt studio vs accelerator??</div>
+          <div class="tcard">
+            <span class="tk" style="color:var(--green,#14805A)">Mighty remembered</span>
+            <b style="display:block;margin-top:4px">Send two pilot logos &middot; Intro David &middot; Has doubts: studio vs accelerator</b>
+          </div>
+          <div class="tfoot">Your words. Mighty just remembers them.</div>
+        </div>
+      </div>
     </div>
-    <div style="display:flex;flex-direction:column">
-      <div style="display:grid;grid-template-columns:30px 1fr;gap:16px;align-items:start">
-        <div style="display:flex;flex-direction:column;align-items:center;height:100%">
-          <span style="width:11px;height:11px;border-radius:50%;flex:none;margin-top:7px;background:#D6D0C7"></span>
-          <span style="width:2px;flex:1;background:var(--line);margin-top:4px"></span>
-        </div>
-        <div style="padding-bottom:22px"><div style="font-size:17.5px;font-weight:700;letter-spacing:-.015em">Find someone</div></div>
-      </div>
-      <div style="display:grid;grid-template-columns:30px 1fr;gap:16px;align-items:start">
-        <div style="display:flex;flex-direction:column;align-items:center;height:100%">
-          <span style="width:11px;height:11px;border-radius:50%;flex:none;margin-top:7px;background:#D6D0C7"></span>
-          <span style="width:2px;flex:1;background:var(--line);margin-top:4px"></span>
-        </div>
-        <div style="padding-bottom:22px"><div style="font-size:17.5px;font-weight:700;letter-spacing:-.015em">Save them</div></div>
-      </div>
-      <div style="display:grid;grid-template-columns:30px 1fr;gap:16px;align-items:start">
-        <div style="display:flex;flex-direction:column;align-items:center;height:100%">
-          <span style="width:11px;height:11px;border-radius:50%;flex:none;margin-top:7px;background:#D6D0C7"></span>
-          <span style="width:2px;flex:1;background:var(--line);margin-top:4px"></span>
-        </div>
-        <div style="padding-bottom:22px"><div style="font-size:17.5px;font-weight:700;letter-spacing:-.015em">Mighty understands them</div></div>
-      </div>
-      <div style="display:grid;grid-template-columns:30px 1fr;gap:16px;align-items:start">
-        <div style="display:flex;flex-direction:column;align-items:center;height:100%">
-          <span style="width:11px;height:11px;border-radius:50%;flex:none;margin-top:7px;background:#D6D0C7"></span>
-          <span style="width:2px;flex:1;background:var(--line);margin-top:4px"></span>
-        </div>
-        <div style="padding-bottom:22px"><div style="font-size:17.5px;font-weight:700;letter-spacing:-.015em">Draft the first message</div></div>
-      </div>
-      <div style="display:grid;grid-template-columns:30px 1fr;gap:16px;align-items:start">
-        <div style="display:flex;flex-direction:column;align-items:center;height:100%">
-          <span style="width:11px;height:11px;border-radius:50%;flex:none;margin-top:7px;background:#D6D0C7"></span>
-          <span style="width:2px;flex:1;background:var(--line);margin-top:4px"></span>
-        </div>
-        <div style="padding-bottom:22px"><div style="font-size:17.5px;font-weight:700;letter-spacing:-.015em">Track the relationship</div></div>
-      </div>
-      <div style="display:grid;grid-template-columns:30px 1fr;gap:16px;align-items:start">
-        <div style="display:flex;flex-direction:column;align-items:center;height:100%">
-          <span style="width:11px;height:11px;border-radius:50%;flex:none;margin-top:7px;background:#D6D0C7"></span>
-          <span style="width:2px;flex:1;background:var(--line);margin-top:4px"></span>
-        </div>
-        <div style="padding-bottom:22px"><div style="font-size:17.5px;font-weight:700;letter-spacing:-.015em">Know when to follow up</div></div>
-      </div>
-      <div style="display:grid;grid-template-columns:30px 1fr;gap:16px;align-items:start">
-        <div style="display:flex;flex-direction:column;align-items:center;height:100%">
-          <span style="width:11px;height:11px;border-radius:50%;flex:none;margin-top:7px;background:var(--brand)"></span>
-        </div>
-        <div><div style="font-size:17.5px;font-weight:700;letter-spacing:-.015em">The relationship grows</div></div>
-      </div>
-    </div>
+  </div>
+</section>
+
+<section class="wrap" data-reveal style="text-align:center">
+  <div style="max-width:760px;margin:0 auto">
+    <div class="kicker grey">No theatre</div>
+    <h2 class="h-sec" style="margin-top:14px">No scores. No health bars. No streaks.</h2>
+    <p class="lead" style="margin:20px auto 0;max-width:600px">
+      Mighty says things in words or not at all. A number implies a precision nobody can honestly claim
+      about a relationship, so you will never see one here.
+    </p>
   </div>
 </section>
 
@@ -499,6 +568,16 @@
     function sync(){ mob.style.display = window.innerWidth <= 900 ? 'inline-flex' : 'none'; }
     sync(); window.addEventListener('resize', sync);
   })();
+</script>
+<script>
+/* The tour: four buttons, four panes, nothing else. */
+(function(){
+  var tabs = document.querySelectorAll('.ttab'), panes = document.querySelectorAll('.tpane');
+  tabs.forEach(function(t){ t.addEventListener('click', function(){
+    tabs.forEach(function(x){ x.classList.toggle('on', x===t); x.setAttribute('aria-selected', x===t ? 'true':'false'); });
+    panes.forEach(function(p){ p.classList.toggle('on', p.getAttribute('data-p')===t.getAttribute('data-t')); });
+  });});
+})();
 </script>
 </body>
 </html>
