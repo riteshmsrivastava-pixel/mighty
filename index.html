@@ -40,6 +40,14 @@
   p{margin:0;text-wrap:pretty}
 
   .wrap{max-width:1180px;margin:0 auto;padding:80px 48px}
+  /* the word, marked. Never used in the logo lockup. */
+  .hl{position:relative;display:inline-block;color:var(--brand);white-space:nowrap;padding-bottom:.14em}
+  /* bottom:0 with that padding puts the stroke clear of the descenders on g and
+     y. Any higher and it reads as a strikethrough on those two letters. */
+  .hl::after{content:"";position:absolute;left:-.05em;right:-.07em;bottom:0;height:.13em;
+             min-height:3px;border-radius:99px;background:var(--peach);
+             transform:rotate(-1.6deg);transform-origin:left center;opacity:.92}
+  @media (max-width:640px){ .hl::after{transform:rotate(-1.1deg)} }
   .kicker{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--brand)}
   .kicker.grey{color:var(--mute)}
   .h-hero{font-size:clamp(40px,7.2vw,80px);line-height:1.02;font-weight:800;letter-spacing:-.045em}
@@ -613,7 +621,7 @@
   <div class="finale" data-reveal style="border-radius:26px;padding:96px 48px;text-align:center;
     background:linear-gradient(135deg,#EFEBFE 0%,#F7F1F4 50%,#FBEFE9 100%)">
     <h2 style="font-size:clamp(30px,5.2vw,52px);line-height:1.1;font-weight:700;letter-spacing:-.04em">
-      LinkedIn helps you connect.<br />Mighty helps you stay connected.
+      LinkedIn helps you connect.<br /><span class="hl">Mighty</span> helps you stay connected.
     </h2>
     <div style="display:flex;justify-content:center;gap:12px;margin-top:34px;flex-wrap:wrap">
       <a href="/app/" class="btn k">Start building relationships</a>
