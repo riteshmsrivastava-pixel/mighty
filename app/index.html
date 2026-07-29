@@ -1604,32 +1604,26 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
             {pipelineList}
           </F>}
           {boardOK &&
-            /* Stages stack top to bottom - one full-width band per stage - rather
-               than side-scrolling columns, so the board reads like the rest of
-               the app: scroll down, never sideways. Cards within a band wrap
-               left to right instead of stacking, since a band is wide enough to
-               hold several. */
-            <div className="stack" style={{gap:26}}>
+            <div style={{display:'flex',gap:14,overflowX:'auto',paddingBottom:12}}>
               {COLUMNS.map(col=>{
                 const items = people.filter(r=>col.statuses.indexOf(r.status)>=0);
                 const meta = STAGE[col.statuses[0]];
                 return (
-                  <div key={col.key}>
-                    <div className="row" style={{gap:8,marginBottom:10}}>
+                  <div key={col.key} style={{width:250,flex:'none'}}
+                    onDragOver={e=>{ e.preventDefault(); setOver(col.key); }}
+                    onDragLeave={()=>setOver(o=>o===col.key?null:o)}
+                    onDrop={e=>{ e.preventDefault(); setOver(null);
+                      if(dragId!=null) onStage(people.find(r=>r.id===dragId), col.statuses[0]); setDrag(null); }}>
+                    <div className="row" style={{gap:8,padding:'0 4px 10px'}}>
                       <span className="dot" style={{background:meta.dot}}/>
                       <span style={{fontSize:13,fontWeight:700}}>{col.label||meta.label}</span>
                       <span className="meta">{items.length}</span>
                     </div>
-                    <div className={'card'+(overCol===col.key?' drop':'')}
-                      style={{padding:14,display:'flex',flexWrap:'wrap',gap:12,minHeight:70}}
-                      onDragOver={e=>{ e.preventDefault(); setOver(col.key); }}
-                      onDragLeave={()=>setOver(o=>o===col.key?null:o)}
-                      onDrop={e=>{ e.preventDefault(); setOver(null);
-                        if(dragId!=null) onStage(people.find(r=>r.id===dragId), col.statuses[0]); setDrag(null); }}>
+                    <div className={'stack'+(overCol===col.key?' drop':'')} style={{gap:10,minHeight:60}}>
                       {items.length===0 &&
                         <div className="meta" style={{padding:'8px 4px'}}>Nobody here yet.</div>}
                       {items.map(r=>(
-                        <div key={r.id} className="colcard" draggable style={{width:230,flex:'none'}}
+                        <div key={r.id} className="colcard" draggable
                           onDragStart={()=>setDrag(r.id)} onDragEnd={()=>setDrag(null)}
                           onClick={()=>onOpen(r.id)}>
                           <div className="row" style={{gap:10}}>
