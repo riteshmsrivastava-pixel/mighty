@@ -2429,7 +2429,7 @@ function Extension(){
   );
 }
 
-function Settings({email, settings, people, events, tasks, go, onSignOut}){
+function Settings({email, settings, people, events, tasks, onSignOut}){
   const [copied,setCopied] = useState(false);
   function exportAll(){
     const blob = new Blob([JSON.stringify({exportedAt:new Date().toISOString(), strategy:settings,
@@ -2442,7 +2442,6 @@ function Settings({email, settings, people, events, tasks, go, onSignOut}){
   }
   const rows = [
     ['Account', email, 'Sign out', onSignOut],
-    ['Browser extension', 'Evaluate and save people while you browse LinkedIn', 'Open', ()=>go({screen:'extension'})],
     ['Export everything', 'Your goal, people, timeline and commitments. One JSON file, yours anytime.',
       copied?'Downloaded':'Export', exportAll],
   ];
@@ -2579,7 +2578,7 @@ const YOU_TABS = [['mirror','Mirror'],['patterns','Patterns'],['goal','Goal'],['
    is what it has noticed. Goal is what the user told it. Account is the
    mechanics. Nothing here is time-sensitive the way Today is - a user comes
    here to update themselves, not to be told what to do next. */
-function You({email, settings, people, events, tasks, tab, setTab, editGoal, setEditGoal, busySave, onSaveSettings, onSignOut, go}){
+function You({email, settings, people, events, tasks, tab, setTab, editGoal, setEditGoal, busySave, onSaveSettings, onSignOut}){
   return (
     <div className="pad fade" style={{maxWidth:1000,paddingTop:34}}>
       <div className="seg">
@@ -2602,7 +2601,7 @@ function You({email, settings, people, events, tasks, tab, setTab, editGoal, set
             onCancel={()=>setEditGoal(false)}/>}
         {tab==='account' &&
           <Settings email={email} settings={settings} people={people} events={events} tasks={tasks}
-            go={go} onSignOut={onSignOut}/>}
+            onSignOut={onSignOut}/>}
       </div>
     </div>
   );
@@ -2685,47 +2684,88 @@ function Logo({small, dark}){
 }
 
 /* ===================== shell ===================== */
+/* Two levels: a surface, and - for Relationships and You - the views inside
+   it. The rail lists both, always expanded, no accordion, so a screen that
+   used to hide four sub-tabs behind an in-page control now reads as a real
+   map of the product rather than four flat rows next to a lot of empty
+   space. */
 const NAV = [
-  ['today','Today', <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>],
-  ['relationships','Relationships', <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M16 20v-1.5a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4V20"/><circle cx="9" cy="7" r="3.2"/><path d="M22 20v-1.5a4 4 0 0 0-3-3.87"/><path d="M16 4.13a4 4 0 0 1 0 7.75"/></svg>],
-  ['you','You', <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>],
-  ['ask','Ask Mighty', <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 3.5 12.8 8l4.5 1.8-4.5 1.8L11 16l-1.8-4.4L4.7 9.8 9.2 8z"/><path d="M18.5 14.5 19.4 17l2.5.9-2.5.9-.9 2.5-.9-2.5-2.5-.9 2.5-.9z"/></svg>],
+  {key:'today', label:'Today', icon:
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>},
+  {key:'relationships', label:'Relationships', badge:true, icon:
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M16 20v-1.5a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4V20"/><circle cx="9" cy="7" r="3.2"/><path d="M22 20v-1.5a4 4 0 0 0-3-3.87"/><path d="M16 4.13a4 4 0 0 1 0 7.75"/></svg>,
+    children:[
+      {key:'list', label:'List', view:'list'},
+      {key:'board', label:'Board', view:'board', lock:'board'},
+      {key:'timeline', label:'Timeline', view:'timeline', lock:'timeline'},
+    ]},
+  {key:'you', label:'You', icon:
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>,
+    children:[
+      {key:'mirror', label:'Mirror', tab:'mirror'},
+      {key:'patterns', label:'Patterns', tab:'patterns'},
+      {key:'goal', label:'Goal', tab:'goal'},
+      {key:'account', label:'Account', tab:'account'},
+      {key:'extension', label:'Extension', extension:true},
+    ]},
+  {key:'ask', label:'Ask Mighty', icon:
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 3.5 12.8 8l4.5 1.8-4.5 1.8L11 16l-1.8-4.4L4.7 9.8 9.2 8z"/><path d="M18.5 14.5 19.4 17l2.5.9-2.5.9-.9 2.5-.9-2.5-2.5-.9 2.5-.9z"/></svg>},
 ];
 const QUESTION = {today:'What deserves my attention?', relationships:'Where am I with everyone?',
   profile:'Is this relationship worth investing in?', you:'How does this work for me?', ask:'What should I do?',
   extension:'Save people while you browse.'};
 
-function Shell({screen, go, savedCount, email, onSignOut, aiMeta, children}){
+function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, email, onSignOut, aiMeta, children}){
   /* Today does not exist until there is something to be doing.
      An empty Today on day one teaches a new user that Mighty has nothing for
      them, which is the opposite of what the first session should prove. The tab
      appears the moment one person is added, and never goes away again. */
-  const nav = NAV.filter(([k])=> k!=='today' || savedCount>0);
-  const active = (k)=> k===screen || (k==='relationships'&&screen==='profile') || (k==='you'&&screen==='extension');
-  const navBtn = (on)=>({display:'flex',alignItems:'center',gap:11,padding:'10px 12px',borderRadius:10,width:'100%',
-    textAlign:'left',fontSize:14.5,fontWeight:600,
-    background:on?'var(--brand-nav)':'transparent', color:on?'var(--brand-ink)':'#6B655C'});
+  const nav = NAV.filter(n=> n.key!=='today' || savedCount>0);
+  const parentOn = (k)=> k===screen || (k==='relationships'&&screen==='profile') || (k==='you'&&screen==='extension');
+  const childOn = (parent, child)=>{
+    if(parent==='relationships') return screen==='relationships' && relView===child.view;
+    if(parent==='you') return child.extension ? screen==='extension' : (screen==='you' && youTab===child.tab);
+    return false;
+  };
+  const navBtn = (on, sub)=>({display:'flex',alignItems:'center',gap:sub?10:11,padding:sub?'8px 12px 8px 20px':'10px 12px',
+    borderRadius:10,width:'100%',textAlign:'left',fontSize:sub?13.5:14.5,fontWeight:sub?600:600,
+    background:on?'var(--brand-nav)':'transparent', color:on?'var(--brand-ink)':(sub?'#8A8477':'#6B655C')});
+  const childClick = (parent, child)=>{
+    if(child.lock && !(child.lock==='board'?boardOK:timelineOK)) return;
+    if(child.extension) go({screen:'extension'});
+    else if(parent==='relationships') go({screen:'relationships', view:child.view});
+    else if(parent==='you') go({screen:'you', tab:child.tab});
+  };
+  /* Landing on the parent row lands on that surface's default view - List for
+     Relationships, Mirror for You - rather than whatever was left over from a
+     previous visit, so the row always means the same thing. */
+  const topClick = (k)=> go(k==='you' ? {screen:'you', tab:'mirror'} : k==='relationships' ? {screen:'relationships', view:'list'} : {screen:k});
   return (
     <div style={{display:'flex',minHeight:'100vh',background:'var(--paper)'}}>
       <aside className="railwrap" style={{width:246,flex:'none',display:'flex',flexDirection:'column',
-        background:'var(--rail)',borderRight:'1px solid var(--line3)',position:'sticky',top:0,height:'100vh'}}>
+        background:'var(--rail)',borderRight:'1px solid var(--line3)',position:'sticky',top:0,height:'100vh',overflowY:'auto'}}>
         <div className="row" style={{gap:10,padding:'26px 22px 30px'}}>
           <Logo/><span style={{fontSize:20,fontWeight:700,letterSpacing:'-.02em'}}>Mighty</span>
         </div>
         <nav className="stack" style={{gap:2,padding:'0 12px'}}>
-          {nav.map(([k,label,icon])=>(
-            <button key={k} onClick={()=>go({screen:k})} style={navBtn(active(k))}>
-              {icon}<span style={{flex:1}}>{label}</span>
-              {k==='relationships' && savedCount>0 && <span className="meta" style={{fontWeight:600}}>{savedCount}</span>}
-            </button>))}
+          {nav.map(n=>(
+            <F key={n.key}>
+              <button onClick={()=>topClick(n.key)} style={navBtn(parentOn(n.key))}>
+                {n.icon}<span style={{flex:1}}>{n.label}</span>
+                {n.badge && savedCount>0 && <span className="meta" style={{fontWeight:600}}>{savedCount}</span>}
+              </button>
+              {n.children && n.children.map(c=>{
+                const locked = c.lock && !(c.lock==='board'?boardOK:timelineOK);
+                return (
+                  <button key={c.key} onClick={()=>childClick(n.key, c)}
+                    title={locked ? UNLOCKS[c.lock].hint : undefined}
+                    style={{...navBtn(childOn(n.key,c), true), opacity:locked?.45:1, cursor:locked?'not-allowed':'pointer'}}>
+                    <span style={{flex:1}}>{c.label}</span>
+                  </button>);
+              })}
+            </F>))}
         </nav>
         <div style={{flex:1}}/>
-        <div style={{padding:'0 12px 14px'}}>
-          <button onClick={()=>go({screen:'extension'})} style={navBtn(screen==='extension')}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19"/></svg>
-            <span>Extension</span>
-          </button>
-        </div>
         <div className="row" style={{gap:11,padding:'16px 22px 20px',borderTop:'1px solid var(--line3)'}}>
           <div className="av" style={{width:32,height:32,fontSize:13}}>{initials(email)}</div>
           <div style={{minWidth:0,flex:1}}>
@@ -2751,8 +2791,9 @@ function Shell({screen, go, savedCount, email, onSignOut, aiMeta, children}){
                 : aiMeta.assistsLeftMonth+' assist'+(aiMeta.assistsLeftMonth===1?'':'s')+' left'}
             </span>}
           <div className="mobnav" style={{gap:7,overflowX:'auto'}}>
-            {nav.map(([k,label])=>(
-              <button key={k} className={'chip'+(active(k)?' on':'')} onClick={()=>go({screen:k})}>{label}</button>))}
+            {nav.map(n=>(
+              <button key={n.key} className={'chip'+(parentOn(n.key)?' on':'')}
+                onClick={()=>topClick(n.key)}>{n.label}</button>))}
           </div>
         </header>
         <div style={{flex:1}}>{children}</div>
@@ -3566,6 +3607,7 @@ function App(){
     if(!target) return;
     if(target.screen==='profile' && target.id!=null){ setPersonId(target.id); setTab(target.tab||'overview'); }
     if(target.screen==='you'){ setEditGoal(false); setYouTab(target.tab||'mirror'); }
+    if(target.screen==='relationships' && target.view){ setRelView(target.view); }
     if(target.screen!=='profile') setPersonId(null);
     setScreen(target.screen);
     window.scrollTo({top:0});
@@ -3595,7 +3637,9 @@ function App(){
   const signOut = async()=>{ await sb.auth.signOut(); window.location.href='../'; };
 
   return (
-    <Shell screen={screen} go={go} savedCount={people.length} email={auth.user.email} onSignOut={signOut} aiMeta={aiMeta}>
+    <Shell screen={screen} relView={relView} youTab={youTab} boardOK={canSee('board',people,events)}
+      timelineOK={canSee('timeline',people,events)} go={go} savedCount={people.length}
+      email={auth.user.email} onSignOut={signOut} aiMeta={aiMeta}>
       {err && <div className="banner warn" style={{margin:'20px 48px 0'}}>{err}</div>}
 
       {/* Guard, not just a hidden tab: a reload can restore screen='today' from
@@ -3623,7 +3667,7 @@ function App(){
       {screen==='you' &&
         <You email={auth.user.email} settings={settings} people={people} events={events} tasks={tasks}
           tab={youTab} setTab={setYouTab} editGoal={editGoal} setEditGoal={setEditGoal} busySave={busySave}
-          onSaveSettings={saveSettings} onSignOut={signOut} go={go}/>}
+          onSaveSettings={saveSettings} onSignOut={signOut}/>}
 
       {screen==='ask' &&
         <Ask sb={sb} people={people} events={events} tasks={tasks} settings={settings} onOpen={openPerson}/>}
