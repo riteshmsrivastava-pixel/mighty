@@ -11,11 +11,9 @@
 
      Navigation is the user's questions, not features:
        Today - what deserves my attention?
-       Strategy - why am I networking?
-       Discover - who should I know?
-       Relationships- where am I with everyone?
+       Relationships - where am I with everyone, and who is worth adding?
+       You - how does this work for me? (Mirror, Patterns, Goal, Account)
        Ask Mighty - what should I do?
-       Settings - how does Mighty work for me?
 
      Permanent rules enforced here:
        · You always click Send. Nothing is ever sent automatically.
@@ -167,6 +165,19 @@ const GOALS = [
   {id:'networking',    label:'Build my network',       hint:'Broad, deliberate, long-term relationships'},
 ];
 const GOAL_LABEL = GOALS.reduce((a,g)=>{a[g.id]=g.label;return a;},{});
+/* One goal can now be several. goalTypes is the source of truth when it
+   exists; goalType (singular) survives on old accounts that saved before
+   this changed. */
+const goalTypeList = (st)=>{
+  const s = st||{};
+  return (s.goalTypes&&s.goalTypes.length) ? s.goalTypes : (s.goalType ? [s.goalType] : []);
+};
+const goalLine = (st)=>{
+  const s = st||{};
+  if(clean(s.goal)) return s.goal;
+  const labels = goalTypeList(s).map(t=>GOAL_LABEL[t]).filter(Boolean);
+  return labels.join(' and ') || 'Build your network';
+};
 
 /* outreach_log.status is the ONE stage field. 'prospect' IS Saved. */
 const STAGE = {
@@ -366,7 +377,7 @@ async function llmJSON(sb, feature, system, user, maxTokens, exchangeKey){
 }
 function strategyBrief(st){
   return [
-    'Primary goal: ' + (GOAL_LABEL[st.goalType] || 'building a professional network'),
+    'Goal: ' + (goalTypeList(st).map(t=>GOAL_LABEL[t]).filter(Boolean).join(' and ') || 'building a professional network'),
     st.goal ? 'In their words: ' + st.goal : '',
     (st.targetRoles||[]).length ? 'Wants to meet: ' + st.targetRoles.join(', ') : '',
     (st.targetCompanies||[]).length ? 'Target organizations: ' + st.targetCompanies.join(', ') : '',
@@ -422,7 +433,8 @@ async function evaluate(sb, people, st){
 
 /* ===================== Strategy (Slice 0 first run + the living surface) ===================== */
 function StrategyForm({settings, onSave, busy, onCancel, firstRun}){
-  const [goalType,setGoalType] = useState(settings.goalType||'');
+  const [goalTypes,setGoalTypes] = useState(goalTypeList(settings));
+  const toggleGoal = (id)=>setGoalTypes(g => g.includes(id) ? g.filter(x=>x!==id) : g.concat(id));
   const [goal,setGoal]     = useState(settings.goal||'');
   const [roles,setRoles]   = useState(settings.targetRoles||[]);
   const [cos,setCos]       = useState(settings.targetCompanies||[]);
@@ -434,10 +446,10 @@ function StrategyForm({settings, onSave, busy, onCancel, firstRun}){
   const [style,setStyle]   = useState(settings.networkingStyle||[]);
   const [metrics,setMetrics] = useState(settings.successMetrics||[]);
   const STYLES = ['Coffee chats','Warm introductions','LinkedIn','Email','Conferences','Alumni events'];
-  const ready = !!goalType;
+  const ready = goalTypes.length>0;
 
   const submit = ()=>onSave({
-    goalType, goal:clean(goal), targetRoles:roles, targetCompanies:cos, targetLocations:locs,
+    goalType: goalTypes[0]||'', goalTypes, goal:clean(goal), targetRoles:roles, targetCompanies:cos, targetLocations:locs,
     homeLocation: locs[0] || settings.homeLocation || '',
     currentRole:clean(role), currentCompany:clean(co), schools, networkingStyle:style,
     successMetrics:metrics, strategyUpdatedAt:new Date().toISOString(),
@@ -445,7 +457,7 @@ function StrategyForm({settings, onSave, busy, onCancel, firstRun}){
 
   return (
     <div className="pad fade" style={{maxWidth:720,margin:firstRun?'0 auto':'0',paddingTop:firstRun?56:36}}>
-      <div className="eyebrow b">Your relationship strategy</div>
+      <div className="eyebrow b">Your goal</div>
       <h1 className="h1" style={{marginTop:10}}>
         {firstRun ? "Let's build your relationship strategy." : 'Why are you networking?'}
       </h1>
@@ -457,12 +469,12 @@ function StrategyForm({settings, onSave, busy, onCancel, firstRun}){
 
       <div className="card" style={{marginTop:30,padding:'24px 26px'}}>
         <div className="h4">Why are you here?</div>
-        <div className="sub" style={{marginTop:4,fontSize:14}}>The most important question in the product. Pick one.</div>
+        <div className="sub" style={{marginTop:4,fontSize:14}}>Pick as many as are true.</div>
         <div className="stack" style={{gap:8,marginTop:16}}>
           {GOALS.map(g=>{
-            const on = goalType===g.id;
+            const on = goalTypes.includes(g.id);
             return (
-              <button key={g.id} onClick={()=>setGoalType(g.id)} style={{textAlign:'left',padding:'14px 16px',borderRadius:12,
+              <button key={g.id} onClick={()=>toggleGoal(g.id)} style={{textAlign:'left',padding:'14px 16px',borderRadius:12,
                 border:'1px solid '+(on?'#CFC4F9':'var(--line)'), background:on?'var(--brand-soft2)':'var(--card2)'}}>
                 <div style={{fontSize:15.5,fontWeight:700,letterSpacing:'-.01em',color:on?'var(--brand-ink)':'var(--ink)'}}>{g.label}</div>
                 <div style={{fontSize:13.5,color:on?'#6F5FD6':'var(--sub)',marginTop:2}}>{g.hint}</div>
@@ -548,7 +560,7 @@ function StrategyView({settings, people, onEdit}){
   const talked  = people.filter(r=>['replied','coffee_chat','referral','interview','offer'].indexOf(r.status)>=0).length;
   const met     = people.filter(r=>['coffee_chat','referral','interview','offer'].indexOf(r.status)>=0).length;
   const rows = [
-    ['Primary goal', GOAL_LABEL[st.goalType]||' - '],
+    ['Primary goal', goalTypeList(st).map(t=>GOAL_LABEL[t]).filter(Boolean).join(', ')||' - '],
     st.goal ? ['In your words', st.goal] : null,
     (st.targetRoles||[]).length ? ['Ideal relationships', st.targetRoles.join(', ')] : null,
     (st.targetCompanies||[]).length ? ['Target organizations', st.targetCompanies.join(', ')] : null,
@@ -563,10 +575,10 @@ function StrategyView({settings, people, onEdit}){
     <div className="pad fade" style={{maxWidth:780}}>
       <div className="row" style={{justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
         <div>
-          <div className="eyebrow b">Your relationship strategy</div>
-          <h1 className="h1" style={{marginTop:8}}>{st.goal || GOAL_LABEL[st.goalType] || 'Build your network'}</h1>
+          <div className="eyebrow b">Your goal</div>
+          <h1 className="h1" style={{marginTop:8}}>{goalLine(st)}</h1>
         </div>
-        <button className="btn g sm" onClick={onEdit}>Edit strategy</button>
+        <button className="btn g sm" onClick={onEdit}>Edit</button>
       </div>
 
       <div className="card" style={{marginTop:26,padding:'8px 26px 20px'}}>
@@ -602,11 +614,9 @@ function StrategyView({settings, people, onEdit}){
       {!canSee('progress',people) &&
         <div className="hint" style={{marginTop:20}}>{UNLOCKS.progress.hint}</div>}
 
-      <KnowledgeBase settings={st} onEdit={onEdit}/>
-
       <div className="hint" style={{marginTop:26,maxWidth:560}}>
         {st.strategyUpdatedAt ? 'Last updated ' + ago(st.strategyUpdatedAt) + '. ' : ''}
-        A strategy is never finished. Update it when you change jobs, cities or goals, and every recommendation follows.
+        A goal is never finished. Update it when you change jobs, cities or ambitions, and every recommendation follows.
       </div>
     </div>
   );
@@ -758,7 +768,7 @@ function buildPlan(people, events, tasks){
     out.push({id:'task-'+t.id, tone:overdue?'red':'amber', title:t.label,
       sub:(t.sub || (person? person.name : '')) + (t.due_date? (overdue?' · overdue':' · due '+dateShort(t.due_date)) : ''),
       min:5, cta:'Open', taskId:t.id,
-      go: person ? {screen:'profile', id:person.id, tab:'notes'} : {screen:'people'}});
+      go: person ? {screen:'profile', id:person.id, tab:'notes'} : {screen:'relationships'}});
   });
 
   people.filter(r=>['coffee_chat','replied'].indexOf(r.status)>=0).forEach(r=>{
@@ -780,12 +790,57 @@ function buildPlan(people, events, tasks){
   out.sort((a,b)=>(rank[a.tone]-rank[b.tone]));
   const plan = out.slice(0,5);
   if(plan.length<5) plan.push({id:'discover', tone:'grey', title:'Find one person worth knowing',
-    sub:'Five good people beat fifty saved profiles.', min:3, cta:'Discover', go:{screen:'discover'}});
+    sub:'Five good people beat fifty saved profiles.', min:3, cta:'Find someone', go:{screen:'relationships'}});
   return plan;
 }
 const TONE = {red:'#B5675A', amber:'#D9971C', green:'#22916A', purple:'#5B46E5', grey:'#C4BDB2'};
 
-function Today({people, events, tasks, settings, email, go, onToggleTask, doneToday}){
+/* Does r need a reply from the user right now? Same test buildPlan uses for
+   its 'reply-' item: the last thing that happened was them, not us. */
+function needsReply(r, byLog){
+  if(r.status!=='replied') return false;
+  const list = byLog[r.id]||[];
+  const reply = list.filter(e=>e.event_type==='reply').slice(-1)[0];
+  const mine  = list.filter(e=>e.event_type==='first_message'||e.event_type==='note').slice(-1)[0];
+  return !mine || !reply || new Date(reply.occurred_at) > new Date(mine.occurred_at);
+}
+
+/* What an executive gets in the morning: a few sentences that vary with what
+   is actually true today, not a fixed panel of numbers repeated forever.
+   Every clause here is a real count, and a clause is dropped entirely rather
+   than shown at zero - that is the whole difference between this and a
+   dashboard. No bar, no percentage, no score: see docs on the product's one
+   hard rule. */
+function buildSnapshot(people, events, tasks, settings, plan){
+  const byLog = {};
+  events.forEach(e=>{ (byLog[e.log_id] = byLog[e.log_id]||[]).push(e); });
+  const added = people.length;
+  const contactedOrBeyond = people.filter(r=>REACHED.includes(r.status)).length;
+  const talking = people.filter(r=>['replied','coffee_chat','referral','interview','offer'].indexOf(r.status)>=0).length;
+  const met = people.filter(r=>['coffee_chat','referral','interview','offer'].indexOf(r.status)>=0).length;
+  const waiting = people.filter(r=>needsReply(r, byLog)).length;
+  const quiet = people.filter(r=>r.status==='contacted' && days(r.contacted_at)>=10).length;
+
+  const cap = PLAN_CAPS[(plan)||'trial'] || 50;
+  const nearCap = added >= cap*0.8;
+
+  const prev = settings.todaySnapshot;
+  const prevAgeDays = prev && prev.at ? Math.floor((Date.now()-new Date(prev.at).getTime())/DAY) : null;
+  let delta = null;
+  if(prev && prevAgeDays!=null && prevAgeDays>=6){
+    const addedSince = added - (prev.added||0);
+    const metSince = met - (prev.met||0);
+    const bits = [];
+    if(addedSince>0) bits.push(addedSince+' new since last week');
+    if(metSince>0) bits.push(metSince+' met since then');
+    if(bits.length) delta = bits.join(', ');
+  }
+  const shouldResnapshot = !prev || prevAgeDays==null || prevAgeDays>=6;
+
+  return {added, contactedOrBeyond, talking, met, waiting, quiet, nearCap, cap, delta, shouldResnapshot};
+}
+
+function Today({people, events, tasks, settings, email, go, onToggleTask, doneToday, onSaveSettings, plan:aiPlan}){
   const plan = useMemo(()=>buildPlan(people, events, tasks), [people, events, tasks]);
   const mins = plan.reduce((a,t)=>a+(t.min||0),0);
   const name = firstName(settings.currentRole ? settings.preferredName||'' : settings.preferredName||'') || firstName((email||'').split('@')[0].replace(/[._]/g,' '));
@@ -796,18 +851,33 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
   },[tasks]);
   const allDone = plan.length===1 && plan[0].id==='discover' && people.length>0;
 
+  const snap = useMemo(()=>buildSnapshot(people, events, tasks, settings, aiPlan), [people, events, tasks, settings, aiPlan]);
+  useEffect(()=>{
+    if(!snap.shouldResnapshot || !onSaveSettings) return;
+    onSaveSettings({todaySnapshot:{at:new Date().toISOString(), added:snap.added, met:snap.met}});
+    // eslint-disable-next-line
+  },[snap.shouldResnapshot, snap.added, snap.met]);
+
   return (
     <div className="pad fade" style={{maxWidth:860}}>
       <h1 className="h1">{greetWord()}{name?', '+name.charAt(0).toUpperCase()+name.slice(1):''}</h1>
 
       <div className="row" style={{marginTop:20,gap:12,flexWrap:'wrap'}}>
-        <span className="eyebrow b">Today's focus</span>
-        <span style={{fontSize:16,fontWeight:600,color:'var(--ink2)'}}>
-          {settings.goal || GOAL_LABEL[settings.goalType] || 'Build your network'}
-        </span>
+        <span className="eyebrow b">Toward</span>
+        <span style={{fontSize:16,fontWeight:600,color:'var(--ink2)'}}>{goalLine(settings)}</span>
       </div>
 
-      <div className="card" style={{marginTop:30}}>
+      {people.length>0 &&
+        <div className="sub fade" style={{marginTop:12,fontSize:15.5,lineHeight:1.65,maxWidth:'62ch'}}>
+          {snap.added} added, {snap.talking} conversation{snap.talking===1?'':'s'} started
+          {snap.met>0 ? ', '+snap.met+' met' : ''}.
+          {snap.waiting>0 && <F> {snap.waiting} waiting on your reply.</F>}
+          {snap.quiet>0 && <F> {snap.quiet} gone quiet.</F>}
+          {snap.nearCap && <F> You are at {snap.added} of {snap.cap} relationships on your plan.</F>}
+          {snap.delta && <F> {snap.delta}.</F>}
+        </div>}
+
+      <div className="card" style={{marginTop:26}}>
         <div className="row" style={{alignItems:'baseline',justifyContent:'space-between',gap:16,
           padding:'22px 26px 18px',borderBottom:'1px solid var(--line4)'}}>
           <div className="h3">Today's plan</div>
@@ -829,7 +899,7 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
           <div style={{padding:'34px 26px 38px'}}>
             <div className="h3">You are all caught up.</div>
             <div className="sub" style={{marginTop:6}}>You have done today's recommended actions.</div>
-            <button className="btn" style={{marginTop:20}} onClick={()=>go({screen:'discover'})}>Discover someone new</button>
+            <button className="btn" style={{marginTop:20}} onClick={()=>go({screen:'relationships'})}>Find someone new</button>
           </div>}
 
         {doneToday.map(t=>(
@@ -857,7 +927,7 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
             </div>
             <button className="btn g sm" onClick={()=>{
               const p = people.find(x=>x.id===nextMeeting.log_id);
-              go(p ? {screen:'profile', id:p.id, tab:'brief'} : {screen:'people'});
+              go(p ? {screen:'profile', id:p.id, tab:'brief'} : {screen:'relationships'});
             }}>Open brief</button>
           </div>
         </div>}
@@ -865,21 +935,29 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
   );
 }
 
-/* ===================== Discover =====================
-   Three ways in, in the order they are actually useful.
+/* ===================== Relationships =====================
+   One list, one question: where am I with everyone. It used to be two
+   screens - Discover for people not yet saved, Relationships for people who
+   were - and that split forced a user to decide which kind of person they
+   were thinking about before they could even look. They rarely know; a name
+   that comes to mind is just a name, saved or not.
 
-   1. An open box over the user's OWN connections. This is not a name search:
-      "folks from Boston investing in idea-stage sustainable companies" is the
-      real shape of the query. It costs nothing - no keyword extraction, no
-      evaluation, no model call at all - because the answer is already in the
-      database. That is why it goes first.
-   2. LinkedIn, for people the user is not connected to. This is the expensive
-      path (two model calls) and it is now explicitly the second choice.
-   3. The ranking nobody asked for: dormancy, goal fit, shared history.
+   So one search box now does both jobs. Empty, it groups everyone already
+   saved by what is true about them right now - reply needed first, because
+   nothing else is more urgent than a person who took the time to answer -
+   and closes with the people Mighty thinks are worth adding, ranked the same
+   way Discover used to rank them. Typed into, it filters the saved list AND
+   searches the user's own connections at once, because "who is Priya" should
+   not care whether Priya was already added.
 
-   A row only appears if something matched. Discover never pads the list with
-   people it has no reason to suggest - that is the whole difference between
-   this and scrolling LinkedIn. */
+   Three ways in, in the order they are actually useful, survive from the old
+   Discover:
+   1. An open box over the user's OWN connections - no keyword extraction, no
+      model call, because the answer is already in the database.
+   2. LinkedIn, for people the user is not connected to - the expensive path,
+      and the explicit second choice, offered only once the first comes up
+      empty.
+   3. The ranking nobody asked for: dormancy, goal fit, shared history. */
 
 /* Words that carry no retrieval signal.
    Two-letter terms are KEPT, because AI, VC, ML and PM are the shortest and most
@@ -979,36 +1057,54 @@ async function matchConnections(sb, terms, ownCos, limit){
   return data || [];
 }
 
-function Discover({sb, settings, people, plan, onSave, onOpen, go}){
-  /* --- your own network --- */
-  const [total,setTotal]   = useState(null);   // how many connections were imported
-  const [mineQ,setMineQ]   = useState('');
-  const [mine,setMine]     = useState(null);   // null = not searched yet
-  const [mineBusy,setMB]   = useState(false);
-  const [mineErr,setME]    = useState(null);
+function nextAction(r){
+  switch(r.status){
+    case 'prospect':         return (r.briefing&&r.briefing.careerSummary) ? 'Draft a message' : 'Prepare me';
+    case 'ready_to_contact': return r.ai_draft ? 'Review draft' : 'Draft a message';
+    case 'contacted':        return days(r.contacted_at)>=10 ? 'Follow up' : 'Waiting on them';
+    case 'replied':          return 'Reply';
+    case 'coffee_chat':      return 'Capture notes';
+    case 'do_not_contact':   return ' - ';
+    default:                 return 'Keep in touch';
+  }
+}
+
+function Relationships({sb, settings, people, events, view, setView, plan, onSave, onOpen, onStage, go}){
+  const boardOK = canSee('board', people, events);
+  const timeOK  = canSee('timeline', people, events);
+  const [dragId,setDrag] = useState(null);
+  const [overCol,setOver] = useState(null);
+
+  /* ---- the search box: filters who is saved, and finds who is not ---- */
+  const [q,setQ]           = useState('');
+  const [total,setTotal]   = useState(null);
   const [sugg,setSugg]     = useState(null);
   const [suggBusy,setSB]   = useState(true);
-
-  /* --- LinkedIn, the expensive path --- */
-  const [q,setQ]         = useState('');
-  const [phase,setPhase] = useState('idle');
-  const [results,setRes] = useState([]);
-  const [err,setErr]     = useState(null);
-  const [notice,setNote] = useState(null);
-  const [skipped,setSkip]= useState({});
+  const [mine,setMine]     = useState(null);
+  const [mineBusy,setMB]   = useState(false);
   const [savingUrl,setSaving] = useState(null);
-  const [lastQuery,setLastQ]  = useState('');
-  const [noExt,setNoExt] = useState(false);
-  const [webOpen,setWebOpen]  = useState(false);
+
+  /* ---- LinkedIn, the fallback for someone not in the user's own network ---- */
+  const [webOpen,setWebOpen] = useState(false);
+  const [webQ,setWebQ]     = useState('');
+  const [phase,setPhase]   = useState('idle');
+  const [results,setRes]   = useState([]);
+  const [webErr,setWebErr] = useState(null);
+  const [notice,setNote]   = useState(null);
+  const [skipped,setSkip]  = useState({});
+  const [lastQuery,setLastQ] = useState('');
+  const [noExt,setNoExt]   = useState(false);
 
   const savedUrls = useMemo(()=>{
     const m = {}; people.forEach(r=>{ if(r.profile_url) m[r.profile_url.toLowerCase()]=r; }); return m;
   },[people]);
   const cap = PLAN_CAPS[plan||'trial'] || 50;
   const atCap = people.length >= cap;
-
   const terms = useMemo(()=>goalTerms(settings),[settings]);
   const ownCos = useMemo(()=>ownCompanies(settings),[settings]);
+  const byLog = useMemo(()=>{
+    const m = {}; events.forEach(e=>{ (m[e.log_id]=m[e.log_id]||[]).push(e); }); return m;
+  },[events]);
 
   /* The ranking loads on arrival, because a screen that asks you to press a
      button before it shows you anything has not answered its own question. */
@@ -1027,32 +1123,28 @@ function Discover({sb, settings, people, plan, onSave, onOpen, go}){
     return ()=>{ dead = true; };
   },[sb, terms.join(' '), ownCos.join(' ')]);
 
-  async function searchMine(text){
-    const sentence = clean(text!=null?text:mineQ);
-    if(!sentence || mineBusy) return;
-    setME(null); setMB(true);
-    const t = queryTerms(sentence);
-    try{
-      const rows = await matchConnections(sb, t, [], 5);
-      setMine({q:sentence, terms:t, rows});
-      track('discover_own_search', {terms:t.length, results:rows.length});
-    }catch(e){ setME(e.message||String(e)); }
-    setMB(false);
-  }
-
-  const examples = useMemo(()=>{
-    const role=(settings.targetRoles||[])[0], loc=(settings.targetLocations||[])[0];
-    return [
-      role&&loc ? role+'s in '+loc : 'Investors in Boston backing idea-stage companies',
-      ownCos[1] ? 'Anyone I overlapped with at '+ownCos[1] : 'Anyone I worked with before',
-      'Founders who have raised a seed round',
-    ];
-  },[settings, ownCos.join(' ')]);
+  /* Typing searches the user's own connections as they go, debounced so every
+     keystroke does not round-trip. */
+  useEffect(()=>{
+    const sentence = clean(q);
+    if(sentence.length<2){ setMine(null); return; }
+    let dead = false; setMB(true);
+    const t = setTimeout(async()=>{
+      try{
+        const qt = queryTerms(sentence);
+        const rows = await matchConnections(sb, qt, [], 8);
+        if(!dead){ setMine({q:sentence, terms:qt, rows}); track('discover_own_search', {terms:qt.length, results:rows.length}); }
+      }catch(e){ if(!dead) setMine({q:sentence, terms:[], rows:[]}); }
+      if(!dead) setMB(false);
+    }, 380);
+    return ()=>{ dead = true; clearTimeout(t); };
+  },[q, sb]);
 
   async function run(text){
-    const sentence = clean(text!=null?text:q);
+    const sentence = clean(text!=null?text:webQ);
     if(!sentence || phase==='searching' || phase==='thinking') return;
-    setErr(null); setNote(null); setNoExt(false); setRes([]); setSkip({}); setPhase('searching'); setLastQ(sentence);
+    setWebErr(null); setNote(null); setNoExt(false); setRes([]); setSkip({});
+    setPhase('searching'); setLastQ(sentence); setWebQ(sentence); setWebOpen(true);
     try{
       const kw = await toKeywords(sb, sentence, settings);
 
@@ -1066,22 +1158,19 @@ function Discover({sb, settings, people, plan, onSave, onOpen, go}){
         found = (bridged.people||[]).filter(p=>p && p.profileUrl);
       } else if(bridged && bridged.error==='blocked'){
         track('search_blocked', {});
-        setErr('Search is rate limited right now, so results would be incomplete. Try again in a few minutes.');
+        setWebErr('Search is rate limited right now, so results would be incomplete. Try again in a few minutes.');
         setPhase('idle'); return;
       } else {
         const {data, error} = await sb.functions.invoke('people-search', {body:{query:kw}});
         if(error) throw error;
         if(!data || data.ok===false){
           if(data && data.error==='not_configured') setNoExt(true);
-          else setErr((data && (data.message||data.error)) || 'Search failed.');
+          else setWebErr((data && (data.message||data.error)) || 'Search failed.');
           setPhase('idle'); return;
         }
         found = (data.people||[]).filter(p=>p && p.profileUrl);
         via = 'api';
       }
-      /* `via` is the whole point of instrumenting this: it tells us whether the
-         extension search path actually works against live Google, which cannot
-         be established from a test harness. */
       track('search_run', {via, results:found.length,
         with_facts: found.filter(p=>p.location||p.education).length});
 
@@ -1093,13 +1182,13 @@ function Discover({sb, settings, people, plan, onSave, onOpen, go}){
       try{ setRes(await evaluate(sb, found, settings)); }
       catch(e){ setNote('Found these, but Mighty could not explain the matches just now: '+(e.message||'AI unavailable')+'.'); }
       setPhase('done');
-    }catch(e){ setErr(e.message||String(e)); setPhase('idle'); }
+    }catch(e){ setWebErr(e.message||String(e)); setPhase('idle'); }
   }
 
   const visible = results.filter(r=>!skipped[r.profileUrl]);
-  const busy = phase==='searching' || phase==='thinking';
+  const webBusy = phase==='searching' || phase==='thinking';
 
-  /* One row, used by both the query results and the ranking, so a person you
+  /* One row, used by the search results and the ranking, so a person you
      found and a person Mighty suggested cannot drift apart visually. */
   function ConnRow({c}){
     const saved = savedUrls[(c.profile_url||'').toLowerCase()];
@@ -1130,302 +1219,245 @@ function Discover({sb, settings, people, plan, onSave, onOpen, go}){
     );
   }
 
-  const haveConnections = total===null || total>0;
-
-  return (
-    <div className="pad fade" style={{maxWidth:860}}>
-      <div className="row" style={{gap:12,flexWrap:'wrap'}}>
-        <span className="eyebrow b">Your focus</span>
-        <span style={{fontSize:15,fontWeight:600,color:'var(--ink2)'}}>
-          {settings.goal || GOAL_LABEL[settings.goalType] || 'Build your network'}
-        </span>
-        <button className="btn q" style={{fontSize:13,padding:0}} onClick={()=>go({screen:'strategy'})}>Edit</button>
-      </div>
-
-      {atCap &&
-        <div className="banner warn" style={{marginTop:18}}>
-          You are at {cap} relationships, which is the cap on your plan. Mighty would rather stop you here
-          than watch a list of five hundred names go stale. Close one out, or move up a plan.
-        </div>}
-
-      {/* ---- 1. your own network, free and instant ---- */}
-      <div className="card" style={{marginTop:22,padding:'28px 28px 26px'}}>
-        <div className="row" style={{justifyContent:'space-between',alignItems:'baseline',gap:14,flexWrap:'wrap'}}>
-          <h2 className="h2">Describe who you are looking for.</h2>
-          <span className="meta">
-            {total===null ? '' : total>0 ? 'across your '+total.toLocaleString()+' connections' : 'no connections imported'}
-          </span>
+  /* One row for someone already saved, used by every stage group below. Reply
+     needed is the one case that gets a warmer background - the whole point of
+     grouping is that this row should never be mistaken for a quiet one. */
+  function Row({r, hot}){
+    return (
+      <div onClick={()=>onOpen(r.id)} className="lift"
+        style={{display:'flex',alignItems:'center',gap:16,padding:'15px 24px',
+          borderBottom:'1px solid var(--line2)',cursor:'pointer',
+          background: hot ? '#FBEDE8' : 'none'}}>
+        <Avatar name={r.name} size={34}/>
+        <div style={{flex:'1 1 220px',minWidth:0}}>
+          <div style={{fontSize:15.5,fontWeight:700,letterSpacing:'-.01em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.name||'Unnamed'}</div>
+          <div style={{fontSize:13,color:'var(--mute)',marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.title||(r.context||{}).whySaved||'Saved profile'}</div>
         </div>
-        <div className="sub" style={{marginTop:6}}>
-          Not a name search. Say it however you would say it out loud.
-        </div>
-        {haveConnections ? <F>
-          <div style={{display:'flex',gap:12,marginTop:20,alignItems:'stretch',flexWrap:'wrap'}}>
-            <input className="inp" style={{flex:'1 1 260px',minWidth:0}} value={mineQ}
-              placeholder="Folks from Boston who are investing in idea-stage sustainable companies"
-              onChange={e=>setMineQ(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') searchMine(); }}/>
-            <button className="btn" style={{flex:'none',padding:'0 26px',borderRadius:'var(--rsm)'}}
-              onClick={()=>searchMine()} disabled={mineBusy||!clean(mineQ)}>
-              {mineBusy ? <span><span className="spin"/> Looking</span> : 'Find them'}
-            </button>
-          </div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:9,marginTop:15}}>
-            {examples.map(x=><button key={x} className="chip" disabled={mineBusy}
-              onClick={()=>{ setMineQ(x); searchMine(x); }}>{x}</button>)}
-          </div>
-          {mineErr && <div className="banner err" style={{marginTop:16}}>{mineErr}</div>}
-
-          {mine && mine.rows.length>0 &&
-            <div style={{marginTop:20,borderTop:'1px solid var(--line)',paddingTop:6}}>
-              {mine.rows.map(c=><ConnRow key={c.profile_url} c={c}/>)}
-              <div className="meta" style={{marginTop:12}}>
-                {mine.rows.length} of {(total||0).toLocaleString()} match. Five per search is the cap, so this is
-                the best five rather than all of them.
-              </div>
-            </div>}
-
-          {mine && mine.rows.length===0 &&
-            <div style={{marginTop:20,borderTop:'1px solid var(--line)',paddingTop:16}}>
-              <div className="h4">Nobody in your network matches that. Try the wider web, or loosen the description.</div>
-              <div className="sub" style={{marginTop:6,maxWidth:'60ch'}}>
-                Not one of your {(total||0).toLocaleString()} connections reads as
-                {' '}{mine.terms.slice(0,3).join(' plus ')}. That is a real answer, and it beats five
-                near-misses. Search LinkedIn for it instead.
-              </div>
-              <div className="row" style={{gap:10,marginTop:16,flexWrap:'wrap'}}>
-                <button className="btn sm" onClick={()=>{ setWebOpen(true); setQ(mine.q); run(mine.q); }}>
-                  Search LinkedIn for this
-                </button>
-              </div>
-            </div>}
-
-          <div className="meta" style={{marginTop:16,lineHeight:1.55}}>
-            Matches words, not meaning: it finds Boston and investing, not idea-stage. There is no list of
-            everyone you know, on purpose - Mighty picks.
-          </div>
-        </F> : (
-          <div style={{marginTop:18}}>
-            <div className="sub" style={{maxWidth:'58ch'}}>
-              Nothing of your own to search yet. One upload and Mighty stops guessing.
-            </div>
-            <div className="row" style={{gap:10,marginTop:16,flexWrap:'wrap'}}>
-              <button className="btn sm" onClick={()=>go({screen:'strategy'})}>Import my history</button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ---- 2. outside your network ---- */}
-      <div className="card" style={{marginTop:16,padding:'24px 26px'}}>
-        <div className="row" style={{justifyContent:'space-between',alignItems:'baseline',gap:14,flexWrap:'wrap'}}>
-          <div className="h3">Someone not in your network</div>
-          {!webOpen &&
-            <button className="btn g sm" onClick={()=>setWebOpen(true)}>Search LinkedIn</button>}
-        </div>
-        <div className="sub" style={{marginTop:6,maxWidth:'62ch'}}>
-          Five people per search, through the extension. Open a profile once and Mighty can brief you on
-          them.
-        </div>
-
-        {webOpen && <F>
-          <div style={{display:'flex',gap:12,marginTop:18,alignItems:'stretch',flexWrap:'wrap'}}>
-            <input className="inp" style={{flex:'1 1 240px',minWidth:0}} value={q} placeholder={examples[0]}
-              onChange={e=>setQ(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') run(); }}/>
-            <button className="btn" style={{flex:'none',padding:'0 26px',borderRadius:'var(--rsm)'}}
-              onClick={()=>run()} disabled={busy||!clean(q)}>
-              {phase==='searching' ? <span><span className="spin"/> Searching</span>
-                : phase==='thinking' ? <span><span className="spin"/> Reading</span> : 'Search'}
-            </button>
-          </div>
-
-          {err && <div className="banner err" style={{marginTop:16}}>{err}</div>}
-          {notice && <div className="banner warn" style={{marginTop:16}}>{notice}</div>}
-
-          {noExt &&
-            <div className="fade" style={{marginTop:16,paddingTop:16,borderTop:'1px solid var(--line)'}}>
-              <div className="h4">Search is not switched on for this account yet.</div>
-              <div className="sub" style={{marginTop:7,lineHeight:1.55,maxWidth:560}}>
-                Searching outside your network needs either the extension or the web-search backend.
-                Browsing LinkedIn and saving from the extension panel works today.
-              </div>
-              <div className="row" style={{gap:10,marginTop:16,flexWrap:'wrap'}}>
-                <button className="btn sm" onClick={()=>go({screen:'extension'})}>Set up the extension</button>
-                <a className="btn g sm" href="https://www.linkedin.com/search/results/people/" target="_blank" rel="noopener noreferrer">
-                  Open LinkedIn search
-                </a>
-              </div>
-            </div>}
-
-          {results.length>0 &&
-            <div>
-              <div className="row" style={{marginTop:22,alignItems:'baseline',justifyContent:'space-between',gap:16}}>
-                <div className="h4">{visible.length} {visible.length===1?'person':'people'} for "{lastQuery}"</div>
-                <div className="meta">Add now, decide later</div>
-              </div>
-              {phase==='thinking' &&
-                <div className="meta" style={{marginTop:10}}><span className="spin"/> Working out why each of these matters to you…</div>}
-
-              {visible.map(r=>{
-                const savedRow = savedUrls[(r.profileUrl||'').toLowerCase()];
-                const v = VERDICT[r.verdict]||VERDICT.potential;
-                return (
-                  <div key={r.profileUrl} className="fade" style={{marginTop:14,paddingTop:14,borderTop:'1px solid var(--line2)'}}>
-                    <div style={{display:'flex',alignItems:'flex-start',gap:14,flexWrap:'wrap'}}>
-                      <Avatar name={r.name}/>
-                      <div style={{flex:'1 1 200px',minWidth:0}}>
-                        <div style={{fontSize:17,fontWeight:700,letterSpacing:'-.015em'}}>{r.name}</div>
-                        <div className="sub" style={{fontSize:14,marginTop:2}}>{r.title||'No headline on the profile'}</div>
-                        {/* The search results page carries more than a headline. These are facts
-                            read off it, not a judgement, so they show before any match reasoning
-                            and stay visible whether or not the AI managed to explain anything. */}
-                        {[r.location, r.education, r.followers && r.followers+' followers'].filter(Boolean).length>0 &&
-                          <div className="meta" style={{marginTop:4}}>
-                            {[r.location, r.education, r.followers && r.followers+' followers'].filter(Boolean).join(' · ')}
-                          </div>}
-                        <a href={r.profileUrl} target="_blank" rel="noopener noreferrer"
-                          style={{fontSize:13,fontWeight:600,marginTop:4,display:'inline-block'}}>View on LinkedIn</a>
-                      </div>
-                      <div style={{display:'flex',gap:9,flex:'none'}}>
-                        {savedRow
-                          ? <button className="btn g sm" onClick={()=>onOpen(savedRow.id)}>Open profile</button>
-                          : <F>
-                              <button className="btn g sm" style={{color:'var(--sub)'}}
-                                onClick={()=>setSkip(s=>({...s,[r.profileUrl]:true}))}>Skip</button>
-                              <button className="btn sm" disabled={atCap || savingUrl===r.profileUrl}
-                                onClick={async()=>{ setSaving(r.profileUrl); await onSave(r, lastQuery); setSaving(null); }}>
-                                {savingUrl===r.profileUrl ? <span><span className="spin"/> Adding</span> : 'Add'}
-                              </button>
-                            </F>}
-                      </div>
-                    </div>
-                    {r.why &&
-                      <div className="why" style={{marginTop:14,padding:'14px 16px'}}>
-                        <div className="eyebrow b">{v.label}</div>
-                        <div style={{fontSize:14.5,lineHeight:1.55,color:'var(--body)',marginTop:6,textWrap:'pretty'}}>{r.why}</div>
-                      </div>}
-                    {r.common && r.common.length>0 &&
-                      <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:12}}>
-                        {r.common.map((c,i)=><span key={i} className="tag">{c}</span>)}
-                      </div>}
-                  </div>);
-              })}
-
-              {visible.length===0 &&
-                <div className="meta" style={{marginTop:14}}>Nothing left in this batch. Try another description.</div>}
-            </div>}
-        </F>}
-      </div>
-
-      {/* ---- 3. the ranking nobody asked for ---- */}
-      <div className="card" style={{marginTop:16,padding:'24px 26px'}}>
-        <div className="row" style={{justifyContent:'space-between',alignItems:'baseline',gap:14,flexWrap:'wrap'}}>
-          <div className="h3">People you should add</div>
-          <span className="meta">{people.length} of {cap} added</span>
-        </div>
-        <div className="sub" style={{marginTop:6,maxWidth:'62ch'}}>
-          From your own history, ranked against your goal: how long you have been silent, whether their work
-          matches yours, and where you overlap.
-        </div>
-
-        {suggBusy &&
-          <div className="meta" style={{marginTop:16}}><span className="spin"/> Reading your history…</div>}
-
-        {!suggBusy && sugg && sugg.length>0 &&
-          <div style={{marginTop:14,borderTop:'1px solid var(--line)',paddingTop:6}}>
-            {sugg.map(c=><ConnRow key={c.profile_url} c={c}/>)}
-          </div>}
-
-        {!suggBusy && sugg && sugg.length===0 &&
-          <div style={{marginTop:16}}>
-            <div className="sub" style={{maxWidth:'60ch'}}>
-              {total ? <F>Mighty has nothing to suggest yet. Nothing in your {total.toLocaleString()} connections
-                lines up with your goal well enough to be worth interrupting you over, which usually means the
-                goal is written too broadly to match on. Naming a role or a place in it changes this
-                immediately.</F>
-              : <F>There is nothing to rank until your LinkedIn history is imported.</F>}
-            </div>
-            <div className="row" style={{gap:10,marginTop:16,flexWrap:'wrap'}}>
-              <button className="btn sm" onClick={()=>go({screen:'strategy'})}>
-                {total ? 'Sharpen my goal' : 'Import my history'}
-              </button>
-            </div>
-          </div>}
-      </div>
-    </div>
-  );
-}
-
-/* ===================== Relationships ===================== */
-function nextAction(r){
-  switch(r.status){
-    case 'prospect':         return (r.briefing&&r.briefing.careerSummary) ? 'Draft a message' : 'Prepare me';
-    case 'ready_to_contact': return r.ai_draft ? 'Review draft' : 'Draft a message';
-    case 'contacted':        return days(r.contacted_at)>=7 ? 'Follow up' : 'Waiting on them';
-    case 'replied':          return 'Reply';
-    case 'coffee_chat':      return 'Capture notes';
-    case 'do_not_contact':   return ' - ';
-    default:                 return 'Keep in touch';
+        <div className="meta" style={{flex:'none'}}>{ago(r.updated_at||r.shortlisted_at)}</div>
+        <div style={{fontSize:14,fontWeight:700,flex:'none',color: hot?'#B5675A':'var(--brand-ink)'}}>{nextAction(r)}</div>
+      </div>);
   }
-}
-function Relationships({people, events, view, setView, onOpen, onStage, go}){
-  const boardOK = canSee('board', people, events);
-  const timeOK  = canSee('timeline', people, events);
-  const [dragId,setDrag] = useState(null);
-  const [overCol,setOver] = useState(null);
 
-  if(!people.length)
-    return <div className="pad fade" style={{maxWidth:720}}>
-      <Empty title="No one here yet."
-        body="Everyone you add lands here, however you found them. Start with one person you genuinely want to know."
-        cta="Discover someone" onCta={()=>go({screen:'discover'})}/>
-    </div>;
+  const searching = clean(q).length>=2;
+  const needle = clean(q).toLowerCase();
+  const filtered = useMemo(()=>{
+    if(!searching) return people;
+    return people.filter(r=>[r.name,r.title,r.company].filter(Boolean).join(' ').toLowerCase().indexOf(needle)>=0);
+  },[people, searching, needle]);
+
+  /* Real stages, in the order they are actually urgent. A person appears in
+     exactly one group - whichever test matches first - so nobody is counted
+     twice and nobody falls through the middle. */
+  const GROUPS = [
+    {key:'reply',   label:'Reply needed',           test:r=>needsReply(r, byLog)},
+    {key:'ready',   label:'Ready to reach out',     test:r=>r.status==='ready_to_contact'},
+    {key:'saved',   label:'Saved, not reached out', test:r=>r.status==='prospect'},
+    {key:'waiting', label:'Reached out, waiting',   test:r=>r.status==='contacted' && days(r.contacted_at)<10},
+    {key:'quiet',   label:'Gone quiet',             test:r=>r.status==='contacted' && days(r.contacted_at)>=10},
+    {key:'talking', label:'In conversation',        test:r=>['replied','coffee_chat','referral','interview','offer'].indexOf(r.status)>=0 && !needsReply(r, byLog)},
+  ];
+  const closed = filtered.filter(r=>r.status==='do_not_contact').length;
+  const grouped = GROUPS.map(g=>({...g, rows: filtered.filter(g.test)})).filter(g=>g.rows.length>0);
 
   const feed = events.slice().sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at)).slice(0,60);
   const nameOf = (id)=>{ const p=people.find(x=>x.id===id); return p?(p.name||'Unnamed'):' - '; };
 
+  /* Everyone Mighty thinks is worth adding, ranked against the goal. Shared by
+     the empty state and the bottom of the populated list, so a new user and a
+     returning one see the same section in the same place. */
+  const worthAdding = (
+    <div style={{marginTop:22}}>
+      <div className="eyebrow b">Worth adding · ranked against your goal</div>
+      <div className="sub" style={{marginTop:6,maxWidth:'62ch'}}>
+        From your own history: how long you have been silent, whether their work matches yours, and where
+        you overlap.
+      </div>
+      {suggBusy &&
+        <div className="meta" style={{marginTop:16}}><span className="spin"/> Reading your history…</div>}
+      {!suggBusy && sugg && sugg.length>0 &&
+        <div className="card" style={{marginTop:14,padding:'6px 22px'}}>
+          {sugg.map(c=><ConnRow key={c.profile_url} c={c}/>)}
+        </div>}
+      {!suggBusy && sugg && sugg.length===0 &&
+        <div style={{marginTop:16}}>
+          <div className="sub" style={{maxWidth:'60ch'}}>
+            {total ? <F>Nothing in your {total.toLocaleString()} connections lines up with your goal well enough
+              to be worth interrupting you over, which usually means the goal is written too broadly to match
+              on.</F>
+            : <F>There is nothing to rank until your LinkedIn history is imported.</F>}
+          </div>
+          <button className="btn sm" style={{marginTop:14}} onClick={()=>go({screen:'you', tab:'goal'})}>
+            {total ? 'Sharpen my goal' : 'Import my history'}
+          </button>
+        </div>}
+    </div>);
+
+  const webSearchPanel = (
+    <div className="card" style={{marginTop:16,padding:'24px 26px'}}>
+      <div className="row" style={{justifyContent:'space-between',alignItems:'baseline',gap:14,flexWrap:'wrap'}}>
+        <div className="h3">Someone not in your network</div>
+        {!webOpen &&
+          <button className="btn g sm" onClick={()=>setWebOpen(true)}>Search LinkedIn</button>}
+      </div>
+      <div className="sub" style={{marginTop:6,maxWidth:'62ch'}}>
+        Five people per search, through the extension. Open a profile once and Mighty can brief you on them.
+      </div>
+
+      {webOpen && <F>
+        <div style={{display:'flex',gap:12,marginTop:18,alignItems:'stretch',flexWrap:'wrap'}}>
+          <input className="inp" style={{flex:'1 1 240px',minWidth:0}} value={webQ}
+            placeholder="Investors in Boston backing idea-stage companies"
+            onChange={e=>setWebQ(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') run(); }}/>
+          <button className="btn" style={{flex:'none',padding:'0 26px',borderRadius:'var(--rsm)'}}
+            onClick={()=>run()} disabled={webBusy||!clean(webQ)}>
+            {phase==='searching' ? <span><span className="spin"/> Searching</span>
+              : phase==='thinking' ? <span><span className="spin"/> Reading</span> : 'Search'}
+          </button>
+        </div>
+
+        {webErr && <div className="banner err" style={{marginTop:16}}>{webErr}</div>}
+        {notice && <div className="banner warn" style={{marginTop:16}}>{notice}</div>}
+
+        {noExt &&
+          <div className="fade" style={{marginTop:16,paddingTop:16,borderTop:'1px solid var(--line)'}}>
+            <div className="h4">Search is not switched on for this account yet.</div>
+            <div className="sub" style={{marginTop:7,lineHeight:1.55,maxWidth:560}}>
+              Searching outside your network needs either the extension or the web-search backend.
+              Browsing LinkedIn and saving from the extension panel works today.
+            </div>
+            <div className="row" style={{gap:10,marginTop:16,flexWrap:'wrap'}}>
+              <button className="btn sm" onClick={()=>go({screen:'extension'})}>Set up the extension</button>
+              <a className="btn g sm" href="https://www.linkedin.com/search/results/people/" target="_blank" rel="noopener noreferrer">
+                Open LinkedIn search
+              </a>
+            </div>
+          </div>}
+
+        {results.length>0 &&
+          <div>
+            <div className="row" style={{marginTop:22,alignItems:'baseline',justifyContent:'space-between',gap:16}}>
+              <div className="h4">{visible.length} {visible.length===1?'person':'people'} for "{lastQuery}"</div>
+              <div className="meta">Add now, decide later</div>
+            </div>
+            {phase==='thinking' &&
+              <div className="meta" style={{marginTop:10}}><span className="spin"/> Working out why each of these matters to you…</div>}
+
+            {visible.map(r=>{
+              const savedRow = savedUrls[(r.profileUrl||'').toLowerCase()];
+              const v = VERDICT[r.verdict]||VERDICT.potential;
+              return (
+                <div key={r.profileUrl} className="fade" style={{marginTop:14,paddingTop:14,borderTop:'1px solid var(--line2)'}}>
+                  <div style={{display:'flex',alignItems:'flex-start',gap:14,flexWrap:'wrap'}}>
+                    <Avatar name={r.name}/>
+                    <div style={{flex:'1 1 200px',minWidth:0}}>
+                      <div style={{fontSize:17,fontWeight:700,letterSpacing:'-.015em'}}>{r.name}</div>
+                      <div className="sub" style={{fontSize:14,marginTop:2}}>{r.title||'No headline on the profile'}</div>
+                      {[r.location, r.education, r.followers && r.followers+' followers'].filter(Boolean).length>0 &&
+                        <div className="meta" style={{marginTop:4}}>
+                          {[r.location, r.education, r.followers && r.followers+' followers'].filter(Boolean).join(' · ')}
+                        </div>}
+                      <a href={r.profileUrl} target="_blank" rel="noopener noreferrer"
+                        style={{fontSize:13,fontWeight:600,marginTop:4,display:'inline-block'}}>View on LinkedIn</a>
+                    </div>
+                    <div style={{display:'flex',gap:9,flex:'none'}}>
+                      {savedRow
+                        ? <button className="btn g sm" onClick={()=>onOpen(savedRow.id)}>Open profile</button>
+                        : <F>
+                            <button className="btn g sm" style={{color:'var(--sub)'}}
+                              onClick={()=>setSkip(s=>({...s,[r.profileUrl]:true}))}>Skip</button>
+                            <button className="btn sm" disabled={atCap || savingUrl===r.profileUrl}
+                              onClick={async()=>{ setSaving(r.profileUrl); await onSave(r, lastQuery); setSaving(null); }}>
+                              {savingUrl===r.profileUrl ? <span><span className="spin"/> Adding</span> : 'Add'}
+                            </button>
+                          </F>}
+                    </div>
+                  </div>
+                  {r.why &&
+                    <div className="why" style={{marginTop:14,padding:'14px 16px'}}>
+                      <div className="eyebrow b">{v.label}</div>
+                      <div style={{fontSize:14.5,lineHeight:1.55,color:'var(--body)',marginTop:6,textWrap:'pretty'}}>{r.why}</div>
+                    </div>}
+                  {r.common && r.common.length>0 &&
+                    <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:12}}>
+                      {r.common.map((c,i)=><span key={i} className="tag">{c}</span>)}
+                    </div>}
+                </div>);
+            })}
+
+            {visible.length===0 &&
+              <div className="meta" style={{marginTop:14}}>Nothing left in this batch. Try another description.</div>}
+          </div>}
+      </F>}
+    </div>);
+
   return (
     <div className="pad fade" style={{maxWidth:1120,paddingTop:34}}>
       <div className="row" style={{justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
-        <div className="seg">
-          <button className={view==='list'?'on':''} onClick={()=>setView('list')}>List</button>
-          <button className={view==='board'&&boardOK?'on':''} onClick={()=>boardOK&&setView('board')}
-            style={boardOK?null:{opacity:.45,cursor:'not-allowed'}} title={boardOK?'':UNLOCKS.board.hint}>Board</button>
-          <button className={view==='timeline'&&timeOK?'on':''} onClick={()=>timeOK&&setView('timeline')}
-            style={timeOK?null:{opacity:.45,cursor:'not-allowed'}} title={timeOK?'':UNLOCKS.timeline.hint}>Timeline</button>
+        <div>
+          <div className="eyebrow b">Toward</div>
+          <div style={{fontSize:16,fontWeight:600,color:'var(--ink2)',marginTop:4}}>{goalLine(settings)}</div>
         </div>
-        <div className="sub" style={{fontSize:14}}>{people.length} {people.length===1?'relationship':'relationships'}</div>
+        {people.length>0 &&
+          <div className="seg">
+            <button className={view==='list'?'on':''} onClick={()=>setView('list')}>List</button>
+            <button className={view==='board'&&boardOK?'on':''} onClick={()=>boardOK&&setView('board')}
+              style={boardOK?null:{opacity:.45,cursor:'not-allowed'}} title={boardOK?'':UNLOCKS.board.hint}>Board</button>
+            <button className={view==='timeline'&&timeOK?'on':''} onClick={()=>timeOK&&setView('timeline')}
+              style={timeOK?null:{opacity:.45,cursor:'not-allowed'}} title={timeOK?'':UNLOCKS.timeline.hint}>Timeline</button>
+          </div>}
       </div>
 
-      {view==='board' && !boardOK && <div className="hint" style={{marginTop:12}}>{UNLOCKS.board.hint}</div>}
-      {view==='timeline' && !timeOK && <div className="hint" style={{marginTop:12}}>{UNLOCKS.timeline.hint}</div>}
+      <div className="row" style={{gap:12,marginTop:22,alignItems:'stretch',flexWrap:'wrap'}}>
+        <input className="inp" style={{flex:'1 1 320px',minWidth:0,fontSize:15.5}} value={q}
+          placeholder="Search who you know, or describe someone new"
+          onChange={e=>setQ(e.target.value)}
+          onKeyDown={e=>{ if(e.key==='Enter' && searching && mine && !mine.rows.length) run(q); }}/>
+        {atCap &&
+          <span className="banner warn" style={{flex:'none',padding:'11px 16px',fontSize:13}}>
+            At {cap}, the cap on your plan.
+          </span>}
+      </div>
 
-      {(view==='list' || (view==='board'&&!boardOK) || (view==='timeline'&&!timeOK)) &&
-        <div className="card" style={{marginTop:20,overflow:'hidden'}}>
-          <div style={{display:'grid',gridTemplateColumns:'1.5fr 1fr .9fr 1fr',gap:20,padding:'14px 24px',
-            borderBottom:'1px solid var(--line4)',background:'var(--card2)'}}>
-            {['Person','Stage','Last activity','Next best action'].map(h=><div key={h} className="eyebrow">{h}</div>)}
-          </div>
-          {people.map(r=>{
-            const st = stageOf(r);
-            return (
-              <div key={r.id} onClick={()=>onOpen(r.id)} className="lift"
-                style={{display:'grid',gridTemplateColumns:'1.5fr 1fr .9fr 1fr',gap:20,alignItems:'center',
-                  padding:'16px 24px',borderBottom:'1px solid var(--line2)',cursor:'pointer'}}>
-                <div className="row" style={{gap:12,minWidth:0}}>
-                  <Avatar name={r.name} size={34}/>
-                  <div style={{minWidth:0}}>
-                    <div style={{fontSize:15.5,fontWeight:700,letterSpacing:'-.01em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.name||'Unnamed'}</div>
-                    <div style={{fontSize:13,color:'var(--mute)',marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.title||(r.context||{}).whySaved||'Saved profile'}</div>
-                  </div>
-                </div>
-                <div><span className="pill" style={{background:st.bg,color:st.fg}}>{st.label}</span></div>
-                <div className="meta">{ago(r.updated_at||r.shortlisted_at)}</div>
-                <div style={{fontSize:14,fontWeight:700,color:'var(--brand-ink)'}}>{nextAction(r)}</div>
-              </div>);
-          })}
-        </div>}
+      {searching ? (
+        <div className="fade" style={{marginTop:22}}>
+          {filtered.length>0 &&
+            <div className="card" style={{overflow:'hidden',marginBottom:16}}>
+              <div className="eyebrow" style={{padding:'12px 24px',background:'var(--card2)',borderBottom:'1px solid var(--line4)'}}>
+                Already saved · {filtered.length}
+              </div>
+              {filtered.map(r=><Row key={r.id} r={r} hot={needsReply(r, byLog)}/>)}
+            </div>}
 
-      {view==='board' && boardOK &&
+          {mineBusy &&
+            <div className="meta" style={{marginTop:filtered.length?0:16}}><span className="spin"/> Looking in your network…</div>}
+
+          {!mineBusy && mine && mine.rows.filter(c=>!savedUrls[(c.profile_url||'').toLowerCase()]).length>0 &&
+            <div className="card" style={{padding:'8px 22px 18px'}}>
+              <div className="eyebrow b" style={{padding:'14px 0 4px'}}>Not yet saved, from your network</div>
+              {mine.rows.filter(c=>!savedUrls[(c.profile_url||'').toLowerCase()]).map(c=><ConnRow key={c.profile_url} c={c}/>)}
+            </div>}
+
+          {!mineBusy && mine && mine.rows.length===0 && filtered.length===0 &&
+            <div className="card" style={{padding:'24px 26px'}}>
+              <div className="h4">Nobody matches that yet.</div>
+              <div className="sub" style={{marginTop:6,maxWidth:'58ch'}}>
+                Not in your saved relationships or your {(total||0).toLocaleString()} connections. That is a
+                real answer, and it beats a near-miss. Search LinkedIn for it instead.
+              </div>
+              <button className="btn sm" style={{marginTop:16}} onClick={()=>run(q)} disabled={webBusy}>
+                {webBusy ? <span><span className="spin"/> Searching</span> : 'Search LinkedIn for this'}
+              </button>
+            </div>}
+
+          {webOpen && webSearchPanel}
+        </div>
+      ) : people.length===0 ? (
+        <div className="fade" style={{marginTop:22}}>
+          <Empty title="No one here yet."
+            body="Everyone you add lands here, however you found them. Search above for someone you already know, or start with who Mighty thinks is worth adding, below."/>
+          {worthAdding}
+        </div>
+      ) : view==='board' && boardOK ? (
         <div style={{marginTop:20,display:'flex',gap:14,overflowX:'auto',paddingBottom:12}}>
           {COLUMNS.map(col=>{
             const items = people.filter(r=>col.statuses.indexOf(r.status)>=0);
@@ -1458,9 +1490,8 @@ function Relationships({people, events, view, setView, onOpen, onStage, go}){
                 </div>
               </div>);
           })}
-        </div>}
-
-      {view==='timeline' && timeOK &&
+        </div>
+      ) : view==='timeline' && timeOK ? (
         <div className="card" style={{marginTop:20,padding:'8px 26px 22px',maxWidth:720}}>
           {feed.map(e=>(
             <div key={e.id} style={{display:'grid',gridTemplateColumns:'78px 1fr',gap:18,padding:'16px 0',borderBottom:'1px solid var(--line2)'}}>
@@ -1474,7 +1505,24 @@ function Relationships({people, events, view, setView, onOpen, onStage, go}){
                 <div className="meta" style={{marginTop:2}}>{nameOf(e.log_id)}{e.note?' · '+e.note.slice(0,90):''}</div>
               </div>
             </div>))}
-        </div>}
+        </div>
+      ) : (
+        <div className="fade" style={{marginTop:22}}>
+          {grouped.map(g=>(
+            <div key={g.key} style={{marginBottom:22}}>
+              <div className="eyebrow b" style={{marginBottom:8}}>{g.label} · {g.rows.length}</div>
+              <div className="card" style={{overflow:'hidden'}}>
+                {g.rows.map(r=><Row key={r.id} r={r} hot={g.key==='reply'}/>)}
+              </div>
+            </div>))}
+
+          {worthAdding}
+          {webSearchPanel}
+
+          {closed>0 &&
+            <div className="meta" style={{marginTop:8}}>{closed} closed out, hidden from this list.</div>}
+        </div>
+      )}
     </div>
   );
 }
@@ -2394,10 +2442,8 @@ function Settings({email, settings, people, events, tasks, go, onSignOut}){
   }
   const rows = [
     ['Account', email, 'Sign out', onSignOut],
-    ['Relationship strategy', (settings.goal||GOAL_LABEL[settings.goalType]||'Not set')
-      + (settings.strategyUpdatedAt?' · updated '+ago(settings.strategyUpdatedAt):''), 'Edit', ()=>go({screen:'strategy'})],
     ['Browser extension', 'Evaluate and save people while you browse LinkedIn', 'Open', ()=>go({screen:'extension'})],
-    ['Export everything', 'Strategy, people, timeline and commitments. One JSON file, yours anytime.',
+    ['Export everything', 'Your goal, people, timeline and commitments. One JSON file, yours anytime.',
       copied?'Downloaded':'Export', exportAll],
   ];
   return (
@@ -2428,6 +2474,135 @@ function Settings({email, settings, people, events, tasks, go, onSignOut}){
       </div>
       <div className="hint" style={{marginTop:26}}>
         {people.length} {people.length===1?'relationship':'relationships'} · {events.length} timeline {events.length===1?'entry':'entries'} · {tasks.filter(t=>!t.done).length} open {tasks.filter(t=>!t.done).length===1?'commitment':'commitments'}
+      </div>
+    </div>
+  );
+}
+
+/* ===================== Patterns =====================
+   The wow of a first-day dashboard fades - a page that shows the same numbers
+   every visit stops earning the visit. So this reads two ways at once: real
+   findings, computed fresh from what has actually happened rather than
+   guessed, and - when there is one - a "since your last visit" line, which is
+   the part that changes and is the reason to come back. A snapshot of the
+   counts at the last visit lives in the user's own settings; no server table,
+   no new schema, and it costs one write per visit through the same
+   saveSettings path everything else already uses. */
+function Patterns({settings, people, onSaveSettings}){
+  const kb = settings.knowledge||{};
+  const msg = kb.messages||null;
+  const reached = people.filter(r=>REACHED.includes(r.status)).length;
+  const talked  = people.filter(r=>['replied','coffee_chat','referral','interview','offer'].indexOf(r.status)>=0).length;
+  const quiet   = people.filter(r=>r.status==='contacted' && days(r.contacted_at)>=10).length;
+
+  const prev = settings.patternsSnapshot;
+  const seenBefore = !!(prev && prev.at);
+  const sinceVisit = seenBefore ? {
+    added:   people.length - (prev.added||0),
+    reached: reached - (prev.reached||0),
+    talked:  talked - (prev.talked||0),
+  } : null;
+  const hasDelta = sinceVisit && (sinceVisit.added>0 || sinceVisit.reached>0 || sinceVisit.talked>0);
+
+  useEffect(()=>{
+    if(!onSaveSettings) return;
+    onSaveSettings({patternsSnapshot:{at:new Date().toISOString(), added:people.length, reached, talked}});
+    // eslint-disable-next-line
+  },[]);
+
+  /* Every finding here is a real computed number or it does not appear. No
+     invented seniority shifts, no percentages the underlying data cannot
+     support - the two candidates below are the ones the schema actually
+     backs today. */
+  const findings = [];
+  if(reached>=3){
+    const rate = Math.round(talked/reached*100);
+    findings.push({big:rate+'%', body:'of the people you have reached out to have written back. '
+      + (rate>=50 ? 'Whatever you are opening with is working.'
+                  : 'Most first messages never hear back - that is normal, not a sign to change everything.')});
+  }
+  if(msg && msg.identified && (msg.sent+msg.received)>0){
+    const share = Math.round(msg.sent/(msg.sent+msg.received)*100);
+    findings.push({big:share+'%', body:'of the messages in your export are yours. '
+      + (share>=65 ? 'You write first more often than people write to you.'
+                   : 'More of your history is other people reaching out than you might expect.')});
+  }
+  if(quiet>0){
+    findings.push({big:String(quiet),
+      body:(quiet===1?'relationship has':'relationships have')+' gone quiet - reached out, nothing since.'});
+  }
+
+  return (
+    <div style={{maxWidth:780}}>
+      <div className="eyebrow b">What your data says</div>
+      <h1 className="h1" style={{marginTop:8}}>Patterns</h1>
+      <div className="sub" style={{marginTop:8,maxWidth:'60ch'}}>
+        Computed from what has actually happened, not guessed. Nothing here moves until you do something new.
+      </div>
+
+      {hasDelta &&
+        <div className="card" style={{marginTop:24,padding:'18px 24px',background:'var(--brand-soft2)'}}>
+          <div className="eyebrow b" style={{color:'var(--brand-ink)'}}>Since your last visit</div>
+          <div style={{marginTop:8,fontSize:15,color:'var(--brand-ink)',lineHeight:1.6}}>
+            {[sinceVisit.added>0 && sinceVisit.added+' added', sinceVisit.reached>0 && sinceVisit.reached+' reached out',
+              sinceVisit.talked>0 && sinceVisit.talked+' started talking'].filter(Boolean).join(', ')}.
+          </div>
+        </div>}
+
+      {findings.length===0 &&
+        <div className="card" style={{marginTop:24,padding:'26px'}}>
+          <div className="h4">Not enough happening yet to find a pattern.</div>
+          <div className="sub" style={{marginTop:6,maxWidth:'56ch'}}>
+            Reach out to a few people, and Mighty starts noticing what is actually true about how it goes.
+          </div>
+        </div>}
+
+      {findings.length>0 &&
+        <div className="stack" style={{gap:14,marginTop:24}}>
+          {findings.map((f,i)=>(
+            <div key={i} className="card" style={{padding:'22px 24px',display:'flex',gap:20,alignItems:'baseline',flexWrap:'wrap'}}>
+              <div style={{fontSize:32,fontWeight:800,letterSpacing:'-.03em',flex:'none',
+                fontVariantNumeric:'tabular-nums',color:'var(--brand-ink)'}}>{f.big}</div>
+              <div style={{fontSize:15,lineHeight:1.55,color:'var(--body)',flex:'1 1 300px'}}>{f.body}</div>
+            </div>))}
+        </div>}
+    </div>
+  );
+}
+
+const YOU_TABS = [['mirror','Mirror'],['patterns','Patterns'],['goal','Goal'],['account','Account']];
+
+/* ===================== You =====================
+   Strategy and Settings used to be two surfaces answering two different
+   questions, but both are really the same question: how does this work for
+   me. Four sub-tabs under one roof. Mirror is what Mighty has read. Patterns
+   is what it has noticed. Goal is what the user told it. Account is the
+   mechanics. Nothing here is time-sensitive the way Today is - a user comes
+   here to update themselves, not to be told what to do next. */
+function You({email, settings, people, events, tasks, tab, setTab, editGoal, setEditGoal, busySave, onSaveSettings, onSignOut, go}){
+  return (
+    <div className="pad fade" style={{maxWidth:1000,paddingTop:34}}>
+      <div className="seg">
+        {YOU_TABS.map(([k,label])=>(
+          <button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)}>{label}</button>))}
+      </div>
+      <div style={{marginTop:28}}>
+        {tab==='mirror' &&
+          <div style={{maxWidth:780}}>
+            <div className="eyebrow b">What Mighty holds about you</div>
+            <KnowledgeBase settings={settings} onEdit={()=>{ setEditGoal(true); setTab('goal'); }}/>
+          </div>}
+        {tab==='patterns' &&
+          <Patterns settings={settings} people={people} onSaveSettings={onSaveSettings}/>}
+        {tab==='goal' && !editGoal &&
+          <StrategyView settings={settings} people={people} onEdit={()=>setEditGoal(true)}/>}
+        {tab==='goal' && editGoal &&
+          <StrategyForm settings={settings} busy={busySave}
+            onSave={async(p)=>{ await onSaveSettings(p); setEditGoal(false); }}
+            onCancel={()=>setEditGoal(false)}/>}
+        {tab==='account' &&
+          <Settings email={email} settings={settings} people={people} events={events} tasks={tasks}
+            go={go} onSignOut={onSignOut}/>}
       </div>
     </div>
   );
@@ -2512,16 +2687,13 @@ function Logo({small, dark}){
 /* ===================== shell ===================== */
 const NAV = [
   ['today','Today', <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>],
-  ['strategy','Strategy', <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>],
-  ['discover','Discover', <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>],
-  ['people','Relationships', <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M16 20v-1.5a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4V20"/><circle cx="9" cy="7" r="3.2"/><path d="M22 20v-1.5a4 4 0 0 0-3-3.87"/><path d="M16 4.13a4 4 0 0 1 0 7.75"/></svg>],
+  ['relationships','Relationships', <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M16 20v-1.5a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4V20"/><circle cx="9" cy="7" r="3.2"/><path d="M22 20v-1.5a4 4 0 0 0-3-3.87"/><path d="M16 4.13a4 4 0 0 1 0 7.75"/></svg>],
+  ['you','You', <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>],
   ['ask','Ask Mighty', <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 3.5 12.8 8l4.5 1.8-4.5 1.8L11 16l-1.8-4.4L4.7 9.8 9.2 8z"/><path d="M18.5 14.5 19.4 17l2.5.9-2.5.9-.9 2.5-.9-2.5-2.5-.9 2.5-.9z"/></svg>],
-  ['settings','Settings', <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg>],
 ];
-const QUESTION = {today:'What deserves my attention?', strategy:'Why am I networking?',
-  discover:'Who should I know?', people:'Where am I with every relationship?',
-  profile:'Is this relationship worth investing in?', ask:'What should I do?',
-  settings:'How does Mighty work for me?', extension:'Save people while you browse.'};
+const QUESTION = {today:'What deserves my attention?', relationships:'Where am I with everyone?',
+  profile:'Is this relationship worth investing in?', you:'How does this work for me?', ask:'What should I do?',
+  extension:'Save people while you browse.'};
 
 function Shell({screen, go, savedCount, email, onSignOut, aiMeta, children}){
   /* Today does not exist until there is something to be doing.
@@ -2529,7 +2701,7 @@ function Shell({screen, go, savedCount, email, onSignOut, aiMeta, children}){
      them, which is the opposite of what the first session should prove. The tab
      appears the moment one person is added, and never goes away again. */
   const nav = NAV.filter(([k])=> k!=='today' || savedCount>0);
-  const active = (k)=> k===screen || (k==='people'&&screen==='profile') || (k==='settings'&&screen==='extension');
+  const active = (k)=> k===screen || (k==='relationships'&&screen==='profile') || (k==='you'&&screen==='extension');
   const navBtn = (on)=>({display:'flex',alignItems:'center',gap:11,padding:'10px 12px',borderRadius:10,width:'100%',
     textAlign:'left',fontSize:14.5,fontWeight:600,
     background:on?'var(--brand-nav)':'transparent', color:on?'var(--brand-ink)':'#6B655C'});
@@ -2544,7 +2716,7 @@ function Shell({screen, go, savedCount, email, onSignOut, aiMeta, children}){
           {nav.map(([k,label,icon])=>(
             <button key={k} onClick={()=>go({screen:k})} style={navBtn(active(k))}>
               {icon}<span style={{flex:1}}>{label}</span>
-              {k==='people' && savedCount>0 && <span className="meta" style={{fontWeight:600}}>{savedCount}</span>}
+              {k==='relationships' && savedCount>0 && <span className="meta" style={{fontWeight:600}}>{savedCount}</span>}
             </button>))}
         </nav>
         <div style={{flex:1}}/>
@@ -3164,7 +3336,8 @@ function App(){
   const [personId,setPersonId] = useState(null);
   const [tab,setTab] = useState('overview');
   const [relView,setRelView] = useState('list');
-  const [editStrategy,setEditStrategy] = useState(false);
+  const [youTab,setYouTab] = useState('mirror');
+  const [editGoal,setEditGoal] = useState(false);
   const [busySave,setBusySave] = useState(false);
   const [aiMeta,setAiMeta] = useState(null);
   const [err,setErr] = useState(null);
@@ -3392,7 +3565,7 @@ function App(){
   function go(target){
     if(!target) return;
     if(target.screen==='profile' && target.id!=null){ setPersonId(target.id); setTab(target.tab||'overview'); }
-    if(target.screen==='strategy') setEditStrategy(false);
+    if(target.screen==='you'){ setEditGoal(false); setYouTab(target.tab||'mirror'); }
     if(target.screen!=='profile') setPersonId(null);
     setScreen(target.screen);
     window.scrollTo({top:0});
@@ -3417,7 +3590,7 @@ function App(){
      edit surface for everything after the first run. */
   if(!hasIntent)
     return <Onboarding sb={sb} user={auth.user} settings={settings}
-      onSave={saveSettings} onDone={()=>go({screen:'discover'})}/>;
+      onSave={saveSettings} onDone={()=>go({screen:'relationships'})}/>;
 
   const signOut = async()=>{ await sb.auth.signOut(); window.location.href='../'; };
 
@@ -3429,43 +3602,33 @@ function App(){
           before the last person was deleted, and a screen with no nav entry is
           a dead end. */}
       {screen==='today' && people.length===0 &&
-        <Discover sb={sb} settings={settings} people={people} plan={aiMeta&&aiMeta.plan}
-          onSave={savePerson} onOpen={openPerson} go={go}/>}
+        <Relationships sb={sb} settings={settings} people={people} events={events} view={relView} setView={setRelView}
+          plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} go={go}/>}
       {screen==='today' && people.length>0 &&
         <Today people={people} events={events} tasks={tasks} settings={settings} email={auth.user.email}
-          go={go} onToggleTask={toggleTask} doneToday={doneToday}/>}
+          go={go} onToggleTask={toggleTask} doneToday={doneToday} onSaveSettings={saveSettings} plan={aiMeta&&aiMeta.plan}/>}
 
-      {screen==='strategy' && !editStrategy &&
-        <StrategyView settings={settings} people={people} onEdit={()=>setEditStrategy(true)}/>}
-      {screen==='strategy' && editStrategy &&
-        <StrategyForm settings={settings} busy={busySave}
-          onSave={async(p)=>{ await saveSettings(p); setEditStrategy(false); }}
-          onCancel={()=>setEditStrategy(false)}/>}
-
-      {screen==='discover' &&
-        <Discover sb={sb} settings={settings} people={people} plan={aiMeta&&aiMeta.plan}
-          onSave={savePerson} onOpen={openPerson} go={go}/>}
-
-      {screen==='people' &&
-        <Relationships people={people} events={events} view={relView} setView={setRelView}
-          onOpen={openPerson} onStage={changeStage} go={go}/>}
+      {screen==='relationships' &&
+        <Relationships sb={sb} settings={settings} people={people} events={events} view={relView} setView={setRelView}
+          plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} go={go}/>}
 
       {screen==='profile' && person &&
         <Profile sb={sb} row={person} events={events} tasks={tasks} settings={settings} people={people}
-          onBack={()=>go({screen:'people'})} onUpdate={updateRow} onStage={changeStage}
+          onBack={()=>go({screen:'relationships'})} onUpdate={updateRow} onStage={changeStage}
           onEvent={logEvent} onTask={addTask} tab={tab} setTab={setTab} go={go}/>}
       {screen==='profile' && !person &&
-        <Relationships people={people} events={events} view={relView} setView={setRelView}
-          onOpen={openPerson} onStage={changeStage} go={go}/>}
+        <Relationships sb={sb} settings={settings} people={people} events={events} view={relView} setView={setRelView}
+          plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} go={go}/>}
+
+      {screen==='you' &&
+        <You email={auth.user.email} settings={settings} people={people} events={events} tasks={tasks}
+          tab={youTab} setTab={setYouTab} editGoal={editGoal} setEditGoal={setEditGoal} busySave={busySave}
+          onSaveSettings={saveSettings} onSignOut={signOut} go={go}/>}
 
       {screen==='ask' &&
         <Ask sb={sb} people={people} events={events} tasks={tasks} settings={settings} onOpen={openPerson}/>}
 
       {screen==='extension' && <Extension/>}
-
-      {screen==='settings' &&
-        <Settings email={auth.user.email} settings={settings} people={people} events={events} tasks={tasks}
-          go={go} onSignOut={signOut}/>}
     </Shell>
   );
 }

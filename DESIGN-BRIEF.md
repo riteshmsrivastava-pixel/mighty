@@ -18,19 +18,21 @@ helps them write the first message. Every send is the user's own click. Mighty n
 after a conversation. So the design job is not to make an impressive dashboard, it is to make a one-minute
 habit feel worth doing on day four hundred.
 
-## The six surfaces, and the single question each answers
+## The four surfaces, and the single question each answers
 
-Navigation is the user's questions, not our features. This is settled and worth preserving.
+Navigation is the user's questions, not our features. This is settled and worth preserving. Discover and
+Relationships merged into one list - a name either is saved or is not, and asking the user to decide which
+kind of person they were thinking about before they could even search was the wrong first question. Strategy
+and Settings merged into You for the same reason: both answer "how does this work for me," one about what
+Mighty knows, the other about the mechanics.
 
 | Surface | The only question it answers |
 |---|---|
 | Today | What should I do right now? |
-| Strategy | What am I building, and am I getting there? |
-| Discover | Who should I know? |
-| Relationships | Where am I with everyone? |
+| Relationships | Where am I with everyone, and who is worth adding? |
 | A person | Is this worth investing in, and what do I say? |
+| You | How does this work for me? (Mirror, Patterns, Goal, Account) |
 | Ask Mighty | Anything, conversationally |
-| Settings | How does this work for me? |
 
 ## What is in this package
 
@@ -77,14 +79,14 @@ of visual wit in the product and is worth keeping or beating.
 
 Ranked by how much a better answer would change the product.
 
-1. **Discover.** Three ways in - an open query over your own network, LinkedIn search, and a ranked list you
-   did not ask for - currently stacked as three cards down a page. It works and it feels like a form. The
-   ranked suggestions each carry a one-line reason like *"Was at Novartis while you were. Matched on boston,
-   partner."* Those reasons are the product. They deserve better than a list row.
+1. **Relationships.** One search box now does the job Discover and Relationships used to split between them:
+   type into it and it filters who is saved while it searches who is not, at once. The ranked suggestions
+   still carry a one-line reason like *"Was at Novartis while you were. Matched on boston, partner."* Those
+   reasons are the product. They deserve better than a list row.
 
-2. **First run.** Onboarding is six steps: privacy, history, resume, check, goal, questions. It is correct and
-   it is plain. The payoff screen after it - landing in Discover with people to add - is where a new user
-   either gets it or leaves.
+2. **First run.** Onboarding is five steps: privacy, history, resume, goal, questions, on a vertical rail with
+   rounded cards. It is correct and it is plain. The payoff screen after it - landing in Relationships with
+   people to add - is where a new user either gets it or leaves.
 
 3. **A person.** Brief, draft, notes, timeline behind four tabs. The draft is the moment the user pays us,
    and the notes tab is the habit the whole product depends on. Neither feels special.
