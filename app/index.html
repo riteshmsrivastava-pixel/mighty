@@ -240,13 +240,75 @@ const greetWord = ()=>{ const h=new Date().getHours(); return h<12?'Good morning
    is saved from a search result or from their own profile - falling back to
    initials the moment the image 404s (a stale or since-privated LinkedIn
    photo URL) rather than showing a broken-image icon. */
-function Avatar({name, size, src}){
+/* One shape out of the several a "person" arrives in across the app - a
+   saved outreach_log row, a connections_match row, a raw search result -
+   read for whatever it actually has, so the hover preview works the same
+   everywhere instead of needing a different card per source. */
+function personPreview(p){
+  if(!p) return null;
+  const name = clean(p.name) || (p.first_name!=null ? connName(p) : '');
+  if(!name) return null;
+  const ctx = p.context || {};
+  const why = clean(ctx.whySaved) || clean(p.why) || connReason(p);
+  const common = (p.briefing && p.briefing.shared && p.briefing.shared.length) ? p.briefing.shared
+    : (ctx.common || p.common || []);
+  return {
+    name, title: p.title || p.position || '', company: p.company || '',
+    location: ctx.location || p.location || '', education: ctx.education || p.education || '',
+    why, common, summary: (p.briefing && clean(p.briefing.careerSummary)) || '', status: p.status,
+  };
+}
+function Avatar({name, size, src, hover}){
   const s = size||38;
   const [broken,setBroken] = useState(false);
-  if(src && !broken)
-    return <img src={src} alt="" width={s} height={s} onError={()=>setBroken(true)}
-      style={{width:s,height:s,borderRadius:'50%',objectFit:'cover',flex:'none',background:'var(--card2)'}}/>;
-  return <div className="av" style={{width:s,height:s,fontSize:Math.round(s*0.36)}}>{initials(name)}</div>;
+  const [show,setShow] = useState(false);
+  const [rect,setRect] = useState(null);
+  const ref = useRef(null);
+  const core = (src && !broken)
+    ? <img ref={ref} src={src} alt="" width={s} height={s} onError={()=>setBroken(true)}
+        style={{width:s,height:s,borderRadius:'50%',objectFit:'cover',flex:'none',background:'var(--card2)'}}/>
+    : <div ref={ref} className="av" style={{width:s,height:s,fontSize:Math.round(s*0.36)}}>{initials(name)}</div>;
+  const p = hover && personPreview(hover);
+  if(!p) return core;
+  const open = ()=>{ if(ref.current) setRect(ref.current.getBoundingClientRect()); setShow(true); };
+  const close = ()=> setShow(false);
+  const st = p.status ? stageOf({status:p.status}) : null;
+  /* Portalled to the body and positioned from the real avatar's bounding
+     box, rather than an absolutely-positioned sibling, so it is never
+     clipped by a card's overflow:hidden - which several of the lists this
+     shows up in rely on for their own rounded corners. */
+  return (
+    <span onMouseEnter={open} onMouseLeave={close} style={{display:'inline-flex',flex:'none'}}>
+      {core}
+      {show && rect && ReactDOM.createPortal(
+        <div onMouseEnter={open} onMouseLeave={close} className="fade"
+          style={{position:'fixed', left:Math.max(12,Math.min(rect.left, window.innerWidth-308)),
+            top:Math.min(rect.bottom+8, window.innerHeight-60), zIndex:200, width:280,
+            background:'#fff', border:'1px solid var(--line)', borderRadius:16,
+            boxShadow:'0 12px 32px rgba(26,25,23,.16)', padding:18}}>
+          <div className="row" style={{gap:12}}>
+            {src && !broken
+              ? <img src={src} alt="" width={40} height={40} style={{width:40,height:40,borderRadius:'50%',objectFit:'cover',flex:'none'}}/>
+              : <div className="av" style={{width:40,height:40,fontSize:15}}>{initials(p.name)}</div>}
+            <div style={{minWidth:0}}>
+              <div style={{fontWeight:700,fontSize:15,letterSpacing:'-.01em'}}>{p.name}</div>
+              <div className="sub" style={{fontSize:12.5,marginTop:1}}>{[p.title,p.company].filter(Boolean).join(' · ')||'No headline captured'}</div>
+            </div>
+          </div>
+          {st && <div style={{marginTop:10}}><span className="pill" style={{background:st.bg,color:st.fg,fontSize:11,padding:'4px 11px'}}>{st.label}</span></div>}
+          {(p.location||p.education) &&
+            <div className="meta" style={{marginTop:10}}>{[p.location,p.education].filter(Boolean).join(' · ')}</div>}
+          {p.summary &&
+            <div style={{marginTop:10,fontSize:13,lineHeight:1.5,color:'var(--body)'}}>{p.summary}</div>}
+          {!p.summary && p.why &&
+            <div style={{marginTop:10,fontSize:13,lineHeight:1.5,color:'var(--brand-ink)'}}>{p.why}</div>}
+          {p.common && p.common.length>0 &&
+            <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:10}}>
+              {p.common.slice(0,4).map((c,i)=><span key={i} className="tag" style={{fontSize:11,padding:'4px 10px'}}>{c}</span>)}
+            </div>}
+        </div>, document.body)}
+    </span>
+  );
 }
 function Empty({title, body, cta, onCta}){
   return (
@@ -1243,7 +1305,7 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
     const reason = connReason(c);
     return (
       <div className="row" style={{alignItems:'flex-start',gap:13,padding:'14px 0',borderBottom:'1px solid var(--line2)'}}>
-        <Avatar name={connName(c)} size={34}/>
+        <Avatar name={connName(c)} size={34} hover={c}/>
         <div style={{flex:'1 1 200px',minWidth:0}}>
           <div style={{fontSize:15,fontWeight:700}}>{connName(c)}</div>
           <div className="sub" style={{fontSize:13.5,marginTop:1}}>
@@ -1276,7 +1338,7 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
         style={{display:'flex',alignItems:'center',gap:16,padding:'15px 24px',
           borderBottom:'1px solid var(--line2)',cursor:'pointer',
           background: hot ? '#FBEDE8' : 'none'}}>
-        <Avatar name={r.name} size={34} src={r.avatar_url}/>
+        <Avatar name={r.name} size={34} src={r.avatar_url} hover={r}/>
         <div style={{flex:'1 1 220px',minWidth:0}}>
           <div style={{fontSize:15.5,fontWeight:700,letterSpacing:'-.01em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.name||'Unnamed'}</div>
           <div style={{fontSize:13,color:'var(--mute)',marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.title||(r.context||{}).whySaved||'Saved profile'}</div>
@@ -1396,7 +1458,7 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
               return (
                 <div key={r.profileUrl} className="fade" style={{marginTop:14,paddingTop:14,borderTop:'1px solid var(--line2)'}}>
                   <div style={{display:'flex',alignItems:'flex-start',gap:14,flexWrap:'wrap'}}>
-                    <Avatar name={r.name} src={savedRow ? savedRow.avatar_url : r.avatarUrl}/>
+                    <Avatar name={r.name} src={savedRow ? savedRow.avatar_url : r.avatarUrl} hover={savedRow||r}/>
                     <div style={{flex:'1 1 200px',minWidth:0}}>
                       <div style={{fontSize:17,fontWeight:700,letterSpacing:'-.015em'}}>{r.name}</div>
                       <div className="sub" style={{fontSize:14,marginTop:2}}>{r.title||'No headline on the profile'}</div>
@@ -1571,7 +1633,7 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
                           onDragStart={()=>setDrag(r.id)} onDragEnd={()=>setDrag(null)}
                           onClick={()=>onOpen(r.id)}>
                           <div className="row" style={{gap:10}}>
-                            <Avatar name={r.name} size={28} src={r.avatar_url}/>
+                            <Avatar name={r.name} size={28} src={r.avatar_url} hover={r}/>
                             <div style={{minWidth:0}}>
                               <div style={{fontSize:14.5,fontWeight:700,letterSpacing:'-.01em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.name||'Unnamed'}</div>
                               <div style={{fontSize:12.5,color:'var(--mute)',marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.title||''}</div>
@@ -2206,7 +2268,7 @@ function Ask({sb, people, events, tasks, settings, onOpen, initialQuestion, onCo
                   {m.people.map((p,j)=>(
                     <div key={j} onClick={()=>onOpen(p.row.id)} className="row"
                       style={{gap:13,padding:'11px 0',borderTop:'1px solid var(--line4)',cursor:'pointer'}}>
-                      <Avatar name={p.row.name} size={32} src={p.row.avatar_url}/>
+                      <Avatar name={p.row.name} size={32} src={p.row.avatar_url} hover={p.row}/>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:14.5,fontWeight:700}}>{p.row.name||'Unnamed'}</div>
                         <div className="sub" style={{fontSize:13}}>{p.note}</div>
