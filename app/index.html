@@ -2779,7 +2779,30 @@ async function readResumePdf(file){
   return out.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 }
 
-const OB_STEPS = ['Privacy','History','Resume','Check','Goal','Questions'];
+const OB_STEPS = ['Privacy','History','Resume','Goal','Questions'];
+
+/* How complete is this profile, and what would move it.
+   Five equal slices. Creating the account is one of them, which is why someone
+   who skips everything still sees 20 rather than 0 - they did do something. Skip
+   to the end after setting a goal and it reads 40, which is the honest number:
+   Mighty has your goal and your account and nothing else. */
+function completion(st){
+  const kb = (st && st.knowledge) || {};
+  const items = [
+    {key:'account',   label:'Account created',        done:true,
+     hint:'Done the moment you signed up.'},
+    {key:'goal',      label:'A goal',                 done:!!(clean(st&&st.goal) || (st&&st.goalTypes||[]).length),
+     hint:'Decides who Mighty recommends. Nothing works well without it.'},
+    {key:'history',   label:'LinkedIn history',       done:!!kb.connectionCount,
+     hint:'The pool Discover ranks. The single biggest jump in quality.'},
+    {key:'resume',    label:'Resume',                 done:!!clean(kb.resumeText),
+     hint:'Where the achievements with numbers on them live.'},
+    {key:'questions', label:'The things only you know', done:!!((kb.answers||[]).length),
+     hint:'Three answers Mighty cannot read off any file.'},
+  ];
+  const done = items.filter(x=>x.done).length;
+  return {pct: Math.round(done/items.length*100), items, done, total: items.length};
+}
 
 function Onboarding({sb, user, settings, onSave, onDone}){
   const [step,setStep]   = useState(0);
@@ -2794,7 +2817,12 @@ function Onboarding({sb, user, settings, onSave, onDone}){
   const [resume,setResume] = useState('');
   const [ident,setIdent] = useState({headline:'', location:'', currentRole:'', currentCompany:''});
   const [goal,setGoal]   = useState(settings.goal || '');
-  const [goalType,setGoalType] = useState(settings.goalType || '');
+  /* Plural. Someone raising a round is usually also hiring, and forcing one
+     answer made the ranking worse for the honest case. goalType survives as the
+     first choice so everything downstream keeps working unchanged. */
+  const [goalTypes,setGoalTypes] = useState(
+    settings.goalTypes || (settings.goalType ? [settings.goalType] : []));
+  const toggleGoal = (id)=>setGoalTypes(g => g.includes(id) ? g.filter(x=>x!==id) : g.concat(id));
   const [qs,setQs]       = useState([]);
   const [answers,setAnswers] = useState({});
   const archRef = useRef(null); const cvRef = useRef(null);
@@ -2921,7 +2949,8 @@ function Onboarding({sb, user, settings, onSave, onDone}){
         answers: Object.keys(answers).map(k => ({q:k, a:clean(answers[k])})).filter(x => x.a),
       };
       await onSave({
-        goalType: goalType || 'networking',
+        goalType: goalTypes[0] || 'networking',
+        goalTypes,
         goal: clean(goal),
         currentRole: clean(ident.currentRole),
         currentCompany: clean(ident.currentCompany),
@@ -2937,237 +2966,188 @@ function Onboarding({sb, user, settings, onSave, onDone}){
     }catch(e){ setErr((e && e.message) || 'Could not save.'); setBusy(null); }
   }
 
-  const H = ({children})=><h2 className="h2" style={{letterSpacing:'-.02em'}}>{children}</h2>;
-  const Sub = ({children})=><div className="sub" style={{marginTop:7,lineHeight:1.6,maxWidth:'62ch'}}>{children}</div>;
+  const H = ({children})=>
+    <h1 style={{fontSize:'clamp(34px,4.6vw,54px)',lineHeight:1.02,letterSpacing:'-.04em',
+      fontWeight:800,margin:0,maxWidth:'15ch'}}>{children}</h1>;
+  const Sub = ({children})=>
+    <div style={{marginTop:16,fontSize:17,lineHeight:1.55,color:'var(--sub)',maxWidth:'52ch'}}>{children}</div>;
+  /* Every step can be left for later. The bar on Strategy then says what is
+     missing, so skipping is a deferral rather than a hole nobody mentions again. */
+  const Later = ()=>
+    <button className="btn q" style={{fontSize:13.5}} onClick={finish} disabled={busy==='save'}>
+      {busy==='save' ? 'Saving…' : 'Do it later'}
+    </button>;
+  const Actions = ({label, onNext, disabled})=>
+    <div className="row" style={{gap:14,marginTop:38,flexWrap:'wrap',alignItems:'center'}}>
+      <button className="btn" style={{padding:'13px 30px',fontSize:15}} onClick={onNext} disabled={disabled}>{label}</button>
+      {step>0 && <button className="btn q" style={{fontSize:12.5,letterSpacing:'.1em',textTransform:'uppercase'}} onClick={back}>Back</button>}
+      <div style={{flex:1}}/>
+      <Later/>
+    </div>;
 
   return (
-    <div className="pad fade" style={{maxWidth:700,margin:'0 auto',paddingTop:52,paddingBottom:80}}>
-      <div className="row" style={{gap:10,marginBottom:26}}>
-        <Logo/><span style={{fontSize:19,fontWeight:700,letterSpacing:'-.02em'}}>Mighty</span>
-      </div>
+    <div className="fade" style={{display:'flex',minHeight:'100vh',alignItems:'stretch'}}>
 
-      <div className="row" style={{gap:6,marginBottom:26,flexWrap:'wrap'}}>
-        {OB_STEPS.map((s,i)=>(
-          <span key={s} style={{fontSize:11.5,fontWeight:700,padding:'4px 10px',borderRadius:99,
-            background: i===step?'var(--brand-soft2)':'transparent',
-            color: i===step?'var(--brand-ink)':(i<step?'var(--green)':'var(--mute)')}}>
-            {i<step ? '✓ ' : ''}{s}
-          </span>
-        ))}
-      </div>
+      {/* the rail: where you are, and what is still ahead */}
+      <aside style={{width:300,flex:'none',padding:'46px 0 46px 44px',borderRight:'1px solid var(--line2)',
+        display:'flex',flexDirection:'column',gap:38}}>
+        <div className="row" style={{gap:10}}>
+          <Logo/><span style={{fontSize:19,fontWeight:700,letterSpacing:'-.02em'}}>Mighty</span>
+        </div>
+        <div className="stack" style={{gap:0,paddingRight:44}}>
+          {OB_STEPS.map((label,i)=>{
+            const on = i===step, past = i<step;
+            return (
+              <button key={label} onClick={()=>i<step && setStep(i)}
+                style={{display:'flex',alignItems:'center',gap:18,padding:'17px 0',textAlign:'left',
+                  borderTop:'1px solid var(--line2)',
+                  borderBottom: i===OB_STEPS.length-1?'1px solid var(--line2)':'none',
+                  cursor:past?'pointer':'default',background:'none'}}>
+                <span style={{fontFamily:'ui-monospace,Menlo,monospace',fontSize:12,
+                  color:on?'var(--brand)':'var(--mute)'}}>{String(i+1).padStart(2,'0')}</span>
+                <span style={{fontSize:13.5,letterSpacing:'.12em',textTransform:'uppercase',
+                  fontWeight:on?700:500,color:on?'var(--ink)':(past?'var(--ink2)':'var(--mute)')}}>{label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div style={{flex:1}}/>
+        <div className="meta" style={{paddingRight:44,lineHeight:1.5}}>
+          Everything here is optional except the goal, and even that can wait.
+        </div>
+      </aside>
 
-      {err && <div className="banner err" style={{marginBottom:18}}>{err}</div>}
+      {/* the step itself */}
+      <main style={{flex:1,minWidth:0,padding:'46px 52px 80px',maxWidth:980}}>
+        <div style={{fontFamily:'ui-monospace,Menlo,monospace',fontSize:12,letterSpacing:'.14em',
+          textTransform:'uppercase',color:'var(--brand)'}}>
+          {String(step+1).padStart(2,'0')} &middot; {OB_STEPS[step]}
+        </div>
 
-      {/* ---------- 0. consent ---------- */}
-      {step===0 &&
-        <div className="stack" style={{gap:18}}>
-          <H>Before we begin</H>
-          <Sub>One question decides who Mighty recommends: what are you trying to achieve? Everything else here is optional, adds depth when you want it, and can wait.</Sub>
+        {err && <div className="banner err" style={{marginTop:20,borderRadius:16}}>{err}</div>}
 
-          <div className="card" style={{padding:'22px 24px'}}>
-            <div className="h4">Your data</div>
-            <div className="stack" style={{gap:10,marginTop:12,fontSize:14.5,color:'var(--body)'}}>
-              <div>Stays in your account. Never shared with another user.</div>
-              <div>Never trains AI. Not this model, not any.</div>
-              <div>Deletable in one action, whenever you want.</div>
-              {/* Stays on the surface, by the exception in docs/WRITING.md: this is
-                  something we do with a person's data, not a mechanic. */}
-              <div>Mighty reads the messages you sent, to learn how you write. It keeps forty as a writing
-                sample, and none of the replies you received.</div>
+        {/* ---------- 0. privacy ---------- */}
+        {step===0 &&
+          <div style={{marginTop:14}}>
+            <H>Before we begin.</H>
+            <Sub>Mighty only works if it reads a little about you. Here is exactly what, in full,
+              before you agree to anything.</Sub>
+            <div className="stack" style={{gap:0,marginTop:34,maxWidth:'62ch'}}>
+              {[['Mighty reads the messages you sent and keeps forty of them, so it can write in your voice rather than a template\u2019s.'],
+                ['It reads your connections to see who you already know. It never contacts any of them.'],
+                ['Nothing is shared, sold, or used to train a model. Delete it all in one click, whenever.']
+              ].map((t,i)=>(
+                <div key={i} style={{padding:'20px 0',borderTop:'1px solid var(--line2)',
+                  fontSize:16.5,lineHeight:1.55,color:'var(--ink2)'}}>{t[0]}</div>
+              ))}
+              <label className="row" style={{gap:13,padding:'22px 0',borderTop:'1px solid var(--line2)',
+                borderBottom:'1px solid var(--line2)',cursor:'pointer',alignItems:'flex-start'}}>
+                <input type="checkbox" checked={agreed} onChange={e=>setAgreed(e.target.checked)}
+                  style={{marginTop:3,width:17,height:17,accentColor:'var(--brand)',borderRadius:6}}/>
+                <span style={{fontSize:16,color:'var(--ink2)'}}>
+                  I understand what Mighty reads, and that it never sends anything for me.
+                </span>
+              </label>
             </div>
-            <button className="btn q" style={{padding:'8px 0',fontWeight:600,color:'var(--brand-ink)'}}
-              onClick={()=>setDetail(d=>!d)}>
-              What is in the file, and what Mighty does with it {detail?'\u2191':'\u2193'}
-            </button>
-            {detail &&
-              <div className="stack" style={{gap:9,marginTop:2,paddingTop:12,borderTop:'1px solid var(--line2)',
-                fontSize:13.5,color:'var(--body)'}}>
-                <div><b style={{color:'var(--ink)'}}>Roles, education, skills and recognition</b> become your
-                  profile, so Mighty knows what you have in common with people.</div>
-                <div><b style={{color:'var(--ink)'}}>Your connections</b> become the pool Discover ranks. Names,
-                  companies, roles, and when you connected.</div>
-                <div><b style={{color:'var(--ink)'}}>Other people are in this file.</b> Those names belong to
-                  people who never agreed to anything. Nothing from your account is ever pooled with another,
-                  and you can delete all of it at once.</div>
-                <div><b style={{color:'var(--ink)'}}>The messages you received</b> are counted and thrown away.
-                  They are someone else's words.</div>
+            <Actions label="I understand, continue" onNext={next} disabled={!agreed}/>
+          </div>}
+
+        {/* ---------- 1. history ---------- */}
+        {step===1 &&
+          <div style={{marginTop:14}}>
+            <H>Import your LinkedIn history.</H>
+            <Sub>Your LinkedIn history shows Mighty who you already know.</Sub>
+            <input ref={archRef} type="file" accept=".zip" style={{display:'none'}}
+              onChange={e=>onArchive(e.target.files && e.target.files[0])}/>
+            <div onClick={()=>archRef.current && archRef.current.click()}
+              style={{marginTop:32,border:'1.5px dashed var(--line)',borderRadius:22,padding:'40px 36px',
+                cursor:'pointer',maxWidth:640,background:'var(--card2)'}}>
+              <div className="eyebrow">Drop the .zip here</div>
+              <div style={{fontSize:16.5,lineHeight:1.55,color:'var(--ink2)',marginTop:12}}>
+                Request your data from LinkedIn, choosing the archive that includes connections.
+              </div>
+              <a href="https://www.linkedin.com/mypreferences/d/download-my-data" target="_blank"
+                rel="noopener noreferrer" onClick={e=>e.stopPropagation()}
+                style={{display:'inline-block',marginTop:16,fontSize:12.5,letterSpacing:'.1em',
+                  textTransform:'uppercase',fontWeight:700}}>How to request it</a>
+            </div>
+            {arch &&
+              <div className="row" style={{gap:9,marginTop:16,color:'var(--green)',fontWeight:700,fontSize:14.5}}>
+                &#10003; {arch.connections.length.toLocaleString()} connections, {arch.positions.length} roles read.
               </div>}
-            <label className="row" style={{gap:10,marginTop:18,cursor:'pointer',alignItems:'flex-start'}}>
-              <input type="checkbox" checked={agreed} onChange={e=>setAgreed(e.target.checked)}
-                style={{marginTop:3,width:16,height:16,accentColor:'var(--brand)'}}/>
-              <span style={{fontSize:14.5,color:'var(--ink2)',fontWeight:600}}>
-                I understand, and this data is mine to share.
-              </span>
-            </label>
-          </div>
+            {prog && <div className="meta" style={{marginTop:16}}><span className="spin"/> {prog}</div>}
+            <div className="meta" style={{marginTop:18}}>Read on this machine. The archive never leaves it.</div>
+            <Actions label={busy==='arch' ? 'Reading…' : 'Continue'} onNext={next} disabled={busy==='arch'}/>
+          </div>}
 
-          <div className="row" style={{gap:10}}>
-            <button className="btn" disabled={!agreed} onClick={next}>Continue</button>
-            <button className="btn q" onClick={()=>{ setStep(4); }}>Skip, I will just write a goal</button>
-          </div>
-        </div>}
-
-      {/* ---------- 1. archive ---------- */}
-      {step===1 &&
-        <div className="stack" style={{gap:18}}>
-          <H>Import your LinkedIn history</H>
-          <Sub>Your LinkedIn history shows Mighty who you already know. Add it whenever you like; a typed goal is enough to start, and nothing waits on this.</Sub>
-
-          <div className="card" style={{padding:'22px 24px'}}>
-            <ol style={{margin:0,paddingLeft:20,display:'flex',flexDirection:'column',gap:8,fontSize:14.5,color:'var(--body)'}}>
-              <li><a href="https://www.linkedin.com/mypreferences/d/download-my-data" target="_blank" rel="noopener noreferrer">Request your data from LinkedIn</a>, choosing the archive that includes connections.</li>
-              <li>Drop the .zip here when it arrives, usually within a few minutes.</li>
-            </ol>
-          </div>
-
-          <input ref={archRef} type="file" accept=".zip" style={{display:'none'}}
-            onChange={e=>onArchive(e.target.files && e.target.files[0])}/>
-          <div className="row" style={{gap:10,flexWrap:'wrap'}}>
-            <button className="btn" disabled={busy==='arch'} onClick={()=>archRef.current && archRef.current.click()}>
-              {busy==='arch' ? <span><span className="spin"/> Reading</span> : 'Choose the .zip'}
-            </button>
-            <button className="btn q" onClick={next}>I will add it later</button>
-          </div>
-          {prog && <div className="meta" style={{marginTop:4}}><span className="spin"/> {prog}</div>}
-        </div>}
-
-      {/* ---------- 2. resume ---------- */}
-      {step===2 &&
-        <div className="stack" style={{gap:18}}>
-          <H>Complete your profile</H>
-          <Sub>Your biggest achievements usually are not on LinkedIn. Your resume fills them in.</Sub>
-
-          <input ref={cvRef} type="file" accept=".pdf" style={{display:'none'}}
-            onChange={e=>onResume(e.target.files && e.target.files[0])}/>
-          <div className="row" style={{gap:10,flexWrap:'wrap'}}>
-            <button className="btn g" disabled={busy==='cv'} onClick={()=>cvRef.current && cvRef.current.click()}>
-              {busy==='cv' ? <span><span className="spin"/> Reading</span> : 'Upload a PDF'}
-            </button>
-            {resume && <span style={{fontSize:13.5,fontWeight:600,color:'var(--green)'}}>
-              Read, {resume.length.toLocaleString()} characters</span>}
-          </div>
-
-          <div>
-            <div className="lbl">Or paste it</div>
-            <textarea className="inp" style={{minHeight:150}} value={resume} onChange={e=>setResume(e.target.value)}
-              placeholder="Or paste the text here."/>
-          </div>
-
-          <div className="row" style={{gap:10}}>
-            <button className="btn" onClick={next}>Continue</button>
-            <button className="btn q" onClick={next}>Skip</button>
-          </div>
-        </div>}
-
-      {/* ---------- 3. review ---------- */}
-      {step===3 &&
-        <div className="stack" style={{gap:18}}>
-          <H>{arch ? 'Let us make sure we got it right' : 'Tell Mighty the basics'}</H>
-          <Sub>{arch
-            ? 'Built from your files, not assumptions. Correct anything wrong here, because it reaches every message Mighty drafts.'
-            : 'No archive yet, so this is the short version. Add it any time and this fills itself in.'}</Sub>
-
-          {arch &&
-            <div className="card" style={{padding:'20px 22px'}}>
-              <div className="row" style={{gap:22,flexWrap:'wrap'}}>
-                {[['Positions',arch.positions.length],['Connections',arch.connections.length.toLocaleString()],
-                  ['Skills',arch.skills.length],['Recognition',arch.honors.length],
-                  ['Recommendations',arch.recommendationCount]].map(([k,v])=>(
-                  <div key={k}><div style={{fontSize:20,fontWeight:700,fontVariantNumeric:'tabular-nums'}}>{v}</div>
-                    <div className="meta">{k}</div></div>))}
+        {/* ---------- 2. resume ---------- */}
+        {step===2 &&
+          <div style={{marginTop:14}}>
+            <H>Complete your profile.</H>
+            <Sub>Your biggest achievements usually are not on LinkedIn. Your resume fills them in.</Sub>
+            <input ref={cvRef} type="file" accept=".pdf" style={{display:'none'}}
+              onChange={e=>onResume(e.target.files && e.target.files[0])}/>
+            <div onClick={()=>cvRef.current && cvRef.current.click()}
+              style={{marginTop:32,border:'1.5px dashed var(--line)',borderRadius:22,padding:'36px 34px',
+                cursor:'pointer',maxWidth:520,background:'var(--card2)'}}>
+              <div className="eyebrow">Upload</div>
+              <div style={{fontSize:17,fontWeight:700,marginTop:10}}>Drop your resume</div>
+              <div style={{fontSize:15,color:'var(--sub)',marginTop:6,lineHeight:1.5}}>
+                PDF. Read once, then stored as text.
               </div>
-              {arch.missing.length>0 &&
-                <div className="hint" style={{marginTop:14}}>
-                  Not in this export: {arch.missing.join(', ')}.
-                </div>}
-            </div>}
-
-          <div className="stack" style={{gap:14}}>
-            <div><div className="lbl">How you describe yourself</div>
-              <input className="inp" value={ident.headline} onChange={e=>setIdent({...ident,headline:e.target.value})}
-                placeholder="Chief AI Officer | MIT Sloan MBA"/></div>
-            <div className="row" style={{gap:12,flexWrap:'wrap'}}>
-              <div style={{flex:'1 1 200px'}}><div className="lbl">Current role</div>
-                <input className="inp" value={ident.currentRole} onChange={e=>setIdent({...ident,currentRole:e.target.value})}/></div>
-              <div style={{flex:'1 1 200px'}}><div className="lbl">Where</div>
-                <input className="inp" value={ident.currentCompany} onChange={e=>setIdent({...ident,currentCompany:e.target.value})}/></div>
             </div>
-            <div><div className="lbl">Based in</div>
-              <input className="inp" value={ident.location} onChange={e=>setIdent({...ident,location:e.target.value})}
-                placeholder="Greater Boston"/></div>
-          </div>
-
-          {arch && arch.positions.length>0 &&
-            <div className="card" style={{padding:'18px 22px'}}>
-              <div className="eyebrow">Your career, as read</div>
-              <div className="stack" style={{gap:2,marginTop:10}}>
-                {arch.positions.slice(0,8).map((p,i)=>(
-                  <div key={i} style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,padding:'6px 0',
-                    borderBottom:i<Math.min(7,arch.positions.length-1)?'1px solid var(--line2)':'none'}}>
-                    <div style={{fontSize:14,color:'var(--ink2)'}}><b style={{color:'var(--ink)'}}>{p.title}</b>
-                      {p.company ? ' · ' + p.company : ''}</div>
-                    <div className="meta" style={{whiteSpace:'nowrap'}}>{p.from}{p.to?' - '+p.to:' - now'}</div>
-                  </div>))}
-              </div>
-            </div>}
-
-          <div className="row" style={{gap:10}}>
-            <button className="btn" onClick={next}>That is right</button>
-            <button className="btn q" onClick={back}>Back</button>
-          </div>
-        </div>}
-
-      {/* ---------- 4. goal ---------- */}
-      {step===4 &&
-        <div className="stack" style={{gap:18}}>
-          <H>Your goal</H>
-          <Sub>Your goal decides who Mighty recommends.</Sub>
-
-          <div>
-            <div className="lbl">What are you trying to achieve?</div>
-            <textarea className="inp" style={{minHeight:92}} value={goal} onChange={e=>setGoal(e.target.value)}
-              placeholder="Raise a seed round for an AI-native venture studio, from investors who understand enterprise AI rather than consumer."/>
-          </div>
-          <div>
-            <div className="lbl">Which of these is closest?</div>
-            <div className="row" style={{gap:8,flexWrap:'wrap',marginTop:4}}>
-              {Object.keys(GOAL_LABEL).map(k=>(
-                <button key={k} className={'chip'+(goalType===k?' on':'')} onClick={()=>setGoalType(k)}>
-                  {GOAL_LABEL[k]}</button>))}
+            {resume &&
+              <div style={{marginTop:16,color:'var(--green)',fontWeight:700,fontSize:14.5}}>
+                &#10003; Read, {resume.length.toLocaleString()} characters.
+              </div>}
+            <div style={{marginTop:26,maxWidth:640}}>
+              <div className="lbl">Or paste it</div>
+              <textarea className="inp" style={{minHeight:120,borderRadius:18}} value={resume}
+                onChange={e=>setResume(e.target.value)} placeholder="Paste the text here."/>
             </div>
-          </div>
+            <Actions label={busy==='cv' ? 'Reading…' : 'Continue'} onNext={next} disabled={busy==='cv'}/>
+          </div>}
 
-          <div className="row" style={{gap:10}}>
-            <button className="btn" disabled={!clean(goal) && !goalType}
-              onClick={()=>{ next(); if(!qs.length) makeQuestions(); }}>Continue</button>
-            <button className="btn q" onClick={back}>Back</button>
-          </div>
-        </div>}
+        {/* ---------- 3. goal ---------- */}
+        {step===3 &&
+          <div style={{marginTop:14}}>
+            <H>What are you building toward?</H>
+            <Sub>Your goal decides who Mighty recommends. Pick as many as are true.</Sub>
+            <div className="row" style={{gap:10,flexWrap:'wrap',marginTop:30,maxWidth:760}}>
+              {GOALS.map(g=>(
+                <button key={g.id} className={'chip'+(goalTypes.includes(g.id)?' on':'')}
+                  style={{padding:'12px 22px',fontSize:15,borderRadius:99}}
+                  onClick={()=>toggleGoal(g.id)}>{g.label}</button>))}
+            </div>
+            <div style={{marginTop:30,maxWidth:760}}>
+              <div className="lbl">Say it in one sentence</div>
+              <textarea className="inp" style={{minHeight:92,borderRadius:18,fontSize:16}} value={goal}
+                onChange={e=>setGoal(e.target.value)}
+                placeholder="Raise a seed round from investors who understand enterprise AI, and hire two engineers."/>
+            </div>
+            <Actions label="Continue" onNext={()=>{ next(); if(!qs.length) makeQuestions(); }}
+              disabled={!clean(goal) && !goalTypes.length}/>
+          </div>}
 
-      {/* ---------- 5. questions ---------- */}
-      {step===5 &&
-        <div className="stack" style={{gap:18}}>
-          <H>One thing only you can tell us</H>
-          <Sub>Mighty asks the rest later, one question at a time, only when the answer would change what it does next. Never from a script, never as a form.</Sub>
-
-          {busy==='qs' && <div className="meta"><span className="spin"/> Working out what is still missing…</div>}
-
-          {qs.map((q,i)=>(
-            <div key={i}>
-              <div className="lbl">{q}</div>
-              <textarea className="inp" style={{minHeight:66}} value={answers[q]||''}
-                onChange={e=>setAnswers({...answers,[q]:e.target.value})}/>
-            </div>))}
-
-          <div className="row" style={{gap:10,flexWrap:'wrap'}}>
-            <button className="btn" disabled={busy==='save'} onClick={finish}>
-              {busy==='save' ? <span><span className="spin"/> Saving</span> : 'Finish'}
-            </button>
-            <button className="btn q" onClick={back}>Back</button>
-          </div>
-          <div className="hint">Nothing here is required. Mighty will say what it does not know rather than
-            guessing, and will ask again when the answer would actually change something.</div>
-        </div>}
+        {/* ---------- 4. questions ---------- */}
+        {step===4 &&
+          <div style={{marginTop:14}}>
+            <H>A few things only you can tell us.</H>
+            <Sub>Chosen after reading everything above, so none of them repeat what your files already said.</Sub>
+            {busy==='qs' &&
+              <div className="meta" style={{marginTop:26}}><span className="spin"/> Working out what is still missing…</div>}
+            <div className="stack" style={{gap:0,marginTop:26,maxWidth:760}}>
+              {qs.map((q,i)=>(
+                <div key={i} style={{padding:'22px 0',borderTop:'1px solid var(--line2)'}}>
+                  <div style={{fontSize:16.5,fontWeight:700,marginBottom:10}}>{q}</div>
+                  <textarea className="inp" style={{minHeight:56,borderRadius:16}} value={answers[q]||''}
+                    onChange={e=>setAnswers({...answers,[q]:e.target.value})}
+                    placeholder={i===0?'Type it plainly':i===1?'A name is enough':'Mighty will start there'}/>
+                </div>))}
+            </div>
+            <Actions label={busy==='save' ? 'Saving…' : 'Enter Mighty'} onNext={finish} disabled={busy==='save'}/>
+          </div>}
+      </main>
     </div>
   );
 }
