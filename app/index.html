@@ -1757,7 +1757,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
           </button>
         </div>}
 
-      <div className="tabs" style={{marginTop:26}}>
+      <div className="seg" style={{marginTop:26,overflowX:'auto',maxWidth:'100%'}}>
         {TABS.map(([k,l])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)}>{l}</button>)}
       </div>
 
