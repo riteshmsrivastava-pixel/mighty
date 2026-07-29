@@ -230,8 +230,16 @@ const dateShort = (iso)=>{ if(!iso) return ''; const d=new Date(iso);
   return d.toLocaleDateString(undefined,{day:'numeric',month:'short'}); };
 const greetWord = ()=>{ const h=new Date().getHours(); return h<12?'Good morning':h<18?'Good afternoon':'Good evening'; };
 
-function Avatar({name, size}){
+/* Real photo when one exists - the extension captures it the moment someone
+   is saved from a search result or from their own profile - falling back to
+   initials the moment the image 404s (a stale or since-privated LinkedIn
+   photo URL) rather than showing a broken-image icon. */
+function Avatar({name, size, src}){
   const s = size||38;
+  const [broken,setBroken] = useState(false);
+  if(src && !broken)
+    return <img src={src} alt="" width={s} height={s} onError={()=>setBroken(true)}
+      style={{width:s,height:s,borderRadius:'50%',objectFit:'cover',flex:'none',background:'var(--card2)'}}/>;
   return <div className="av" style={{width:s,height:s,fontSize:Math.round(s*0.36)}}>{initials(name)}</div>;
 }
 function Empty({title, body, cta, onCta}){
@@ -1228,7 +1236,7 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
         style={{display:'flex',alignItems:'center',gap:16,padding:'15px 24px',
           borderBottom:'1px solid var(--line2)',cursor:'pointer',
           background: hot ? '#FBEDE8' : 'none'}}>
-        <Avatar name={r.name} size={34}/>
+        <Avatar name={r.name} size={34} src={r.avatar_url}/>
         <div style={{flex:'1 1 220px',minWidth:0}}>
           <div style={{fontSize:15.5,fontWeight:700,letterSpacing:'-.01em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.name||'Unnamed'}</div>
           <div style={{fontSize:13,color:'var(--mute)',marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.title||(r.context||{}).whySaved||'Saved profile'}</div>
@@ -1348,7 +1356,7 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
               return (
                 <div key={r.profileUrl} className="fade" style={{marginTop:14,paddingTop:14,borderTop:'1px solid var(--line2)'}}>
                   <div style={{display:'flex',alignItems:'flex-start',gap:14,flexWrap:'wrap'}}>
-                    <Avatar name={r.name}/>
+                    <Avatar name={r.name} src={savedRow ? savedRow.avatar_url : r.avatarUrl}/>
                     <div style={{flex:'1 1 200px',minWidth:0}}>
                       <div style={{fontSize:17,fontWeight:700,letterSpacing:'-.015em'}}>{r.name}</div>
                       <div className="sub" style={{fontSize:14,marginTop:2}}>{r.title||'No headline on the profile'}</div>
@@ -1390,6 +1398,23 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
       </F>}
     </div>);
 
+  /* Pipeline (your saved people, however tracked) and Explore (finding
+     someone, saved or not) are two different jobs and now read as two
+     segments rather than one long page - a search box sitting above a
+     stage-grouped list made it look like part of the same task. */
+  const pipelineList = (
+    <div className="fade" style={{marginTop:22}}>
+      {grouped.map(g=>(
+        <div key={g.key} style={{marginBottom:22}}>
+          <div className="eyebrow b" style={{marginBottom:8}}>{g.label} · {g.rows.length}</div>
+          <div className="card" style={{overflow:'hidden'}}>
+            {g.rows.map(r=><Row key={r.id} r={r} hot={g.key==='reply'}/>)}
+          </div>
+        </div>))}
+      {closed>0 &&
+        <div className="meta" style={{marginTop:8}}>{closed} closed out, hidden from this list.</div>}
+    </div>);
+
   return (
     <div className="pad fade" style={{maxWidth:1120,paddingTop:34}}>
       <div className="row" style={{justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
@@ -1397,132 +1422,143 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
           <div className="eyebrow b">Toward</div>
           <div style={{fontSize:16,fontWeight:600,color:'var(--ink2)',marginTop:4}}>{goalLine(settings)}</div>
         </div>
-        {people.length>0 &&
+        <div className="row" style={{gap:10,flexWrap:'wrap'}}>
           <div className="seg">
             <button className={view==='list'?'on':''} onClick={()=>setView('list')}>List</button>
-            <button className={view==='board'&&boardOK?'on':''} onClick={()=>boardOK&&setView('board')}
-              style={boardOK?null:{opacity:.45,cursor:'not-allowed'}} title={boardOK?'':UNLOCKS.board.hint}>Board</button>
-            <button className={view==='timeline'&&timeOK?'on':''} onClick={()=>timeOK&&setView('timeline')}
-              style={timeOK?null:{opacity:.45,cursor:'not-allowed'}} title={timeOK?'':UNLOCKS.timeline.hint}>Timeline</button>
-          </div>}
+            <button className={view==='board'?'on':''} onClick={()=>setView('board')}
+              style={boardOK?null:{opacity:.5}} title={boardOK?'':UNLOCKS.board.hint}>Board</button>
+            <button className={view==='timeline'?'on':''} onClick={()=>setView('timeline')}
+              style={timeOK?null:{opacity:.5}} title={timeOK?'':UNLOCKS.timeline.hint}>Timeline</button>
+          </div>
+          <div className="seg">
+            <button className={view==='explore'?'on':''} onClick={()=>setView('explore')}>Explore</button>
+          </div>
+        </div>
       </div>
 
-      <div className="row" style={{gap:12,marginTop:22,alignItems:'stretch',flexWrap:'wrap'}}>
-        <input className="inp" style={{flex:'1 1 320px',minWidth:0,fontSize:15.5}} value={q}
-          placeholder="Search who you know, or describe someone new"
-          onChange={e=>setQ(e.target.value)}
-          onKeyDown={e=>{ if(e.key==='Enter' && searching && mine && !mine.rows.length) run(q); }}/>
-        {atCap &&
-          <span className="banner warn" style={{flex:'none',padding:'11px 16px',fontSize:13}}>
-            At {cap}, the cap on your plan.
-          </span>}
-      </div>
-
-      {searching ? (
+      {view==='explore' ? (
         <div className="fade" style={{marginTop:22}}>
-          {filtered.length>0 &&
-            <div className="card" style={{overflow:'hidden',marginBottom:16}}>
-              <div className="eyebrow" style={{padding:'12px 24px',background:'var(--card2)',borderBottom:'1px solid var(--line4)'}}>
-                Already saved · {filtered.length}
-              </div>
-              {filtered.map(r=><Row key={r.id} r={r} hot={needsReply(r, byLog)}/>)}
-            </div>}
+          <div className="row" style={{gap:12,alignItems:'stretch',flexWrap:'wrap'}}>
+            <input className="inp" style={{flex:'1 1 320px',minWidth:0,fontSize:15.5}} value={q}
+              placeholder="Search who you know, or describe someone new"
+              onChange={e=>setQ(e.target.value)}
+              onKeyDown={e=>{ if(e.key==='Enter' && searching && mine && !mine.rows.length) run(q); }}/>
+            {atCap &&
+              <span className="banner warn" style={{flex:'none',padding:'11px 16px',fontSize:13}}>
+                At {cap}, the cap on your plan.
+              </span>}
+          </div>
 
-          {mineBusy &&
-            <div className="meta" style={{marginTop:filtered.length?0:16}}><span className="spin"/> Looking in your network…</div>}
+          {searching ? (
+            <div className="fade" style={{marginTop:20}}>
+              {filtered.length>0 &&
+                <div className="card" style={{overflow:'hidden',marginBottom:16}}>
+                  <div className="eyebrow" style={{padding:'12px 24px',background:'var(--card2)',borderBottom:'1px solid var(--line4)'}}>
+                    Already saved · {filtered.length}
+                  </div>
+                  {filtered.map(r=><Row key={r.id} r={r} hot={needsReply(r, byLog)}/>)}
+                </div>}
 
-          {!mineBusy && mine && mine.rows.filter(c=>!savedUrls[(c.profile_url||'').toLowerCase()]).length>0 &&
-            <div className="card" style={{padding:'8px 22px 18px'}}>
-              <div className="eyebrow b" style={{padding:'14px 0 4px'}}>Not yet saved, from your network</div>
-              {mine.rows.filter(c=>!savedUrls[(c.profile_url||'').toLowerCase()]).map(c=><ConnRow key={c.profile_url} c={c}/>)}
-            </div>}
+              {mineBusy &&
+                <div className="meta" style={{marginTop:filtered.length?0:16}}><span className="spin"/> Looking in your network…</div>}
 
-          {!mineBusy && mine && mine.rows.length===0 && filtered.length===0 &&
-            <div className="card" style={{padding:'24px 26px'}}>
-              <div className="h4">Nobody matches that yet.</div>
-              <div className="sub" style={{marginTop:6,maxWidth:'58ch'}}>
-                Not in your saved relationships or your {(total||0).toLocaleString()} connections. That is a
-                real answer, and it beats a near-miss. Search LinkedIn for it instead.
-              </div>
-              <button className="btn sm" style={{marginTop:16}} onClick={()=>run(q)} disabled={webBusy}>
-                {webBusy ? <span><span className="spin"/> Searching</span> : 'Search LinkedIn for this'}
-              </button>
-            </div>}
+              {!mineBusy && mine && mine.rows.filter(c=>!savedUrls[(c.profile_url||'').toLowerCase()]).length>0 &&
+                <div className="card" style={{padding:'8px 22px 18px'}}>
+                  <div className="eyebrow b" style={{padding:'14px 0 4px'}}>Not yet saved, from your network</div>
+                  {mine.rows.filter(c=>!savedUrls[(c.profile_url||'').toLowerCase()]).map(c=><ConnRow key={c.profile_url} c={c}/>)}
+                </div>}
 
-          {webOpen && webSearchPanel}
+              {!mineBusy && mine && mine.rows.length===0 && filtered.length===0 &&
+                <div className="card" style={{padding:'24px 26px'}}>
+                  <div className="h4">Nobody matches that yet.</div>
+                  <div className="sub" style={{marginTop:6,maxWidth:'58ch'}}>
+                    Not in your saved relationships or your {(total||0).toLocaleString()} connections. That is a
+                    real answer, and it beats a near-miss. Search LinkedIn for it instead.
+                  </div>
+                  <button className="btn sm" style={{marginTop:16}} onClick={()=>run(q)} disabled={webBusy}>
+                    {webBusy ? <span><span className="spin"/> Searching</span> : 'Search LinkedIn for this'}
+                  </button>
+                </div>}
+
+              {webOpen && webSearchPanel}
+            </div>
+          ) : (
+            <F>
+              {worthAdding}
+              {webSearchPanel}
+            </F>
+          )}
         </div>
       ) : people.length===0 ? (
         <div className="fade" style={{marginTop:22}}>
           <Empty title="No one here yet."
-            body="Everyone you add lands here, however you found them. Search above for someone you already know, or start with who Mighty thinks is worth adding, below."/>
-          {worthAdding}
+            body="Everyone you add lands here, however you found them. Switch to Explore to search who you know, or see who Mighty thinks is worth adding."
+            cta="Go to Explore" onCta={()=>setView('explore')}/>
         </div>
-      ) : view==='board' && boardOK ? (
-        <div style={{marginTop:20,display:'flex',gap:14,overflowX:'auto',paddingBottom:12}}>
-          {COLUMNS.map(col=>{
-            const items = people.filter(r=>col.statuses.indexOf(r.status)>=0);
-            const meta = STAGE[col.statuses[0]];
-            return (
-              <div key={col.key} style={{width:250,flex:'none'}}
-                onDragOver={e=>{ e.preventDefault(); setOver(col.key); }}
-                onDragLeave={()=>setOver(o=>o===col.key?null:o)}
-                onDrop={e=>{ e.preventDefault(); setOver(null);
-                  if(dragId!=null) onStage(people.find(r=>r.id===dragId), col.statuses[0]); setDrag(null); }}>
-                <div className="row" style={{gap:8,padding:'0 4px 10px'}}>
-                  <span className="dot" style={{background:meta.dot}}/>
-                  <span style={{fontSize:13,fontWeight:700}}>{col.label||meta.label}</span>
-                  <span className="meta">{items.length}</span>
-                </div>
-                <div className={'stack'+(overCol===col.key?' drop':'')} style={{gap:10,minHeight:60}}>
-                  {items.map(r=>(
-                    <div key={r.id} className="colcard" draggable
-                      onDragStart={()=>setDrag(r.id)} onDragEnd={()=>setDrag(null)}
-                      onClick={()=>onOpen(r.id)}>
-                      <div className="row" style={{gap:10}}>
-                        <Avatar name={r.name} size={28}/>
-                        <div style={{minWidth:0}}>
-                          <div style={{fontSize:14.5,fontWeight:700,letterSpacing:'-.01em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.name||'Unnamed'}</div>
-                          <div style={{fontSize:12.5,color:'var(--mute)',marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.title||''}</div>
-                        </div>
-                      </div>
-                      <div style={{fontSize:13,fontWeight:700,color:'var(--brand-ink)',marginTop:11}}>{nextAction(r)}</div>
-                    </div>))}
-                </div>
-              </div>);
-          })}
+      ) : view==='board' ? (
+        <div className="fade" style={{marginTop:20}}>
+          {!boardOK && <F>
+            <div className="hint">{UNLOCKS.board.hint}</div>
+            {pipelineList}
+          </F>}
+          {boardOK &&
+            <div style={{display:'flex',gap:14,overflowX:'auto',paddingBottom:12}}>
+              {COLUMNS.map(col=>{
+                const items = people.filter(r=>col.statuses.indexOf(r.status)>=0);
+                const meta = STAGE[col.statuses[0]];
+                return (
+                  <div key={col.key} style={{width:250,flex:'none'}}
+                    onDragOver={e=>{ e.preventDefault(); setOver(col.key); }}
+                    onDragLeave={()=>setOver(o=>o===col.key?null:o)}
+                    onDrop={e=>{ e.preventDefault(); setOver(null);
+                      if(dragId!=null) onStage(people.find(r=>r.id===dragId), col.statuses[0]); setDrag(null); }}>
+                    <div className="row" style={{gap:8,padding:'0 4px 10px'}}>
+                      <span className="dot" style={{background:meta.dot}}/>
+                      <span style={{fontSize:13,fontWeight:700}}>{col.label||meta.label}</span>
+                      <span className="meta">{items.length}</span>
+                    </div>
+                    <div className={'stack'+(overCol===col.key?' drop':'')} style={{gap:10,minHeight:60}}>
+                      {items.map(r=>(
+                        <div key={r.id} className="colcard" draggable
+                          onDragStart={()=>setDrag(r.id)} onDragEnd={()=>setDrag(null)}
+                          onClick={()=>onOpen(r.id)}>
+                          <div className="row" style={{gap:10}}>
+                            <Avatar name={r.name} size={28} src={r.avatar_url}/>
+                            <div style={{minWidth:0}}>
+                              <div style={{fontSize:14.5,fontWeight:700,letterSpacing:'-.01em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.name||'Unnamed'}</div>
+                              <div style={{fontSize:12.5,color:'var(--mute)',marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.title||''}</div>
+                            </div>
+                          </div>
+                          <div style={{fontSize:13,fontWeight:700,color:'var(--brand-ink)',marginTop:11}}>{nextAction(r)}</div>
+                        </div>))}
+                    </div>
+                  </div>);
+              })}
+            </div>}
         </div>
-      ) : view==='timeline' && timeOK ? (
-        <div className="card" style={{marginTop:20,padding:'8px 26px 22px',maxWidth:720}}>
-          {feed.map(e=>(
-            <div key={e.id} style={{display:'grid',gridTemplateColumns:'78px 1fr',gap:18,padding:'16px 0',borderBottom:'1px solid var(--line2)'}}>
-              <div style={{fontSize:13,fontWeight:700,color:'var(--mute)',paddingTop:1}}>{dateShort(e.occurred_at)}</div>
-              <div>
-                <div style={{fontSize:15,fontWeight:600,color:'var(--ink2)'}}>
-                  {EVENT_LABEL[e.event_type]||e.event_type}
-                  {e.event_type==='stage_change' && e.extracted && e.extracted.to
-                    ? ' → '+(STAGE[e.extracted.to]||{label:e.extracted.to}).label : ''}
-                </div>
-                <div className="meta" style={{marginTop:2}}>{nameOf(e.log_id)}{e.note?' · '+e.note.slice(0,90):''}</div>
-              </div>
-            </div>))}
+      ) : view==='timeline' ? (
+        <div className="fade" style={{marginTop:20}}>
+          {!timeOK && <F>
+            <div className="hint">{UNLOCKS.timeline.hint}</div>
+            {pipelineList}
+          </F>}
+          {timeOK &&
+            <div className="card" style={{padding:'8px 26px 22px',maxWidth:720}}>
+              {feed.map(e=>(
+                <div key={e.id} style={{display:'grid',gridTemplateColumns:'78px 1fr',gap:18,padding:'16px 0',borderBottom:'1px solid var(--line2)'}}>
+                  <div style={{fontSize:13,fontWeight:700,color:'var(--mute)',paddingTop:1}}>{dateShort(e.occurred_at)}</div>
+                  <div>
+                    <div style={{fontSize:15,fontWeight:600,color:'var(--ink2)'}}>
+                      {EVENT_LABEL[e.event_type]||e.event_type}
+                      {e.event_type==='stage_change' && e.extracted && e.extracted.to
+                        ? ' → '+(STAGE[e.extracted.to]||{label:e.extracted.to}).label : ''}
+                    </div>
+                    <div className="meta" style={{marginTop:2}}>{nameOf(e.log_id)}{e.note?' · '+e.note.slice(0,90):''}</div>
+                  </div>
+                </div>))}
+            </div>}
         </div>
-      ) : (
-        <div className="fade" style={{marginTop:22}}>
-          {grouped.map(g=>(
-            <div key={g.key} style={{marginBottom:22}}>
-              <div className="eyebrow b" style={{marginBottom:8}}>{g.label} · {g.rows.length}</div>
-              <div className="card" style={{overflow:'hidden'}}>
-                {g.rows.map(r=><Row key={r.id} r={r} hot={g.key==='reply'}/>)}
-              </div>
-            </div>))}
-
-          {worthAdding}
-          {webSearchPanel}
-
-          {closed>0 &&
-            <div className="meta" style={{marginTop:8}}>{closed} closed out, hidden from this list.</div>}
-        </div>
-      )}
+      ) : pipelineList}
     </div>
   );
 }
@@ -1560,6 +1596,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
   const [busy,setBusy]   = useState(null);
   const [toast,setToast] = useState(null);
   const [err,setErr]     = useState(null);
+  const [photoBusy,setPhotoBusy] = useState(false);
   const [approach,setApproach] = useState('curiosity');
   const [draft,setDraft] = useState(row.ai_draft||'');
   const [noteS,setNoteS] = useState(''); const [noteC,setNoteC] = useState(''); const [noteP,setNoteP] = useState('');
@@ -1570,6 +1607,20 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
 
   useEffect(()=>{ setDraft(row.ai_draft||''); }, [row.id]);
   const flash = (m)=>{ setToast(m); setTimeout(()=>setToast(null), 2600); };
+
+  /* A photo only exists if the extension captured one at save time - LinkedIn's
+     own data export has no photo column, so anyone added from the ranked
+     suggestions or the archive never gets one that way. This reads the one
+     profile page, on the explicit click below, never automatically. */
+  async function fetchPhoto(){
+    setPhotoBusy(true); setErr(null);
+    const r = await extBridge.photo(row.profile_url);
+    if(r && r.ok && r.dataUrl){ await onUpdate(row, {avatar_url:r.dataUrl}); flash('Photo added'); }
+    else setErr(r && r.error==='no_photo' ? 'No photo found on their profile.'
+      : r && r.error==='session_cap' ? 'Photo limit reached for this session. Try again later.'
+      : 'Could not read their photo. The extension may not be running.');
+    setPhotoBusy(false);
+  }
 
   /* Everything the extension read off the rendered profile, in one place so the
      brief and the draft cannot disagree about it. timingSignals matters most:
@@ -1716,7 +1767,14 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
       </button>
 
       <div style={{marginTop:18,display:'flex',alignItems:'flex-start',gap:16,flexWrap:'wrap'}}>
-        <Avatar name={row.name} size={52}/>
+        <div style={{position:'relative',flex:'none'}}>
+          <Avatar name={row.name} size={52} src={row.avatar_url}/>
+          {!row.avatar_url &&
+            <button className="btn q" style={{position:'absolute',top:'100%',left:0,padding:'4px 0 0',
+              fontSize:11.5,whiteSpace:'nowrap'}} onClick={fetchPhoto} disabled={photoBusy}>
+              {photoBusy ? <span><span className="spin"/> Reading</span> : 'Add photo'}
+            </button>}
+        </div>
         <div style={{flex:'1 1 200px',minWidth:0}}>
           <h2 className="h2">{row.name||'Unnamed'}</h2>
           <div className="sub" style={{marginTop:2}}>{row.title||'No headline captured'}</div>
@@ -2091,7 +2149,7 @@ function Ask({sb, people, events, tasks, settings, onOpen}){
                   {m.people.map((p,j)=>(
                     <div key={j} onClick={()=>onOpen(p.row.id)} className="row"
                       style={{gap:13,padding:'11px 0',borderTop:'1px solid var(--line4)',cursor:'pointer'}}>
-                      <Avatar name={p.row.name} size={32}/>
+                      <Avatar name={p.row.name} size={32} src={p.row.avatar_url}/>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:14.5,fontWeight:700}}>{p.row.name||'Unnamed'}</div>
                         <div className="sub" style={{fontSize:13}}>{p.note}</div>
@@ -2698,6 +2756,7 @@ const NAV = [
       {key:'list', label:'List', view:'list'},
       {key:'board', label:'Board', view:'board', lock:'board'},
       {key:'timeline', label:'Timeline', view:'timeline', lock:'timeline'},
+      {key:'explore', label:'Explore', view:'explore', gap:true},
     ]},
   {key:'you', label:'You', icon:
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>,
@@ -2712,8 +2771,7 @@ const NAV = [
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 3.5 12.8 8l4.5 1.8-4.5 1.8L11 16l-1.8-4.4L4.7 9.8 9.2 8z"/><path d="M18.5 14.5 19.4 17l2.5.9-2.5.9-.9 2.5-.9-2.5-2.5-.9 2.5-.9z"/></svg>},
 ];
 const QUESTION = {today:'What deserves my attention?', relationships:'Where am I with everyone?',
-  profile:'Is this relationship worth investing in?', you:'How does this work for me?', ask:'What should I do?',
-  extension:'Save people while you browse.'};
+  you:'How does this work for me?', ask:'What should I do?', extension:'Save people while you browse.'};
 
 function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, email, onSignOut, aiMeta, children}){
   /* Today does not exist until there is something to be doing.
@@ -2727,11 +2785,14 @@ function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, em
     if(parent==='you') return child.extension ? screen==='extension' : (screen==='you' && youTab===child.tab);
     return false;
   };
-  const navBtn = (on, sub)=>({display:'flex',alignItems:'center',gap:sub?10:11,padding:sub?'8px 12px 8px 20px':'10px 12px',
+  const navBtn = (on, sub, gap)=>({display:'flex',alignItems:'center',gap:sub?10:11,
+    padding:sub?'8px 12px 8px 20px':'10px 12px', marginTop:gap?10:0,
     borderRadius:10,width:'100%',textAlign:'left',fontSize:sub?13.5:14.5,fontWeight:sub?600:600,
     background:on?'var(--brand-nav)':'transparent', color:on?'var(--brand-ink)':(sub?'#8A8477':'#6B655C')});
+  /* Locked still navigates - it lands on the pipeline with the reason why
+     printed inline, rather than doing nothing. A click that produces no
+     visible change reads as broken, not as "not yet". */
   const childClick = (parent, child)=>{
-    if(child.lock && !(child.lock==='board'?boardOK:timelineOK)) return;
     if(child.extension) go({screen:'extension'});
     else if(parent==='relationships') go({screen:'relationships', view:child.view});
     else if(parent==='you') go({screen:'you', tab:child.tab});
@@ -2759,7 +2820,7 @@ function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, em
                 return (
                   <button key={c.key} onClick={()=>childClick(n.key, c)}
                     title={locked ? UNLOCKS[c.lock].hint : undefined}
-                    style={{...navBtn(childOn(n.key,c), true), opacity:locked?.45:1, cursor:locked?'not-allowed':'pointer'}}>
+                    style={{...navBtn(childOn(n.key,c), true, c.gap), opacity:locked?.6:1}}>
                     <span style={{flex:1}}>{c.label}</span>
                   </button>);
               })}
