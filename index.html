@@ -159,7 +159,51 @@
                   animation:type 2.4s steps(46) 9.2s forwards}
   @keyframes type{to{width:100%}}
   .bnote{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:var(--sub);line-height:1.6}
-  @media (max-width:700px){ .macwrap{max-width:560px} .beat{top:31px;padding:11px 12px} .bq{font-size:13.5px} }
+
+  /* the hero MacBook: the real Today screen, static */
+  .hs-wrap{position:absolute;inset:0;display:grid;grid-template-columns:150px 1fr;font-size:12px;text-align:left}
+  .hs-side{background:#fff;border-right:1px solid var(--line2);display:flex;flex-direction:column;padding:16px 9px 12px}
+  .hs-brand{display:flex;align-items:center;gap:6px;padding:0 7px 15px}
+  .hs-brand .mmark{width:16px;height:12px} .hs-brand .mmark i{width:12px;height:12px} .hs-brand .mmark i:last-child{left:5px}
+  .hs-brand b{font-size:12.5px;font-weight:800;letter-spacing:-.02em}
+  .hs-nav{display:flex;flex-direction:column;gap:2px}
+  .hs-navitem{display:flex;align-items:center;gap:7px;padding:7px 8px;border-radius:8px;font-weight:500;font-size:10px;color:var(--ink)}
+  .hs-navitem svg{flex:none}
+  .hs-navitem.on{background:var(--brand-soft2);color:var(--brand-ink);font-weight:700;border:1px solid var(--brand-soft)}
+  .hs-navitem em{margin-left:auto;font-style:normal;font-size:8.5px;font-weight:600;color:var(--mute);
+                 background:var(--line2);border-radius:99px;padding:1px 5px}
+  .hs-side-foot{margin-top:auto;display:flex;flex-direction:column;gap:8px}
+  .hs-ama{display:flex;align-items:center;gap:6px;padding:8px 9px;border-radius:9px;font-weight:700;font-size:9px;color:#fff;
+          background:linear-gradient(135deg,var(--brand),var(--brand-h))}
+  .hs-user{display:flex;align-items:center;gap:6px;padding:0 3px}
+  .hs-user i{width:19px;height:19px;border-radius:99px;background:var(--brand-soft2);color:var(--brand-ink);
+             display:flex;align-items:center;justify-content:center;font-weight:700;font-size:8px;font-style:normal}
+  .hs-user span{font-size:8px;font-weight:600;color:var(--body)}
+  .hs-main{position:relative;overflow:hidden;padding:22px 26px}
+  .hs-greet{margin:0;font-size:19px;line-height:1.15;font-weight:800;letter-spacing:-.02em}
+  .hs-greet span{color:var(--sub);font-weight:700}
+  .hs-ask{margin-top:14px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 5px 16px rgba(29,27,38,.06);padding:5px 5px 7px}
+  .hs-ask-row{display:flex;align-items:center;gap:7px;padding:4px 4px 4px 9px}
+  .hs-ask-row svg{color:var(--brand);flex:none}
+  .hs-ask-row span{flex:1;font-size:9.5px;color:var(--mute)}
+  .hs-ask-send{width:20px;height:20px;border-radius:99px;background:var(--brand);color:#fff;display:flex;align-items:center;
+               justify-content:center;flex:none;font-size:9px}
+  .hs-chips{display:flex;gap:5px;padding:1px 7px 0;flex-wrap:wrap}
+  .hs-chips span{padding:4px 9px;border-radius:99px;border:1px solid var(--line);background:var(--paper);font-size:8.5px;font-weight:500;color:var(--body)}
+  .hs-goal{display:inline-block;margin-top:9px;font-size:8px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+           color:var(--brand-ink);background:var(--brand-soft2);border-radius:99px;padding:3px 8px}
+  .hs-head{margin-top:15px;display:flex;justify-content:space-between;align-items:baseline}
+  .hs-head b{font-size:8px;font-weight:700;letter-spacing:.09em;color:var(--mute);text-transform:uppercase}
+  .hs-head span{font-size:8.5px;color:var(--mute)}
+  .hs-grid{margin-top:7px;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .hs-card{background:linear-gradient(135deg,var(--brand-soft2) 0%,#F7F1F4 55%,#FBEFE9 100%);
+           border:1px solid #E4E0F7;border-radius:9px;padding:8px 9px;display:flex;gap:7px}
+  .hs-dot{width:5px;height:5px;border-radius:99px;margin-top:3px;flex:none}
+  .hs-dot.amber{background:#E3A23C} .hs-dot.brand{background:var(--brand)} .hs-dot.mute{background:var(--mute)}
+  .hs-card b{display:block;font-size:9px;font-weight:700}
+  .hs-card em{display:block;margin-top:1px;font-style:normal;font-size:7.5px;color:var(--mute)}
+  @media (max-width:700px){ .macwrap{max-width:560px} .beat{top:31px;padding:11px 12px} .bq{font-size:13.5px}
+    .hs-wrap{grid-template-columns:1fr} .hs-side{display:none} .hs-main{padding:16px 18px} .hs-greet{font-size:15px} }
   @media (prefers-reduced-motion:reduce){
     .js-anim .beat{animation:none;opacity:0}
     .js-anim .beat:nth-child(2){opacity:1}
@@ -175,6 +219,8 @@
   .usechip.p{background:#FDEDEB;border-color:transparent}
   .usechip.g{background:#E9F1EC;border-color:transparent}
   /* the two-up demo: extension on LinkedIn, and search inside the app */
+  .room-grid{display:grid;gap:26px;align-items:center}
+  @media (min-width:900px){ .room-grid{grid-template-columns:1fr 1.05fr} }
   .duo{display:grid;gap:20px;margin-top:34px}
   @media (min-width:900px){ .duo{grid-template-columns:1fr 1fr;gap:22px} }
   /* each half is its own surface: a labelled panel, not two loose mocks */
@@ -370,56 +416,40 @@
       <a href="/install/" class="btn w">Add to your browser</a>
     </div>
     <div style="margin-top:20px;font-size:14px;color:var(--mute)">30 days free. No card.</div>
-    <div class="macwrap" data-reveal aria-label="Mighty in use: a four-step loop">
+    <div class="macwrap" data-reveal aria-label="Mighty's Today screen">
       <div class="mac">
         <div class="lid">
           <span class="notch"></span><span class="cam"></span>
           <div class="screen">
-            <div class="stage">
-              <div class="sbar">
-                <span class="mmark"><i></i><i></i></span><b>Mighty</b>
-                <span class="who">Jayati Mehra</span>
-              </div>
-
-              <div class="beat">
-                <div class="bk">Today</div>
-                <div class="bq">What deserves my attention?</div>
-                <div class="bsub">Good morning, Jayati. Two things are worth doing today.</div>
-                <div class="brow hot"><svg class="pic bav" width="26" height="26" role="img" aria-label="portrait"><use href="#av-jw"/></svg>
-                  <span style="min-width:0"><b>James Whitfield replied and you have not answered</b>
-                  <em>Two days ago. The only thing here that decays.</em></span>
-                  <span class="bcta">Reply</span></div>
-                <div class="brow"><svg class="pic bav" width="26" height="26" role="img" aria-label="portrait"><use href="#av-sb"/></svg>
-                  <span style="min-width:0"><b>Write to Sukrit Bansal</b><em>Writes first cheques into health AI</em></span>
-                  <span class="bcta g">Draft</span></div>
-              </div>
-
-              <div class="beat">
-                <div class="bk">James Whitfield &middot; Partner, early-stage fund</div>
-                <div class="bq">Why him, why now</div>
-                <div class="bcard"><b>Timing.</b> Moved into the partner seat four months ago, so he is
-                  writing his own cheques for the first time.</div>
-                <div class="bcard"><b>What you share.</b> You were both at Novartis, 2019 to 2021.
-                  Connected 2019, nothing since.</div>
-                <div class="bsub" style="margin-top:9px">Free. Reading a brief costs nothing.</div>
-              </div>
-
-              <div class="beat">
-                <div class="bk">Draft &middot; take 1 of 10</div>
-                <div class="bq">In your own words</div>
-                <div class="bcard" style="margin-top:10px"><div class="btype">James, we crossed paths at Novartis, though I doubt our calendars ever did.</div></div>
-                <div class="bsub" style="margin-top:9px">Written to match how you write, from your own past messages.</div>
-                <div class="brow" style="border:0;padding-left:0"><span class="bcta">Copy and open LinkedIn</span>
-                  <span class="bcta g">Try another take</span></div>
-              </div>
-
-              <div class="beat">
-                <div class="bk">After the call</div>
-                <div class="bq">Type it the way you would scribble it</div>
-                <div class="bcard"><div class="bnote">wants 2 pilot logos before term sheet - intro to Sukrit re payments - asked studio vs accelerator??</div></div>
-                <div class="bcard" style="border-color:#CFE6DA;background:#F2F8F5">
-                  <b style="color:#0F7050">Mighty remembered</b><br>
-                  Send two pilot logos &middot; Introduce Sukrit &middot; Has doubts: studio vs accelerator</div>
+            <div class="hs-wrap">
+              <aside class="hs-side">
+                <div class="hs-brand"><span class="mmark"><i></i><i></i></span><b>Mighty</b></div>
+                <nav class="hs-nav">
+                  <span class="hs-navitem on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Today</span>
+                  <span class="hs-navitem"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.2 3.4-5 6.5-5s5.7 1.8 6.5 5"/><path d="M16 5.2a3.5 3.5 0 0 1 0 5.6"/><path d="M18.5 15.5c1.6.9 2.7 2.4 3 4.5"/></svg>Relationships<em>9</em></span>
+                  <span class="hs-navitem"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/></svg>You</span>
+                </nav>
+                <div class="hs-side-foot">
+                  <span class="hs-ama"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2z"/></svg>Ask Mighty</span>
+                  <div class="hs-user"><i>J</i><span>Jayati Mehra</span></div>
+                </div>
+              </aside>
+              <div class="hs-main">
+                <h2 class="hs-greet">Good morning, Jayati.<br><span>4 actions, 30 minutes. One step closer to funding.</span></h2>
+                <div class="hs-ask">
+                  <div class="hs-ask-row"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2z"/></svg>
+                    <span>Ask Mighty anything &mdash; or press Enter to start your day</span>
+                    <span class="hs-ask-send">&#8593;</span></div>
+                  <div class="hs-chips"><span>Who should I talk to first?</span><span>Draft my note to Sukrit</span><span>Prep me for James</span></div>
+                </div>
+                <span class="hs-goal">Goal &middot; Raise a seed round for an AI-native studio</span>
+                <div class="hs-head"><b>Today&rsquo;s four</b><span>4 added &middot; 0 conversations started</span></div>
+                <div class="hs-grid">
+                  <div class="hs-card"><span class="hs-dot amber"></span><div><b>Message Sukrit Bansal</b><em>Review &amp; send &middot; 4 min</em></div></div>
+                  <div class="hs-card"><span class="hs-dot brand"></span><div><b>Prep for James Whitfield</b><em>New role, 4 mo &middot; 6 min</em></div></div>
+                  <div class="hs-card"><span class="hs-dot brand"></span><div><b>Prep for Luiza Ferreira</b><em>Runs Boston diligence &middot; 6 min</em></div></div>
+                  <div class="hs-card"><span class="hs-dot mute"></span><div><b>Find one person worth knowing</b><em>Five good beat fifty saved &middot; 3 min</em></div></div>
+                </div>
               </div>
             </div>
           </div>
@@ -445,6 +475,61 @@
       <span class="usechip">Partnerships</span>
       <span class="usechip v">Alumni</span>
       <span class="usechip">Advisors</span>
+    </div>
+  </div>
+</section>
+
+<section id="product" class="wrap" data-reveal>
+  <div class="kicker">The product</div>
+  <h2 class="h-sub" style="margin-top:14px">Three rooms.<br><span style="color:var(--mute)">One daily habit.</span></h2>
+
+  <div style="margin-top:40px;display:flex;flex-direction:column;gap:56px">
+    <div class="room-grid">
+      <div>
+        <div class="kicker">01 &middot; Today</div>
+        <h3 class="h-sec" style="font-size:clamp(22px,2.6vw,30px);margin-top:10px">Your day, already prepared.</h3>
+        <p class="lead" style="margin-top:12px;font-size:16px">Every morning Mighty names a handful of actions with the minutes counted - drafts written, briefs pulled, timing explained. You review, you send, you move on.</p>
+      </div>
+      <div style="background:linear-gradient(135deg,var(--brand-soft2) 0%,#F7F1F4 55%,#FBEFE9 100%);border:1px solid #E4E0F7;border-radius:18px;padding:22px">
+        <div class="brow" style="align-items:center;margin-top:0">
+          <span style="width:9px;height:9px;border-radius:99px;background:#E3A23C;flex:none"></span>
+          <span style="min-width:0"><em style="display:block;font-size:9px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute);font-style:normal">Start here &middot; 4 min</em><b style="font-size:13px">Send your first message to Sukrit Bansal</b></span>
+          <span class="bcta" style="font-size:10.5px">Review draft</span>
+        </div>
+        <div class="bcard" style="margin-top:10px">
+          <div style="display:flex;align-items:center;gap:9px">
+            <span style="width:22px;height:22px;border-radius:99px;background:#FBEFE9;color:#C75B33;font-weight:700;font-size:9px;display:flex;align-items:center;justify-content:center;flex:none">SB</span>
+            <b>To Sukrit Bansal</b>
+            <span style="margin-left:auto;font-size:8px;font-weight:700;letter-spacing:.06em;color:var(--brand-ink);background:var(--brand-soft2);border-radius:99px;padding:3px 7px">DRAFT BY MIGHTY</span>
+          </div>
+          <div style="margin-top:9px;padding:9px 11px;background:#fff;border:1px solid var(--line);border-radius:9px">Hi Sukrit - congrats on the fund close. I&rsquo;m building Mighty and your note on founder-led sales stuck with me. Could I get 20 minutes this week?</div>
+          <div style="display:flex;gap:7px;margin-top:9px"><span class="bcta">Send now</span><span class="bcta g">Edit first</span></div>
+        </div>
+        <div style="margin-top:12px;font-size:11.5px;color:var(--mute);text-align:center">Nothing is ever sent automatically. You always click Send.</div>
+      </div>
+    </div>
+
+    <div class="room-grid">
+      <div style="background:linear-gradient(135deg,var(--brand-soft2) 0%,#F7F1F4 55%,#FBEFE9 100%);border:1px solid #E4E0F7;border-radius:18px;padding:22px">
+        <div style="display:flex;gap:4px;height:18px;border-radius:8px;overflow:hidden">
+          <div style="width:89%;background:#CFC9EA"></div><div style="width:11%;background:#E3A23C"></div>
+        </div>
+        <div style="margin-top:9px;display:flex;gap:16px;font-size:10.5px;color:var(--body)">
+          <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:99px;background:#CFC9EA"></span>Saved &middot; 8</span>
+          <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:99px;background:#E3A23C"></span>Reached out &middot; 1</span>
+        </div>
+        <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px">
+          <div class="brow" style="margin-top:0"><svg class="pic bav" width="26" height="26" role="img" aria-label="portrait"><use href="#av-lf"/></svg>
+            <span style="min-width:0"><b>Luiza Ferreira</b><em style="color:var(--brand-ink);font-style:normal;font-size:10.5px">Was at Novartis while you were</em></span><span class="bcta g" style="font-size:10.5px">Prepare me</span></div>
+          <div class="brow"><svg class="pic bav" width="26" height="26" role="img" aria-label="portrait"><use href="#av-sb"/></svg>
+            <span style="min-width:0"><b>Sukrit Bansal</b><em style="color:var(--green);font-style:normal;font-size:10.5px">Brief ready</em></span><span class="bcta" style="font-size:10.5px">Reply</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="kicker">02 &middot; Relationships</div>
+        <h3 class="h-sec" style="font-size:clamp(22px,2.6vw,30px);margin-top:10px">Every person, with a why.</h3>
+        <p class="lead" style="margin-top:12px;font-size:16px">No scores, no dashboards. Each person carries the reason they matter - where you overlapped, what changed, what to do next - as they move from Saved to Reached out to In conversation.</p>
+      </div>
     </div>
   </div>
 </section>
