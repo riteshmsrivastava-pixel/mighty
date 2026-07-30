@@ -164,12 +164,12 @@ function ensurePanel() {
   if (panel && document.body.contains(panel)) return panel;
   panel = document.createElement('div');
   panel.id = 'mighty-shortlist-panel';
-  panel.style.cssText = 'position:fixed;bottom:18px;right:18px;z-index:99999;background:#1A1917;color:#F4F2EF;'
-    + "font:14px 'Plus Jakarta Sans',-apple-system,system-ui,sans-serif;padding:10px 12px 10px 18px;border-radius:999px;box-shadow:0 18px 40px -18px rgba(27,26,31,.5);"
+  panel.style.cssText = 'position:fixed;bottom:18px;right:18px;z-index:99999;background:#1D1B26;color:#F4F2EF;'
+    + "font:14px 'Schibsted Grotesk',-apple-system,system-ui,sans-serif;padding:10px 12px 10px 18px;border-radius:999px;box-shadow:0 18px 40px -18px rgba(29,27,38,.5);"
     + 'display:flex;align-items:center;gap:12px;';
   const btn = document.createElement('button');
   btn.textContent = 'Send 0 to Mighty';
-  btn.style.cssText = "background:#5B46E5;color:#fff;border:none;border-radius:999px;padding:9px 18px;font-weight:500;font-size:14px;cursor:pointer;font-family:inherit;";
+  btn.style.cssText = "background:#5B4FE9;color:#fff;border:none;border-radius:999px;padding:9px 18px;font-weight:500;font-size:14px;cursor:pointer;font-family:inherit;";
   panel.appendChild(btn);
   document.body.appendChild(panel);
   return panel;
@@ -410,21 +410,21 @@ function captureProfileContext(force) {
    lighter "save?" panel appears. */
 /* Design tokens - kept identical to the web app so the panel reads as one
    product. See app/index.html :root. */
-const ACCENT = '#5B46E5';
-const ACCENT_DEEP = '#5540D8';
-const PEACH = '#F2A78E';
-const TINT = '#EFEBFE';
-const INK = '#1A1917';
-const SUB = '#948E85';
-const MUTE = '#A39C93';
-const LINE = '#F0EDE8';
-const FONT = "'Plus Jakarta Sans',-apple-system,system-ui,sans-serif";
+const ACCENT = '#5B4FE9';
+const ACCENT_DEEP = '#4A3FD1';
+const PEACH = '#E87A56';
+const TINT = '#EFEDFD';
+const INK = '#1D1B26';
+const SUB = '#8A8896';
+const MUTE = '#B4B1BC';
+const LINE = '#F1EFE9';
+const FONT = "'Schibsted Grotesk',-apple-system,system-ui,sans-serif";
 // The one match ladder, same words as the app. Keep in sync with
 // mightyMatchLabel() in scoring.js and VERDICT in app/index.html.
-const FIT_DOT = {'Excellent match':'#5B46E5','Strong match':'#22916A','Potential match':'#D9971C',
-  'Outside your goal':'#B0A9A0'};
+const FIT_DOT = {'Excellent match':'#5B4FE9','Strong match':'#2E8B5F','Potential match':'#E3A23C',
+  'Outside your goal':'#B4B1BC'};
 // Two-overlapping-circles brand mark, inline so it needs no web-accessible asset.
-const MARK_SVG = '<svg width="20" height="20" viewBox="0 0 26 26" fill="none" style="display:block;flex:none"><circle cx="9.5" cy="13" r="7.5" fill="#5B46E5"></circle><circle cx="16.5" cy="13" r="7.5" fill="#F2A78E" fill-opacity="0.85"></circle></svg>';
+const MARK_SVG = '<svg width="20" height="20" viewBox="0 0 26 26" fill="none" style="display:block;flex:none"><circle cx="9.5" cy="13" r="7.5" fill="#5B4FE9"></circle><circle cx="16.5" cy="13" r="7.5" fill="#E87A56" fill-opacity="0.85"></circle></svg>';
 let sidebarEl = null;
 // Profiles the student skipped - the panel stays out of the way until reload.
 const skippedThisSession = new Set();
@@ -881,8 +881,8 @@ async function renderGoogleImportPanel() {
   gPanel = document.createElement('div');
   gPanel.id = 'mighty-google-panel';
   gPanel.style.cssText = 'position:fixed;top:76px;right:16px;width:326px;max-height:78vh;overflow:auto;z-index:99999;'
-    + 'background:#fff;border:1px solid rgba(27,26,31,.08);border-radius:20px;box-shadow:0 30px 70px -34px rgba(27,26,31,.32);'
-    + "font:14px 'Plus Jakarta Sans',-apple-system,system-ui,sans-serif;color:#1A1917;padding:20px;";
+    + 'background:#fff;border:1px solid rgba(29,27,38,.08);border-radius:20px;box-shadow:0 30px 70px -34px rgba(29,27,38,.32);'
+    + "font:14px 'Schibsted Grotesk',-apple-system,system-ui,sans-serif;color:#1D1B26;padding:20px;";
   gPanel.innerHTML = mightyBrandHead(`<span style="font-size:11.5px;font-weight:500;color:#7B7787;background:#F4F3F1;padding:4px 11px;border-radius:999px;">${profiles.length} found</span>`);
 
   if (!signedIn) {

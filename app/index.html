@@ -28,22 +28,23 @@
      ============================================================ -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap">
 <link rel="icon" href="../favicon.ico?v=2" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32.png?v=2">
 <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
 <style>
   :root{
- --paper:#FAF9F7; --rail:#F6F4F1; --card:#FFFFFF; --card2:#FCFBF9;
- --line:#EAE6E0; --line2:#F5F2ED; --line3:#EBE7E1; --line4:#F2EFEA;
- --ink:#1A1917; --ink2:#2A2724; --body:#3B3833; --sub:#948E85; --mute:#A39C93; --mute2:#B0A9A0;
- --brand:#5B46E5; --brand-h:#4B38CE; --brand-ink:#5540D8;
- --brand-soft:#F7F5FE; --brand-soft2:#EFEBFE; --brand-line:#EDE9FC; --brand-nav:#E9E4FC;
- --green:#14805A; --green2:#22916A; --green-soft:#E9F1EC;
- --amber:#8C7A50; --amber-soft:#FBF3E2; --amber-dot:#D9971C;
- --red:#B5675A; --red-soft:#FDEDEB;
- --f:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;
- --r:16px; --rsm:14px; --pill:999px; --sh:0 1px 2px rgba(26,25,23,.04);
+ --paper:#FBFAF8; --rail:#FFFFFF; --card:#FFFFFF; --card2:#FBFAF8;
+ --line:#ECEAE4; --line2:#F1EFE9; --line3:#EFEDE7; --line4:#F1EFE9;
+ --ink:#1D1B26; --ink2:#2A2833; --body:#33313D; --sub:#8A8896; --mute:#B4B1BC; --mute2:#A39FA8;
+ --brand:#5B4FE9; --brand-h:#4A3FD1; --brand-ink:#4A3FD1;
+ --brand-soft:#F5F3FD; --brand-soft2:#EFEDFD; --brand-line:#E4E0F7; --brand-nav:#EFEDFD;
+ --peach:#E87A56;
+ --green:#2E8B5F; --green2:#2E8B5F; --green-soft:#E6F4EC;
+ --amber:#B0641F; --amber-soft:#FBF1E2; --amber-dot:#E3A23C;
+ --red:#C75B33; --red-soft:#FBEFE9;
+ --f:'Schibsted Grotesk',system-ui,-apple-system,sans-serif;
+ --r:16px; --rsm:14px; --pill:999px; --sh:0 1px 3px rgba(29,27,38,.05);
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;height:100%}
@@ -187,15 +188,15 @@ const goalShort = (st)=> GOAL_SHORT[goalTypeList(st)[0]] || 'your goal';
 
 /* outreach_log.status is the ONE stage field. 'prospect' IS Saved. */
 const STAGE = {
-  prospect:        {label:'Saved',              bg:'#F4F2EE', fg:'#5B554D', dot:'#C4BDB2'},
-  ready_to_contact:{label:'Ready to reach out', bg:'#EFEBFE', fg:'#5540D8', dot:'#5B46E5'},
-  contacted:       {label:'Reached out', bg:'#FBF3E2', fg:'#6E5F3D', dot:'#D9971C'},
-  replied:         {label:'In conversation',bg:'#E9F1EC', fg:'#14805A', dot:'#22916A'},
-  coffee_chat:     {label:'Met',                bg:'#E9F1EC', fg:'#14805A', dot:'#22916A'},
-  referral:        {label:'Opportunity in motion',bg:'#E9F1EC', fg:'#14805A', dot:'#22916A'},
-  interview:       {label:'Opportunity in motion',bg:'#E9F1EC', fg:'#14805A', dot:'#22916A'},
-  offer:           {label:'Growing',              bg:'#E9F1EC', fg:'#14805A', dot:'#22916A'},
-  do_not_contact:  {label:'Closed out',     bg:'#F4F2EE', fg:'#948E85', dot:'#D6D0C7'},
+  prospect:        {label:'Saved',              bg:'#F1EFEA', fg:'#5A5766', dot:'#C9C6BF'},
+  ready_to_contact:{label:'Ready to reach out', bg:'#EFEDFD', fg:'#4A3FD1', dot:'#5B4FE9'},
+  contacted:       {label:'Reached out', bg:'#FBF1E2', fg:'#B0641F', dot:'#E3A23C'},
+  replied:         {label:'In conversation',bg:'#E6F4EC', fg:'#2E8B5F', dot:'#2E8B5F'},
+  coffee_chat:     {label:'Met',                bg:'#E6F4EC', fg:'#2E8B5F', dot:'#2E8B5F'},
+  referral:        {label:'Opportunity in motion',bg:'#E6F4EC', fg:'#2E8B5F', dot:'#2E8B5F'},
+  interview:       {label:'Opportunity in motion',bg:'#E6F4EC', fg:'#2E8B5F', dot:'#2E8B5F'},
+  offer:           {label:'Growing',              bg:'#E6F4EC', fg:'#2E8B5F', dot:'#2E8B5F'},
+  do_not_contact:  {label:'Closed out',     bg:'#F1EFEA', fg:'#8A8896', dot:'#DDD9D1'},
 };
 const stageOf = (r)=>STAGE[(r||{}).status] || STAGE.prospect;
 /* Board columns follow the Bible's default pipeline; the late statuses share
@@ -485,10 +486,10 @@ async function toKeywords(sb, sentence, st){
    marketing all say the same three things. Keep in sync with
    mightyMatchLabel() in extension/scoring.js. */
 const VERDICT = {
-  excellent:{label:'Strong fit for your goal', dot:'#5B46E5'},
-  strong:   {label:'Good fit',    dot:'#22916A'},
-  potential:{label:'Worth a look', dot:'#D9971C'},
-  low:      {label:'Outside your goal',   dot:'#B0A9A0'},
+  excellent:{label:'Strong fit for your goal', dot:'#5B4FE9'},
+  strong:   {label:'Good fit',    dot:'#2E8B5F'},
+  potential:{label:'Worth a look', dot:'#E3A23C'},
+  low:      {label:'Outside your goal',   dot:'#B4B1BC'},
 };
 const VERDICT_KEYS = ['excellent','strong','potential','low'];
 async function evaluate(sb, people, st){
@@ -869,7 +870,7 @@ function buildPlan(people, events, tasks){
     sub:'Five good people beat fifty saved profiles.', min:3, cta:'Find someone', go:{screen:'relationships'}});
   return plan;
 }
-const TONE = {red:'#B5675A', amber:'#D9971C', green:'#22916A', purple:'#5B46E5', grey:'#C4BDB2'};
+const TONE = {red:'#C75B33', amber:'#E3A23C', green:'#2E8B5F', purple:'#5B4FE9', grey:'#C9C6BF'};
 
 /* Does r need a reply from the user right now? Same test buildPlan uses for
    its 'reply-' item: the last thing that happened was them, not us. */
@@ -943,7 +944,7 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
   return (
     <div className="fade">
       <div style={{padding:'40px 48px 30px',
-        background:'linear-gradient(135deg,#EFEBFE 0%,#F7F1F4 55%,#FBEFE9 100%)'}}>
+        background:'linear-gradient(135deg,#EFEDFD 0%,#F7F1F4 55%,#FBEFE9 100%)'}}>
         <div style={{maxWidth:860}}>
           <h1 className="h1" style={{fontSize:'clamp(28px,3.4vw,36px)'}}>{greetWord()}{name?', '+name.charAt(0).toUpperCase()+name.slice(1):''}.</h1>
           <div style={{marginTop:6,fontSize:'clamp(20px,2.6vw,27px)',fontWeight:700,letterSpacing:'-.02em',color:'var(--sub)'}}>
@@ -1019,7 +1020,7 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
           <div className="card" style={{marginTop:14,overflow:'hidden'}}>
             {doneToday.map(t=>(
               <div key={'d'+t.id} className="row" style={{gap:16,padding:'15px 26px',borderBottom:'1px solid var(--line2)',background:'var(--card2)'}}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#14805A" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{flex:'none'}}><path d="m4 12.5 5 5L20 6.5"/></svg>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2E8B5F" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{flex:'none'}}><path d="m4 12.5 5 5L20 6.5"/></svg>
                 <div style={{flex:1,minWidth:0,fontSize:15,fontWeight:600,color:'#8E887F'}}>{t.label}</div>
                 <div className="meta">Completed {ago(t.completed_at)||'today'}</div>
                 <button className="btn q" style={{fontSize:13,padding:0}} onClick={()=>onToggleTask(t,false)}>Undo</button>
@@ -1337,14 +1338,14 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
       <div onClick={()=>onOpen(r.id)} className="lift"
         style={{display:'flex',alignItems:'center',gap:16,padding:'15px 24px',
           borderBottom:'1px solid var(--line2)',cursor:'pointer',
-          background: hot ? '#FBEDE8' : 'none'}}>
+          background: hot ? '#FBEFE9' : 'none'}}>
         <Avatar name={r.name} size={34} src={r.avatar_url} hover={r}/>
         <div style={{flex:'1 1 220px',minWidth:0}}>
           <div style={{fontSize:15.5,fontWeight:700,letterSpacing:'-.01em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.name||'Unnamed'}</div>
           <div style={{fontSize:13,color:'var(--mute)',marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.title||(r.context||{}).whySaved||'Saved profile'}</div>
         </div>
         <div className="meta" style={{flex:'none'}}>{ago(r.updated_at||r.shortlisted_at)}</div>
-        <div style={{fontSize:14,fontWeight:700,flex:'none',color: hot?'#B5675A':'var(--brand-ink)'}}>{nextAction(r)}</div>
+        <div style={{fontSize:14,fontWeight:700,flex:'none',color: hot?'#C75B33':'var(--brand-ink)'}}>{nextAction(r)}</div>
       </div>);
   }
 
@@ -1369,8 +1370,100 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
   const closed = filtered.filter(r=>r.status==='do_not_contact').length;
   const grouped = GROUPS.map(g=>({...g, rows: filtered.filter(g.test)})).filter(g=>g.rows.length>0);
 
-  const feed = events.slice().sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at)).slice(0,60);
   const nameOf = (id)=>{ const p=people.find(x=>x.id===id); return p?(p.name||'Unnamed'):' - '; };
+  const personOf = (id)=>people.find(x=>x.id===id)||null;
+
+  /* One honest description per stage transition, since the from/to pair is
+     all a stage_change event actually carries - no invented narrative, just
+     the plain reason each transition happens in this product. */
+  const STAGE_WHY = {
+    contacted: 'You reviewed the draft and sent it', replied: 'Updated automatically from their reply',
+    ready_to_contact: 'Marked ready to reach out', coffee_chat: 'Logged after you met',
+    do_not_contact: 'Closed out', prospect: 'Saved',
+  };
+  const sameDay = (a,b)=> a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+  const dateGroupLabel = (iso)=>{
+    const d = new Date(iso), now = new Date();
+    const y = new Date(now); y.setDate(now.getDate()-1);
+    const long = d.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
+    if(sameDay(d,now)) return 'TODAY · '+long.toUpperCase();
+    if(sameDay(d,y)) return 'YESTERDAY · '+long.toUpperCase();
+    return long.toUpperCase();
+  };
+  const timeOfDay = (iso)=> new Date(iso).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
+
+  /* The feed merges two kinds of history: real outreach_events, and a
+     synthetic "saved" entry per day - shortlisted_at is real data, it just
+     never got written to outreach_events, so it is grouped here at display
+     time rather than invented. */
+  const rawFeed = useMemo(()=>{
+    const evItems = events.map(e=>({
+      id:'e'+e.id, kind: e.event_type==='stage_change' ? 'stage_change' : e.event_type,
+      occurred_at:e.occurred_at, personId:e.log_id, extracted:e.extracted, note:e.note,
+    }));
+    const byDay = {};
+    people.forEach(r=>{
+      if(!r.shortlisted_at) return;
+      const key = new Date(r.shortlisted_at).toDateString();
+      (byDay[key]=byDay[key]||[]).push(r);
+    });
+    const savedItems = Object.keys(byDay).map(key=>{
+      const rows = byDay[key];
+      const latest = rows.reduce((a,r)=>new Date(r.shortlisted_at)>new Date(a.shortlisted_at)?r:a, rows[0]);
+      return {id:'saved-'+key, kind:'saved', occurred_at:latest.shortlisted_at, people:rows};
+    });
+    return evItems.concat(savedItems).sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at)).slice(0,80);
+  },[events, people]);
+
+  const TIME_CATS = [
+    {key:'all',   label:'All',            test:()=>true},
+    {key:'stage', label:'Stage changes',  test:e=>e.kind==='stage_change'},
+    {key:'reply', label:'Replies',        test:e=>e.kind==='reply'},
+    {key:'note',  label:'Notes',          test:e=>e.kind==='note'},
+    {key:'saved', label:'Saved',          test:e=>e.kind==='saved'},
+  ].filter(c=>c.key==='all' || rawFeed.some(c.test));
+  const [feedCat,setFeedCat] = useState('all');
+  const activeCat = TIME_CATS.find(c=>c.key===feedCat) || TIME_CATS[0];
+  const feed = rawFeed.filter(activeCat.test);
+
+  const feedGroups = [];
+  feed.forEach(item=>{
+    const label = dateGroupLabel(item.occurred_at);
+    let g = feedGroups.find(x=>x.label===label);
+    if(!g){ g = {label, items:[]}; feedGroups.push(g); }
+    g.items.push(item);
+  });
+
+  function feedEntry(item){
+    if(item.kind==='saved'){
+      const names = item.people.map(r=>firstName(r.name)||'Unnamed');
+      const shown = names.length<=8 ? names : names.slice(0,7).concat(['+'+(names.length-7)+' more']);
+      const label = item.people.length===1 ? 'You saved '+item.people[0].name
+        : 'You saved '+item.people.length+' people';
+      return {title:label,
+        sub: shown.length>1 ? shown.slice(0,-1).join(', ')+' and '+shown.slice(-1) : shown[0],
+        cta:'See list', onCta:()=>go({screen:'relationships', view:'list'})};
+    }
+    const person = personOf(item.personId);
+    const name = person ? person.name||'Unnamed' : nameOf(item.personId);
+    if(item.kind==='stage_change'){
+      const to = item.extracted && item.extracted.to;
+      return {title:name+' moved to '+((STAGE[to]||{label:to||''}).label),
+        sub: STAGE_WHY[to] || 'Stage updated',
+        cta:'Open profile', onCta:()=>person&&onOpen(person.id)};
+    }
+    if(item.kind==='reply')
+      return {title:name+' replied', sub:(person&&person.title)||'They wrote back',
+        cta:'Open profile', onCta:()=>person&&onOpen(person.id)};
+    if(item.kind==='first_message')
+      return {title:'You reached out to '+name, sub:item.note?item.note.slice(0,90):'Message sent',
+        cta:'View message', onCta:()=>person&&onOpen(person.id,'draft')};
+    if(item.kind==='note')
+      return {title:'You captured notes on '+name, sub:item.note?item.note.slice(0,90):'',
+        cta:'Open profile', onCta:()=>person&&onOpen(person.id,'notes')};
+    return {title:(EVENT_LABEL[item.kind]||item.kind)+' · '+name, sub:item.note?item.note.slice(0,90):'',
+      cta:'Open profile', onCta:()=>person&&onOpen(person.id)};
+  }
 
   /* Everyone Mighty thinks is worth adding, ranked against the goal. Shared by
      the empty state and the bottom of the populated list, so a new user and a
@@ -1646,21 +1739,45 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
             <div className="hint">{UNLOCKS.timeline.hint}</div>
             {pipelineList}
           </F>}
-          {timeOK &&
-            <div className="card" style={{padding:'8px 26px 22px',maxWidth:720}}>
-              {feed.map(e=>(
-                <div key={e.id} style={{display:'grid',gridTemplateColumns:'78px 1fr',gap:18,padding:'16px 0',borderBottom:'1px solid var(--line2)'}}>
-                  <div style={{fontSize:13,fontWeight:700,color:'var(--mute)',paddingTop:1}}>{dateShort(e.occurred_at)}</div>
-                  <div>
-                    <div style={{fontSize:15,fontWeight:600,color:'var(--ink2)'}}>
-                      {EVENT_LABEL[e.event_type]||e.event_type}
-                      {e.event_type==='stage_change' && e.extracted && e.extracted.to
-                        ? ' → '+(STAGE[e.extracted.to]||{label:e.extracted.to}).label : ''}
-                    </div>
-                    <div className="meta" style={{marginTop:2}}>{nameOf(e.log_id)}{e.note?' · '+e.note.slice(0,90):''}</div>
+          {timeOK && <F>
+            <div className="sub" style={{fontSize:14.5}}>Everything that moved. The newest is at the top.</div>
+            <div className="seg" style={{marginTop:14,width:'fit-content'}}>
+              {TIME_CATS.map(c=>(
+                <button key={c.key} className={feedCat===c.key?'on':''} onClick={()=>setFeedCat(c.key)}>
+                  {c.label} · {rawFeed.filter(c.test).length}
+                </button>))}
+            </div>
+
+            {feedGroups.length===0 &&
+              <div className="meta" style={{marginTop:20}}>Nothing in this filter yet.</div>}
+
+            <div style={{marginTop:22,maxWidth:760}}>
+              {feedGroups.map((g,gi)=>(
+                <div key={g.label} style={{marginBottom:26}}>
+                  <div className="eyebrow" style={{marginBottom:10}}>{g.label}</div>
+                  <div className="card" style={{overflow:'hidden'}}>
+                    {g.items.map((item,i)=>{
+                      const entry = feedEntry(item);
+                      return (
+                        <div key={item.id} className="row" style={{gap:16,padding:'16px 22px',
+                          borderBottom:i===g.items.length-1?'none':'1px solid var(--line2)'}}>
+                          <div style={{fontSize:12.5,color:'var(--mute)',flex:'none',width:64,paddingTop:2}}>
+                            {timeOfDay(item.occurred_at)}
+                          </div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:15,fontWeight:700,letterSpacing:'-.01em'}}>{entry.title}</div>
+                            {entry.sub && <div className="sub" style={{fontSize:13.5,marginTop:2,textWrap:'pretty'}}>{entry.sub}</div>}
+                          </div>
+                          {entry.cta &&
+                            <button className="btn g sm" style={{flex:'none'}} onClick={entry.onCta}>{entry.cta}</button>}
+                        </div>);
+                    })}
                   </div>
                 </div>))}
-            </div>}
+              {feedGroups.length>0 &&
+                <div className="meta" style={{textAlign:'center'}}>That's everything.</div>}
+            </div>
+          </F>}
         </div>
       ) : pipelineList}
     </div>
@@ -2343,11 +2460,11 @@ function Extension(){
 
   const rows = [
     {n:'Luiza Ferreira', sub:'Consultant at Bain & Company · MIT Sloan \'23',
-     reasons:['MIT Sloan','Former Bain','AI Product','Boston'], match:'Strong fit for your goal', dot:'#5B46E5'},
+     reasons:['MIT Sloan','Former Bain','AI Product','Boston'], match:'Strong fit for your goal', dot:'#5B4FE9'},
     {n:'James Whitfield', sub:'Sr. Associate Consultant at Bain · MIT Sloan \'22',
-     reasons:['MIT Sloan','Consulting','Boston'], match:'Good fit', dot:'#22916A'},
+     reasons:['MIT Sloan','Consulting','Boston'], match:'Good fit', dot:'#2E8B5F'},
     {n:'Ashley Chen', sub:'Consultant at Bain & Company · MIT Sloan \'24',
-     reasons:['MIT Sloan','Early career'], match:'Worth a look', dot:'#D9971C'},
+     reasons:['MIT Sloan','Early career'], match:'Worth a look', dot:'#E3A23C'},
   ];
   const journey = [
     ['1','Saved to Mighty','No message sent. Nothing to fill in.'],
@@ -2457,7 +2574,7 @@ function Extension(){
                     <F>
                       <PanelBlock label="Relationship fit" first>
                         <div className="row" style={{gap:9,marginTop:7}}>
-                          <span className="dot" style={{background:'#D9971C'}}/>
+                          <span className="dot" style={{background:'#E3A23C'}}/>
                           <span style={{fontSize:17,fontWeight:700,letterSpacing:'-.015em'}}>Potential match</span>
                         </div>
                       </PanelBlock>
@@ -2849,7 +2966,7 @@ function Logo({small, dark}){
     <div style={{position:'relative',width:small?26:31,height:d,flex:'none'}}>
       <div style={{position:'absolute',left:0,top:0,width:d,height:d,borderRadius:'50%',background:'var(--brand)'}}/>
       <div style={{position:'absolute',left:small?8:10,top:0,width:d,height:d,borderRadius:'50%',
-        background:'#F2A78E',mixBlendMode:dark?'screen':'multiply'}}/>
+        background:'var(--peach)',mixBlendMode:dark?'screen':'multiply'}}/>
     </div>
   );
 }
