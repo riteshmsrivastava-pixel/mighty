@@ -69,7 +69,7 @@ These are not preferences. Breaking them means the work cannot ship.
 
 ## The current visual language, for reference not for reverence
 
-Brand purple `#5B46E5`, a peach `#F2A78E` used only in the logo mark, near-black ink `#16151A`, warm neutrals,
+Brand indigo `#5B4FE9`, a coral `#E87A56` used only in the logo mark, near-black ink `#1D1B26`, warm neutrals,
 generous whitespace, pill buttons, 11-14px monospace eyebrow labels in uppercase. Type is a system stack.
 
 The logo is two overlapping circles - purple and peach - with the peach set to multiply, which is the one piece

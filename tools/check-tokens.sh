@@ -19,14 +19,27 @@ cd "$(dirname "$0")/.."
 # Values that must never appear again. Left side is the retired value, right side
 # is what replaced it, so a failure message says what to change it to.
 RETIRED=(
-  "5B4BC4|5B46E5|brand purple"
-  "4C3EB0|4B38CE|brand hover"
-  "1B1A1F|1A1917|ink"
-  "EDEAFE|EFEBFE|brand tint"
-  "F2A69B|F2A78E|peach"
-  "0F6B49|14805A|success green"
-  "4B7A5E|14805A|success green"
+  "5B4BC4|5B4FE9|brand purple"
+  "4C3EB0|4A3FD1|brand hover"
+  "1B1A1F|1D1B26|ink"
+  "EDEAFE|EFEDFD|brand tint"
+  "F2A69B|E87A56|peach"
+  "0F6B49|2E8B5F|success green"
+  "4B7A5E|2E8B5F|success green"
   "8C8898|A39C93|mute"
+  "5B46E5|5B4FE9|brand purple"
+  "4B38CE|4A3FD1|brand hover"
+  "5540D8|4A3FD1|brand ink"
+  "1A1917|1D1B26|ink"
+  "EFEBFE|EFEDFD|brand soft2"
+  "EDE9FC|E4E0F7|brand line"
+  "F2A78E|E87A56|peach"
+  "14805A|2E8B5F|success green"
+  "22916A|2E8B5F|success green"
+  "D9971C|E3A23C|amber"
+  "B5675A|C75B33|red"
+  "FAF9F7|FBFAF8|paper"
+  "F6F4F1|FFFFFF|rail"
 )
 
 # app/v1.html is the superseded app and assets/modernist.css is a dead token
@@ -53,7 +66,7 @@ done
 # gap rather than pretending the declaration means anything.
 if ! grep -q 'web_accessible_resources' extension/manifest.json \
    || ! grep -q '\.woff' extension/manifest.json 2>/dev/null; then
-  echo "NOTE   the extension declares Plus Jakarta Sans but ships no font file,"
+  echo "NOTE   the extension declares Schibsted Grotesk but ships no font file,"
   echo "         so its panels render in the system fallback. Not a drift, a gap."
 fi
 

@@ -1816,9 +1816,9 @@ current one at the repo root. One design language, one product. Login per
 
 ## 4. Design Language
 
-The product already feels calm; keep it. Plus Jakarta Sans, warm paper
-background (#FAF9F7), white cards with 16px radius and hairline borders,
-generous white space, purple accent (#5B46E5).
+The product already feels calm; keep it. Schibsted Grotesk, warm paper
+background (#FBFAF8), white cards with 16px radius and hairline borders,
+generous white space, indigo accent (#5B4FE9).
 
 **Rule 1: every screen gets ONE hero.** Today -> Today's Plan. Discover ->
 Search. Relationships -> the pipeline. Ask Mighty -> the conversation.

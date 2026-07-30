@@ -798,7 +798,7 @@ async function renderProfileSidebar() {
   if (savedMut) shared.push(`${savedMut[1]} mutual connection${savedMut[1] === '1' ? '' : 's'}`);
 
   el.innerHTML =
-    mightyBrandHead(`<span style="font-size:11.5px;font-weight:700;color:#14805A;background:#E6F1EB;padding:4px 11px;border-radius:999px;">Saved</span>`)
+    mightyBrandHead(`<span style="font-size:11.5px;font-weight:700;color:#2E8B5F;background:#E6F4EC;padding:4px 11px;border-radius:999px;">Saved</span>`)
     + panelPerson(photo, name, personSub(headline, company))
     + panelSection('Relationship fit',
         `<div style="display:flex;align-items:center;gap:9px;margin-top:7px;">
