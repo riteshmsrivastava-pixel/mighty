@@ -1816,7 +1816,7 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
     <div className="pad fade" style={{maxWidth:1120,paddingTop:34}}>
       <div className="row" style={{justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
         <div>
-          <div className="eyebrow b">Toward</div>
+          <div className="eyebrow b">Your goal</div>
           <div style={{fontSize:16,fontWeight:600,color:'var(--ink2)',marginTop:4}}>{goalLine(settings)}</div>
         </div>
         <div className="row" style={{gap:10,flexWrap:'wrap'}}>
@@ -2642,7 +2642,7 @@ function Ask({sb, people, events, tasks, settings, onOpen, onSave, initialQuesti
   },[initialQuestion]);
 
   return (
-    <div className="pad fade" style={{maxWidth:780,display:'flex',flexDirection:'column',minHeight:'calc(100vh - 66px)',paddingBottom:24}}>
+    <div className="fade" style={{padding:'20px 22px 20px',display:'flex',flexDirection:'column',minHeight:'100%',boxSizing:'border-box'}}>
       {log.length===0 &&
         <div>
           <h2 className="h2">Ask anything about your network.</h2>
@@ -3314,13 +3314,13 @@ const NAV = [
 const QUESTION = {today:'What deserves my attention?',
   you:'How does this work for me?', ask:'What should I do?', extension:'Save people while you browse.'};
 
-function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, email, onSignOut, aiMeta, children}){
+function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, email, onSignOut, aiMeta, askOpen, onToggleAsk, children}){
   /* Today does not exist until there is something to be doing.
      An empty Today on day one teaches a new user that Mighty has nothing for
      them, which is the opposite of what the first session should prove. The tab
      appears the moment one person is added, and never goes away again. */
   const nav = NAV.filter(n=> n.key!=='today' || savedCount>0);
-  const parentOn = (k)=> k===screen || (k==='relationships'&&screen==='profile') || (k==='you'&&screen==='extension');
+  const parentOn = (k)=> k==='ask' ? askOpen : (k===screen || (k==='relationships'&&screen==='profile') || (k==='you'&&screen==='extension'));
   const childOn = (parent, child)=>{
     if(parent==='relationships') return screen==='relationships' && relView===child.view;
     if(parent==='you') return child.extension ? screen==='extension' : (screen==='you' && youTab===child.tab);
@@ -3341,7 +3341,8 @@ function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, em
   /* Landing on the parent row lands on that surface's default view - List for
      Relationships, Mirror for You - rather than whatever was left over from a
      previous visit, so the row always means the same thing. */
-  const topClick = (k)=> go(k==='you' ? {screen:'you', tab:'mirror'} : k==='relationships' ? {screen:'relationships', view:'list'} : {screen:k});
+  const topClick = (k)=> k==='ask' ? onToggleAsk() :
+    go(k==='you' ? {screen:'you', tab:'mirror'} : k==='relationships' ? {screen:'relationships', view:'list'} : {screen:k});
   return (
     <div style={{display:'flex',minHeight:'100vh',background:'var(--paper)'}}>
       <aside className="railwrap" style={{width:246,flex:'none',display:'flex',flexDirection:'column',
@@ -3356,7 +3357,11 @@ function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, em
                 {n.icon}<span style={{flex:1}}>{n.label}</span>
                 {n.badge && savedCount>0 && <span className="meta" style={{fontWeight:600}}>{savedCount}</span>}
               </button>
-              {n.children && n.children.map(c=>{
+              {/* Only the active section's children stay expanded - previously
+                 every child of every section rendered at all times, so the
+                 sidebar permanently showed all 9 sub-items regardless of
+                 where you actually were. */}
+              {n.children && parentOn(n.key) && n.children.map(c=>{
                 const locked = c.lock && !(c.lock==='board'?boardOK:timelineOK);
                 return (
                   <button key={c.key} onClick={()=>childClick(n.key, c)}
@@ -4014,6 +4019,7 @@ function App(){
   const [relView,setRelView] = useState('list');
   const [youTab,setYouTab] = useState('mirror');
   const [askDraft,setAskDraft] = useState(null);
+  const [askOpen,setAskOpen] = useState(false);
   const [editGoal,setEditGoal] = useState(false);
   const [reimport,setReimport] = useState(false);
   const [busySave,setBusySave] = useState(false);
@@ -4242,6 +4248,15 @@ function App(){
 
   function go(target){
     if(!target) return;
+    if(target.screen==='ask'){
+      /* Ask Mighty is a slide-out panel, not a full-screen destination -
+         opening it (from the sidebar, or from a "Reply to X" style suggestion
+         chip elsewhere) should not replace whatever the user was looking at
+         underneath. */
+      setAskOpen(true);
+      if(target.ask) setAskDraft(target.ask);
+      return;
+    }
     if(target.screen==='profile' && target.id!=null){ setPersonId(target.id); setTab(target.tab||'overview'); }
     if(target.screen==='you'){
       const t = target.tab||'mirror';
@@ -4252,7 +4267,6 @@ function App(){
       setYouTab(t);
     }
     if(target.screen==='relationships' && target.view){ setRelView(target.view); }
-    if(target.screen==='ask' && target.ask){ setAskDraft(target.ask); }
     if(target.screen!=='profile') setPersonId(null);
     setScreen(target.screen);
     window.scrollTo({top:0});
@@ -4294,9 +4308,11 @@ function App(){
   };
 
   return (
+    <F>
     <Shell screen={screen} relView={relView} youTab={youTab} boardOK={canSee('board',people,events)}
       timelineOK={canSee('timeline',people,events)} go={go} savedCount={people.length}
-      email={auth.user.email} onSignOut={signOut} aiMeta={aiMeta}>
+      email={auth.user.email} onSignOut={signOut} aiMeta={aiMeta}
+      askOpen={askOpen} onToggleAsk={()=>setAskOpen(o=>!o)}>
       {err &&
         <div className="banner warn" style={{margin:'20px 48px 0',display:'flex',gap:14,alignItems:'flex-start',justifyContent:'space-between'}}>
           <span>{err}</span>
@@ -4331,12 +4347,33 @@ function App(){
           tab={youTab} setTab={setYouTab} editGoal={editGoal} setEditGoal={setEditGoal} busySave={busySave}
           onSaveSettings={saveSettings} onSignOut={signOut} onReimport={()=>setReimport(true)} go={go}/>}
 
-      {screen==='ask' &&
-        <Ask sb={sb} people={people} events={events} tasks={tasks} settings={settings} onOpen={openPerson}
-          onSave={savePerson} initialQuestion={askDraft} onConsumed={()=>setAskDraft(null)}/>}
-
       {screen==='extension' && <Extension/>}
     </Shell>
+
+    {/* A slide-out panel, not a full-screen destination - asking a question
+        used to mean losing whatever you were looking at underneath it, which
+        fights the whole point of "ask a quick thing without leaving what
+        you're doing." Always mounted so its conversation history survives
+        closing and reopening; only its visibility and the backdrop change. */}
+    {askOpen &&
+      <div onClick={()=>setAskOpen(false)}
+        style={{position:'fixed',inset:0,background:'rgba(29,27,38,.28)',zIndex:299}}/>}
+    <div style={{position:'fixed',top:0,right:0,height:'100vh',width:'min(460px,100vw)',
+      background:'var(--paper)',boxShadow:'-16px 0 40px rgba(29,27,38,.16)',zIndex:300,
+      transform:askOpen?'translateX(0)':'translateX(100%)',transition:'transform .28s cubic-bezier(.2,.8,.3,1)',
+      display:'flex',flexDirection:'column'}}>
+      <div className="row" style={{gap:12,padding:'18px 20px',borderBottom:'1px solid var(--line3)',flex:'none'}}>
+        <span style={{fontWeight:700,fontSize:15}}>Ask Mighty</span>
+        <div style={{flex:1}}/>
+        <button onClick={()=>setAskOpen(false)} aria-label="Close"
+          style={{background:'none',border:'none',cursor:'pointer',fontSize:20,lineHeight:1,color:'var(--sub)',padding:4}}>&times;</button>
+      </div>
+      <div style={{flex:1,overflowY:'auto'}}>
+        <Ask sb={sb} people={people} events={events} tasks={tasks} settings={settings} onOpen={(id)=>{ setAskOpen(false); openPerson(id); }}
+          onSave={savePerson} initialQuestion={askDraft} onConsumed={()=>setAskDraft(null)}/>
+      </div>
+    </div>
+    </F>
   );
 }
 
