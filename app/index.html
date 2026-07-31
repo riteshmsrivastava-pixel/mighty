@@ -449,9 +449,28 @@ async function llm(sb, feature, system, user, maxTokens, exchangeKey){
   }
   return data.text;
 }
+/* A model reply that is empty, cut off mid-object, or wrapped in prose despite
+   instructions is a real, occasional failure mode - not a bug in the caller.
+   Surfacing JSON.parse's own error ("Unexpected end of JSON input") to the
+   user reads as broken software, so it is retried once - free, since the
+   exchange is already paid for by exchangeKey - before giving up with a
+   message that says what actually happened. */
+function extractJSON(text){
+  const s = String(text||'').indexOf('{'), e = String(text||'').lastIndexOf('}');
+  if(s===-1 || e===-1 || e<s) throw new Error('Mighty came back without an answer that parsed.');
+  return JSON.parse(text.slice(s, e+1));
+}
 async function llmJSON(sb, feature, system, user, maxTokens, exchangeKey){
-  const text = await llm(sb, feature, system+'\n\nRespond with ONLY valid JSON, no prose, no markdown fences.', user, maxTokens||900, exchangeKey);
-  return JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}')+1));
+  const sys = system+'\n\nRespond with ONLY valid JSON, no prose, no markdown fences.';
+  const text = await llm(sb, feature, sys, user, maxTokens||900, exchangeKey);
+  try{ return extractJSON(text); }
+  catch(e){
+    const retryText = await llm(sb, feature,
+      sys+' Keep the whole reply under '+(maxTokens||900)+' tokens so it is never cut off mid-object.',
+      user, maxTokens||900, exchangeKey);
+    try{ return extractJSON(retryText); }
+    catch(e2){ throw new Error("Mighty's answer did not come back in the right shape. Try again in a moment."); }
+  }
 }
 function strategyBrief(st){
   return [
