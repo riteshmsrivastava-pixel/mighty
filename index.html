@@ -398,9 +398,7 @@
     <a href="#product" style="font-size:15px;font-weight:500;color:var(--body)">How it works</a>
     <a href="/pricing/" style="font-size:15px;font-weight:500;color:var(--body)">Pricing</a>
     <a href="#privacy" style="font-size:15px;font-weight:500;color:var(--body)">Privacy</a>
-    <a href="/app/" class="btn navcta">Get started</a>
   </nav>
-  <a href="/app/" class="btn navcta nav-mob" style="display:none">Get started</a>
 </header>
 
 <section id="top" class="hero" style="position:relative;overflow:hidden;padding:110px 48px 96px;text-align:center">
@@ -412,7 +410,7 @@
       <span class="hl">Mighty</span> remembers every conversation and every promise, helping every interaction move the relationship forward.
     </p>
     <div style="display:flex;justify-content:center;gap:12px;margin-top:34px;flex-wrap:wrap">
-      <a href="/app/" class="btn">Add Mighty to your browser</a>
+      <a href="/app/" class="btn">Get early access</a>
     </div>
     <div style="margin-top:20px;font-size:14px;color:var(--mute)">30 days free. No card.</div>
     <div class="macwrap" data-reveal aria-label="Mighty's Today screen">
@@ -750,13 +748,6 @@
       entries.forEach(function(en){ if(en.isIntersecting){ run(); io2.unobserve(en.target); } });
     }, {threshold:0.3});
     io2.observe(section);
-  })();
-
-  /* The header CTA collapses to one button on small screens. */
-  (function(){
-    var mob = document.querySelector('.nav-mob');
-    function sync(){ mob.style.display = window.innerWidth <= 900 ? 'inline-flex' : 'none'; }
-    sync(); window.addEventListener('resize', sync);
   })();
 </script>
 <script>
