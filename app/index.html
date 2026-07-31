@@ -119,8 +119,9 @@
   .banner.ok{background:var(--green-soft);color:var(--green);border:1px solid #CFE5D8}
   .hint{font-size:13px;color:var(--mute2);line-height:1.5}
   .lift:hover{background:var(--card2)}
-  .colcard{background:#fff;border:1px solid var(--line);border-radius:var(--rsm);padding:15px 16px;cursor:pointer}
-  .colcard:hover{border-color:#D6CFF8}
+  .colcard{background:#fff;border:1px solid var(--line);border-radius:var(--rsm);padding:15px 16px;cursor:pointer;
+    transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}
+  .colcard:hover{border-color:#D6CFF8;transform:translateY(-2px);box-shadow:0 8px 18px rgba(91,79,233,.10)}
   .drop{outline:2px dashed #CFC4F9;outline-offset:-4px;border-radius:12px}
 
   @media (max-width:900px){
@@ -1334,6 +1335,8 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
      needed is the one case that gets a warmer background - the whole point of
      grouping is that this row should never be mistaken for a quiet one. */
   function Row({r, hot}){
+    const label = nextAction(r);
+    const statusOnly = label==='Waiting on them' || label==='Keep in touch' || label===' - ';
     return (
       <div onClick={()=>onOpen(r.id)} className="lift"
         style={{display:'flex',alignItems:'center',gap:16,padding:'15px 24px',
@@ -1345,7 +1348,10 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
           <div style={{fontSize:13,color:'var(--mute)',marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.title||(r.context||{}).whySaved||'Saved profile'}</div>
         </div>
         <div className="meta" style={{flex:'none'}}>{ago(r.updated_at||r.shortlisted_at)}</div>
-        <div style={{fontSize:14,fontWeight:700,flex:'none',color: hot?'#C75B33':'var(--brand-ink)'}}>{nextAction(r)}</div>
+        <span style={{fontSize:12.5,fontWeight:700,flex:'none',borderRadius:999,whiteSpace:'nowrap',
+          padding: statusOnly ? '5px 12px' : '6px 13px',
+          color: statusOnly ? 'var(--mute)' : '#fff',
+          background: statusOnly ? 'var(--line2)' : (hot?'#C75B33':'var(--brand)')}}>{label}</span>
       </div>);
   }
 
@@ -1714,7 +1720,7 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
                     </div>
                     <div className={'stack'+(overCol===col.key?' drop':'')} style={{gap:10,minHeight:60}}>
                       {items.length===0 &&
-                        <div className="meta" style={{padding:'8px 4px'}}>Nobody here yet.</div>}
+                        <div className="meta" style={{padding:'14px 10px',textAlign:'center',border:'1px dashed var(--line)',borderRadius:'var(--rsm)'}}>Nobody here yet.</div>}
                       {items.map(r=>(
                         <div key={r.id} className="colcard" draggable
                           onDragStart={()=>setDrag(r.id)} onDragEnd={()=>setDrag(null)}
@@ -1758,18 +1764,28 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
                   <div className="card" style={{overflow:'hidden'}}>
                     {g.items.map((item,i)=>{
                       const entry = feedEntry(item);
+                      const dot = ({reply:'var(--green)', stage_change:'var(--brand)', note:'#E3A23C',
+                        saved:'var(--mute)', first_message:'var(--brand)'})[item.kind] || 'var(--mute)';
                       return (
-                        <div key={item.id} className="row" style={{gap:16,padding:'16px 22px',
+                        <div key={item.id} className="row" style={{gap:14,padding:'16px 22px',alignItems:'stretch',
                           borderBottom:i===g.items.length-1?'none':'1px solid var(--line2)'}}>
-                          <div style={{fontSize:12.5,color:'var(--mute)',flex:'none',width:64,paddingTop:2}}>
+                          <div style={{fontSize:12.5,color:'var(--mute)',flex:'none',width:52,paddingTop:20}}>
                             {timeOfDay(item.occurred_at)}
                           </div>
-                          <div style={{flex:1,minWidth:0}}>
+                          <div style={{flex:'none',width:16,position:'relative',display:'flex',justifyContent:'center'}}>
+                            {i>0 &&
+                              <span style={{position:'absolute',top:0,height:'calc(50% + 4px)',width:2,background:'var(--line2)'}}/>}
+                            {i<g.items.length-1 &&
+                              <span style={{position:'absolute',bottom:0,height:'calc(50% + 4px)',width:2,background:'var(--line2)'}}/>}
+                            <span style={{position:'relative',zIndex:1,width:9,height:9,marginTop:22,flex:'none',
+                              borderRadius:'50%',background:dot,boxShadow:'0 0 0 3px #fff'}}/>
+                          </div>
+                          <div style={{flex:1,minWidth:0,paddingTop:2}}>
                             <div style={{fontSize:15,fontWeight:700,letterSpacing:'-.01em'}}>{entry.title}</div>
                             {entry.sub && <div className="sub" style={{fontSize:13.5,marginTop:2,textWrap:'pretty'}}>{entry.sub}</div>}
                           </div>
                           {entry.cta &&
-                            <button className="btn g sm" style={{flex:'none'}} onClick={entry.onCta}>{entry.cta}</button>}
+                            <button className="btn g sm" style={{flex:'none',alignSelf:'center'}} onClick={entry.onCta}>{entry.cta}</button>}
                         </div>);
                     })}
                   </div>
