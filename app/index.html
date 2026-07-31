@@ -710,6 +710,100 @@ function StrategyView({settings, people, onEdit}){
    Second, and rarer: it states what it does NOT know. That is close to free to
    build and almost nobody ships it, and it is the difference between a product
    that gets corrected and one that gets quietly distrusted. */
+function yearOf(s){
+  const m = String(s||'').match(/(\d{4})/);
+  return m ? parseInt(m[1],10) : null;
+}
+
+/* Every number here traces to a real archive field - connectionCount, or the
+   length of a real array. Sized by sqrt(n) so a thousand connections does not
+   crowd out four honours; positions are a fixed scatter, not physics packing,
+   which is a simpler and safer choice against data we cannot predict. */
+function KbBubbles({counts, capturedAt}){
+  if(!counts.length) return null;
+  const sorted = [...counts].sort((a,b)=>b[0]-a[0]).slice(0,8);
+  const max = sorted[0][0];
+  const layout = [[19,52],[44,22],[48,78],[63,42],[71,80],[79,18],[86,50],[92,80]];
+  const fills = ['var(--brand)','#FBEFE9','var(--brand-soft2)','var(--green-soft)','#FBF1E2','#F1EFE9','var(--brand-soft2)','#FBEFE9'];
+  const textFills = ['#fff','#C75B33','var(--brand-ink)','var(--green)','#B0641F','#5A5766','var(--brand-ink)','#C75B33'];
+  const rMax=104, rMin=18, W=760, H=250;
+  return (
+    <div>
+      <div className="row" style={{gap:10,flexWrap:'wrap',alignItems:'baseline'}}>
+        <span className="eyebrow b">What it holds</span>
+        <span className="meta">sized by count{capturedAt?' · read '+ago(capturedAt):''}</span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',height:'auto',display:'block',marginTop:10}}>
+        {sorted.map(([n,label],i)=>{
+          const [px,py] = layout[i];
+          const r = Math.max(rMin, Math.sqrt(n/max)*rMax);
+          const cx = W*px/100, cy = H*py/100;
+          const big = r>=55, mid = r>=32;
+          return (
+            <g key={label}>
+              <title>{Number(n).toLocaleString()+' '+label}</title>
+              <circle cx={cx} cy={cy} r={r} fill={fills[i]}/>
+              <text x={cx} y={cy-(big?4:(mid?2:1))} textAnchor="middle" fontWeight="800" fontFamily="Schibsted Grotesk"
+                fontSize={big?42:(mid?22:14)} fill={textFills[i]}>{Number(n).toLocaleString()}</text>
+              <text x={cx} y={cy+(big?22:(mid?16:12))} textAnchor="middle" fontFamily="Schibsted Grotesk"
+                fontSize={big?14:11} fill={textFills[i]} opacity={big?0.78:1}>{label}</text>
+            </g>);
+        })}
+      </svg>
+    </div>
+  );
+}
+
+/* One row per role or degree, on a shared year axis built from real from/to
+   dates. No stacked-lane collision handling - real data can overlap in time,
+   and giving every item its own row is the simpler, honest way to show that
+   rather than guessing which lane it belongs in. */
+function KbTimeline({positions, education}){
+  const rows = [
+    ...(positions||[]).map((p,i)=>({key:'p'+i, kind:'role', title:p.title||p.company||'Role', sub:p.company||'', from:p.from, to:p.to})),
+    ...(education||[]).map((e,i)=>({key:'e'+i, kind:'edu', title:e.degree||e.school||'Education', sub:e.degree?e.school:'', from:e.from, to:e.to})),
+  ].map(r=>({...r, fy:yearOf(r.from), ty: r.to ? (yearOf(r.to)||new Date().getFullYear()) : new Date().getFullYear()}))
+   .filter(r=>r.fy).sort((a,b)=>b.fy-a.fy);
+  if(!rows.length) return null;
+  const minY = Math.min(...rows.map(r=>r.fy));
+  const maxY = Math.max(new Date().getFullYear(), ...rows.map(r=>r.ty));
+  const span = Math.max(1, maxY-minY);
+  const pct = y => Math.min(100, Math.max(0, ((y-minY)/span)*100));
+  const step = Math.max(1, Math.round(span/5));
+  const gridYears = []; for(let y=minY; y<maxY; y+=step) gridYears.push(y);
+  if(gridYears[gridYears.length-1]!==maxY) gridYears.push(maxY);
+  return (
+    <div>
+      <div className="row" style={{gap:10,flexWrap:'wrap',alignItems:'baseline'}}>
+        <span className="eyebrow b">The career as read</span>
+        <span className="meta">{(positions||[]).length} role{(positions||[]).length===1?'':'s'}, {(education||[]).length} school{(education||[]).length===1?'':'s'}</span>
+      </div>
+      <div style={{marginTop:14,display:'grid',gridTemplateColumns:'140px 1fr',rowGap:6,columnGap:14}}>
+        {rows.map(r=>(
+          <F key={r.key}>
+            <div style={{fontSize:12.5,color:'var(--sub)',alignSelf:'center',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}
+              title={[r.title,r.sub].filter(Boolean).join(', ')}>{r.sub||r.title}</div>
+            <div style={{position:'relative',height:26}}>
+              <div title={[r.title,r.sub].filter(Boolean).join(', ')+' · '+(r.from||'?')+' - '+(r.to||'now')}
+                style={{position:'absolute',left:pct(r.fy)+'%',width:Math.max(2.5,pct(r.ty)-pct(r.fy))+'%',
+                  top:2,height:22,borderRadius:6,display:'flex',alignItems:'center',padding:'0 8px',
+                  fontSize:10.5,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',boxSizing:'border-box',
+                  background: r.kind==='edu' ? 'transparent' : 'var(--brand-soft2)',
+                  border: r.kind==='edu' ? '1.5px dashed #C9C2F0' : '1px solid #E4E0F7',
+                  color:'var(--brand-ink)'}}>{r.title}</div>
+            </div>
+          </F>))}
+        <div/>
+        <div style={{position:'relative',height:16}}>
+          {gridYears.map(y=>(
+            <span key={y} style={{position:'absolute',left:pct(y)+'%',fontSize:10.5,color:'var(--mute)',
+              transform: y===minY?'none':(y===maxY?'translateX(-100%)':'translateX(-50%)')}}>{y}</span>))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function KnowledgeBase({settings, onEdit}){
   const kb = settings.knowledge || {};
   const has = !!(kb.positions||[]).length || !!(kb.education||[]).length || !!kb.resumeText;
@@ -740,60 +834,45 @@ function KnowledgeBase({settings, onEdit}){
 
   return (
     <div className="fade">
-      <div className="row" style={{margin:'34px 0 12px',justifyContent:'space-between',alignItems:'baseline',gap:14}}>
-        <div className="eyebrow b">What Mighty understands about you</div>
-        {kb.capturedAt && <span className="meta">read {ago(kb.capturedAt)||'recently'}</span>}
-      </div>
+      {!has && <F>
+        <div className="row" style={{margin:'34px 0 12px',justifyContent:'space-between',alignItems:'baseline',gap:14}}>
+          <div className="eyebrow b">What Mighty understands about you</div>
+        </div>
+        <div className="card" style={{padding:'22px 26px'}}>
+          <div className="h4">Nothing yet.</div>
+          <div className="sub" style={{marginTop:7,maxWidth:'58ch'}}>
+            Mighty has your goal and nothing else, so every recommendation comes from one sentence.
+            Importing your history changes that more than anything else you can do.
+          </div>
+          <button className="btn sm" style={{marginTop:16}} onClick={onEdit}>Import my history</button>
+        </div>
+      </F>}
 
-      <div className="card" style={{padding:'22px 26px'}}>
-        {!has &&
-          <div>
-            <div className="h4">Nothing yet.</div>
-            <div className="sub" style={{marginTop:7,maxWidth:'58ch'}}>
-              Mighty has your goal and nothing else, so every recommendation comes from one sentence.
-              Importing your history changes that more than anything else you can do.
-            </div>
-            <button className="btn sm" style={{marginTop:16}} onClick={onEdit}>Import my history</button>
+      {has && <F>
+        {counts.length>0 &&
+          <div className="card" style={{marginTop:26,padding:'20px 24px 8px',
+            background:'linear-gradient(135deg,var(--brand-soft2) 0%,#F7F1F4 55%,#FBEFE9 100%)',border:'1px solid #E4E0F7'}}>
+            <KbBubbles counts={counts} capturedAt={kb.capturedAt}/>
           </div>}
 
-        {has && <F>
-          {counts.length>0 &&
-            <div style={{display:'flex',gap:22,flexWrap:'wrap',marginBottom:18}}>
-              {counts.map(([n,label])=>(
-                <div key={label} style={{minWidth:86}}>
-                  <div style={{fontSize:19,fontWeight:700,fontVariantNumeric:'tabular-nums'}}>{Number(n).toLocaleString()}</div>
-                  <div className="sub" style={{fontSize:12.5}}>{label}</div>
-                </div>))}
-            </div>}
+        {((kb.positions||[]).length>0 || (kb.education||[]).length>0) &&
+          <div className="card" style={{marginTop:16,padding:'20px 24px 18px',
+            background:'linear-gradient(135deg,var(--brand-soft2) 0%,#F7F1F4 55%,#FBEFE9 100%)',border:'1px solid #E4E0F7'}}>
+            <KbTimeline positions={kb.positions} education={kb.education}/>
+          </div>}
 
-          {(kb.positions||[]).length>0 &&
-            <div className="stack" style={{gap:1}}>
-              {(kb.positions||[]).slice(0,6).map((r,i)=>(
-                <div key={i} style={{display:'grid',gridTemplateColumns:'1fr auto',gap:14,padding:'9px 0',
-                  borderTop:i===0?'1px solid var(--line2)':'1px solid var(--line2)'}}>
-                  <div style={{fontSize:14,color:'var(--ink2)'}}>
-                    <b style={{color:'var(--ink)'}}>{r.title||'Role not named'}</b>
-                    {r.company ? ' · '+r.company : ''}
-                  </div>
-                  <div className="meta" style={{whiteSpace:'nowrap'}}>
-                    {[r.from,r.to||'now'].filter(Boolean).join(' - ')}
-                  </div>
-                </div>))}
-            </div>}
+        {msg && msg.identified===false && msg.received>0 &&
+          <div className="hint" style={{marginTop:14}}>
+            Your messages were read, but your name could not be matched to the sender, so no writing samples
+            were kept. Better than storing someone else's words as yours.
+          </div>}
 
-          {msg && msg.identified===false && msg.received>0 &&
-            <div className="hint" style={{marginTop:14}}>
-              Your messages were read, but your name could not be matched to the sender, so no writing samples
-              were kept. Better than storing someone else's words as yours.
-            </div>}
-
-          <div className="hint" style={{marginTop:16}}>
-            Built from your archive and resume, not assumptions. Anything wrong here is wrong everywhere
-            after it.
-          </div>
-          <button className="btn g sm" style={{marginTop:14}} onClick={onEdit}>Correct this</button>
-        </F>}
-      </div>
+        <div className="hint" style={{marginTop:16}}>
+          Built from your archive and resume, not assumptions. Anything wrong here is wrong everywhere
+          after it.
+        </div>
+        <button className="btn g sm" style={{marginTop:14}} onClick={onEdit}>Correct this</button>
+      </F>}
 
       <div className="eyebrow b" style={{margin:'30px 0 12px'}}>What it still does not know</div>
       <div className="card" style={{padding:'20px 26px'}}>
