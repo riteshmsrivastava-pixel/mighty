@@ -51,7 +51,8 @@ drop function if exists public.enforce_mit_email();
 create table if not exists public.outreach_inbox (
   id         bigint generated always as identity primary key,
   user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
-  kind       text not null default 'profile' check (kind in ('profile','sent_confirmation','profile_context')),
+  kind       text not null default 'profile' check (kind in ('profile','sent_confirmation','profile_context',
+               'reply_detected','connection_accepted','profile_viewed')),
   payload    jsonb not null,
   created_at timestamptz not null default now()
 );
@@ -60,9 +61,15 @@ alter table public.outreach_inbox enable row level security;
 -- Bug fix for installs that ran an earlier version of this file: the check
 -- constraint never allowed 'profile_context', so those inserts were silently
 -- failing since the extension started sending that kind. Safe to re-run.
+--
+-- 31 Jul 2026: added reply_detected / connection_accepted / profile_viewed -
+-- the passive activity detection signals, read from LinkedIn's own messaging,
+-- notifications and (Premium-only) profile-viewers pages while the user is
+-- already there. See mighty-plan/reply-detection-spec.md.
 alter table public.outreach_inbox drop constraint if exists outreach_inbox_kind_check;
 alter table public.outreach_inbox add constraint outreach_inbox_kind_check
-  check (kind in ('profile','sent_confirmation','profile_context'));
+  check (kind in ('profile','sent_confirmation','profile_context',
+                   'reply_detected','connection_accepted','profile_viewed'));
 
 drop policy if exists "oi select own" on public.outreach_inbox;
 create policy "oi select own" on public.outreach_inbox for select using (auth.uid() = user_id);
