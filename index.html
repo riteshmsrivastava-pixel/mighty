@@ -728,7 +728,7 @@
   /* "Your network, decoded" counters and bars animate once, on first reveal. */
   (function(){
     var section = document.getElementById('why');
-    if(!section || !('IntersectionObserver' in window)) return;
+    if(!section) return;
     var ease = function(t){ return 1 - Math.pow(1 - t, 3); };
     var run = function(){
       section.querySelectorAll('.cbar').forEach(function(b){ b.style.width = b.dataset.w; });
@@ -744,6 +744,11 @@
         requestAnimationFrame(tick);
       });
     };
+    /* Every other reveal script on this page falls back to "just show it"
+       when IntersectionObserver is unavailable - this one used to just
+       return, which left every stat reading 0 forever on a browser without
+       it, permanently, on a section whose entire job is to be persuasive. */
+    if(!('IntersectionObserver' in window)){ run(); return; }
     var io2 = new IntersectionObserver(function(entries){
       entries.forEach(function(en){ if(en.isIntersecting){ run(); io2.unobserve(en.target); } });
     }, {threshold:0.3});

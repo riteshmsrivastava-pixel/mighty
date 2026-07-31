@@ -700,7 +700,12 @@ function StrategyView({settings, people, onEdit}){
   const talked  = people.filter(r=>['replied','coffee_chat','referral','interview','offer'].indexOf(r.status)>=0).length;
   const met     = people.filter(r=>['coffee_chat','referral','interview','offer'].indexOf(r.status)>=0).length;
   const chipRows = [
-    ['Primary goal', goalTypeList(st).map(t=>GOAL_LABEL[t]).filter(Boolean)],
+    /* The H1 above already reads goalLine(st), which prefers the free-text
+       goal when there is one. This card only earns its space when that free
+       text exists - then the category chip tells you something the headline
+       does not. Without free text, goalLine(st) already IS the category
+       label, and this card would repeat the H1 verbatim. */
+    clean(st.goal) ? ['Primary goal', goalTypeList(st).map(t=>GOAL_LABEL[t]).filter(Boolean)] : null,
     (st.targetRoles||[]).length ? ['Ideal relationships', st.targetRoles] : null,
     (st.targetCompanies||[]).length ? ['Target organizations', st.targetCompanies] : null,
     (st.targetLocations||[]).length ? ['Places', st.targetLocations] : null,
@@ -788,40 +793,35 @@ function yearOf(s){
 }
 
 /* Every number here traces to a real archive field - connectionCount, or the
-   length of a real array. Sized by sqrt(n) so a thousand connections does not
-   crowd out four honours; positions are a fixed scatter, not physics packing,
-   which is a simpler and safer choice against data we cannot predict. */
+   length of a real array. Used to be a bubble chart sized by sqrt(count),
+   which sounded right but was not: connections outweighs every other count
+   here by two to three orders of magnitude, so sqrt-scaling clamped seven
+   of the eight bubbles to the same minimum size and the chart could not
+   actually do the one thing a bubble chart is for - comparing sizes. A
+   stat grid says the same numbers honestly, in a third of the height, with
+   the largest one still visually featured. */
 function KbBubbles({counts, capturedAt}){
   if(!counts.length) return null;
   const sorted = [...counts].sort((a,b)=>b[0]-a[0]).slice(0,8);
-  const max = sorted[0][0];
-  const layout = [[19,52],[44,22],[48,78],[63,42],[71,80],[79,18],[86,50],[92,80]];
-  const fills = ['var(--brand)','#FBEFE9','var(--brand-soft2)','var(--green-soft)','#FBF1E2','#F1EFE9','var(--brand-soft2)','#FBEFE9'];
-  const textFills = ['#fff','#C75B33','var(--brand-ink)','var(--green)','#B0641F','#5A5766','var(--brand-ink)','#C75B33'];
-  const rMax=104, rMin=18, W=760, H=250;
   return (
     <div>
       <div className="row" style={{gap:10,flexWrap:'wrap',alignItems:'baseline'}}>
         <span className="eyebrow b">What it holds</span>
-        <span className="meta">sized by count{capturedAt?' · read '+ago(capturedAt):''}</span>
+        <span className="meta">{capturedAt?'read '+ago(capturedAt):''}</span>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',height:'auto',display:'block',marginTop:10}}>
-        {sorted.map(([n,label],i)=>{
-          const [px,py] = layout[i];
-          const r = Math.max(rMin, Math.sqrt(n/max)*rMax);
-          const cx = W*px/100, cy = H*py/100;
-          const big = r>=55, mid = r>=32;
-          return (
-            <g key={label}>
-              <title>{Number(n).toLocaleString()+' '+label}</title>
-              <circle cx={cx} cy={cy} r={r} fill={fills[i]}/>
-              <text x={cx} y={cy-(big?4:(mid?2:1))} textAnchor="middle" fontWeight="800" fontFamily="Schibsted Grotesk"
-                fontSize={big?42:(mid?22:14)} fill={textFills[i]}>{Number(n).toLocaleString()}</text>
-              <text x={cx} y={cy+(big?22:(mid?16:12))} textAnchor="middle" fontFamily="Schibsted Grotesk"
-                fontSize={big?14:11} fill={textFills[i]} opacity={big?0.78:1}>{label}</text>
-            </g>);
-        })}
-      </svg>
+      <div style={{marginTop:14,display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(112px,1fr))',gap:10}}>
+        {sorted.map(([n,label],i)=>(
+          <div key={label} style={{padding:'16px 15px',borderRadius:12,
+            background: i===0 ? 'var(--brand)' : '#fff',
+            border: i===0 ? 'none' : '1px solid #E4E0F7'}}>
+            <div style={{fontSize:i===0?30:21,fontWeight:800,letterSpacing:'-.03em',lineHeight:1,
+              fontVariantNumeric:'tabular-nums', color: i===0 ? '#fff' : 'var(--brand-ink)'}}>
+              {Number(n).toLocaleString()}
+            </div>
+            <div style={{marginTop:6,fontSize:12.5,fontWeight:600,
+              color: i===0 ? 'rgba(255,255,255,.82)' : 'var(--sub)'}}>{label}</div>
+          </div>))}
+      </div>
     </div>
   );
 }
@@ -853,7 +853,10 @@ function KbTimeline({positions, education}){
       </div>
       <div style={{marginTop:14,display:'grid',gridTemplateColumns:'140px 1fr',rowGap:6,columnGap:14}}>
         {rows.map(r=>{
-          const w = Math.max(2.5, pct(r.ty)-pct(r.fy));
+          /* Wide enough to register as a real mark at typical card widths -
+             2.5% used to render as a sliver a couple of pixels wide, which
+             read as no bar at all rather than a short one. */
+          const w = Math.max(4, pct(r.ty)-pct(r.fy));
           /* A short role/degree gets a narrow bar - too narrow to hold its
              own label without clipping into unreadable fragments ("Fou",
              "Ser"). Below this width the label moves outside the bar
@@ -870,9 +873,20 @@ function KbTimeline({positions, education}){
                   top:2,height:22,borderRadius:6,boxSizing:'border-box',
                   display: narrow ? 'block' : 'flex',alignItems:'center',padding: narrow?0:'0 8px',
                   fontSize:10.5,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',
-                  background: r.kind==='edu' ? 'transparent' : 'var(--brand-soft2)',
-                  border: r.kind==='edu' ? '1.5px dashed #C9C2F0' : '1px solid #E4E0F7',
+                  /* Education used to be a transparent fill behind a pale
+                     dashed border - on this card's own lavender-tinted
+                     background that combination was barely visible at any
+                     width. A faint solid tint keeps the dashed border as the
+                     work/school signal while giving the bar itself a shape
+                     you can actually see. */
+                  background: r.kind==='edu' ? 'rgba(91,79,233,.07)' : 'var(--brand-soft2)',
+                  border: r.kind==='edu' ? '1.5px dashed #B9AEE8' : '1px solid #E4E0F7',
                   color:'var(--brand-ink)'}}>{narrow?'':r.title}</div>
+              {/* An anchor mark at the bar's start, always solid regardless of
+                 width or fill - so even the thinnest bar reads as a point on
+                 the timeline rather than a gap. */}
+              <div style={{position:'absolute',left:pct(r.fy)+'%',top:11,width:4,height:4,borderRadius:999,
+                background:'var(--brand)',transform:'translateX(-1px)'}}/>
               {narrow &&
                 <div title={tip} style={{position:'absolute',left:'calc('+(pct(r.fy)+w)+'% + 6px)',top:2,
                   height:22,display:'flex',alignItems:'center',fontSize:10.5,fontWeight:600,
@@ -2097,8 +2111,8 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
     setBusy('brief'); setErr(null);
     try{
       const out = await llmJSON(sb, 'profile_briefing',
-        'You prepare someone for a first conversation. Use ONLY the facts given - never invent employers, dates, achievements or posts. If you do not know something, leave that field out. Plain language, no scores, no flattery. Never use em dashes; write a spaced hyphen instead.',
-        `About the person doing the outreach:\n${strategyBrief(settings)}\n\nThe person they want to understand:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nLocation: ${ctx.location||'unknown'}\nEducation: ${ctx.education||'unknown'}\nProfile text captured: ${clean(ctx.aboutText||ctx.snippet||'').slice(0,900)}\n${captured||''}\nWhy they were saved: ${ctx.whySaved||'unknown'}\nShared ground noted at save time: ${(ctx.common||[]).join('; ')||'none noted'}\n\nReturn JSON {"careerSummary":"2-3 sentences","whyMatters":"1-2 sentences on why this person matters to THIS user's goal","shared":["real overlap"],"starters":["specific opening, grounded in the facts above"],"avoid":"one thing not to lead with, or omit"}`,
+        'You prepare someone for a first conversation. Use ONLY the facts given - never invent employers, dates, achievements or posts. If you do not know something, leave that field out. Plain language, no scores, no flattery. Address the reader directly as "you" and "your" throughout every field - never write "the user" or "the user\'s goal" in third person. Never use em dashes; write a spaced hyphen instead.',
+        `About the person doing the outreach (this is you, the reader):\n${strategyBrief(settings)}\n\nThe person they want to understand:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nLocation: ${ctx.location||'unknown'}\nEducation: ${ctx.education||'unknown'}\nProfile text captured: ${clean(ctx.aboutText||ctx.snippet||'').slice(0,900)}\n${captured||''}\nWhy they were saved: ${ctx.whySaved||'unknown'}\nShared ground noted at save time: ${(ctx.common||[]).join('; ')||'none noted'}\n\nReturn JSON {"careerSummary":"2-3 sentences","whyMatters":"1-2 sentences on why this person matters to your goal, written directly to you as 'you'","shared":["real overlap"],"starters":["specific opening, grounded in the facts above"],"avoid":"one thing not to lead with, or omit"}`,
         1000, exchangeKey);
       const briefing = {...br, careerSummary:clean(out.careerSummary), whyMatters:clean(out.whyMatters),
         shared:Array.isArray(out.shared)?out.shared:[], conversationStarters:Array.isArray(out.starters)?out.starters:[],
@@ -2127,7 +2141,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
     const a = APPROACHES.find(x=>x.id===approach)||APPROACHES[1];
     try{
       const out = await llmJSON(sb, 'draft_message',
-        "You write a real first outreach message for a professional. Ground it ONLY in the given context - never invent shared history, mutual friends, articles or events. Sound like a person, not a template. No flattery, no buzzwords, no 'I hope this finds you well'. Under 110 words. Ask for one specific, easy thing. Never use em dashes; write a spaced hyphen instead.",
+        "You write a real first outreach message for a professional. Ground it ONLY in the given context - never invent shared history, mutual friends, articles or events. Sound like a person, not a template. No flattery, no buzzwords, no 'I hope this finds you well', no generic greeting line before the real content ('Greeting for the day', 'Hope you're doing well', or similar - go straight from the salutation into the actual reason for writing). Under 110 words. Ask for one specific, easy thing. Never use em dashes; write a spaced hyphen instead.",
         `The sender:\n${strategyBrief(settings)}\n\nThe recipient:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nWhy the sender saved them: ${ctx.whySaved||'unknown'}\nShared ground: ${((br.shared&&br.shared.length?br.shared:ctx.common)||[]).join('; ')||'none confirmed'}\nBrief: ${br.careerSummary||'none'}\nThings the sender has learned about them: ${memories.map(m=>m.value).join('; ')||'nothing captured yet'}\n${captured||''}\n\nApproach: ${a.label} - ${a.brief}.${voice.length ? '\n\nHOW THIS SENDER ACTUALLY WRITES. These are verbatim messages they have sent before. Match their rhythm, sentence length, level of formality and habits of greeting and sign-off. Do not copy phrases from them and do not reuse their content:\n' + voice.map((v,i)=>(i+1)+'. '+v).join('\n') : ''}\n\nReturn JSON {"subject":"short subject line for email use","message":"the message body"}`,
         800, exchangeKey);
       setDraft(clean(out.message));
@@ -2303,7 +2317,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
           <div className="card" style={{padding:'22px 24px'}}>
             <div className="eyebrow">Why you saved them</div>
             <div style={{fontSize:16,fontWeight:700,marginTop:7,letterSpacing:'-.01em',textWrap:'pretty'}}>
-              {ctx.whySaved || 'Saved from discovery.'}
+              {ctx.whySaved || 'No reason was recorded when this was saved.'}
             </div>
             <div className="sub" style={{fontSize:14,marginTop:4}}>
               {[ctx.savedFrom ? 'Found by searching "'+ctx.savedFrom+'"' : (ctx.source==='search'?'Found through search':'Saved from the extension'),
@@ -3022,10 +3036,6 @@ function Extension(){
                 </div>
               </div>))}
           </div>
-          <div className="row" style={{gap:10,marginTop:28,flexWrap:'wrap'}}>
-            <a className="btn" href="../install/mighty-extension.zip">Download the extension (.zip)</a>
-            <a className="btn g" href="../install/" target="_blank" rel="noopener noreferrer">Full written guide</a>
-          </div>
         </div>}
 
       <div className="hint" style={{marginTop:34,maxWidth:620}}>
@@ -3717,13 +3727,20 @@ function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, em
             </F>))}
         </nav>
         <div style={{flex:1}}/>
-        <div className="row" style={{gap:11,padding:'16px 22px 20px',borderTop:'1px solid var(--line3)'}}>
+        {/* Identity only - Sign out has one home, the Account tab this links
+           to, rather than living here too. A persistent sign-out button next
+           to a persistent Account page that also has one was two controls
+           for the same action, not two reasons to have it. */}
+        <button className="row" style={{gap:11,padding:'16px 22px 20px',
+          borderTop:'1px solid var(--line3)',borderLeft:'none',borderRight:'none',borderBottom:'none',
+          background:'none',cursor:'pointer',textAlign:'left',width:'100%'}}
+          onClick={()=>go({screen:'you', tab:'account'})}>
           <div className="av" style={{width:32,height:32,fontSize:13}}>{initials(email)}</div>
           <div style={{minWidth:0,flex:1}}>
             <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{email}</div>
-            <button className="btn q" style={{fontSize:12,padding:0,color:'var(--sub)'}} onClick={onSignOut}>Sign out</button>
+            <div style={{fontSize:12,color:'var(--sub)'}}>Account</div>
           </div>
-        </div>
+        </button>
       </aside>
 
       <main style={{flex:1,minWidth:0,display:'flex',flexDirection:'column'}}>
