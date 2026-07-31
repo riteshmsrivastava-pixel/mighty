@@ -637,17 +637,22 @@ function StrategyView({settings, people, onEdit}){
   const reached = people.filter(r=>REACHED.includes(r.status)).length;
   const talked  = people.filter(r=>['replied','coffee_chat','referral','interview','offer'].indexOf(r.status)>=0).length;
   const met     = people.filter(r=>['coffee_chat','referral','interview','offer'].indexOf(r.status)>=0).length;
-  const rows = [
-    ['Primary goal', goalTypeList(st).map(t=>GOAL_LABEL[t]).filter(Boolean).join(', ')||' - '],
-    st.goal ? ['In your words', st.goal] : null,
-    (st.targetRoles||[]).length ? ['Ideal relationships', st.targetRoles.join(', ')] : null,
-    (st.targetCompanies||[]).length ? ['Target organizations', st.targetCompanies.join(', ')] : null,
-    (st.targetLocations||[]).length ? ['Places', st.targetLocations.join(', ')] : null,
-    (st.currentRole||st.currentCompany) ? ['You are', [st.currentRole,st.currentCompany].filter(Boolean).join(' at ')] : null,
-    (st.schools||[]).length ? ['Schools', st.schools.join(', ')] : null,
-    (st.networkingStyle||[]).length ? ['How you network', st.networkingStyle.join(', ')] : null,
-    (st.successMetrics||[]).length ? ['Success looks like', st.successMetrics.join(' · ')] : null,
-  ].filter(Boolean);
+  const chipRows = [
+    ['Primary goal', goalTypeList(st).map(t=>GOAL_LABEL[t]).filter(Boolean)],
+    (st.targetRoles||[]).length ? ['Ideal relationships', st.targetRoles] : null,
+    (st.targetCompanies||[]).length ? ['Target organizations', st.targetCompanies] : null,
+    (st.targetLocations||[]).length ? ['Places', st.targetLocations] : null,
+    (st.currentRole||st.currentCompany) ? ['You are', [[st.currentRole,st.currentCompany].filter(Boolean).join(' at ')]] : null,
+    (st.schools||[]).length ? ['Schools', st.schools] : null,
+    (st.networkingStyle||[]).length ? ['How you network', st.networkingStyle] : null,
+    (st.successMetrics||[]).length ? ['Success looks like', st.successMetrics] : null,
+  ].filter(r=>r && r[1].length);
+  const activity = [
+    ['added', people.length, 'var(--brand)'],
+    ['reached out', reached, 'var(--peach)'],
+    ['in conversation', talked, 'var(--green)'],
+    ['met', met, null],
+  ];
 
   return (
     <div className="pad fade" style={{maxWidth:780}}>
@@ -659,35 +664,40 @@ function StrategyView({settings, people, onEdit}){
         <button className="btn g sm" onClick={onEdit}>Edit</button>
       </div>
 
-      <div className="card" style={{marginTop:26,padding:'8px 26px 20px'}}>
-        {rows.map(([k,v],i)=>(
-          <div key={k} style={{display:'grid',gridTemplateColumns:'175px 1fr',gap:18,padding:'13px 0',
-            borderTop:i===0?'none':'1px solid var(--line2)'}}>
-            <div style={{fontSize:13.5,color:'var(--sub)'}}>{k}</div>
-            <div style={{fontSize:14.5,fontWeight:600,color:'var(--ink2)',textWrap:'pretty'}}>{v}</div>
+      <div style={{marginTop:26,display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+        {chipRows.map(([label,chips])=>(
+          <div key={label} className="card" style={{padding:'18px 20px',
+            background:'linear-gradient(135deg,var(--brand-soft2) 0%,#F7F1F4 55%,#FBEFE9 100%)',border:'1px solid #E4E0F7'}}>
+            <div className="eyebrow" style={{color:'var(--sub)'}}>{label}</div>
+            <div style={{marginTop:11,display:'flex',gap:7,flexWrap:'wrap'}}>
+              {chips.map(c=>(
+                <span key={c} style={{padding:'7px 13px',borderRadius:999,background:'#fff',
+                  fontSize:13,fontWeight:600,color:'var(--brand-ink)'}}>{c}</span>))}
+            </div>
           </div>))}
-      </div>
 
-      {/* Labelled activity, not progress. Mighty cannot know how close anyone is
-          to a seed round or a job, so it counts what happened and lets the user
-          judge. A percentage here would be a number the product cannot stand
-          behind, which is the same class of thing as a relationship score. */}
-      {canSee('progress',people) &&
-        <div className="fade">
-          <div className="eyebrow b" style={{margin:'34px 0 12px'}}>What has actually happened</div>
-          <div className="card" style={{padding:'22px 26px'}}>
-            <div style={{display:'flex',gap:30,flexWrap:'wrap'}}>
-              {[['Added',people.length],['Reached out',reached],['In conversation',talked],['Met',met]].map(([k,v])=>(
-                <div key={k} style={{minWidth:110}}>
-                  <div style={{fontSize:30,fontWeight:700,letterSpacing:'-.03em',fontVariantNumeric:'tabular-nums'}}>{v}</div>
-                  <div className="sub" style={{fontSize:13.5}}>{k}</div>
+        {canSee('progress',people) &&
+          <div className="card" style={{gridColumn:'1 / -1',padding:'20px 22px',
+            background:'linear-gradient(135deg,var(--brand-soft2) 0%,#F7F1F4 55%,#FBEFE9 100%)',border:'1px solid #E4E0F7'}}>
+            <div className="row" style={{gap:10,flexWrap:'wrap',alignItems:'baseline'}}>
+              <span className="eyebrow" style={{color:'var(--sub)'}}>Activity</span>
+              <span className="meta">Activity, not progress. Only you can judge how close you are.</span>
+            </div>
+            <div style={{marginTop:16,display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:18}}>
+              {activity.map(([label,n,dot])=>(
+                <div key={label}>
+                  <div style={{fontSize:26,fontWeight:800,letterSpacing:'-.03em',fontVariantNumeric:'tabular-nums',
+                    color: n>0 ? 'var(--ink)' : 'var(--mute)'}}>{n}</div>
+                  <div style={{marginTop:8,display:'flex',gap:4,flexWrap:'wrap'}}>
+                    {n>0 ? Array.from({length:Math.min(n,12)}).map((_,i)=>(
+                      <span key={i} style={{width:9,height:9,borderRadius:999,background:dot||'var(--sub)'}}/>))
+                    : <span style={{width:9,height:9,borderRadius:999,border:'1.5px dashed var(--mute)',boxSizing:'border-box'}}/>}
+                  </div>
+                  <div className="sub" style={{fontSize:12.5,marginTop:8}}>{label}</div>
                 </div>))}
             </div>
-            <div className="hint" style={{marginTop:16,maxWidth:'58ch'}}>
-              Activity, not progress. Only you can judge how close you are.
-            </div>
-          </div>
-        </div>}
+          </div>}
+      </div>
 
       {!canSee('progress',people) &&
         <div className="hint" style={{marginTop:20}}>{UNLOCKS.progress.hint}</div>}
