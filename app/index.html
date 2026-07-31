@@ -1087,7 +1087,14 @@ function buildSnapshot(people, events, tasks, settings, plan){
 function Today({people, events, tasks, settings, email, go, onToggleTask, doneToday, onSaveSettings, plan:aiPlan}){
   const plan = useMemo(()=>buildPlan(people, events, tasks), [people, events, tasks]);
   const mins = plan.reduce((a,t)=>a+(t.min||0),0);
-  const name = firstName(settings.currentRole ? settings.preferredName||'' : settings.preferredName||'') || firstName((email||'').split('@')[0].replace(/[._]/g,' '));
+  /* preferredName is read here but nothing anywhere ever sets it - this
+     always fell through to guessing a name from the email's local part,
+     which reads fine for "jane.smith@..." but produces exactly the kind of
+     nonsense "Rmohans" turned into for an initial-plus-surname handle.
+     The LinkedIn archive's real first name is honest, captured data and
+     should be tried before guessing from an email address at all. */
+  const name = firstName((settings.knowledge||{}).identity?.firstName || settings.preferredName || '')
+    || firstName((email||'').split('@')[0].replace(/[._]/g,' '));
   const nextMeeting = useMemo(()=>{
     const t = tasks.filter(x=>!x.done && x.due_date && new Date(x.due_date).getTime()>=Date.now()-DAY)
       .sort((a,b)=>new Date(a.due_date)-new Date(b.due_date));
