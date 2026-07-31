@@ -471,7 +471,19 @@ async function llm(sb, feature, system, user, maxTokens, exchangeKey){
   }
   if(error){
     console.error('ai-proxy error', error);
-    throw new Error("Could not reach Mighty's AI right now. Check your connection and try again.");
+    /* supabase-js throws FunctionsHttpError for any non-2xx response, whose
+       own .message is a hardcoded "Edge Function returned a non-2xx status
+       code" - the real, useful message ai-proxy sent (e.g. an expired
+       session, or why the request failed server-side) lives in the actual
+       response body on error.context, and was being discarded entirely. */
+    let curated = null;
+    try{
+      if(error.context && typeof error.context.json==='function'){
+        const body = await error.context.json();
+        if(body && body.message) curated = body.message;
+      }
+    }catch(e2){ /* body wasn't readable JSON - fall through to the generic message */ }
+    throw new Error(curated || "Could not reach Mighty's AI right now. Check your connection and try again.");
   }
   if(data && data.meta) reportMeta(data.meta);
   if(!data || data.ok===false){
@@ -973,7 +985,11 @@ function buildPlan(people, events, tasks){
       min:5, cta:'Reply', go:{screen:'profile', id:r.id, tab:'draft'}});
   });
 
-  people.filter(r=>r.status==='ready_to_contact').forEach(r=>{
+  /* Capped like the brief- block below, so a long backlog in any one
+     category cannot fill all 5 slots and crowd out the others - Today is
+     meant to show a few things of different kinds, not the most numerous
+     kind. */
+  people.filter(r=>r.status==='ready_to_contact').slice(0,2).forEach(r=>{
     out.push({id:'send-'+r.id, tone:'amber',
       title:(r.ai_draft?'Send your first message to ':'Write to ')+(r.name||'them'),
       sub: r.ai_draft ? 'Draft is written and waiting for your review.' : 'You marked them ready. Mighty can draft it.',
@@ -984,7 +1000,7 @@ function buildPlan(people, events, tasks){
      sentence and the "Follow up" cta nextAction() already uses elsewhere -
      without this, the summary could say "3 gone quiet" with zero matching
      cards below it. */
-  people.filter(r=>r.status==='contacted' && days(r.contacted_at)>=10).forEach(r=>{
+  people.filter(r=>r.status==='contacted' && days(r.contacted_at)>=10).slice(0,2).forEach(r=>{
     out.push({id:'quiet-'+r.id, tone:'amber', title:'Follow up with '+(r.name||'them'),
       sub:'You reached out '+(ago(r.contacted_at)||'a while ago')+' with nothing back yet.',
       min:5, cta:'Follow up', go:{screen:'profile', id:r.id, tab:'draft'}});
@@ -2128,10 +2144,14 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
       // Extract memories and promises so capture pays off later. Best effort:
       // a failed extraction must never lose the user's words.
       try{
+        /* Distinct from the draft flow's exchangeKey above (different feature,
+           different charge) but still needed - without one, llmJSON's own
+           retry-on-malformed-JSON is billed as a second, full-price call
+           instead of a free retry of the same exchange. */
         const out = await llmJSON(sb, 'coffee_extract',
           'You turn a short note about a professional conversation into structured memory. Extract only what the note actually says. No inference beyond the text.',
           `Note about a conversation with ${row.name||'them'}:\n${text}\n\nReturn JSON {"memories":[{"type":"interest"|"personal"|"fact"|"preference"|"event"|"context"|"shared","value":"short phrase"}],"promises":["something the user owes them"],"followUpDays":number}`,
-          800);
+          800, 'ex:'+row.id+':'+Date.now());
         const add = (Array.isArray(out.memories)?out.memories:[]).filter(m=>m&&clean(m.value)).map(m=>({
           id:'m'+Math.random().toString(36).slice(2,9)+Date.now().toString(36),
           type:m.type||'personal', value:clean(m.value), confidence:0.8, status:'confirmed',
@@ -3704,7 +3724,7 @@ function Onboarding({sb, user, settings, onSave, onDone}){
       const out = await llmJSON(sb, 'tagging',
         'You are helping a relationship tool understand a new user. You will be given everything it already knows. Ask ONLY what cannot be inferred from it. Never ask something the text already answers. Never ask for a job title, employer, school or skill that is listed. Aim at intent, constraints, and what "success" means to them. Short, direct, one sentence each. No preamble. Never use em dashes; write a spaced hyphen instead.',
         'Everything already known:\n' + known + '\n\nReturn JSON {"questions":["...","...","..."]} with exactly 3 questions, each under 20 words.',
-        500);
+        500, 'ex:0:'+Date.now());
       const list = (out.questions || []).filter(x => clean(x)).slice(0,3);
       setQs(list.length ? list : [
         'What would make the next twelve months a success, in one sentence?',
