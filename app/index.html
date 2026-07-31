@@ -3470,30 +3470,98 @@ function csvObjects(text, mustHave){
     const o = {}; hdr.forEach((k, i) => o[k] = (r[i] || '').trim()); return o;
   });
 }
+/* LinkedIn's export writes message dates as "2020-04-11 14:22:07 UTC" -
+   parseable directly by Date in every real browser, but wrapped so a change
+   in export format degrades to "unknown date" instead of a thrown error. */
+function msgDate(s){
+  const d = new Date(String(s||'').trim());
+  return isNaN(d.getTime()) ? null : d;
+}
+const median = (nums)=>{
+  const a = nums.filter(n=>n!=null).sort((x,y)=>x-y);
+  return a.length ? a[Math.floor(a.length/2)] : null;
+};
+
 /* What the message archive is worth, and what it is not.
-   LinkedIn's messages.csv has FROM / TO / DATE / SUBJECT / CONTENT. Matching
-   the user's own name against FROM is how we tell which half is theirs; if the
-   name cannot be matched at all we keep nothing rather than guess, because
-   guessing wrong here means storing someone else's words as if they were the
-   user's own. */
-function messageStyle(rows, profile){
+   LinkedIn's messages.csv has FROM / SENDER PROFILE URL / TO / DATE / SUBJECT
+   / CONTENT / CONVERSATION ID. Matching the user's own name against FROM is
+   how we tell which half is theirs; if the name cannot be matched at all we
+   keep nothing rather than guess, because guessing wrong here means storing
+   someone else's words as if they were the user's own.
+
+   Grew from messageStyle() into messageGraph(): still returns every field the
+   voice-sample feature already depends on (sent/received/identified/
+   medianSentLength/styleSamples), and additionally groups by CONVERSATION ID
+   into per-thread aggregates - who the thread is with, how many messages each
+   way, when it started and last moved, whether they wrote first, and the
+   reply-time gap each time the sender alternates. This is the one parsing
+   pass "Your Network, Decoded" chapters 3-5 are built from; nothing else
+   reads messages.csv content, so this only ever runs once per import. */
+function messageGraph(rows, profile){
   const first = clean((profile||{})['First Name']).toLowerCase();
   const last  = clean((profile||{})['Last Name']).toLowerCase();
   const me    = clean(first + ' ' + last).toLowerCase();
-  const mine  = [], theirs = [];
+  const isMe = (name)=>{
+    const n = clean(name).toLowerCase();
+    return !!n && me && (n === me || (first && last && n.indexOf(first)>=0 && n.indexOf(last)>=0));
+  };
+  const mine = [], theirs = [];
+  const byThread = {};
   (rows||[]).forEach(r=>{
-    const from = clean(r['FROM']).toLowerCase();
+    const from = clean(r['FROM']);
     if(!from) return;
-    const isMine = me && (from === me || (first && last && from.indexOf(first)>=0 && from.indexOf(last)>=0));
-    (isMine ? mine : theirs).push(r);
+    const mineRow = isMe(from);
+    (mineRow ? mine : theirs).push(r);
+    /* No CONVERSATION ID in some exports - fall back to grouping by the
+       other party's name, which is what a thread means in a 1:1 DM export. */
+    const key = clean(r['CONVERSATION ID']) || 'name:'+clean(mineRow ? r['TO'] : from).toLowerCase();
+    (byThread[key] = byThread[key]||[]).push({...r, _mine: mineRow, _date: msgDate(r['DATE'])});
   });
-  /* No confident match on the user's own name means no samples. A smaller
-     Knowledge Base is better than one that thinks a stranger writes like you. */
+
   const identified = !!me && mine.length > 0;
   const lens = mine.map(r=>clean(r['CONTENT']).length).filter(n=>n>0);
   const samples = identified
     ? mine.map(r=>clean(r['CONTENT'])).filter(t=>t.length>=40 && t.length<=1200).slice(-60)
     : [];
+
+  /* Per-thread aggregates, and the two global "how you show up" pools this
+     only makes sense computed once across every thread at once. */
+  const counterparts = [];
+  const myReplyGaps = [], theirReplyGaps = [];
+  let threadsWhereTheyWroteFirst = 0, threadsIStartedWithReply = 0, threadsIStarted = 0, datedThreads = 0;
+  if(identified) Object.keys(byThread).forEach(key=>{
+    const msgs = byThread[key].filter(m=>m._date).sort((a,b)=>a._date-b._date);
+    if(!msgs.length) return;
+    datedThreads++;
+    const theirMsg = msgs.find(m=>!m._mine);
+    const name = clean(theirMsg && theirMsg['FROM']) || 'Unknown';
+    const profileUrl = clean(theirMsg && theirMsg['SENDER PROFILE URL']) || null;
+    const sentCount = msgs.filter(m=>m._mine).length;
+    const receivedCount = msgs.length - sentCount;
+    const theyWroteFirst = !msgs[0]._mine;
+    if(theyWroteFirst) threadsWhereTheyWroteFirst++;
+    else {
+      threadsIStarted++;
+      if(receivedCount>0) threadsIStartedWithReply++;
+    }
+    for(let i=1;i<msgs.length;i++){
+      if(msgs[i]._mine === msgs[i-1]._mine) continue;
+      const gap = msgs[i]._date - msgs[i-1]._date;
+      if(gap<0) continue;
+      (msgs[i]._mine ? myReplyGaps : theirReplyGaps).push(gap);
+    }
+    if(sentCount>0 || receivedCount>0) counterparts.push({
+      name, profileUrl, msgCount:msgs.length, sentCount, receivedCount,
+      firstAt: msgs[0]._date.toISOString(), lastAt: msgs[msgs.length-1]._date.toISOString(),
+      theyWroteFirst,
+    });
+  });
+  /* Ranked by the plain tuple the spec calls for - total messages, then span,
+     then recency - explained in words wherever it renders, never as a score. */
+  counterparts.sort((a,b)=> b.msgCount-a.msgCount
+    || (new Date(b.lastAt)-new Date(b.firstAt))-(new Date(a.lastAt)-new Date(a.firstAt))
+    || new Date(b.lastAt)-new Date(a.lastAt));
+
   return {
     sent: mine.length,
     received: theirs.length,
@@ -3502,6 +3570,17 @@ function messageStyle(rows, profile){
     /* Capped hard. This is a writing sample, not a mail archive, and the raw
        zip is already stored if we ever need more. */
     styleSamples: samples.slice(0, 40).map(t=>t.slice(0, 600)),
+    /* Everything below is new, for the Decoded reading. counterparts capped -
+       size discipline per the spec, not a real limit on what happened. */
+    counterparts: counterparts.slice(0, 50),
+    showUp: identified && datedThreads>0 ? {
+      totalThreads: datedThreads,
+      theyWroteFirstPct: Math.round(threadsWhereTheyWroteFirst/datedThreads*100),
+      iWroteFirstCount: threadsIStarted,
+      iWroteFirstReplyPct: threadsIStarted>0 ? Math.round(threadsIStartedWithReply/threadsIStarted*100) : null,
+      myMedianReplyMs: median(myReplyGaps),
+      theirMedianReplyMs: median(theirReplyGaps),
+    } : null,
   };
 }
 const liDate = (s)=>{                       // "26 Jul 2026" -> "2026-07-26"
@@ -3511,6 +3590,17 @@ const liDate = (s)=>{                       // "26 Jul 2026" -> "2026-07-26"
     .indexOf(m[2].toLowerCase());
   if(mi < 0) return null;
   return m[3] + '-' + String(mi+1).padStart(2,'0') + '-' + m[1].padStart(2,'0');
+};
+/* Invitations.csv writes "Sent At" as "9/14/16 2:11 PM" (M/D/YY, not the "26
+   Jul 2026" format Connected On uses) - a second parser rather than
+   stretching liDate to guess between two genuinely different formats. */
+const invDate = (s)=>{
+  const m = String(s||'').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if(!m) return null;
+  let yr = parseInt(m[3],10); if(yr<100) yr += yr<70 ? 2000 : 1900;
+  const mo = parseInt(m[1],10), day = parseInt(m[2],10);
+  if(mo<1||mo>12||day<1||day>31) return null;
+  return yr + '-' + String(mo).padStart(2,'0') + '-' + String(day).padStart(2,'0');
 };
 
 /* Read the archive. Returns what it found and what it could not find, because
@@ -3575,6 +3665,14 @@ async function readArchive(file){
       total: (invites || []).length,
       incoming: (invites || []).filter(r => (r['Direction'] || '').toUpperCase() === 'INCOMING').length,
       outgoing: (invites || []).filter(r => (r['Direction'] || '').toUpperCase() === 'OUTGOING').length,
+      /* For chapter 7 ("the doors you knocked on") - the acceptance estimate
+         needs which year and who, not just a total. Capped like everything
+         else that goes into kb.decoded. */
+      rows: (invites || []).slice(0, 4000).map(r => ({
+        from: clean(r['From']), to: clean(r['To']),
+        sentAt: invDate(r['Sent At']) || null,
+        direction: (r['Direction']||'').toUpperCase(),
+      })).filter(r => r.from || r.to),
     },
     connections,
     /* Read, with the consent screen saying so.
@@ -3585,7 +3683,7 @@ async function readArchive(file){
        The received half is deliberately not: those are someone else's words,
        written to one person, and they teach Mighty nothing about how the user
        writes. Counting them is enough. */
-    messages: msgs ? messageStyle(msgs, p) : null,
+    messages: msgs ? messageGraph(msgs, p) : null,
     messagesPresent: !!msgs,
     missing: [
       !find('Shares.csv') && 'your posts',
