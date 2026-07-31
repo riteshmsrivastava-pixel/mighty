@@ -1160,7 +1160,7 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
 
           <div style={{marginTop:18}}>
             <span className="pill" style={{background:'var(--brand-nav)',color:'var(--brand-ink)',padding:'8px 16px',fontSize:12.5}}>
-              GOAL · {goalLine(settings).toUpperCase()}
+              YOUR GOAL · {goalLine(settings).toUpperCase()}
             </span>
           </div>
         </div>
@@ -1187,7 +1187,8 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
               style={{padding:'18px 20px',display:'flex',alignItems:'center',gap:14,cursor:'pointer'}}>
               <span className="dot" style={{background:TONE[t.tone]}}/>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:15.5,fontWeight:700,letterSpacing:'-.01em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{t.title}</div>
+                <div style={{fontSize:15.5,fontWeight:700,letterSpacing:'-.01em',lineHeight:1.3,
+                  display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{t.title}</div>
                 <div className="sub" style={{fontSize:13,marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{t.sub} · {t.min} min</div>
               </div>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--mute)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flex:'none'}}><path d="M9 6l6 6-6 6"/></svg>
@@ -1905,8 +1906,15 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
             {pipelineList}
           </F>}
           {boardOK &&
-            <div style={{display:'flex',gap:14,overflowX:'auto',paddingBottom:12}}>
-              {COLUMNS.map(col=>{
+            /* Six columns, only 3 fit before scrolling on a laptop-width
+               screen, and nothing said so - a fade at the right edge is the
+               cheapest honest hint that Replied/Coffee chat/Growing exist
+               off to the side. */
+            <div style={{position:'relative'}}>
+              <div style={{position:'absolute',top:0,right:0,bottom:12,width:36,pointerEvents:'none',
+                background:'linear-gradient(90deg,rgba(251,250,248,0),var(--paper))'}}/>
+              <div style={{display:'flex',gap:14,overflowX:'auto',paddingBottom:12}}>
+                {COLUMNS.map(col=>{
                 const items = people.filter(r=>col.statuses.indexOf(r.status)>=0);
                 const meta = STAGE[col.statuses[0]];
                 return (
@@ -1944,7 +1952,8 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
                         </div>))}
                     </div>
                   </div>);
-              })}
+                })}
+              </div>
             </div>}
         </div>
       ) : view==='timeline' ? (
@@ -1999,7 +2008,7 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
                   </div>
                 </div>))}
               {feedGroups.length>0 &&
-                <div className="meta" style={{textAlign:'center'}}>That's everything.</div>}
+                <div className="meta" style={{textAlign:'center'}}>That's everything so far.</div>}
             </div>
           </F>}
         </div>
@@ -2213,7 +2222,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
     setBusy(null);
   }
 
-  const TABS = [['overview','Overview'],['brief','AI Brief'],['draft','Draft message'],['timeline','Timeline'],['notes','Notes']];
+  const TABS = [['overview','Overview'],['brief','Brief'],['draft','Draft message'],['timeline','Timeline'],['notes','Notes']];
   const nextStage = ORDER[Math.min(ORDER.indexOf(row.status)+1, ORDER.length-1)];
   /* Only asked once a message has actually gone out, and only until they answer. */
   const askedReplied = row.status==='contacted';
@@ -2772,7 +2781,7 @@ function Extension(){
   ];
   const journey = [
     ['1','Saved to Mighty','No message sent. Nothing to fill in.'],
-    ['2','Mighty prepares an AI brief','Background, shared context, why they matter to your goal.'],
+    ['2','Mighty prepares a brief','Background, shared context, why they matter to your goal.'],
     ['3','Draft the first message','Five approaches. You edit. You click Send.'],
     ['4','Move through your pipeline','The card moves as the relationship moves.'],
     ['5','Remember every interaction','Notes, timeline and commitments, kept for you.'],
@@ -2798,6 +2807,11 @@ function Extension(){
         {TABS.map(([k,l])=>(
           <button key={k} className={view===k?'on':''} onClick={()=>setView(k)}>{l}</button>))}
       </div>
+      {/* Everywhere else in the app by this point is real, live data - this is
+          the one screen showing a fictional example instead, and nothing said
+          so. Worth being explicit rather than letting a static "Luiza
+          Ferreira" mockup read as something Mighty actually found. */}
+      <div className="meta" style={{marginTop:12}}>Illustrative example, not your real data.</div>
 
       {view==='search' &&
         <div className="fade" style={{marginTop:24}}>
@@ -2918,7 +2932,7 @@ function Extension(){
                         <span style={{fontSize:15.5,fontWeight:700,letterSpacing:'-.01em'}}>Saved to Mighty</span>
                       </div>
                       <div className="stack" style={{gap:8,marginTop:18}}>
-                        {['Review the AI brief','Draft the first message'].map(x=>(
+                        {['Review the brief','Draft the first message'].map(x=>(
                           <div key={x} style={{padding:'11px 15px',borderRadius:12,background:'var(--card2)',
                             fontSize:14.5,fontWeight:600}}>{x}</div>))}
                         <button className="btn sm" style={{marginTop:4}} onClick={()=>setSaved(false)}>Continue browsing</button>
@@ -3311,7 +3325,7 @@ const NAV = [
   {key:'ask', label:'Ask Mighty', icon:
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 3.5 12.8 8l4.5 1.8-4.5 1.8L11 16l-1.8-4.4L4.7 9.8 9.2 8z"/><path d="M18.5 14.5 19.4 17l2.5.9-2.5.9-.9 2.5-.9-2.5-2.5-.9 2.5-.9z"/></svg>},
 ];
-const QUESTION = {today:'What deserves my attention?',
+const QUESTION = {today:'What deserves my attention?', relationships:'Who should I know?',
   you:'How does this work for me?', ask:'What should I do?', extension:'Save people while you browse.'};
 
 function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, email, onSignOut, aiMeta, askOpen, onToggleAsk, children}){
