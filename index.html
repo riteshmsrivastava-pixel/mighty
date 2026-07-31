@@ -29,7 +29,12 @@
   }
   *{box-sizing:border-box}
   html{scroll-behavior:smooth}
-  body{margin:0;background:var(--paper);color:var(--ink);
+  body{margin:0;background-color:var(--paper);background-attachment:fixed;color:var(--ink);
+    background-image:
+      radial-gradient(1100px 620px at 18% 0%,rgba(155,132,240,.10),transparent 60%),
+      radial-gradient(1000px 700px at 85% 30%,rgba(242,167,142,.09),transparent 60%),
+      radial-gradient(1200px 800px at 30% 75%,rgba(155,132,240,.07),transparent 60%),
+      radial-gradient(900px 600px at 90% 100%,rgba(242,167,142,.08),transparent 60%);
     font-family:'Schibsted Grotesk',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
   a{color:var(--brand);text-decoration:none}
   a:hover{color:var(--brand-h)}
