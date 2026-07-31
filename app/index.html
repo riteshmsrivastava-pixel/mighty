@@ -3497,7 +3497,7 @@ const median = (nums)=>{
    reply-time gap each time the sender alternates. This is the one parsing
    pass "Your Network, Decoded" chapters 3-5 are built from; nothing else
    reads messages.csv content, so this only ever runs once per import. */
-function messageGraph(rows, profile){
+function messageGraph(rows, profile, connections){
   const first = clean((profile||{})['First Name']).toLowerCase();
   const last  = clean((profile||{})['Last Name']).toLowerCase();
   const me    = clean(first + ' ' + last).toLowerCase();
@@ -3562,6 +3562,48 @@ function messageGraph(rows, profile){
     || (new Date(b.lastAt)-new Date(b.firstAt))-(new Date(a.lastAt)-new Date(a.firstAt))
     || new Date(b.lastAt)-new Date(a.lastAt));
 
+  /* "The sleep" (Decoded chapter 3) needs a per-CONNECTION verdict - never
+     messaged, messaged-then-quiet, still active - across the whole 1,928-row
+     Connections.csv, not just the top 50 kept for display. So this join runs
+     here, against the full counterparts list, before anything gets sliced.
+     Matched by profile URL first (LinkedIn's own identifier); by exact
+     full-name second, since group DMs and some exports omit SENDER PROFILE
+     URL. Coverage of the URL match is tracked so a low-coverage archive can
+     say "at least" instead of an exact count - the one rule in the spec. */
+  let sleep = null;
+  if(identified && connections && connections.length){
+    const byUrl = {}, byName = {};
+    counterparts.forEach(cp=>{
+      if(cp.profileUrl) byUrl[cp.profileUrl.replace(/\/$/,'').toLowerCase()] = cp;
+      const nk = cp.name.toLowerCase();
+      if(nk && !byName[nk]) byName[nk] = cp;
+    });
+    let never=0, quiet=0, active=0, urlMatched=0, nameMatched=0;
+    const quietDays = [];
+    const TWO_YEARS = 2*365*DAY;
+    connections.forEach(c=>{
+      const urlKey = (c.profile_url||'').replace(/\/$/,'').toLowerCase();
+      let cp = urlKey ? byUrl[urlKey] : null;
+      const viaUrl = !!cp;
+      if(!cp){
+        const nameKey = clean((c.first_name||'')+' '+(c.last_name||'')).toLowerCase();
+        cp = nameKey ? byName[nameKey] : null;
+      }
+      if(!cp){ never++; return; }
+      if(viaUrl) urlMatched++; else nameMatched++;
+      const ageMs = Date.now() - new Date(cp.lastAt).getTime();
+      if(ageMs >= TWO_YEARS){ quiet++; quietDays.push(Math.round(ageMs/DAY)); }
+      else active++;
+    });
+    const matchedTotal = urlMatched + nameMatched;
+    const urlCoverage = matchedTotal ? urlMatched/matchedTotal : null;
+    sleep = {
+      total: connections.length, never, quiet, active,
+      medianQuietDays: median(quietDays),
+      urlCoverage, approx: urlCoverage!=null && urlCoverage<0.6,
+    };
+  }
+
   return {
     sent: mine.length,
     received: theirs.length,
@@ -3581,6 +3623,7 @@ function messageGraph(rows, profile){
       myMedianReplyMs: median(myReplyGaps),
       theirMedianReplyMs: median(theirReplyGaps),
     } : null,
+    sleep,
   };
 }
 const liDate = (s)=>{                       // "26 Jul 2026" -> "2026-07-26"
@@ -3602,6 +3645,225 @@ const invDate = (s)=>{
   if(mo<1||mo>12||day<1||day>31) return null;
   return yr + '-' + String(mo).padStart(2,'0') + '-' + String(day).padStart(2,'0');
 };
+
+/* ===================== Your Network, Decoded =====================
+   buildDecoded() turns one parsed archive into the seven stored chapters
+   (decoded-spec.md's "the eight chapters" minus chapter 8, which is computed
+   live from goalTypes + connections_match and never stored). Pure and
+   $0.00 - no AI call, every number traceable to a row in the export. Runs
+   once at import/reimport time inside Onboarding.finish(); the reading in
+   Patterns only ever reads kb.decoded back out, never the raw archive. */
+const MONTHS3 = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+/* Positions.csv writes "Started On"/"Finished On" as "Jul 2025". Education's
+   Start/End Date format is not confirmed by any real export we have on hand,
+   so this tries the same month-year shape first and falls back to a bare
+   4-digit year (Jan 1 for a start, Dec 31 for an end) rather than dropping
+   the era - a rough era beats no era. */
+function eraDateMs(s, endOfYear){
+  const m = String(s||'').trim().match(/^([A-Za-z]{3,9})\s+(\d{4})$/);
+  if(m){
+    const mi = MONTHS3.indexOf(m[1].slice(0,3).toLowerCase());
+    if(mi>=0) return Date.UTC(parseInt(m[2],10), mi, 1);
+  }
+  const y = String(s||'').trim().match(/(\d{4})/);
+  if(!y) return null;
+  return Date.UTC(parseInt(y[1],10), endOfYear?11:0, endOfYear?31:1);
+}
+function monthYearLabel(iso){
+  if(!iso) return null;
+  const d = new Date(iso+'T00:00:00Z');
+  if(isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('en-US',{month:'long',year:'numeric',timeZone:'UTC'});
+}
+/* One "era" per employer or school, stints at the same place merged into one
+   span, so two Stripe titles read as one Stripe era the way a person would
+   actually describe it. */
+function decodedEraList(positions, education){
+  const raw = [];
+  (positions||[]).forEach(p=>{
+    const start = eraDateMs(p.from, false);
+    if(start==null) return;
+    const end = p.to ? eraDateMs(p.to, true) : Date.now();
+    if(clean(p.company)) raw.push({label:clean(p.company), kind:'work', start, end: end==null?Date.now():end});
+  });
+  (education||[]).forEach(e=>{
+    const start = eraDateMs(e.from, false);
+    if(start==null) return;
+    const end = e.to ? eraDateMs(e.to, true) : start;
+    if(clean(e.school)) raw.push({label:clean(e.school), kind:'school', start, end: end==null?start:end});
+  });
+  const merged = {};
+  raw.forEach(r=>{
+    const k = r.kind+':'+r.label.toLowerCase();
+    if(!merged[k]) merged[k] = {...r};
+    else{ merged[k].start = Math.min(merged[k].start, r.start); merged[k].end = Math.max(merged[k].end, r.end); }
+  });
+  return Object.values(merged).sort((a,b)=>a.start-b.start);
+}
+function decodedEraFor(eras, ms){
+  const matches = eras.filter(e=>ms>=e.start && ms<=e.end);
+  if(!matches.length) return null;
+  const work = matches.filter(e=>e.kind==='work');
+  const pool = work.length ? work : matches;
+  return pool.reduce((a,b)=> b.start>a.start ? b : a);
+}
+
+/* Chapter 1 - the opening frame. */
+function decodedFrame(connections){
+  const dated = connections.map(c=>c.connected_on).filter(Boolean).sort();
+  const companies = new Set(connections.map(c=>clean(c.company)).filter(Boolean));
+  const positions = new Set(connections.map(c=>clean(c.position)).filter(Boolean));
+  const startDate = dated[0] || null;
+  return {
+    total: connections.length,
+    startDate, startLabel: monthYearLabel(startDate),
+    companyCount: companies.size, positionCount: positions.size,
+  };
+}
+
+/* Chapter 2 - the eras, told by who arrived. */
+function decodedEras(connections, positions, education){
+  const eras = decodedEraList(positions, education);
+  const byYear = {}, eraCounts = {};
+  let minYear=null, maxYear=null;
+  connections.forEach(c=>{
+    if(!c.connected_on) return;
+    const y = parseInt(c.connected_on.slice(0,4),10);
+    if(!y) return;
+    byYear[y] = (byYear[y]||0)+1;
+    minYear = minYear==null ? y : Math.min(minYear,y);
+    maxYear = maxYear==null ? y : Math.max(maxYear,y);
+    if(eras.length){
+      const era = decodedEraFor(eras, new Date(c.connected_on+'T00:00:00Z').getTime());
+      if(era) eraCounts[era.label] = (eraCounts[era.label]||0)+1;
+    }
+  });
+  const years = [];
+  if(minYear!=null) for(let y=minYear;y<=maxYear;y++) years.push({year:y, count:byYear[y]||0});
+  const nonZero = years.filter(y=>y.count>0);
+  const fastestYear = nonZero.length ? nonZero.reduce((a,b)=>b.count>a.count?b:a) : null;
+  const quietestYear = nonZero.length ? nonZero.reduce((a,b)=>b.count<a.count?b:a) : null;
+  const eraList = Object.keys(eraCounts).map(label=>({label, count:eraCounts[label]}))
+    .sort((a,b)=>b.count-a.count);
+  return {
+    hasEras: eras.length>0, years, fastestYear, quietestYear,
+    topEra: eraList[0]||null, eras: eraList.slice(0,6),
+  };
+}
+
+/* Chapter 5 - the ones who kept showing up. Ranking already happened inside
+   messageGraph(); this just takes the top five and phrases the share. */
+function decodedCircle(messages){
+  if(!messages || !messages.identified || !(messages.counterparts||[]).length) return null;
+  const top = messages.counterparts.slice(0,5);
+  const topSent = top.reduce((s,c)=>s+c.sentCount,0);
+  return {
+    top: top.map(c=>({name:c.name, profileUrl:c.profileUrl, msgCount:c.msgCount,
+      sentCount:c.sentCount, receivedCount:c.receivedCount, firstAt:c.firstAt, lastAt:c.lastAt})),
+    shareOfWordsPct: messages.sent ? Math.round(topSent/messages.sent*100) : null,
+  };
+}
+
+/* Chapter 6 - the shape of the room. Every label is read straight off a
+   title string and says so; nothing here is inferred from outside the
+   export (no geography - Connections.csv carries no location column). */
+const DECODED_FUNCTIONS = [
+  {key:'founder',     words:['founder','co-founder']},
+  {key:'engineering', words:['engineer','developer','software','devops','architect','swe']},
+  {key:'product',     words:['product manager','product lead','product owner']},
+  {key:'design',      words:['designer','design lead',' ux',' ui ']},
+  {key:'sales',       words:['sales','account executive','business development']},
+  {key:'marketing',   words:['marketing','growth marketing','brand']},
+  {key:'investing',   words:['investor','venture partner','venture capital',' vc ','angel investor']},
+  {key:'clinical',    words:['clinical','physician',' md ','nurse','pharmacist','regulatory affairs']},
+  {key:'operations',  words:['operations','supply chain','logistics']},
+  {key:'finance',     words:['finance','accounting','controller','treasury',' cfo']},
+  {key:'legal',       words:['legal counsel','attorney','compliance']},
+  {key:'talent',      words:['recruiter','talent acquisition','human resources','people ops']},
+];
+const DECODED_SENIOR_WORDS = ['founder','co-founder','ceo','cto','coo','cfo','chief',
+  'partner','vp ','vice president','svp','evp','director','head of'];
+function decodedShape(connections, positions){
+  if(!connections.length) return null;
+  const companyCounts = {};
+  connections.forEach(c=>{
+    const co = clean(c.company);
+    if(!co) return;
+    const k = co.toLowerCase();
+    (companyCounts[k] = companyCounts[k] || {label:co, count:0}).count++;
+  });
+  const topCompanies = Object.values(companyCounts).sort((a,b)=>b.count-a.count).slice(0,8);
+
+  const titled = connections.filter(c=>clean(c.position));
+  const funcCounts = {};
+  titled.forEach(c=>{
+    const t = ' '+clean(c.position).toLowerCase()+' ';
+    const hit = DECODED_FUNCTIONS.find(f=>f.words.some(w=>t.indexOf(w)>=0));
+    if(hit) funcCounts[hit.key] = (funcCounts[hit.key]||0)+1;
+  });
+  const functions = Object.keys(funcCounts).map(key=>({key, count:funcCounts[key]}))
+    .sort((a,b)=>b.count-a.count).slice(0,6);
+
+  const seniorCount = titled.filter(c=>{
+    const t = ' '+clean(c.position).toLowerCase()+' ';
+    return DECODED_SENIOR_WORDS.some(w=>t.indexOf(w)>=0);
+  }).length;
+
+  const ownCompanies = new Set((positions||[]).map(p=>clean(p.company).toLowerCase()).filter(Boolean));
+  const alumniCount = ownCompanies.size
+    ? connections.filter(c=>ownCompanies.has(clean(c.company).toLowerCase())).length : 0;
+
+  return {
+    total: connections.length, topCompanies, functions,
+    seniorCount, seniorFraction: connections.length ? seniorCount/connections.length : 0,
+    alumniCount,
+  };
+}
+
+/* Chapter 7 - the doors you knocked on. Acceptance is joined by name against
+   Connections.csv, so it is always phrased "at least" - a name match
+   undercounts (remarried surnames, nicknames, non-Latin transliteration). */
+function decodedDoors(invitations, connections){
+  if(!invitations || !(invitations.rows||[]).length) return null;
+  const rows = invitations.rows;
+  const sent = rows.filter(r=>r.direction==='OUTGOING');
+  const nameSet = new Set((connections||[])
+    .map(c=>clean((c.first_name||'')+' '+(c.last_name||'')).toLowerCase()).filter(Boolean));
+  const accepted = sent.filter(r=>r.to && nameSet.has(r.to.toLowerCase())).length;
+  const byYear = {};
+  sent.forEach(r=>{ if(r.sentAt){ const y=r.sentAt.slice(0,4); byYear[y]=(byYear[y]||0)+1; } });
+  const years = Object.keys(byYear).map(y=>({year:parseInt(y,10), count:byYear[y]})).sort((a,b)=>a.year-b.year);
+  const busiestYear = years.length ? years.reduce((a,b)=>b.count>a.count?b:a) : null;
+  return {
+    sentTotal: invitations.outgoing, receivedTotal: invitations.incoming,
+    acceptedAtLeast: accepted,
+    acceptancePct: invitations.outgoing ? Math.round(accepted/invitations.outgoing*100) : null,
+    busiestYear, years,
+  };
+}
+
+/* The whole reading, computed once. Null when there is no archive to read at
+   all - Patterns shows the single import-prompt card the spec calls for
+   rather than seven empty chapters. Individual chapters are null on their
+   own narrower gaps (no messages.csv, no positions, no invitations) so each
+   one can show its own honest one-liner instead of silently vanishing. */
+function buildDecoded(archive){
+  if(!archive || !(archive.connections||[]).length) return null;
+  const messages = archive.messages;
+  return {
+    computedAt: new Date().toISOString(),
+    messagesPresent: !!archive.messagesPresent,
+    chapters: {
+      frame: decodedFrame(archive.connections),
+      eras: decodedEras(archive.connections, archive.positions, archive.education),
+      sleep: messages ? messages.sleep : null,
+      showUp: messages ? messages.showUp : null,
+      circle: decodedCircle(messages),
+      shape: decodedShape(archive.connections, archive.positions),
+      doors: decodedDoors(archive.invitations, archive.connections),
+    },
+  };
+}
 
 /* Read the archive. Returns what it found and what it could not find, because
    "no posts in this export" is information the user should see rather than a
@@ -3683,7 +3945,7 @@ async function readArchive(file){
        The received half is deliberately not: those are someone else's words,
        written to one person, and they teach Mighty nothing about how the user
        writes. Counting them is enough. */
-    messages: msgs ? messageGraph(msgs, p) : null,
+    messages: msgs ? messageGraph(msgs, p, connections) : null,
     messagesPresent: !!msgs,
     missing: [
       !find('Shares.csv') && 'your posts',
@@ -3905,6 +4167,10 @@ function Onboarding({sb, user, settings, onSave, onDone}){
         connectionCount: arch ? arch.connections.length : (kbExisting.connectionCount || 0),
         messagesPresent: arch ? arch.messagesPresent : (kbExisting.messagesPresent || false),
         messages: arch ? arch.messages : (kbExisting.messages || null),
+        /* "Your Network, Decoded" - computed once here (first run and every
+           reimport), read many times in Patterns. Never recomputed from raw
+           messages/connections at render time. */
+        decoded: arch ? buildDecoded(arch) : (kbExisting.decoded || null),
         resumeText: resume ? resume.slice(0, 12000) : (kbExisting.resumeText || ''),
         answers: newAnswers.length ? newAnswers : (kbExisting.answers || []),
       };
