@@ -405,14 +405,15 @@
   <div aria-hidden="true" style="position:absolute;top:-260px;left:50%;transform:translateX(-50%);width:1100px;max-width:140%;
     height:560px;border-radius:50%;background:radial-gradient(closest-side,rgba(155,132,240,.30),rgba(242,167,142,.16),rgba(251,250,248,0));pointer-events:none"></div>
   <div style="position:relative;max-width:900px;margin:0 auto">
-    <div style="display:flex;align-items:center;justify-content:center;gap:6px">
-      <span style="position:relative;width:16px;height:11px;flex:none;display:block">
-        <span style="position:absolute;left:0;top:0;width:11px;height:11px;border-radius:50%;background:var(--brand)"></span>
-        <span style="position:absolute;left:5px;top:0;width:11px;height:11px;border-radius:50%;background:var(--peach);mix-blend-mode:multiply"></span>
+    <div style="display:flex;align-items:center;justify-content:center;gap:clamp(8px,1.5vw,16px)">
+      <span style="position:relative;width:clamp(58px,10.4vw,116px);height:clamp(40px,7.2vw,80px);flex:none;display:block">
+        <span style="position:absolute;left:0;top:0;width:clamp(40px,7.2vw,80px);height:clamp(40px,7.2vw,80px);border-radius:50%;background:var(--brand)"></span>
+        <span style="position:absolute;left:clamp(18px,3.2vw,36px);top:0;width:clamp(40px,7.2vw,80px);height:clamp(40px,7.2vw,80px);border-radius:50%;background:var(--peach);mix-blend-mode:multiply"></span>
       </span>
-      <span style="font-size:11px;font-weight:500;letter-spacing:-.01em;color:var(--sub)">Mighty</span>
+      <span style="font-size:clamp(40px,7.2vw,80px);line-height:1;font-weight:800;letter-spacing:-.02em;color:var(--ink)">Mighty</span>
     </div>
-    <h1 class="h-hero" style="margin-top:14px">Reimagining Intentional Networking</h1>
+    <h1 class="h-hero" style="margin-top:14px">Reimagining<br>
+      <span style="font-size:.25em">Intentional Networking</span></h1>
     <p class="lead" style="margin:24px auto 0;max-width:660px">
       <span class="hl">Mighty</span> remembers every conversation and every promise, helping every interaction move the relationship forward.
     </p>
