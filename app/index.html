@@ -291,11 +291,17 @@ function Avatar({name, size, src, hover}){
            a backstop. */
         const spaceBelow = window.innerHeight - rect.bottom;
         const openAbove = spaceBelow < 340 && rect.top > spaceBelow;
+        /* maxHeight must fit the actual room in whichever direction was
+           chosen, not a flat 420px guess - a card that size could still
+           clip past either edge whenever available space fell short of it
+           but still passed the flip threshold above. */
+        const room = openAbove ? rect.top - 20 : spaceBelow - 20;
+        const cardMax = Math.max(120, Math.min(420, room));
         return ReactDOM.createPortal(
         <div onMouseEnter={open} onMouseLeave={close} className="fade"
           style={{position:'fixed', left:Math.max(12,Math.min(rect.left, window.innerWidth-308)),
             ...(openAbove ? {bottom:Math.max(12,window.innerHeight-rect.top+8)} : {top:rect.bottom+8}),
-            maxHeight:'min(420px, calc(100vh - 24px))', overflowY:'auto',
+            maxHeight:cardMax, overflowY:'auto',
             zIndex:200, width:280,
             background:'#fff', border:'1px solid var(--line)', borderRadius:16,
             boxShadow:'0 12px 32px rgba(26,25,23,.16)', padding:18}}>
@@ -324,12 +330,12 @@ function Avatar({name, size, src, hover}){
     </span>
   );
 }
-function Empty({title, body, cta, onCta}){
+function Empty({title, body, cta, onCta, disabled}){
   return (
     <div className="card" style={{padding:'34px 30px'}}>
       <div className="h3">{title}</div>
       <div className="sub" style={{marginTop:7,lineHeight:1.55,maxWidth:520,textWrap:'pretty'}}>{body}</div>
-      {cta && <button className="btn" style={{marginTop:20}} onClick={onCta}>{cta}</button>}
+      {cta && <button className="btn" style={{marginTop:20}} onClick={onCta} disabled={!!disabled}>{cta}</button>}
     </div>
   );
 }
@@ -1320,6 +1326,12 @@ function nextAction(r){
     case 'contacted':        return days(r.contacted_at)>=10 ? 'Follow up' : 'Waiting on them';
     case 'replied':          return 'Reply';
     case 'coffee_chat':      return 'Capture notes';
+    /* referral/interview/offer are merged into one Board column ("Growing")
+       but fell through to the same 'Keep in touch' default as a dormant
+       contact, making an active interview or open offer visually
+       indistinguishable from someone gone quiet. Capture notes is a real
+       action that already exists (the Notes tab), not an invented one. */
+    case 'referral': case 'interview': case 'offer': return 'Capture notes';
     case 'do_not_contact':   return ' - ';
     default:                 return 'Keep in touch';
   }
@@ -1470,7 +1482,7 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
             ? <button className="btn g sm" onClick={()=>onOpen(saved.id)}>Open</button>
             : <F>
                 <button className="btn sm" disabled={atCap || savingUrls.has(c.profile_url)}
-                  onClick={async()=>{ startSaving(c.profile_url); await onSave(connToPerson(c), 'own_network'); stopSaving(c.profile_url); }}>
+                  onClick={async()=>{ startSaving(c.profile_url); try{ await onSave(connToPerson(c), 'own_network'); }finally{ stopSaving(c.profile_url); } }}>
                   {savingUrls.has(c.profile_url) ? <span><span className="spin"/> Adding</span> : 'Add'}
                 </button>
                 <button className="btn q" style={{fontSize:13}}
@@ -1725,7 +1737,7 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
                             <button className="btn g sm" style={{color:'var(--sub)'}}
                               onClick={()=>setSkip(s=>({...s,[r.profileUrl]:true}))}>Skip</button>
                             <button className="btn sm" disabled={atCap || savingUrls.has(r.profileUrl)}
-                              onClick={async()=>{ startSaving(r.profileUrl); await onSave(r, lastQuery); stopSaving(r.profileUrl); }}>
+                              onClick={async()=>{ startSaving(r.profileUrl); try{ await onSave(r, lastQuery); }finally{ stopSaving(r.profileUrl); } }}>
                               {savingUrls.has(r.profileUrl) ? <span><span className="spin"/> Adding</span> : 'Add'}
                             </button>
                           </F>}
@@ -1793,7 +1805,13 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
             <input className="inp" style={{flex:'1 1 320px',minWidth:0,fontSize:15.5}} value={q}
               placeholder="Search who you know, or describe someone new"
               onChange={e=>setQ(e.target.value)}
-              onKeyDown={e=>{ if(e.key==='Enter' && searching && mine && !mine.rows.length) run(q); }}/>
+              onKeyDown={e=>{
+                /* Must match the "Search LinkedIn for this" button's own
+                   guard exactly - Enter used to fire a web search whenever
+                   the wider network had no matches, even if an already-saved
+                   person did, a case where that button never even renders. */
+                if(e.key==='Enter' && searching && !mineBusy && mine && !mine.rows.length && !filtered.length) run(q);
+              }}/>
             {atCap &&
               <span className="banner warn" style={{flex:'none',padding:'11px 16px',fontSize:13}}>
                 At {cap}, the cap on your plan.
@@ -2057,6 +2075,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
   const voice = (((settings.knowledge||{}).messages||{}).styleSamples||[]).slice(0, 6);
 
   async function makeDraft(){
+    if(busy) return;
     if(takesLeft <= 0){
       setErr('Ten takes is the limit on one Assist. Send one, or edit the last one yourself.');
       return;
@@ -2099,6 +2118,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
   }
 
   async function saveCapture(){
+    if(busy) return;
     const text = [noteS && noteS, noteC && ('Promises: '+noteC), noteP && ('Worth remembering: '+noteP)]
       .filter(Boolean).join('\n');
     if(!clean(text)) return;
@@ -2188,7 +2208,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
         {/* Does not offer to prepare a brief it cannot write. When the profile
             has never been read this takes you to the tab that explains why,
             rather than firing a request that fails. */}
-        <button className="btn g sm"
+        <button className="btn g sm" disabled={!!busy && busy!=='brief'}
           onClick={()=>{ setTab('brief'); if(profileRead && !br.careerSummary) makeBrief(); }}>
           {busy==='brief' ? <span><span className="spin"/> Preparing</span>
             : profileRead ? 'Prepare me' : 'Why no brief yet'}
@@ -2319,7 +2339,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
             <F>
               <Empty title="No brief yet."
                 body="Why they matter to your goal, what you have in common, and how to open. Built only from their profile and your strategy, never invented."
-                cta={busy==='brief'?'Preparing…':'Prepare me'} onCta={makeBrief}/>
+                cta={busy==='brief'?'Preparing…':'Prepare me'} onCta={makeBrief} disabled={!!busy && busy!=='brief'}/>
               {/* Free on purpose. A brief is how you decide someone is NOT worth
                   your time, and charging for that charges people to say no. */}
               <div className="hint" style={{textAlign:'center'}}>
@@ -2379,7 +2399,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                   Mighty writes from your strategy, this person's profile, and anything you've captured. Then you edit it,
                   and you send it.
                 </div>
-                <button className="btn" style={{alignSelf:'flex-start'}} onClick={makeDraft} disabled={busy==='draft'}>
+                <button className="btn" style={{alignSelf:'flex-start'}} onClick={makeDraft} disabled={!!busy && busy!=='draft'}>
                   {busy==='draft'?<span><span className="spin"/> Writing</span>:'Write the draft'}
                 </button>
                 <div className="hint">
@@ -2398,7 +2418,8 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                   <button className="btn sm" onClick={copyAndOpen}>Copy &amp; open LinkedIn</button>
                   <button className="btn g sm" disabled={!!busy}
                     onClick={()=>{ setBusy('save'); onUpdate(row,{ai_draft:draft}).then(()=>flash('Saved')).finally(()=>setBusy(null)); }}>Save draft</button>
-                  <button className="btn g sm" onClick={makeDraft} disabled={busy==='draft'||takesLeft<=0}>
+                  <button className="btn g sm" onClick={makeDraft}
+                    disabled={(!!busy && busy!=='draft')||takesLeft<=0}>
                     {busy==='draft'?<span><span className="spin"/> Rewriting</span>
                       : takesLeft<=0 ? 'No takes left' : 'Rewrite'}
                   </button>
@@ -2459,7 +2480,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                   placeholder="Loves Formula 1. Daughter starts college this year."/></div>
             </div>
             <button className="btn sm" style={{marginTop:18}} onClick={saveCapture}
-              disabled={busy==='note'||!clean(noteS+noteC+noteP)}>
+              disabled={(!!busy && busy!=='note')||!clean(noteS+noteC+noteP)}>
               {busy==='note'?<span><span className="spin"/> Saving</span>:'Save to memory'}
             </button>
           </div>
@@ -2626,7 +2647,7 @@ function Ask({sb, people, events, tasks, settings, onOpen, onSave, initialQuesti
                           <div className="sub" style={{fontSize:13}}>{p.note}</div>
                         </div>
                         <button className="btn g sm" style={{flex:'none'}} disabled={savingUrls.has(p.row.profileUrl)}
-                          onClick={async()=>{ startSaving(p.row.profileUrl); await onSave(p.row,'ask_mighty'); stopSaving(p.row.profileUrl); }}>
+                          onClick={async()=>{ startSaving(p.row.profileUrl); try{ await onSave(p.row,'ask_mighty'); }finally{ stopSaving(p.row.profileUrl); } }}>
                           {savingUrls.has(p.row.profileUrl) ? 'Saving…' : 'Save'}
                         </button>
                       </div>
@@ -2962,7 +2983,7 @@ function Extension(){
   );
 }
 
-function Settings({email, settings, people, events, tasks, onSignOut}){
+function Settings({email, settings, people, events, tasks, onSignOut, go}){
   const [copied,setCopied] = useState(false);
   function exportAll(){
     const blob = new Blob([JSON.stringify({exportedAt:new Date().toISOString(), strategy:settings,
@@ -2975,6 +2996,12 @@ function Settings({email, settings, people, events, tasks, onSignOut}){
   }
   const rows = [
     ['Account', email, 'Sign out', onSignOut],
+    /* The sidebar's Extension entry is hidden on narrow viewports (no mobile
+       equivalent), and the only other doors to it are contextual CTAs that
+       stop showing once the extension is connected or a brief exists - a
+       mobile user could otherwise have no way back to it at all. */
+    ['Extension', 'The LinkedIn browser extension - install it or check its status.',
+      'Open', ()=>go({screen:'extension'})],
     ['Export everything', 'Your goal, people, timeline and commitments. One JSON file, yours anytime.',
       copied?'Downloaded':'Export', exportAll],
   ];
@@ -3111,7 +3138,7 @@ const YOU_TABS = [['mirror','Mirror'],['patterns','Patterns'],['goal','Goal'],['
    is what it has noticed. Goal is what the user told it. Account is the
    mechanics. Nothing here is time-sensitive the way Today is - a user comes
    here to update themselves, not to be told what to do next. */
-function You({email, settings, people, events, tasks, tab, setTab, editGoal, setEditGoal, busySave, onSaveSettings, onSignOut, onReimport}){
+function You({email, settings, people, events, tasks, tab, setTab, editGoal, setEditGoal, busySave, onSaveSettings, onSignOut, onReimport, go}){
   return (
     <div className="pad fade" style={{maxWidth:1000,paddingTop:34}}>
       <div className="seg">
@@ -3135,7 +3162,7 @@ function You({email, settings, people, events, tasks, tab, setTab, editGoal, set
             onCancel={()=>setEditGoal(false)}/>}
         {tab==='account' &&
           <Settings email={email} settings={settings} people={people} events={events} tasks={tasks}
-            onSignOut={onSignOut}/>}
+            onSignOut={onSignOut} go={go}/>}
       </div>
     </div>
   );
@@ -3564,8 +3591,18 @@ function Onboarding({sb, user, settings, onSave, onDone}){
   const [prog,setProg]   = useState(null);
   const [agreed,setAgreed] = useState(false);
   const [arch,setArch]   = useState(null);          // parsed archive
-  const [resume,setResume] = useState('');
-  const [ident,setIdent] = useState({headline:'', location:'', currentRole:'', currentCompany:''});
+  /* Onboarding is now re-enterable from "Correct this" on an account that
+     already has a Knowledge Base, not just on a brand-new account. Seeding
+     these from the existing settings/knowledge means finishing WITHOUT
+     re-uploading a file keeps what was already there instead of finish()
+     writing back empty defaults over it. */
+  const kbExisting = settings.knowledge || {};
+  const [resume,setResume] = useState(kbExisting.resumeText || '');
+  const [ident,setIdent] = useState({
+    headline: (kbExisting.identity||{}).headline || '',
+    location: settings.homeLocation || (kbExisting.identity||{}).location || '',
+    currentRole: settings.currentRole || '', currentCompany: settings.currentCompany || '',
+  });
   const [goal,setGoal]   = useState(settings.goal || '');
   /* Plural. Someone raising a round is usually also hiring, and forcing one
      answer made the ranking worse for the honest case. goalType survives as the
@@ -3687,33 +3724,42 @@ function Onboarding({sb, user, settings, onSave, onDone}){
 
   /* ---- finish ---- */
   async function finish(){
+    if(busy) return;
     setBusy('save'); setErr(null);
     try{
+      /* Onboarding is re-enterable ("Correct this") on an account that already
+         has a Knowledge Base. Finishing without re-uploading a file must keep
+         what was already there, not overwrite it with these fields' empty
+         defaults - that silently erased an existing KB (including voice
+         samples makeDraft() depends on) on every re-entry that skipped the
+         upload step. Every arch-less fallback below reads the existing value
+         instead of a hardcoded empty one. */
+      const newAnswers = Object.keys(answers).map(k => ({q:k, a:clean(answers[k])})).filter(x => x.a);
       const kb = {
         source: 'linkedin_archive',
-        capturedAt: new Date().toISOString(),
-        identity: arch ? arch.identity : {headline: ident.headline, location: ident.location},
-        positions: arch ? arch.positions : [],
-        education: arch ? arch.education : [],
-        skills: arch ? arch.skills : [],
-        languages: arch ? arch.languages : [],
-        honors: arch ? arch.honors : [],
-        publications: arch ? arch.publications : [],
-        recommendationCount: arch ? arch.recommendationCount : 0,
-        invitations: arch ? arch.invitations : null,
-        connectionCount: arch ? arch.connections.length : 0,
-        messagesPresent: arch ? arch.messagesPresent : false,
-        messages: arch ? arch.messages : null,
-        resumeText: resume ? resume.slice(0, 12000) : '',
-        answers: Object.keys(answers).map(k => ({q:k, a:clean(answers[k])})).filter(x => x.a),
+        capturedAt: arch ? new Date().toISOString() : (kbExisting.capturedAt || new Date().toISOString()),
+        identity: arch ? arch.identity : (kbExisting.identity || {headline: ident.headline, location: ident.location}),
+        positions: arch ? arch.positions : (kbExisting.positions || []),
+        education: arch ? arch.education : (kbExisting.education || []),
+        skills: arch ? arch.skills : (kbExisting.skills || []),
+        languages: arch ? arch.languages : (kbExisting.languages || []),
+        honors: arch ? arch.honors : (kbExisting.honors || []),
+        publications: arch ? arch.publications : (kbExisting.publications || []),
+        recommendationCount: arch ? arch.recommendationCount : (kbExisting.recommendationCount || 0),
+        invitations: arch ? arch.invitations : (kbExisting.invitations || null),
+        connectionCount: arch ? arch.connections.length : (kbExisting.connectionCount || 0),
+        messagesPresent: arch ? arch.messagesPresent : (kbExisting.messagesPresent || false),
+        messages: arch ? arch.messages : (kbExisting.messages || null),
+        resumeText: resume ? resume.slice(0, 12000) : (kbExisting.resumeText || ''),
+        answers: newAnswers.length ? newAnswers : (kbExisting.answers || []),
       };
       await onSave({
         goalType: goalTypes[0] || 'networking',
         goalTypes,
         goal: clean(goal),
-        currentRole: clean(ident.currentRole),
-        currentCompany: clean(ident.currentCompany),
-        homeLocation: clean(ident.location),
+        currentRole: clean(ident.currentRole) || settings.currentRole || '',
+        currentCompany: clean(ident.currentCompany) || settings.currentCompany || '',
+        homeLocation: clean(ident.location) || settings.homeLocation || '',
         schools: arch ? arch.education.map(e => e.school).filter(Boolean).slice(0,6) : (settings.schools||[]),
         skills: arch ? arch.skills.slice(0,40) : (settings.skills||[]),
         knowledge: kb,
@@ -3762,7 +3808,7 @@ function Onboarding({sb, user, settings, onSave, onDone}){
           {OB_STEPS.map((label,i)=>{
             const on = i===step, past = i<step;
             return (
-              <button key={label} onClick={()=>i<step && setStep(i)}
+              <button key={label} onClick={()=>i<step && !busy && setStep(i)}
                 style={{display:'flex',alignItems:'center',gap:18,padding:'17px 0',textAlign:'left',
                   borderTop:'1px solid var(--line2)',
                   borderBottom: i===OB_STEPS.length-1?'1px solid var(--line2)':'none',
@@ -3909,7 +3955,7 @@ function Onboarding({sb, user, settings, onSave, onDone}){
                     placeholder={i===0?'Type it plainly':i===1?'A name is enough':'Mighty will start there'}/>
                 </div>))}
             </div>
-            <Actions label={busy==='save' ? 'Saving…' : 'Enter Mighty'} onNext={finish} disabled={busy==='save'}/>
+            <Actions label={busy==='save' ? 'Saving…' : 'Enter Mighty'} onNext={finish} disabled={!!busy}/>
           </div>}
       </main>
     </div>
@@ -4245,7 +4291,7 @@ function App(){
       {screen==='you' &&
         <You email={auth.user.email} settings={settings} people={people} events={events} tasks={tasks}
           tab={youTab} setTab={setYouTab} editGoal={editGoal} setEditGoal={setEditGoal} busySave={busySave}
-          onSaveSettings={saveSettings} onSignOut={signOut} onReimport={()=>setReimport(true)}/>}
+          onSaveSettings={saveSettings} onSignOut={signOut} onReimport={()=>setReimport(true)} go={go}/>}
 
       {screen==='ask' &&
         <Ask sb={sb} people={people} events={events} tasks={tasks} settings={settings} onOpen={openPerson}
