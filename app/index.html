@@ -3090,6 +3090,341 @@ function Settings({email, settings, people, events, tasks, onSignOut, go}){
   );
 }
 
+/* ===================== Your Network, Decoded =====================
+   Reads kb.decoded back out - never recomputes from a raw archive, never
+   calls an AI, every number here is one buildDecoded() already produced.
+   First visit after an import plays the seven stored chapters plus a live
+   eighth as a slow reveal, one card at a time; every later visit collapses
+   to the same cards stacked and readable at a glance, with "Read it again"
+   to replay. No counting animations anywhere - a number that ticks upward
+   implies a precision the underlying export cannot back. */
+function Sparkline({years}){
+  if(!years || !years.length) return null;
+  const max = Math.max(1, ...years.map(y=>y.count));
+  return (
+    <div className="row" style={{alignItems:'flex-end',gap:3,height:56,marginTop:18}}>
+      {years.map(y=>(
+        <div key={y.year} title={y.year+': '+y.count}
+          style={{flex:1,minWidth:3,height:Math.max(3,Math.round(y.count/max*56)),
+            background:'var(--brand)',borderRadius:2,opacity:y.count?0.85:0.15}}/>
+      ))}
+    </div>
+  );
+}
+/* Reveals a chapter once it scrolls into view, on the first reading only -
+   compact/replay-off mode renders everything shown immediately. */
+function Reveal({firstRead, children}){
+  const ref = useRef(null);
+  const [shown,setShown] = useState(!firstRead);
+  useEffect(()=>{
+    if(!firstRead || shown) return;
+    const el = ref.current; if(!el) return;
+    const io = new IntersectionObserver((entries)=>{
+      entries.forEach(e=>{ if(e.isIntersecting) setShown(true); });
+    }, {threshold:0.3});
+    io.observe(el);
+    return ()=>io.disconnect();
+    // eslint-disable-next-line
+  },[firstRead]);
+  return (
+    <div ref={ref} style={{opacity:shown?1:0, transform:shown?'translateY(0)':'translateY(18px)',
+      transition:'opacity .5s ease, transform .5s ease'}}>{children}</div>
+  );
+}
+function ChapterShell({n, eyebrow, firstRead, children}){
+  return (
+    <Reveal firstRead={firstRead}>
+      <div className="card" style={{padding: firstRead ? '52px 44px' : '24px 26px',
+        marginTop: firstRead ? 20 : 12,
+        minHeight: firstRead ? 'calc(100vh - 200px)' : 'auto',
+        display:'flex', flexDirection:'column', justifyContent:'center'}}>
+        <div className="eyebrow b" style={{color:'var(--brand-ink)'}}>{n}. {eyebrow}</div>
+        <div style={{marginTop:14}}>{children}</div>
+      </div>
+    </Reveal>
+  );
+}
+const GAP = {fontSize:16,color:'var(--body)',marginTop:14,lineHeight:1.65};
+const HEADLINE = {fontSize:'clamp(22px,3.6vw,34px)',fontWeight:800,letterSpacing:'-.03em',lineHeight:1.25,textWrap:'pretty'};
+const SUBHEAD = {fontSize:'clamp(19px,3.2vw,27px)',fontWeight:700,letterSpacing:'-.02em',lineHeight:1.45,textWrap:'pretty'};
+
+function ChapterFrame({data}){
+  if(!data) return null;
+  return (
+    <div>
+      {data.startLabel && <div className="sub">You started building this network in {data.startLabel}.</div>}
+      <div style={{...HEADLINE, marginTop:10}}>
+        {data.total.toLocaleString()} people, across {data.companyCount.toLocaleString()} companies,
+        in {data.positionCount.toLocaleString()} different roles.
+      </div>
+    </div>
+  );
+}
+function ChapterEras({data}){
+  if(!data) return null;
+  if(!data.years.length) return <div style={GAP}>Not enough dated connections to find your eras yet.</div>;
+  const parts = [];
+  if(data.hasEras && data.topEra) parts.push(`Your ${data.topEra.label} years brought ${data.topEra.count.toLocaleString()} people.`);
+  if(data.fastestYear) parts.push(`${data.fastestYear.year} was the fastest your network ever grew - ${data.fastestYear.count.toLocaleString()} in a single year.`);
+  if(data.quietestYear && (!data.fastestYear || data.quietestYear.year!==data.fastestYear.year))
+    parts.push(`The quietest year was ${data.quietestYear.year}: ${data.quietestYear.count.toLocaleString()}.`);
+  return (
+    <div>
+      <div style={SUBHEAD}>{parts.length ? parts.join(' ') : 'Here is every year, in order.'}</div>
+      {!data.hasEras && <div className="meta" style={{marginTop:8}}>No dated positions or education to name these years by - just the counts.</div>}
+      <Sparkline years={data.years}/>
+    </div>
+  );
+}
+function ChapterSleep({data, messagesPresent}){
+  if(!messagesPresent) return <div style={GAP}>Your export did not include messages, so Mighty cannot see which connections ever became conversations.</div>;
+  if(!data) return <div style={GAP}>Mighty could not tell which messages were yours in this export, so it cannot show which connections ever became conversations.</div>;
+  const atLeast = data.approx ? 'At least ' : '';
+  const quietYears = data.medianQuietDays!=null ? Math.round(data.medianQuietDays/365*10)/10 : null;
+  return (
+    <div>
+      <div style={HEADLINE}>
+        {atLeast}{data.never.toLocaleString()} of your {data.total.toLocaleString()} connections
+        have never exchanged a single message with you.
+      </div>
+      {data.quiet>0 &&
+        <div style={GAP}>
+          Another {data.quiet.toLocaleString()} did once, then the thread went quiet
+          {quietYears!=null ? ` - the median silence is now ${quietYears} year${quietYears===1?'':'s'}.` : '.'}
+          {' '}Relationships do not fail loudly.
+        </div>}
+    </div>
+  );
+}
+function ChapterShowUp({data}){
+  if(!data) return <div style={GAP}>Not enough dated conversations in this export to see how you show up.</div>;
+  const fmtGap = (ms)=>{
+    if(ms==null) return null;
+    const hrs = ms/3600000;
+    return hrs<48 ? Math.round(hrs)+' hours' : Math.round(hrs/24)+' days';
+  };
+  const mine = fmtGap(data.myMedianReplyMs), theirs = fmtGap(data.theirMedianReplyMs);
+  return (
+    <div>
+      <div style={HEADLINE}>
+        Across {data.totalThreads.toLocaleString()} conversations, the other person wrote first {data.theyWroteFirstPct}% of the time.
+      </div>
+      <div style={GAP}>
+        {data.iWroteFirstReplyPct!=null && `When you do write first, you get a reply ${data.iWroteFirstReplyPct}% of the time. `}
+        {mine && theirs && `Your median reply takes ${mine}; theirs takes ${theirs}.`}
+      </div>
+    </div>
+  );
+}
+function ChapterCircle({data, savedMap, onOpen, onSave}){
+  const [savingUrls,setSavingUrls] = useState(()=>new Set());
+  if(!data) return <div style={GAP}>Not enough message history to find who kept showing up.</div>;
+  const top = data.top;
+  const longest = top[0];
+  const spanYears = Math.max(1, Math.round((new Date(longest.lastAt)-new Date(longest.firstAt))/(365*DAY)));
+  return (
+    <div>
+      <div style={SUBHEAD}>
+        Your longest-running conversation is with {longest.name}: {longest.msgCount.toLocaleString()} messages across {spanYears} year{spanYears===1?'':'s'}.
+        {data.shareOfWordsPct!=null && ` These five people account for ${data.shareOfWordsPct}% of everything you have ever written here.`}
+      </div>
+      <div className="stack" style={{gap:2,marginTop:18}}>
+        {top.map((p,i)=>{
+          const key = (p.profileUrl||'').replace(/\/$/,'').toLowerCase();
+          const savedRow = (key && savedMap.byUrl[key]) || savedMap.byName[p.name.toLowerCase()] || null;
+          return (
+            <div key={i} className="row" style={{gap:13,padding:'11px 0',borderTop:'1px solid var(--line4)',
+              cursor:savedRow?'pointer':'default'}}
+              onClick={()=>{ if(savedRow) onOpen(savedRow.id); }}>
+              <Avatar name={p.name} size={32} src={savedRow&&savedRow.avatar_url} hover={savedRow||{name:p.name}}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:14.5,fontWeight:700}}>{p.name}</div>
+                <div className="sub" style={{fontSize:13}}>{p.msgCount.toLocaleString()} messages - most messages over the longest stretch</div>
+              </div>
+              {savedRow
+                ? <span style={{fontSize:13.5,fontWeight:700,color:'var(--brand-ink)',flex:'none'}}>Open</span>
+                : (p.profileUrl &&
+                  <button className="btn g sm" style={{flex:'none'}} disabled={savingUrls.has(p.profileUrl)}
+                    onClick={async(e)=>{ e.stopPropagation(); setSavingUrls(s=>new Set(s).add(p.profileUrl));
+                      try{ await onSave({profileUrl:p.profileUrl, name:p.name, why:'One of the people you talk with most'}, 'decoded'); }
+                      finally{ setSavingUrls(s=>{ const n=new Set(s); n.delete(p.profileUrl); return n; }); } }}>
+                    {savingUrls.has(p.profileUrl) ? 'Adding…' : 'Add'}
+                  </button>)}
+            </div>);
+        })}
+      </div>
+      <div className="meta" style={{marginTop:12}}>Aggregates only - counts, dates, direction, name. No message content is stored or shown.</div>
+    </div>
+  );
+}
+const DECODED_FUNCTION_LABEL = {founder:'Founders', engineering:'Engineering', product:'Product',
+  design:'Design', sales:'Sales', marketing:'Marketing', investing:'Investing', clinical:'Clinical',
+  operations:'Operations', finance:'Finance', legal:'Legal', talent:'Talent / HR'};
+function ChapterShape({data}){
+  if(!data) return null;
+  const top3 = data.topCompanies.slice(0,3);
+  const pct = (n)=> data.total ? Math.round(n/data.total*100) : 0;
+  const seniorFrac = data.seniorFraction>0 ? Math.round(1/data.seniorFraction) : null;
+  return (
+    <div>
+      {top3.length>0 &&
+        <div style={SUBHEAD}>
+          Your network clusters hard: {top3.map(c=>`${c.label} (${pct(c.count)}%)`).join(', then ')}.
+        </div>}
+      <div style={GAP}>
+        {seniorFrac && `One in ${seniorFrac} of your connections holds a director-or-above title. `}
+        {data.alumniCount>0 && `You know ${data.alumniCount.toLocaleString()} people at companies you have worked at.`}
+      </div>
+      {data.functions.length>0 &&
+        <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:16}}>
+          {data.functions.map(f=>(
+            <span key={f.key} className="tag" style={{fontSize:12}}>
+              {DECODED_FUNCTION_LABEL[f.key]||f.key} · {f.count.toLocaleString()}
+            </span>))}
+        </div>}
+      <div className="meta" style={{marginTop:14}}>Read straight from titles, not inferred. No geography - your export does not include it.</div>
+    </div>
+  );
+}
+function ChapterDoors({data}){
+  if(!data) return <div style={GAP}>Your export did not include invitation history.</div>;
+  return (
+    <div>
+      <div style={HEADLINE}>You have sent {data.sentTotal.toLocaleString()} invitations and received {data.receivedTotal.toLocaleString()}.</div>
+      <div style={GAP}>
+        {data.acceptancePct!=null && `Of the ones you sent, at least ${data.acceptancePct}% became connections. `}
+        {data.busiestYear && `The year you reached out the most was ${data.busiestYear.year}.`}
+      </div>
+      <Sparkline years={data.years}/>
+    </div>
+  );
+}
+/* Chapter 8 is the one chapter never stored - it is filtered through the
+   goal on file today, not the goal on file at import time, and it reuses
+   the exact ranking (connections_match) Explore and Ask already run, so
+   this is where the reading hands off into the product's real loop. */
+const DECODED_GOAL_SEARCH = {
+  job_search:    {terms:['hiring manager','recruiter','talent acquisition','head of talent'], functionKey:'talent',    toward:'a new job'},
+  raise_funding: {terms:['investor','venture partner','angel investor','venture capital'],     functionKey:'investing',toward:'raising investment'},
+  sales:         {terms:['vp','director','head of','chief'],                                    functionKey:null,       toward:'new customers'},
+  mentors:       {terms:['founder','operator','advisor','ceo'],                                 functionKey:'founder',  toward:'the right mentors'},
+  networking:    {terms:[],                                                                      functionKey:null,       toward:'a stronger network'},
+};
+function ChapterTurn({sb, settings, shape, onSave}){
+  const goal = goalTypeList(settings)[0] || 'networking';
+  const cfg = DECODED_GOAL_SEARCH[goal] || DECODED_GOAL_SEARCH.networking;
+  const ownCos = useMemo(()=>ownCompanies(settings),[settings]);
+  const [rows,setRows] = useState(null);
+  const [savingUrls,setSavingUrls] = useState(()=>new Set());
+  useEffect(()=>{
+    let dead=false;
+    if(!cfg.terms.length){ setRows([]); return ()=>{}; }
+    (async()=>{
+      try{ const r = await matchConnections(sb, cfg.terms, ownCos, 5); if(!dead) setRows(r||[]); }
+      catch(e){ if(!dead) setRows([]); }
+    })();
+    return ()=>{ dead=true; };
+    // eslint-disable-next-line
+  },[sb, goal]);
+  const functionCount = cfg.functionKey && shape ? (shape.functions.find(f=>f.key===cfg.functionKey)||{}).count : null;
+  return (
+    <div>
+      <div style={SUBHEAD}>
+        Toward {cfg.toward}{functionCount ? `: ${functionCount.toLocaleString()} ${functionCount===1?'person':'people'} in this network hold${functionCount===1?'s':''} a title like that.` : '.'}
+      </div>
+      {rows===null && <div className="sub" style={{marginTop:16}}><span className="spin"/> Ranking your network…</div>}
+      {rows!==null && !cfg.terms.length &&
+        <div className="sub" style={{marginTop:16,maxWidth:'56ch'}}>
+          "Build my network" is broad by design - open Ask Mighty or Explore with something specific,
+          and Mighty ranks from the same network this reading just walked through.
+        </div>}
+      {rows!==null && cfg.terms.length>0 && rows.length===0 &&
+        <div className="sub" style={{marginTop:16}}>Nobody unsaved matched that in your network right now.</div>}
+      {rows!==null && rows.length>0 &&
+        <div className="stack" style={{gap:2,marginTop:18}}>
+          {rows.map(c=>(
+            <div key={c.profile_url} className="row" style={{gap:13,padding:'11px 0',borderTop:'1px solid var(--line4)'}}>
+              <Avatar name={connName(c)} size={32} hover={c}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:14.5,fontWeight:700}}>{connName(c)}</div>
+                <div className="sub" style={{fontSize:13}}>{[c.position,c.company].filter(Boolean).join(' · ')||'No headline captured'}</div>
+              </div>
+              <button className="btn g sm" style={{flex:'none'}} disabled={savingUrls.has(c.profile_url)}
+                onClick={async()=>{ setSavingUrls(s=>new Set(s).add(c.profile_url));
+                  try{ await onSave(connToPerson(c), 'decoded'); }
+                  finally{ setSavingUrls(s=>{ const n=new Set(s); n.delete(c.profile_url); return n; }); } }}>
+                {savingUrls.has(c.profile_url) ? 'Adding…' : 'Add'}
+              </button>
+            </div>))}
+        </div>}
+      <div className="meta" style={{marginTop:14}}>Ranked live from your saved goal, excluding anyone already saved.</div>
+    </div>
+  );
+}
+function Decoded({sb, settings, people, onSaveSettings, onSave, onOpen}){
+  const decoded = (settings.knowledge||{}).decoded || null;
+  const [replay,setReplay] = useState(false);
+  /* Locked in at mount, not read from settings on every render - the
+     mark-as-seen write below updates settings.decodedSeen a moment after
+     mount, and re-deriving firstRead from that live value would collapse
+     someone's very first reveal into the compact stack mid-scroll. Which
+     visit this is gets decided once, when the visit starts. */
+  const [firstVisit] = useState(()=>!settings.decodedSeen);
+  const firstRead = replay || firstVisit;
+
+  /* "Seen" flips the moment the reading is opened with data present - there
+     is no scroll-completion event to key off, and the spec's own rule is
+     visit-based ("every later visit"), not completion-based. */
+  useEffect(()=>{
+    if(decoded && !settings.decodedSeen && onSaveSettings) onSaveSettings({decodedSeen:true});
+    // eslint-disable-next-line
+  },[!!decoded]);
+
+  if(!decoded){
+    return (
+      <div className="card" style={{padding:'34px 30px',marginTop:24}}>
+        <div className="h3">Your Network, Decoded</div>
+        <div className="sub" style={{marginTop:7,lineHeight:1.55,maxWidth:520}}>
+          Import your LinkedIn export in Mirror, and Mighty reads back the shape of everything
+          you have built - told honestly, once.
+        </div>
+      </div>);
+  }
+
+  const c = decoded.chapters;
+  const savedMap = (()=>{
+    const byUrl={}, byName={};
+    people.forEach(r=>{
+      if(r.profile_url) byUrl[r.profile_url.replace(/\/$/,'').toLowerCase()] = r;
+      if(r.name) byName[r.name.toLowerCase()] = r;
+    });
+    return {byUrl, byName};
+  })();
+
+  return (
+    <div style={{marginTop:24}}>
+      <div className="row" style={{justifyContent:'space-between',alignItems:'baseline'}}>
+        <div className="eyebrow b" style={{color:'var(--brand-ink)'}}>Your Network, Decoded</div>
+        {!firstRead && <button className="btn q" style={{fontSize:13}} onClick={()=>setReplay(true)}>Read it again</button>}
+      </div>
+      <div>
+        <ChapterShell n={1} eyebrow="The opening frame" firstRead={firstRead}><ChapterFrame data={c.frame}/></ChapterShell>
+        <ChapterShell n={2} eyebrow="The eras" firstRead={firstRead}><ChapterEras data={c.eras}/></ChapterShell>
+        <ChapterShell n={3} eyebrow="The sleep" firstRead={firstRead}><ChapterSleep data={c.sleep} messagesPresent={decoded.messagesPresent}/></ChapterShell>
+        <ChapterShell n={4} eyebrow="How you actually show up" firstRead={firstRead}><ChapterShowUp data={c.showUp}/></ChapterShell>
+        <ChapterShell n={5} eyebrow="The ones who kept showing up" firstRead={firstRead}>
+          <ChapterCircle data={c.circle} savedMap={savedMap} onOpen={onOpen} onSave={onSave}/>
+        </ChapterShell>
+        <ChapterShell n={6} eyebrow="The shape of the room" firstRead={firstRead}><ChapterShape data={c.shape}/></ChapterShell>
+        <ChapterShell n={7} eyebrow="The doors you knocked on" firstRead={firstRead}><ChapterDoors data={c.doors}/></ChapterShell>
+        <ChapterShell n={8} eyebrow="Where this points" firstRead={firstRead}>
+          <ChapterTurn sb={sb} settings={settings} shape={c.shape} onSave={onSave}/>
+        </ChapterShell>
+      </div>
+    </div>
+  );
+}
+
 /* ===================== Patterns =====================
    The wow of a first-day dashboard fades - a page that shows the same numbers
    every visit stops earning the visit. So this reads two ways at once: real
@@ -3099,9 +3434,7 @@ function Settings({email, settings, people, events, tasks, onSignOut, go}){
    counts at the last visit lives in the user's own settings; no server table,
    no new schema, and it costs one write per visit through the same
    saveSettings path everything else already uses. */
-function Patterns({settings, people, onSaveSettings}){
-  const kb = settings.knowledge||{};
-  const msg = kb.messages||null;
+function Patterns({sb, settings, people, onSaveSettings, onSave, onOpen}){
   const reached = people.filter(r=>REACHED.includes(r.status)).length;
   const talked  = people.filter(r=>['replied','coffee_chat','referral','interview','offer'].indexOf(r.status)>=0).length;
   const quiet   = people.filter(r=>r.status==='contacted' && days(r.contacted_at)>=10).length;
@@ -3123,20 +3456,15 @@ function Patterns({settings, people, onSaveSettings}){
 
   /* Every finding here is a real computed number or it does not appear. No
      invented seniority shifts, no percentages the underlying data cannot
-     support - the two candidates below are the ones the schema actually
-     backs today. */
+     support - the candidates below are the ones the schema actually backs
+     today. How you show up in messages lives in the Decoded reading below,
+     not here, now that chapter 4 covers it with the fuller reply-time story. */
   const findings = [];
   if(reached>=3){
     const rate = Math.round(talked/reached*100);
     findings.push({big:rate+'%', body:'of the people you have reached out to have written back. '
       + (rate>=50 ? 'Whatever you are opening with is working.'
                   : 'Most first messages never hear back - that is normal, not a sign to change everything.')});
-  }
-  if(msg && msg.identified && (msg.sent+msg.received)>0){
-    const share = Math.round(msg.sent/(msg.sent+msg.received)*100);
-    findings.push({big:share+'%', body:'of the messages in your export are yours. '
-      + (share>=65 ? 'You write first more often than people write to you.'
-                   : 'More of your history is other people reaching out than you might expect.')});
   }
   if(quiet>0){
     findings.push({big:String(quiet),
@@ -3177,6 +3505,8 @@ function Patterns({settings, people, onSaveSettings}){
               <div style={{fontSize:15,lineHeight:1.55,color:'var(--body)',flex:'1 1 300px'}}>{f.body}</div>
             </div>))}
         </div>}
+
+      <Decoded sb={sb} settings={settings} people={people} onSaveSettings={onSaveSettings} onSave={onSave} onOpen={onOpen}/>
     </div>
   );
 }
@@ -3190,7 +3520,7 @@ const YOU_TABS = [['mirror','Mirror'],['patterns','Patterns'],['goal','Goal'],['
    is what it has noticed. Goal is what the user told it. Account is the
    mechanics. Nothing here is time-sensitive the way Today is - a user comes
    here to update themselves, not to be told what to do next. */
-function You({email, settings, people, events, tasks, tab, setTab, editGoal, setEditGoal, busySave, onSaveSettings, onSignOut, onReimport, go}){
+function You({sb, email, settings, people, events, tasks, tab, setTab, editGoal, setEditGoal, busySave, onSaveSettings, onSignOut, onReimport, onSave, onOpen, go}){
   return (
     <div className="pad fade" style={{maxWidth:1000,paddingTop:34}}>
       <div className="seg">
@@ -3205,7 +3535,7 @@ function You({email, settings, people, events, tasks, tab, setTab, editGoal, set
             <KnowledgeBase settings={settings} onEdit={onReimport}/>
           </div>}
         {tab==='patterns' &&
-          <Patterns settings={settings} people={people} onSaveSettings={onSaveSettings}/>}
+          <Patterns sb={sb} settings={settings} people={people} onSaveSettings={onSaveSettings} onSave={onSave} onOpen={onOpen}/>}
         {tab==='goal' && !editGoal &&
           <StrategyView settings={settings} people={people} onEdit={()=>setEditGoal(true)}/>}
         {tab==='goal' && editGoal &&
@@ -4721,9 +5051,10 @@ function App(){
           plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} go={go}/>}
 
       {screen==='you' &&
-        <You email={auth.user.email} settings={settings} people={people} events={events} tasks={tasks}
+        <You sb={sb} email={auth.user.email} settings={settings} people={people} events={events} tasks={tasks}
           tab={youTab} setTab={setYouTab} editGoal={editGoal} setEditGoal={setEditGoal} busySave={busySave}
-          onSaveSettings={saveSettings} onSignOut={signOut} onReimport={()=>setReimport(true)} go={go}/>}
+          onSaveSettings={saveSettings} onSignOut={signOut} onReimport={()=>setReimport(true)}
+          onSave={savePerson} onOpen={openPerson} go={go}/>}
 
       {screen==='extension' && <Extension/>}
     </Shell>
