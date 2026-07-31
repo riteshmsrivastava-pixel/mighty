@@ -439,9 +439,22 @@ function reportMeta(meta){ try{ if(_onAiMeta && meta) _onAiMeta(meta); }catch(e)
    charges the first call carrying it and nothing after. It contains no name and
    no profile URL, so the ledger stays free of anyone who is not a user. */
 async function llm(sb, feature, system, user, maxTokens, exchangeKey){
-  const {data, error} = await sb.functions.invoke('ai-proxy',
-    {body:{feature, system, user, maxTokens:maxTokens||700, exchangeKey:exchangeKey||null}});
-  if(error) throw error;
+  let data, error;
+  try{
+    ({data, error} = await sb.functions.invoke('ai-proxy',
+      {body:{feature, system, user, maxTokens:maxTokens||700, exchangeKey:exchangeKey||null}}));
+  }catch(e){
+    /* A transport-level failure (offline, CORS, the function itself down) is
+       not the same as ai-proxy answering with a real error - console.error
+       keeps the raw detail for debugging without putting "Failed to fetch"
+       or a stack trace in front of the user. */
+    console.error('ai-proxy transport error', e);
+    throw new Error("Could not reach Mighty's AI right now. Check your connection and try again.");
+  }
+  if(error){
+    console.error('ai-proxy error', error);
+    throw new Error("Could not reach Mighty's AI right now. Check your connection and try again.");
+  }
   if(data && data.meta) reportMeta(data.meta);
   if(!data || data.ok===false){
     if(data && data.error==='rate_limited') reportMeta({plan:data.plan, assistsLeftMonth:0, exhausted:true});
@@ -947,6 +960,16 @@ function buildPlan(people, events, tasks){
       title:(r.ai_draft?'Send your first message to ':'Write to ')+(r.name||'them'),
       sub: r.ai_draft ? 'Draft is written and waiting for your review.' : 'You marked them ready. Mighty can draft it.',
       min: r.ai_draft?4:8, cta: r.ai_draft?'Review & send':'Draft it', go:{screen:'profile', id:r.id, tab:'draft'}});
+  });
+
+  /* Matches the "gone quiet" count buildSnapshot shows in Today's summary
+     sentence and the "Follow up" cta nextAction() already uses elsewhere -
+     without this, the summary could say "3 gone quiet" with zero matching
+     cards below it. */
+  people.filter(r=>r.status==='contacted' && days(r.contacted_at)>=10).forEach(r=>{
+    out.push({id:'quiet-'+r.id, tone:'amber', title:'Follow up with '+(r.name||'them'),
+      sub:'You reached out '+(ago(r.contacted_at)||'a while ago')+' with nothing back yet.',
+      min:5, cta:'Follow up', go:{screen:'profile', id:r.id, tab:'draft'}});
   });
 
   tasks.filter(t=>!t.done).forEach(t=>{
@@ -1821,7 +1844,13 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
                     onDragOver={e=>{ e.preventDefault(); setOver(col.key); }}
                     onDragLeave={()=>setOver(o=>o===col.key?null:o)}
                     onDrop={e=>{ e.preventDefault(); setOver(null);
-                      if(dragId!=null) onStage(people.find(r=>r.id===dragId), col.statuses[0]); setDrag(null); }}>
+                      const person = dragId!=null ? people.find(r=>r.id===dragId) : null;
+                      /* Growing merges referral/interview/offer into one column. Dropping
+                         a card that already belongs there must not force it back to
+                         statuses[0] - that silently downgraded offer/interview to referral
+                         on any imprecise click that the browser read as a drag. */
+                      if(person && col.statuses.indexOf(person.status)<0) onStage(person, col.statuses[0]);
+                      setDrag(null); }}>
                     <div className="row" style={{gap:8,padding:'0 4px 10px'}}>
                       <span className="dot" style={{background:meta.dot}}/>
                       <span style={{fontSize:13,fontWeight:700}}>{col.label||meta.label}</span>
@@ -2035,9 +2064,16 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
   async function copyAndOpen(){
     try{ await navigator.clipboard.writeText(draft); }catch(e){}
     window.open(row.profile_url, '_blank', 'noopener');
+    /* Only the very first outreach auto-transitions the stage. But every send
+       needs its own event logged, not just the first - buildPlan's "Reply to
+       X" Today task only clears once a first_message/note lands after the
+       last reply, and that never happened for anyone already past the first
+       message, so the task could never be cleared by actually replying. */
     if(row.status!=='contacted' && REACHED.indexOf(row.status)<0){
       await onStage(row, 'contacted');
       await onEvent(row, 'first_message', draft.slice(0,400));
+    } else {
+      await onEvent(row, 'note', 'Sent: '+draft.slice(0,380));
     }
     track('draft_copied', {stage: row.status});
     flash('Copied. Paste it, read it once more, then click Send yourself.');
@@ -2466,7 +2502,13 @@ function Ask({sb, people, events, tasks, settings, onOpen, onSave, initialQuesti
     setLog(l=>l.concat([entry]));
     const settle = (a, ppl)=>setLog(l=>l.map(x=>x===entry?{...x, a, people:ppl||[]}:x));
 
-    const saved = people.slice(0,60);
+    /* people is ordered most-recently-saved first. Truncating in that order
+       silently drops exactly the contacts a "Who have I forgotten?" question
+       is meant to surface - the long-untouched ones. Sort by staleness
+       (oldest activity first) before capping, so those survive the cut. */
+    const saved = [...people]
+      .sort((a,b)=>(days(b.updated_at||b.shortlisted_at)||0)-(days(a.updated_at||a.shortlisted_at)||0))
+      .slice(0,60);
     /* Free, local keyword extraction - not the paid "tagging" LLM feature.
        Ask Mighty is priced at zero specifically so asking never costs an
        Assist; calling a paid feature here would quietly break that. */
