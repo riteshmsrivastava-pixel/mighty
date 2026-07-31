@@ -1326,7 +1326,13 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
   const [suggBusy,setSB]   = useState(true);
   const [mine,setMine]     = useState(null);
   const [mineBusy,setMB]   = useState(false);
-  const [savingUrl,setSaving] = useState(null);
+  /* A Set, not a single value - saving is a shared state across every row
+     on screen (worth-adding + web search results can both be visible at
+     once), and one scalar meant starting a second save cleared the first
+     row's in-flight flag early, re-enabling its Add button mid-request. */
+  const [savingUrls,setSavingUrls] = useState(()=>new Set());
+  const startSaving = (url)=>setSavingUrls(s=>new Set(s).add(url));
+  const stopSaving = (url)=>setSavingUrls(s=>{ const n=new Set(s); n.delete(url); return n; });
 
   /* ---- LinkedIn, the fallback for someone not in the user's own network ---- */
   const [webOpen,setWebOpen] = useState(false);
@@ -1451,9 +1457,9 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
           {saved
             ? <button className="btn g sm" onClick={()=>onOpen(saved.id)}>Open</button>
             : <F>
-                <button className="btn sm" disabled={atCap || savingUrl===c.profile_url}
-                  onClick={async()=>{ setSaving(c.profile_url); await onSave(connToPerson(c), 'own_network'); setSaving(null); }}>
-                  {savingUrl===c.profile_url ? <span><span className="spin"/> Adding</span> : 'Add'}
+                <button className="btn sm" disabled={atCap || savingUrls.has(c.profile_url)}
+                  onClick={async()=>{ startSaving(c.profile_url); await onSave(connToPerson(c), 'own_network'); stopSaving(c.profile_url); }}>
+                  {savingUrls.has(c.profile_url) ? <span><span className="spin"/> Adding</span> : 'Add'}
                 </button>
                 <button className="btn q" style={{fontSize:13}}
                   onClick={()=>setSugg(s=>(s||[]).filter(x=>x.profile_url!==c.profile_url))}>Skip</button>
@@ -1706,9 +1712,9 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
                         : <F>
                             <button className="btn g sm" style={{color:'var(--sub)'}}
                               onClick={()=>setSkip(s=>({...s,[r.profileUrl]:true}))}>Skip</button>
-                            <button className="btn sm" disabled={atCap || savingUrl===r.profileUrl}
-                              onClick={async()=>{ setSaving(r.profileUrl); await onSave(r, lastQuery); setSaving(null); }}>
-                              {savingUrl===r.profileUrl ? <span><span className="spin"/> Adding</span> : 'Add'}
+                            <button className="btn sm" disabled={atCap || savingUrls.has(r.profileUrl)}
+                              onClick={async()=>{ startSaving(r.profileUrl); await onSave(r, lastQuery); stopSaving(r.profileUrl); }}>
+                              {savingUrls.has(r.profileUrl) ? <span><span className="spin"/> Adding</span> : 'Add'}
                             </button>
                           </F>}
                     </div>
@@ -2009,6 +2015,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
   ].filter(Boolean).join('\n');
 
   async function makeBrief(){
+    if(busy) return;
     if(!profileRead){
       setErr('Mighty has not read this profile yet, so a brief would be guesswork dressed up as research. '
         + 'Open their LinkedIn profile once with the extension running, then come back.');
@@ -2176,7 +2183,8 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
         </button>
         <a className="btn g sm" href={row.profile_url} target="_blank" rel="noopener noreferrer">LinkedIn</a>
         {row.status!=='offer' && row.status!=='do_not_contact' &&
-          <button className="btn g sm" onClick={()=>onStage(row, nextStage)}>
+          <button className="btn g sm" disabled={!!busy}
+            onClick={()=>{ setBusy('stage'); Promise.resolve(onStage(row, nextStage)).finally(()=>setBusy(null)); }}>
             Move to {(STAGE[nextStage]||{}).label}
           </button>}
         {toast && <span style={{fontSize:13.5,fontWeight:600,color:'var(--green)'}}>{toast}</span>}
@@ -2376,7 +2384,8 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                   value={draft} onChange={e=>setDraft(e.target.value)}/>
                 <div className="row" style={{gap:10,marginTop:16,flexWrap:'wrap'}}>
                   <button className="btn sm" onClick={copyAndOpen}>Copy &amp; open LinkedIn</button>
-                  <button className="btn g sm" onClick={()=>onUpdate(row,{ai_draft:draft}).then(()=>flash('Saved'))}>Save draft</button>
+                  <button className="btn g sm" disabled={!!busy}
+                    onClick={()=>{ setBusy('save'); onUpdate(row,{ai_draft:draft}).then(()=>flash('Saved')).finally(()=>setBusy(null)); }}>Save draft</button>
                   <button className="btn g sm" onClick={makeDraft} disabled={busy==='draft'||takesLeft<=0}>
                     {busy==='draft'?<span><span className="spin"/> Rewriting</span>
                       : takesLeft<=0 ? 'No takes left' : 'Rewrite'}
@@ -2458,7 +2467,13 @@ function Ask({sb, people, events, tasks, settings, onOpen, onSave, initialQuesti
   const [log,setLog] = useState([]);
   const [busy,setBusy] = useState(false);
   const [total,setTotal] = useState(null);
-  const [saving,setSaving] = useState(null);
+  /* Set, not a single value - the same fix as Explore's savingUrls, for the
+     same reason: multiple wider-network people can appear across different
+     answers on screen at once, and a scalar lets a second Save click clear
+     the first one's in-flight flag early. */
+  const [savingUrls,setSavingUrls] = useState(()=>new Set());
+  const startSaving = (url)=>setSavingUrls(s=>new Set(s).add(url));
+  const stopSaving = (url)=>setSavingUrls(s=>{ const n=new Set(s); n.delete(url); return n; });
   const ownCos = useMemo(()=>ownCompanies(settings),[settings]);
   const PROMPTS = ['Who should I reach out to today?','Who have I forgotten?',
     'Which follow-ups are due?','Who is worth a coffee chat?'];
@@ -2598,9 +2613,9 @@ function Ask({sb, people, events, tasks, settings, onOpen, onSave, initialQuesti
                             <span className="meta" style={{marginLeft:8,fontWeight:600}}>not saved</span></div>
                           <div className="sub" style={{fontSize:13}}>{p.note}</div>
                         </div>
-                        <button className="btn g sm" style={{flex:'none'}} disabled={saving===p.row.profileUrl}
-                          onClick={async()=>{ setSaving(p.row.profileUrl); await onSave(p.row,'ask_mighty'); setSaving(null); }}>
-                          {saving===p.row.profileUrl ? 'Saving…' : 'Save'}
+                        <button className="btn g sm" style={{flex:'none'}} disabled={savingUrls.has(p.row.profileUrl)}
+                          onClick={async()=>{ startSaving(p.row.profileUrl); await onSave(p.row,'ask_mighty'); stopSaving(p.row.profileUrl); }}>
+                          {savingUrls.has(p.row.profileUrl) ? 'Saving…' : 'Save'}
                         </button>
                       </div>
                     )))}
@@ -3089,7 +3104,8 @@ function You({email, settings, people, events, tasks, tab, setTab, editGoal, set
     <div className="pad fade" style={{maxWidth:1000,paddingTop:34}}>
       <div className="seg">
         {YOU_TABS.map(([k,label])=>(
-          <button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)}>{label}</button>))}
+          <button key={k} className={tab===k?'on':''}
+            onClick={()=>{ if(k!==tab) setEditGoal(false); setTab(k); }}>{label}</button>))}
       </div>
       <div style={{marginTop:28}}>
         {tab==='mirror' &&
@@ -4116,7 +4132,14 @@ function App(){
   function go(target){
     if(!target) return;
     if(target.screen==='profile' && target.id!=null){ setPersonId(target.id); setTab(target.tab||'overview'); }
-    if(target.screen==='you'){ setEditGoal(false); setYouTab(target.tab||'mirror'); }
+    if(target.screen==='you'){
+      const t = target.tab||'mirror';
+      /* Re-clicking "Goal" in the sidebar while mid-edit used to silently
+         discard whatever was typed and not yet saved. Only reset edit mode
+         when actually leaving the goal tab, not when landing on it again. */
+      if(!(t==='goal' && youTab==='goal' && editGoal)) setEditGoal(false);
+      setYouTab(t);
+    }
     if(target.screen==='relationships' && target.view){ setRelView(target.view); }
     if(target.screen==='ask' && target.ask){ setAskDraft(target.ask); }
     if(target.screen!=='profile') setPersonId(null);
@@ -4145,13 +4168,24 @@ function App(){
     return <Onboarding sb={sb} user={auth.user} settings={settings}
       onSave={saveSettings} onDone={()=>go({screen:'relationships'})}/>;
 
-  const signOut = async()=>{ await sb.auth.signOut(); window.location.href='../'; };
+  const signOut = async()=>{
+    try{ await sb.auth.signOut(); }
+    catch(e){ /* local session is what matters for leaving the app - a failed
+      server-side signOut call should not strand the user on a click that
+      visibly did nothing. */ }
+    window.location.href='../';
+  };
 
   return (
     <Shell screen={screen} relView={relView} youTab={youTab} boardOK={canSee('board',people,events)}
       timelineOK={canSee('timeline',people,events)} go={go} savedCount={people.length}
       email={auth.user.email} onSignOut={signOut} aiMeta={aiMeta}>
-      {err && <div className="banner warn" style={{margin:'20px 48px 0'}}>{err}</div>}
+      {err &&
+        <div className="banner warn" style={{margin:'20px 48px 0',display:'flex',gap:14,alignItems:'flex-start',justifyContent:'space-between'}}>
+          <span>{err}</span>
+          <button onClick={()=>setErr(null)} aria-label="Dismiss"
+            style={{flex:'none',background:'none',border:'none',cursor:'pointer',fontSize:16,lineHeight:1,color:'inherit',padding:0}}>&times;</button>
+        </div>}
 
       {/* Guard, not just a hidden tab: a reload can restore screen='today' from
           before the last person was deleted, and a screen with no nav entry is
