@@ -852,20 +852,33 @@ function KbTimeline({positions, education}){
         <span className="meta">{(positions||[]).length} role{(positions||[]).length===1?'':'s'}, {(education||[]).length} school{(education||[]).length===1?'':'s'}</span>
       </div>
       <div style={{marginTop:14,display:'grid',gridTemplateColumns:'140px 1fr',rowGap:6,columnGap:14}}>
-        {rows.map(r=>(
+        {rows.map(r=>{
+          const w = Math.max(2.5, pct(r.ty)-pct(r.fy));
+          /* A short role/degree gets a narrow bar - too narrow to hold its
+             own label without clipping into unreadable fragments ("Fou",
+             "Ser"). Below this width the label moves outside the bar
+             instead of being crammed and cut off inside it. */
+          const narrow = w < 14;
+          const tip = [r.title,r.sub].filter(Boolean).join(', ')+' · '+(r.from||'?')+' - '+(r.to||'now');
+          return (
           <F key={r.key}>
             <div style={{fontSize:12.5,color:'var(--sub)',alignSelf:'center',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}
               title={[r.title,r.sub].filter(Boolean).join(', ')}>{r.sub||r.title}</div>
             <div style={{position:'relative',height:26}}>
-              <div title={[r.title,r.sub].filter(Boolean).join(', ')+' · '+(r.from||'?')+' - '+(r.to||'now')}
-                style={{position:'absolute',left:pct(r.fy)+'%',width:Math.max(2.5,pct(r.ty)-pct(r.fy))+'%',
-                  top:2,height:22,borderRadius:6,display:'flex',alignItems:'center',padding:'0 8px',
-                  fontSize:10.5,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',boxSizing:'border-box',
+              <div title={tip}
+                style={{position:'absolute',left:pct(r.fy)+'%',width:w+'%',
+                  top:2,height:22,borderRadius:6,boxSizing:'border-box',
+                  display: narrow ? 'block' : 'flex',alignItems:'center',padding: narrow?0:'0 8px',
+                  fontSize:10.5,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',
                   background: r.kind==='edu' ? 'transparent' : 'var(--brand-soft2)',
                   border: r.kind==='edu' ? '1.5px dashed #C9C2F0' : '1px solid #E4E0F7',
-                  color:'var(--brand-ink)'}}>{r.title}</div>
+                  color:'var(--brand-ink)'}}>{narrow?'':r.title}</div>
+              {narrow &&
+                <div title={tip} style={{position:'absolute',left:'calc('+(pct(r.fy)+w)+'% + 6px)',top:2,
+                  height:22,display:'flex',alignItems:'center',fontSize:10.5,fontWeight:600,
+                  whiteSpace:'nowrap',overflow:'hidden',maxWidth:'55%',color:'var(--brand-ink)'}}>{r.title}</div>}
             </div>
-          </F>))}
+          </F>);})}
         <div/>
         <div style={{position:'relative',height:16}}>
           {gridYears.map(y=>(
@@ -1164,11 +1177,9 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
             {snap.delta && <F> {snap.delta}.</F>}
           </div>}
 
-        <div className="row" style={{justifyContent:'space-between',alignItems:'baseline',marginTop:22,gap:12,flexWrap:'wrap'}}>
-          <div className="eyebrow b">Today's {plan.length===1?'one':plan.length}</div>
-          {people.length>0 &&
-            <div className="meta">{snap.added} added · {snap.talking} conversation{snap.talking===1?'':'s'} started</div>}
-        </div>
+        {/* The sentence above already says "N added, N conversations started" -
+            repeating it here in the section header was pure duplication. */}
+        <div className="eyebrow b" style={{marginTop:22}}>Today's {plan.length===1?'one':plan.length}</div>
 
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:14,marginTop:12}}>
           {plan.map(t=>(
@@ -1553,7 +1564,7 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
   const GROUPS = [
     {key:'reply',   label:'Reply needed',           test:r=>needsReply(r, byLog)},
     {key:'ready',   label:'Ready to reach out',     test:r=>r.status==='ready_to_contact'},
-    {key:'saved',   label:'Saved, not reached out', test:r=>r.status==='prospect'},
+    {key:'saved',   label:'Not reached out yet',    test:r=>r.status==='prospect'},
     {key:'waiting', label:'Reached out, waiting',   test:r=>r.status==='contacted' && days(r.contacted_at)<10},
     {key:'quiet',   label:'Gone quiet',             test:r=>r.status==='contacted' && days(r.contacted_at)>=10},
     {key:'talking', label:'In conversation',        test:r=>['replied','coffee_chat','referral','interview','offer'].indexOf(r.status)>=0 && !needsReply(r, byLog)},
