@@ -12,6 +12,11 @@
 //      is retained for a profile the student merely browsed past.
 //   4. Passively OBSERVE the real Send/Connect click (never calls .click() ourselves)
 //      and log a confirmed send.
+//   6. Passively read the messaging inbox, the notifications feed, and (Premium only)
+//      the who's-viewed-your-profile page - never pages this script opens itself, only
+//      ones the student is already on. Tells the app about a reply, an accepted
+//      connection request, or a profile view; never reads message content. Full design:
+//      mighty-plan/reply-detection-spec.md.
 //
 // LinkedIn's DOM changes without notice and isn't verifiable from this dev
 // environment. If shortlisting or send-detection breaks, inspect the live
@@ -841,6 +846,142 @@ function wireSendObserver() {
   }, true);
 }
 
+/* ---------- 6. passive activity detection (reply / connection-accepted / profile-viewed) ----------
+   Three pages the student is already on for reasons that have nothing to do with MIghTy -
+   the messaging inbox, the notifications feed, and (Premium only) who's-viewed-your-profile.
+   Reads what's already rendered and tells the app what it says; never opens any of these
+   pages itself (no timer, no background tab, no tab that closes itself - see the spec's own
+   reasoning for why that line matters), never clicks anything on LinkedIn's side, never reads
+   message content. Matching runs here rather than in the web app because this script already
+   has the student's own outreach_log cached via fetchLogCached() for the sidebar's scoring -
+   a certain match ships with a resolved profile URL; an ambiguous one ships every candidate
+   and lets the app ask rather than guess. Selectors confirmed against a real, Premium-active
+   account on 31 Jul 2026 - LinkedIn's frontend shifts over time, so if this stops finding
+   anything, re-inspect the live page and fix ONLY the selectors below. */
+const NOTIFICATIONS_PAGE_RE = /^\/notifications\/?/;
+const MESSAGING_PAGE_RE = /^\/messaging(\/|$)/;
+const PROFILE_VIEWS_PAGE_RE = /^\/analytics\/profile-views\/?/;
+
+function normLinkedInProfileUrl(href) {
+  try {
+    const u = new URL(href, location.href);
+    return ('https://www.linkedin.com' + decodeURIComponent(u.pathname)).replace(/\/$/, '');
+  } catch (e) { return null; }
+}
+
+// A match is certain or it is a question, never a guess presented as a fact - the one rule
+// the spec draws a hard line on. profileUrl match is certain by construction. Name-only match
+// is certain only when exactly one candidate shares it; more than one comes back ambiguous
+// with every candidate listed, never silently picked. No match (including someone still
+// 'prospect', who this student never messaged) returns null and gets discarded upstream.
+function matchAgainstLog(log, entity, statuses) {
+  const rows = (log || []).filter(r => statuses.indexOf(r.status) >= 0);
+  if (entity.profileUrl) {
+    const hit = rows.find(r => r.profile_url === entity.profileUrl);
+    if (hit) return { confidence: 'certain', matchedProfileUrl: hit.profile_url, candidates: [] };
+  }
+  if (!entity.name) return null;
+  const n = entity.name.trim().toLowerCase();
+  const hits = rows.filter(r => (r.name || '').trim().toLowerCase() === n);
+  if (hits.length === 1) return { confidence: 'certain', matchedProfileUrl: hits[0].profile_url, candidates: [] };
+  if (hits.length > 1) return { confidence: 'ambiguous', matchedProfileUrl: null, candidates: hits.map(r => r.profile_url) };
+  return null;
+}
+
+// In-memory only, per tab load - a fresh reload naturally lets a still-unread item be seen
+// again, which is fine: the app's own dedup (a matching event within the last hour/day) is
+// what actually prevents a duplicate log entry, this is just cheap noise reduction.
+const pushedActivityKeys = new Set();
+function pushActivityOnce(kind, key, payload) {
+  const k = kind + ':' + key;
+  if (pushedActivityKeys.has(k)) return;
+  pushedActivityKeys.add(k);
+  send('pushInbox', { kind, payload });
+}
+
+async function scanNotificationsForActivity() {
+  if (!NOTIFICATIONS_PAGE_RE.test(location.pathname)) return;
+  try {
+    const cards = document.querySelectorAll('article.nt-card.nt-card--unread');
+    if (!cards.length) return;
+    const r = await fetchLogCached();
+    if (!r || !r.ok) return;
+    cards.forEach(card => {
+      const text = card.textContent.replace(/\s+/g, ' ').trim();
+      const anchor = card.querySelector('a[href*="/in/"]');
+      const profileUrl = anchor ? normLinkedInProfileUrl(anchor.getAttribute('href')) : null;
+      const name = anchor ? anchor.textContent.replace(/\s+/g, ' ').trim().split('•')[0].trim() : null;
+      if (!name && !profileUrl) return;
+
+      if (/sent you a message/i.test(text)) {
+        const m = matchAgainstLog(r.log, { name, profileUrl }, ['contacted', 'ready_to_contact']);
+        if (!m) return;
+        pushActivityOnce('reply_detected', profileUrl || name, Object.assign(
+          { name, profileUrl, notificationText: text.slice(0, 200), source: 'notifications' }, m));
+      } else if (/accepted your invitation|is now a connection/i.test(text)) {
+        const m = matchAgainstLog(r.log, { name, profileUrl }, ['contacted']);
+        if (!m) return;
+        pushActivityOnce('connection_accepted', profileUrl || name, Object.assign(
+          { name, profileUrl, notificationText: text.slice(0, 200) }, m));
+      }
+    });
+  } catch (e) { /* selectors likely drifted - see section 6 comment above */ }
+}
+
+async function scanMessagingForActivity() {
+  if (!MESSAGING_PAGE_RE.test(location.pathname)) return;
+  try {
+    const items = document.querySelectorAll('li.msg-conversation-listitem');
+    const unread = Array.from(items).filter(li =>
+      li.querySelector('.notification-badge.notification-badge--show .notification-badge__count'));
+    if (!unread.length) return;
+    const r = await fetchLogCached();
+    if (!r || !r.ok) return;
+    unread.forEach(li => {
+      const nameEl = li.querySelector('[class*="participant-names"]');
+      const name = nameEl ? nameEl.textContent.replace(/\s+/g, ' ').trim() : null;
+      if (!name) return;
+      // Notifications already carries any reply that also showed up there, matched on a real
+      // profile URL - this is the weaker, name-only fallback for one that didn't (LinkedIn
+      // doesn't always notify, or the student cleared it before the extension saw it).
+      const m = matchAgainstLog(r.log, { name, profileUrl: null }, ['contacted', 'ready_to_contact']);
+      if (!m) return;
+      const snippetEl = li.querySelector('[class*="message-snippet"]');
+      const previewText = snippetEl ? snippetEl.textContent.replace(/\s+/g, ' ').trim().slice(0, 140) : '';
+      pushActivityOnce('reply_detected', 'msg:' + name, Object.assign(
+        { name, previewText, source: 'messaging' }, m));
+    });
+  } catch (e) { /* selectors likely drifted - see section 6 comment above */ }
+}
+
+async function scanProfileViewsForActivity() {
+  if (!PROFILE_VIEWS_PAGE_RE.test(location.pathname)) return;
+  try {
+    const anchors = document.querySelectorAll('a[href^="https://www.linkedin.com/in/"]');
+    if (!anchors.length) return;
+    const r = await fetchLogCached();
+    if (!r || !r.ok) return;
+    const seen = new Set();
+    anchors.forEach(a => {
+      const profileUrl = normLinkedInProfileUrl(a.getAttribute('href'));
+      if (!profileUrl || seen.has(profileUrl)) return;
+      const row = a.closest('li') || a.parentElement;
+      if (!row || !/Viewed\s+.+\s+ago/i.test(row.textContent || '')) return;
+      seen.add(profileUrl);
+      // Any saved person, any status - a profile view is context, not pipeline progress, so
+      // this deliberately does not gate on 'contacted' the way the other two signals do.
+      const hit = (r.log || []).find(x => x.profile_url === profileUrl);
+      if (!hit) return;
+      const label = (row.textContent.match(/Viewed\s+(.+?)\s+ago/i) || [])[1];
+      pushActivityOnce('profile_viewed', profileUrl, {
+        name: hit.name || a.textContent.split('•')[0].trim(),
+        profileUrl,
+        viewedAt: label ? label + ' ago' : null,
+      });
+    });
+  } catch (e) { /* selectors likely drifted - see section 6 comment above */ }
+}
+
 /* ---------- 5. "Search anywhere" import from a Google results page ----------
    The student runs a normal Google search (MIghTy's "Find people" box opens
    one scoped to LinkedIn profiles). On the results page they're already viewing,
@@ -989,7 +1130,12 @@ function scan() {
   lastUrl = location.href;
   setTimeout(() => {
     try {
-      if (IS_LINKEDIN) { renderCardCheckboxes(); wireComposeFill(); captureProfileContext(); renderProfileSidebar(); wireSendObserver(); }
+      if (IS_LINKEDIN) {
+        renderCardCheckboxes(); wireComposeFill(); captureProfileContext(); renderProfileSidebar(); wireSendObserver();
+        // Async, deliberately not awaited here - each has its own try/catch and just posts to
+        // outreach_inbox in the background when it finds something. Never blocks page render.
+        scanNotificationsForActivity(); scanMessagingForActivity(); scanProfileViewsForActivity();
+      }
       else if (IS_GOOGLE) { renderGoogleImportPanel(); }
     }
     catch (e) { /* selectors likely drifted - see SELECTORS comment above */ }

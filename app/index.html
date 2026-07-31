@@ -330,6 +330,23 @@ function Avatar({name, size, src, hover}){
     </span>
   );
 }
+/* Real, visible movement for an accepted connection request without a new pipeline stage - the
+   spec's own decided design. Reads context.connectionAccepted, set by ingest()'s reply_detected/
+   connection_accepted branch (or resolveAmbiguousActivity) once the extension's own match on
+   LinkedIn's notifications feed came back certain. */
+function ConnectedBadge({r, size}){
+  if(!r || !(r.context||{}).connectionAccepted) return null;
+  const sm = size==='sm';
+  return (
+    <span title="Accepted your connection request" style={{display:'inline-flex',alignItems:'center',gap:3,
+      background:'var(--green-soft)',color:'var(--green)',fontWeight:700,borderRadius:999,flex:'none',
+      fontSize:sm?10:11,padding:sm?'2px 7px':'3px 9px'}}>
+      <svg width={sm?8:9} height={sm?8:9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5"
+        strokeLinecap="round" strokeLinejoin="round"><path d="m4 12.5 5 5L20 6.5"/></svg>
+      Connected
+    </span>
+  );
+}
 function Empty({title, body, cta, onCta, disabled}){
   return (
     <div className="card" style={{padding:'34px 30px'}}>
@@ -1111,7 +1128,8 @@ function buildSnapshot(people, events, tasks, settings, plan){
   return {added, contactedOrBeyond, talking, met, waiting, quiet, nearCap, cap, delta, shouldResnapshot};
 }
 
-function Today({people, events, tasks, settings, email, go, onToggleTask, doneToday, onSaveSettings, plan:aiPlan}){
+function Today({people, events, tasks, settings, email, go, onToggleTask, doneToday, onSaveSettings, plan:aiPlan,
+  pendingActivity, onResolveActivity}){
   const plan = useMemo(()=>buildPlan(people, events, tasks), [people, events, tasks]);
   const mins = plan.reduce((a,t)=>a+(t.min||0),0);
   /* preferredName is read here but nothing anywhere ever sets it - this
@@ -1189,6 +1207,38 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
             {snap.quiet>0 && <F> {snap.quiet} gone quiet.</F>}
             {snap.nearCap && <F> You are at {snap.added} of {snap.cap} relationships on your plan.</F>}
             {snap.delta && <F> {snap.delta}.</F>}
+          </div>}
+
+        {/* Ambiguous reply/accept matches ingest() deliberately did not guess at - two or more
+           saved people share the name the extension read off LinkedIn. Small, time-boxed, easy
+           to skip, per the spec: this is the one new UI surface passive detection needed. */}
+        {pendingActivity && pendingActivity.length>0 &&
+          <div className="stack" style={{gap:10,marginTop:20}}>
+            {pendingActivity.map(row=>{
+              const p = row.payload||{};
+              const candidates = (p.candidates||[]).map(url=>people.find(x=>x.profile_url===url)).filter(Boolean);
+              if(!candidates.length) return null;
+              const verb = row.kind==='reply_detected' ? 'replied to you' : 'accepted your invitation to connect';
+              return (
+                <div key={row.id} className="card" style={{padding:'16px 20px',display:'flex',gap:14,
+                  alignItems:'center',flexWrap:'wrap',background:'var(--brand-soft)',borderColor:'var(--brand-line)'}}>
+                  <div style={{flex:'1 1 240px',minWidth:0}}>
+                    <div style={{fontSize:14.5,fontWeight:700,color:'var(--ink)'}}>
+                      Someone named {p.name||'a saved connection'} {verb} on LinkedIn - which one?
+                    </div>
+                    <div className="sub" style={{fontSize:13,marginTop:2}}>
+                      More than one saved person shares that name.
+                    </div>
+                  </div>
+                  <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+                    {candidates.map(c=>(
+                      <button key={c.id} className="btn sm" onClick={()=>onResolveActivity(row, c.profile_url)}>
+                        {c.name}{c.company?' · '+c.company:''}
+                      </button>))}
+                    <button className="btn q" style={{fontSize:13}} onClick={()=>onResolveActivity(row, null)}>Neither</button>
+                  </div>
+                </div>);
+            })}
           </div>}
 
         {/* The sentence above already says "N added, N conversations started" -
@@ -1555,7 +1605,10 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
           background: hot ? '#FBEFE9' : 'none'}}>
         <Avatar name={r.name} size={34} src={r.avatar_url} hover={r}/>
         <div style={{flex:'1 1 220px',minWidth:0}}>
-          <div style={{fontSize:15.5,fontWeight:700,letterSpacing:'-.01em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.name||'Unnamed'}</div>
+          <div className="row" style={{gap:7}}>
+            <div style={{fontSize:15.5,fontWeight:700,letterSpacing:'-.01em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.name||'Unnamed'}</div>
+            <ConnectedBadge r={r} size="sm"/>
+          </div>
           <div style={{fontSize:13,color:'var(--mute)',marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.title||(r.context||{}).whySaved||'Saved profile'}</div>
         </div>
         <div className="meta" style={{flex:'none'}}>{ago(r.updated_at||r.shortlisted_at)}</div>
@@ -1958,7 +2011,10 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
                           <div className="row" style={{gap:10}}>
                             <Avatar name={r.name} size={28} src={r.avatar_url} hover={r}/>
                             <div style={{minWidth:0}}>
-                              <div style={{fontSize:14.5,fontWeight:700,letterSpacing:'-.01em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.name||'Unnamed'}</div>
+                              <div className="row" style={{gap:6}}>
+                                <div style={{fontSize:14.5,fontWeight:700,letterSpacing:'-.01em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.name||'Unnamed'}</div>
+                                <ConnectedBadge r={r} size="sm"/>
+                              </div>
                               <div style={{fontSize:12.5,color:'var(--mute)',marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.title||''}</div>
                             </div>
                           </div>
@@ -2258,7 +2314,10 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
             </button>}
         </div>
         <div style={{flex:'1 1 200px',minWidth:0}}>
-          <h2 className="h2">{row.name||'Unnamed'}</h2>
+          <div className="row" style={{gap:10,flexWrap:'wrap'}}>
+            <h2 className="h2">{row.name||'Unnamed'}</h2>
+            <ConnectedBadge r={row}/>
+          </div>
           <div className="sub" style={{marginTop:2}}>{row.title||'No headline captured'}</div>
         </div>
         <span className="pill" style={{background:st.bg,color:st.fg,padding:'7px 15px',fontSize:13}}>{st.label}</span>
@@ -4738,6 +4797,9 @@ function App(){
   const [people,setPeople] = useState([]);
   const [events,setEvents] = useState([]);
   const [tasks,setTasks] = useState([]);
+  /* Ambiguous reply_detected / connection_accepted rows ingest() deliberately left in
+     outreach_inbox rather than guessing - see the comment in ingest() itself. */
+  const [pendingActivity,setPendingActivity] = useState([]);
   const [screen,setScreen] = useState('today');
   const [personId,setPersonId] = useState(null);
   const [tab,setTab] = useState('overview');
@@ -4779,7 +4841,7 @@ function App(){
       setBlob((data && data.data) ? data.data : {});
     }catch(e){ setBlob({}); setErr('Could not load your strategy. Working from a blank one.'); }
     await ingest(u);
-    await Promise.all([refreshPeople(u), refreshEvents(u), refreshTasks(u)]);
+    await Promise.all([refreshPeople(u), refreshEvents(u), refreshTasks(u), refreshPendingActivity(u)]);
   }
 
   /* Drain whatever the extension pushed into outreach_inbox. profile_context is
@@ -4791,9 +4853,14 @@ function App(){
         .eq('user_id',u.id).order('created_at',{ascending:true});
       if(error || !data || !data.length) return 0;
       const consumed = [];
+      /* reply_detected and connection_accepted carry a resolved profileUrl only when the
+         extension's own match was certain - an ambiguous one has no single profileUrl, only a
+         list of candidates, and is exactly the case that should NOT be discarded here. Everything
+         else keeps the old "no profileUrl, nothing to do" shortcut. */
+      const ACTIVITY_KINDS = ['reply_detected','connection_accepted','profile_viewed'];
       for(const row of data){
         const p = row.payload||{};
-        if(!p.profileUrl){ consumed.push(row.id); continue; }
+        if(!p.profileUrl && ACTIVITY_KINDS.indexOf(row.kind)<0){ consumed.push(row.id); continue; }
         try{
           const nowIso = new Date().toISOString();
           if(row.kind==='sent_confirmation'){
@@ -4834,6 +4901,51 @@ function App(){
               if(Array.isArray(p.timingSignals) && p.timingSignals.length) next.timingSignals = p.timingSignals;
               await sb.from('outreach_log').update({context:next, updated_at:nowIso}).eq('id',existing.id);
             }
+          } else if(row.kind==='reply_detected' || row.kind==='connection_accepted'){
+            /* The extension already did the matching (it has the same outreach_log cached for
+               its own sidebar scoring) - certain ships with matchedProfileUrl, ambiguous ships
+               candidates and nothing else. A certain match here is exactly what markReplied()
+               already does by hand; an ambiguous one is left in outreach_inbox on purpose - not
+               pushed to consumed - so it survives as a pending prompt for resolveAmbiguousActivity
+               to answer, instead of being silently guessed at or silently dropped. */
+            if(p.confidence==='certain' && p.matchedProfileUrl){
+              const {data:existing} = await sb.from('outreach_log').select('id,status,context')
+                .eq('user_id',u.id).eq('profile_url',p.matchedProfileUrl).maybeSingle();
+              if(existing){
+                if(row.kind==='reply_detected'){
+                  const cutoff = new Date(Date.now()-60*60*1000).toISOString();
+                  const {data:recent} = await sb.from('outreach_events').select('id')
+                    .eq('log_id',existing.id).eq('event_type','reply').gte('occurred_at',cutoff).limit(1);
+                  if(!recent || !recent.length){
+                    await sb.from('outreach_events').insert({user_id:u.id, log_id:existing.id, event_type:'reply',
+                      note:null, extracted:{source:p.source||'detected', detected:true}});
+                    if(existing.status!=='replied') await sb.from('outreach_log')
+                      .update({status:'replied', updated_at:nowIso}).eq('id',existing.id);
+                  }
+                } else if(!(existing.context||{}).connectionAccepted){
+                  await sb.from('outreach_log').update({
+                    context:{...(existing.context||{}), connectionAccepted:{at:nowIso}}, updated_at:nowIso,
+                  }).eq('id',existing.id);
+                }
+              }
+            } else if(p.confidence==='ambiguous' && Array.isArray(p.candidates) && p.candidates.length){
+              continue; // left in outreach_inbox - see comment above
+            }
+          } else if(row.kind==='profile_viewed'){
+            /* Soft context, never an event, never a stage change - the spec draws this line
+               deliberately: a profile view is ambient, not pipeline progress. */
+            const {data:existing} = await sb.from('outreach_log').select('id,context')
+              .eq('user_id',u.id).eq('profile_url',p.profileUrl).maybeSingle();
+            if(existing){
+              const prevCtx = existing.context||{};
+              const label = 'Viewed your profile '+(p.viewedAt||'recently');
+              const prevSignals = Array.isArray(prevCtx.timingSignals) ? prevCtx.timingSignals : [];
+              if(prevSignals.indexOf(label)<0){
+                await sb.from('outreach_log').update({
+                  context:{...prevCtx, timingSignals:[label, ...prevSignals].slice(0,5)}, updated_at:nowIso,
+                }).eq('id',existing.id);
+              }
+            }
           } else {
             const ctx = {source:'extension'};
             if(p.why) ctx.whySaved = p.why;
@@ -4860,6 +4972,31 @@ function App(){
   async function refreshTasks(u){
     try{ const {data} = await sb.from('tasks').select('*').eq('user_id',u.id)
       .order('created_at',{ascending:false}); setTasks(data||[]); }catch(e){}
+  }
+  async function refreshPendingActivity(u){
+    try{ const {data} = await sb.from('outreach_inbox').select('id,kind,payload,created_at')
+      .eq('user_id',u.id).in('kind',['reply_detected','connection_accepted'])
+      .order('created_at',{ascending:false}); setPendingActivity(data||[]); }catch(e){}
+  }
+  /* An ambiguous match ingest() left behind, answered. profileUrl null means "neither of
+     these" - discarded, not re-asked next time the extension sees the same unread item. */
+  async function resolveAmbiguousActivity(row, profileUrl){
+    try{
+      if(profileUrl){
+        const person = people.find(x=>x.profile_url===profileUrl);
+        if(person){
+          if(row.kind==='reply_detected'){
+            await logEvent(person, 'reply', null,
+              {extracted:{source:(row.payload||{}).source||'detected', detected:true, resolvedAmbiguous:true}});
+            if(person.status!=='replied') await updateRow(person, {status:'replied'});
+          } else if(!(person.context||{}).connectionAccepted){
+            await updateRow(person, {context:{...(person.context||{}), connectionAccepted:{at:new Date().toISOString()}}});
+          }
+        }
+      }
+      await sb.from('outreach_inbox').delete().eq('id', row.id);
+      setPendingActivity(pa=>pa.filter(r=>r.id!==row.id));
+    }catch(e){ setErr('Could not resolve that: '+(e.message||'unknown error')); }
   }
 
   const settings = (blob && blob.settings) || {};
@@ -5053,7 +5190,8 @@ function App(){
           plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} go={go}/>}
       {screen==='today' && people.length>0 &&
         <Today people={people} events={events} tasks={tasks} settings={settings} email={auth.user.email}
-          go={go} onToggleTask={toggleTask} doneToday={doneToday} onSaveSettings={saveSettings} plan={aiMeta&&aiMeta.plan}/>}
+          go={go} onToggleTask={toggleTask} doneToday={doneToday} onSaveSettings={saveSettings} plan={aiMeta&&aiMeta.plan}
+          pendingActivity={pendingActivity} onResolveActivity={resolveAmbiguousActivity}/>}
 
       {screen==='relationships' &&
         <Relationships sb={sb} settings={settings} people={people} events={events} view={relView} setView={setRelView}
