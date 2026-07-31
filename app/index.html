@@ -282,10 +282,21 @@ function Avatar({name, size, src, hover}){
   return (
     <span onMouseEnter={open} onMouseLeave={close} style={{display:'inline-flex',flex:'none'}}>
       {core}
-      {show && rect && ReactDOM.createPortal(
+      {show && rect && (()=>{
+        /* Card height is content-dependent (location/education/summary/tags
+           all vary), so clamping only the top edge left it rendering off the
+           bottom of the viewport for avatars low in a long list - exactly
+           where hovering to preview is most likely. Flip above the avatar
+           when there isn't enough room below, and cap height either way as
+           a backstop. */
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const openAbove = spaceBelow < 340 && rect.top > spaceBelow;
+        return ReactDOM.createPortal(
         <div onMouseEnter={open} onMouseLeave={close} className="fade"
           style={{position:'fixed', left:Math.max(12,Math.min(rect.left, window.innerWidth-308)),
-            top:Math.min(rect.bottom+8, window.innerHeight-60), zIndex:200, width:280,
+            ...(openAbove ? {bottom:Math.max(12,window.innerHeight-rect.top+8)} : {top:rect.bottom+8}),
+            maxHeight:'min(420px, calc(100vh - 24px))', overflowY:'auto',
+            zIndex:200, width:280,
             background:'#fff', border:'1px solid var(--line)', borderRadius:16,
             boxShadow:'0 12px 32px rgba(26,25,23,.16)', padding:18}}>
           <div className="row" style={{gap:12}}>
@@ -308,7 +319,8 @@ function Avatar({name, size, src, hover}){
             <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:10}}>
               {p.common.slice(0,4).map((c,i)=><span key={i} className="tag" style={{fontSize:11,padding:'4px 10px'}}>{c}</span>)}
             </div>}
-        </div>, document.body)}
+        </div>, document.body);
+      })()}
     </span>
   );
 }
@@ -3099,7 +3111,7 @@ const YOU_TABS = [['mirror','Mirror'],['patterns','Patterns'],['goal','Goal'],['
    is what it has noticed. Goal is what the user told it. Account is the
    mechanics. Nothing here is time-sensitive the way Today is - a user comes
    here to update themselves, not to be told what to do next. */
-function You({email, settings, people, events, tasks, tab, setTab, editGoal, setEditGoal, busySave, onSaveSettings, onSignOut}){
+function You({email, settings, people, events, tasks, tab, setTab, editGoal, setEditGoal, busySave, onSaveSettings, onSignOut, onReimport}){
   return (
     <div className="pad fade" style={{maxWidth:1000,paddingTop:34}}>
       <div className="seg">
@@ -3111,7 +3123,7 @@ function You({email, settings, people, events, tasks, tab, setTab, editGoal, set
         {tab==='mirror' &&
           <div style={{maxWidth:780}}>
             <div className="eyebrow b">What Mighty holds about you</div>
-            <KnowledgeBase settings={settings} onEdit={()=>{ setEditGoal(true); setTab('goal'); }}/>
+            <KnowledgeBase settings={settings} onEdit={onReimport}/>
           </div>}
         {tab==='patterns' &&
           <Patterns settings={settings} people={people} onSaveSettings={onSaveSettings}/>}
@@ -3570,10 +3582,19 @@ function Onboarding({sb, user, settings, onSave, onDone}){
 
   /* ---- archive ---- */
   async function onArchive(file){
-    if(!file) return;
+    if(!file || busy) return;
     setBusy('arch'); setErr(null); setProg('Opening the archive…');
     try{
       const d = await readArchive(file);
+      /* A zip with none of LinkedIn's expected CSVs still parses "successfully"
+         - every array just comes back empty. Without this check that showed a
+         green "0 connections, 0 roles read" checkmark, indistinguishable from
+         actually reading an empty export, instead of telling the user they
+         picked the wrong file. */
+      const empty = !d.connections.length && !d.positions.length && !d.education.length &&
+        !d.skills.length && !d.identity.headline && !clean(d.identity.summary||'');
+      if(empty) throw new Error("That did not look like a LinkedIn export - none of the expected files were inside. "
+        + "It should be the .zip LinkedIn emailed you, unzipped folder renamed back to .zip if needed.");
       setArch(d);
       const p0 = d.positions[0] || {};
       setIdent({ headline: d.identity.headline, location: d.identity.location,
@@ -3617,7 +3638,7 @@ function Onboarding({sb, user, settings, onSave, onDone}){
 
   /* ---- resume ---- */
   async function onResume(file){
-    if(!file) return;
+    if(!file || busy) return;
     setBusy('cv'); setErr(null);
     try{
       const t = await readResumePdf(file);
@@ -3711,14 +3732,19 @@ function Onboarding({sb, user, settings, onSave, onDone}){
     <div style={{marginTop:16,fontSize:17,lineHeight:1.55,color:'var(--sub)',maxWidth:'52ch'}}>{children}</div>;
   /* Every step can be left for later. The bar on Strategy then says what is
      missing, so skipping is a deferral rather than a hole nobody mentions again. */
+  /* Disabled for ANY in-flight busy state, not just 'save' - clicking this
+     while a resume was still parsing (busy==='cv') discarded the parse the
+     moment finish() ran with resume still empty, and clicking it mid-archive
+     upload (busy==='arch') left that upload running with no UI anywhere
+     left to show its progress. */
   const Later = ()=>
-    <button className="btn q" style={{fontSize:13.5}} onClick={finish} disabled={busy==='save'}>
-      {busy==='save' ? 'Saving…' : 'Do it later'}
+    <button className="btn q" style={{fontSize:13.5}} onClick={finish} disabled={!!busy}>
+      {busy==='save' ? 'Saving…' : busy ? 'One moment…' : 'Do it later'}
     </button>;
   const Actions = ({label, onNext, disabled})=>
     <div className="row" style={{gap:14,marginTop:38,flexWrap:'wrap',alignItems:'center'}}>
       <button className="btn" style={{padding:'13px 30px',fontSize:15}} onClick={onNext} disabled={disabled}>{label}</button>
-      {step>0 && <button className="btn q" style={{fontSize:12.5,letterSpacing:'.1em',textTransform:'uppercase'}} onClick={back}>Back</button>}
+      {step>0 && <button className="btn q" style={{fontSize:12.5,letterSpacing:'.1em',textTransform:'uppercase'}} onClick={back} disabled={!!busy}>Back</button>}
       <div style={{flex:1}}/>
       <Later/>
     </div>;
@@ -3905,6 +3931,7 @@ function App(){
   const [youTab,setYouTab] = useState('mirror');
   const [askDraft,setAskDraft] = useState(null);
   const [editGoal,setEditGoal] = useState(false);
+  const [reimport,setReimport] = useState(false);
   const [busySave,setBusySave] = useState(false);
   const [aiMeta,setAiMeta] = useState(null);
   const [err,setErr] = useState(null);
@@ -4164,9 +4191,15 @@ function App(){
      Knowledge Base first: read the archive and the resume, show back what was
      understood, then ask only what no file could answer. StrategyForm remains the
      edit surface for everything after the first run. */
-  if(!hasIntent)
+  /* "Import my history" / "Correct this" on the Mirror tab used to open the
+     Goal-edit form, which has no field anywhere related to the archive or
+     resume Mirror is showing - two buttons explicitly promising re-import
+     or correction that neither could do. Onboarding already pre-fills from
+     existing settings, so re-entering it here is the real fix rather than
+     building a second upload UI. */
+  if(!hasIntent || reimport)
     return <Onboarding sb={sb} user={auth.user} settings={settings}
-      onSave={saveSettings} onDone={()=>go({screen:'relationships'})}/>;
+      onSave={saveSettings} onDone={()=>{ setReimport(false); go({screen:'you', tab:'mirror'}); }}/>;
 
   const signOut = async()=>{
     try{ await sb.auth.signOut(); }
@@ -4212,7 +4245,7 @@ function App(){
       {screen==='you' &&
         <You email={auth.user.email} settings={settings} people={people} events={events} tasks={tasks}
           tab={youTab} setTab={setYouTab} editGoal={editGoal} setEditGoal={setEditGoal} busySave={busySave}
-          onSaveSettings={saveSettings} onSignOut={signOut}/>}
+          onSaveSettings={saveSettings} onSignOut={signOut} onReimport={()=>setReimport(true)}/>}
 
       {screen==='ask' &&
         <Ask sb={sb} people={people} events={events} tasks={tasks} settings={settings} onOpen={openPerson}
