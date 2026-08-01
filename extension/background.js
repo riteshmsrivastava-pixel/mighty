@@ -244,7 +244,19 @@ async function fetchProfilePhotoInner(profileUrl) {
     const res = await fetch(profileUrl, { credentials: 'include' });
     if (!res.ok) return { ok: false, error: 'http_' + res.status };
     const html = await res.text();
-    const m = html.match(/https:\/\/media\.licdn\.com\/dms\/image\/[^"'\\\s]+profile-displayphoto[^"'\\\s]*/i);
+    // A LinkedIn profile is a JavaScript app - a plain fetch never runs that
+    // JS, so the DOM's own <img src="...profile-displayphoto..."> this regex
+    // used to look for is never actually in the response and this failed
+    // silently on every call. og:image is different: LinkedIn renders it
+    // server-side, in the raw HTML, specifically so Slack/iMessage/Twitter
+    // link previews work without executing anything - it is present before
+    // any JS runs, which is exactly the fetch this function makes. Tried
+    // first; the old pattern is kept as a fallback in case a future page
+    // layout happens to inline it after all.
+    const og = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+      || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+    const m = (og && og[1] && /^https?:\/\//.test(og[1])) ? [og[1]]
+      : html.match(/https:\/\/media\.licdn\.com\/dms\/image\/[^"'\\\s]+profile-displayphoto[^"'\\\s]*/i);
     if (!m) return { ok: false, error: 'no_photo' };
     const url = m[0].replace(/&amp;/g, '&');
     const enc = await encodeAvatar(url);
