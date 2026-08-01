@@ -1660,7 +1660,11 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
     if(sameDay(d,y)) return 'YESTERDAY · '+long.toUpperCase();
     return long.toUpperCase();
   };
-  const timeOfDay = (iso)=> new Date(iso).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
+  /* hour12 forced explicitly - without it, toLocaleTimeString's 12-vs-24-hour
+     choice follows the viewer's browser locale rather than a deliberate
+     design decision, so the same row read "2:48 PM" for one visitor and
+     "14:48" for another. */
+  const timeOfDay = (iso)=> new Date(iso).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit',hour12:true});
 
   /* The feed merges two kinds of history: real outreach_events, and a
      synthetic "saved" entry per day - shortlisted_at is real data, it just
@@ -1884,8 +1888,8 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
     <div className="pad fade" style={{maxWidth:1120,paddingTop:34}}>
       <div className="row" style={{justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
         <div>
-          <div className="eyebrow b">Your goal</div>
-          <div style={{fontSize:16,fontWeight:600,color:'var(--ink2)',marginTop:4}}>{goalLine(settings)}</div>
+          <div className="eyebrow b">Toward</div>
+          <h1 className="h1" style={{marginTop:6}}>{goalLine(settings)}</h1>
         </div>
         <div className="row" style={{gap:10,flexWrap:'wrap'}}>
           <div className="seg">
@@ -2058,19 +2062,28 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
             {feedGroups.length===0 &&
               <div className="meta" style={{marginTop:20}}>Nothing in this filter yet.</div>}
 
-            <div style={{marginTop:22,maxWidth:760}}>
+            <div style={{marginTop:24,maxWidth:760}}>
               {feedGroups.map((g,gi)=>(
-                <div key={g.label} style={{marginBottom:26}}>
-                  <div className="eyebrow" style={{marginBottom:10}}>{g.label}</div>
-                  <div className="card" style={{overflow:'hidden'}}>
+                <div key={g.label} style={{marginBottom:28}}>
+                  <div className="eyebrow" style={{marginBottom:12}}>{g.label}</div>
+                  <div>
                     {g.items.map((item,i)=>{
                       const entry = feedEntry(item);
                       const dot = ({reply:'var(--green)', stage_change:'var(--brand)', note:'#E3A23C',
                         saved:'var(--mute)', first_message:'var(--brand)'})[item.kind] || 'var(--mute)';
+                      /* Rows used to sit inside one bordered, shadowed card per day -
+                         tidy, but it boxed in what is meant to read as a single
+                         continuous line of things happening, not a table. Open rows
+                         on the page background, with the connector line and dots
+                         doing the organizing, reads more like an actual timeline. */
+                      const person = item.kind==='saved' ? null : personOf(item.personId);
+                      const avatarName = item.kind==='saved'
+                        ? (item.people.length===1 ? item.people[0].name : '+'+item.people.length)
+                        : (person ? person.name : nameOf(item.personId));
                       return (
-                        <div key={item.id} className="row" style={{gap:14,padding:'16px 22px',alignItems:'stretch',
-                          borderBottom:i===g.items.length-1?'none':'1px solid var(--line2)'}}>
-                          <div style={{fontSize:12.5,color:'var(--mute)',flex:'none',width:52,paddingTop:20}}>
+                        <div key={item.id} className="row" style={{gap:14,padding:'14px 4px',alignItems:'stretch',
+                          borderBottom:i===g.items.length-1?'none':'1px solid var(--line3)'}}>
+                          <div style={{fontSize:12.5,color:'var(--mute)',flex:'none',width:56,paddingTop:22}}>
                             {timeOfDay(item.occurred_at)}
                           </div>
                           <div style={{flex:'none',width:16,position:'relative',display:'flex',justifyContent:'center'}}>
@@ -2078,10 +2091,15 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
                               <span style={{position:'absolute',top:0,height:'calc(50% + 4px)',width:2,background:'var(--line2)'}}/>}
                             {i<g.items.length-1 &&
                               <span style={{position:'absolute',bottom:0,height:'calc(50% + 4px)',width:2,background:'var(--line2)'}}/>}
-                            <span style={{position:'relative',zIndex:1,width:9,height:9,marginTop:22,flex:'none',
-                              borderRadius:'50%',background:dot,boxShadow:'0 0 0 3px #fff'}}/>
+                            <span style={{position:'relative',zIndex:1,width:9,height:9,marginTop:26,flex:'none',
+                              borderRadius:'50%',background:dot,boxShadow:'0 0 0 3px var(--paper)'}}/>
                           </div>
-                          <div style={{flex:1,minWidth:0,paddingTop:2}}>
+                          <div style={{flex:'none',paddingTop:16}}>
+                            {item.kind==='saved'
+                              ? <div className="av" style={{width:30,height:30,fontSize:12}}>{avatarName}</div>
+                              : <Avatar name={avatarName} size={30} src={person&&person.avatar_url} hover={person}/>}
+                          </div>
+                          <div style={{flex:1,minWidth:0,paddingTop:16}}>
                             <div style={{fontSize:15,fontWeight:700,letterSpacing:'-.01em'}}>{entry.title}</div>
                             {entry.sub && <div className="sub" style={{fontSize:13.5,marginTop:2,textWrap:'pretty'}}>{entry.sub}</div>}
                           </div>
