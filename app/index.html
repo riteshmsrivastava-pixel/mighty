@@ -1513,6 +1513,28 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
     return ()=>{ dead = true; clearTimeout(t); };
   },[q, sb]);
 
+  /* "Who do I already know" and "who don't I know yet" used to be two
+     separate questions - the second only ran if you noticed a button and
+     clicked it again. They are one question with two answers, so once the
+     sentence settles, both run. A longer pause than the local match above
+     (900ms vs 380ms) keeps a sentence that is still being typed from firing
+     three overlapping Google searches. autoRun tracks the exact sentence
+     already sent, so re-settling on an unchanged query does not search
+     twice, and so an explicit click on "Search LinkedIn for this" is not
+     redone by this effect a moment later. */
+  const autoRun = useRef('');
+  useEffect(()=>{
+    const sentence = clean(q);
+    if(sentence.length<3) return;
+    const t = setTimeout(()=>{
+      if(autoRun.current===sentence) return;
+      if(phase==='searching' || phase==='thinking') return;
+      autoRun.current = sentence;
+      run(sentence);
+    }, 900);
+    return ()=>clearTimeout(t);
+  },[q]);
+
   async function run(text){
     const sentence = clean(text!=null?text:webQ);
     if(!sentence || phase==='searching' || phase==='thinking') return;
@@ -1912,11 +1934,13 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
               placeholder="Search who you know, or describe someone new"
               onChange={e=>setQ(e.target.value)}
               onKeyDown={e=>{
-                /* Must match the "Search LinkedIn for this" button's own
-                   guard exactly - Enter used to fire a web search whenever
-                   the wider network had no matches, even if an already-saved
-                   person did, a case where that button never even renders. */
-                if(e.key==='Enter' && searching && !mineBusy && mine && !mine.rows.length && !filtered.length) run(q);
+                /* Enter means "I'm done, search now" - it should not wait out
+                   the 900ms auto-search pause above, and it should work
+                   regardless of what your own network turned up. autoRun is
+                   marked here too, so the debounced effect above does not
+                   also fire once its own timer catches up. */
+                const sentence = clean(q);
+                if(e.key==='Enter' && sentence && !webBusy){ autoRun.current = sentence; run(sentence); }
               }}/>
             {atCap &&
               <span className="banner warn" style={{flex:'none',padding:'11px 16px',fontSize:13}}>
@@ -1943,28 +1967,30 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
                   {mine.rows.filter(c=>!savedUrls[(c.profile_url||'').toLowerCase()]).map(c=><ConnRow key={c.profile_url} c={c}/>)}
                 </div>}
 
-              {!mineBusy && mine && mine.rows.length===0 && filtered.length===0 &&
+              {!mineBusy && mine && mine.rows.length===0 && filtered.length===0 && !webOpen &&
                 <div className="card" style={{padding:'24px 26px'}}>
                   <div className="h4">Nobody matches that yet.</div>
                   <div className="sub" style={{marginTop:6,maxWidth:'58ch'}}>
-                    Not in your saved relationships or your {(total||0).toLocaleString()} connections. That is a
-                    real answer, and it beats a near-miss. Search LinkedIn for it instead.
+                    Not in your saved relationships or your {(total||0).toLocaleString()} connections. Searching
+                    LinkedIn for it now.
                   </div>
-                  <button className="btn sm" style={{marginTop:16}} onClick={()=>run(q)} disabled={webBusy}>
+                  <button className="btn sm" style={{marginTop:16}} onClick={()=>{ autoRun.current=clean(q); run(q); }} disabled={webBusy}>
                     {webBusy ? <span><span className="spin"/> Searching</span> : 'Search LinkedIn for this'}
                   </button>
                 </div>}
 
               {/* Searching your own network and searching LinkedIn for people who
-                 aren't in it yet are two different, complementary answers - a
-                 few loose keyword matches in your own archive used to hide this
-                 option entirely, so someone with even one weak local match had
-                 no way to also ask Mighty to look wider. Now it is always here
-                 once the local search has settled, whatever it found. */}
-              {!mineBusy && mine && !(mine.rows.length===0 && filtered.length===0) &&
+                 aren't in it yet are two different, complementary answers, and both
+                 now run on their own once the sentence settles (see the autoRun
+                 effect above). This stays only as a manual re-trigger - for a typo
+                 fixed after the fact, or a search that came back blocked - not as
+                 the only way to ask Mighty to look wider. Hidden once the wider
+                 search has actually opened, so it never sits above its own results
+                 asking to be clicked again. */}
+              {!mineBusy && mine && !(mine.rows.length===0 && filtered.length===0) && !webOpen &&
                 <div className="row" style={{gap:10,alignItems:'center',marginTop:filtered.length||mine.rows.length?14:0}}>
                   <span className="sub" style={{fontSize:13}}>Looking for someone not in your network yet?</span>
-                  <button className="btn g sm" onClick={()=>run(q)} disabled={webBusy}>
+                  <button className="btn g sm" onClick={()=>{ autoRun.current=clean(q); run(q); }} disabled={webBusy}>
                     {webBusy ? <span><span className="spin"/> Searching</span> : 'Search LinkedIn for this'}
                   </button>
                 </div>}
@@ -1991,14 +2017,16 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
             {pipelineList}
           </F>}
           {boardOK &&
-            /* Six columns, only 3 fit before scrolling on a laptop-width
-               screen, and nothing said so - a fade at the right edge is the
-               cheapest honest hint that Replied/Coffee chat/Growing exist
-               off to the side. */
-            <div style={{position:'relative'}}>
-              <div style={{position:'absolute',top:0,right:0,bottom:12,width:36,pointerEvents:'none',
-                background:'linear-gradient(90deg,rgba(251,250,248,0),var(--paper))'}}/>
-              <div style={{display:'flex',gap:14,overflowX:'auto',paddingBottom:12}}>
+            /* Six columns, only 3-4 fit before scrolling on a laptop-width
+               screen. An opaque overlay used to hint at the rest, but it drew
+               a hard rectangle over whatever card sat at the edge, so a
+               rounded card looked sliced in half instead of hinted-at. A mask
+               on the scroll container itself fades the card's actual pixels
+               - corners, shadow and all - so a partial card tapers away
+               instead of getting cut off. */
+            <div style={{display:'flex',gap:14,overflowX:'auto',paddingBottom:12,paddingRight:28,
+              WebkitMaskImage:'linear-gradient(90deg,#000 calc(100% - 28px),transparent 100%)',
+              maskImage:'linear-gradient(90deg,#000 calc(100% - 28px),transparent 100%)'}}>
                 {COLUMNS.map(col=>{
                 const items = people.filter(r=>col.statuses.indexOf(r.status)>=0);
                 const meta = STAGE[col.statuses[0]];
@@ -2041,8 +2069,7 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
                     </div>
                   </div>);
                 })}
-              </div>
-            </div>}
+              </div>}
         </div>
       ) : view==='timeline' ? (
         <div className="fade" style={{marginTop:20}}>
@@ -5062,11 +5089,26 @@ function App(){
     if(p.verdict) ctx.verdictLabel = (VERDICT[p.verdict]||VERDICT.potential).label;
     ['location','education','experience','followers','connections','snippet'].forEach(k=>{ if(p[k]) ctx[k]=p[k]; });
     try{
-      await sb.from('outreach_log').upsert({user_id:auth.user.id, profile_url:p.profileUrl,
+      const {data:row} = await sb.from('outreach_log').upsert({user_id:auth.user.id, profile_url:p.profileUrl,
         name:p.name||null, title:p.title||null, company:p.company||null, context:ctx,
-        updated_at:new Date().toISOString()}, {onConflict:'user_id,profile_url'});
+        updated_at:new Date().toISOString()}, {onConflict:'user_id,profile_url'}).select().single();
       track('person_saved', {source:'search', verdict:p.verdict||'none', facts:[p.location,p.education,p.followers].filter(Boolean).length});
       await refreshPeople(auth.user);
+      /* Neither a Google search result nor a row out of the LinkedIn export
+         carries a photo - Google shows no profile photos and the export has
+         no photo column, so everyone starts as initials. Clicking Add is the
+         one explicit "I want this person" signal Mighty already treats as
+         license to read their profile once (the Profile page's own photo
+         button uses the same call). Firing it right here, straight after
+         that click, saves a second trip to find that button - it still goes
+         through the extension's own throttle and 25-per-session cap, so this
+         does not turn into the bulk/background fetching the extension
+         deliberately never does. Best-effort: no photo is not an error. */
+      if(row && !row.avatar_url){
+        extBridge.photo(p.profileUrl).then(r=>{
+          if(r && r.ok && r.dataUrl) updateRow(row, {avatar_url:r.dataUrl});
+        }).catch(()=>{});
+      }
     }catch(e){ setErr('Could not save that person: '+(e.message||'unknown error')); }
   }
 
