@@ -1404,6 +1404,7 @@ function connToPerson(c){
     why: connReason(c),
     common: (c.hits||[]).slice(0,4),
     connectedOn: c.connected_on || null,
+    avatarUrl: c.avatar_url || null,
   };
 }
 
@@ -1506,7 +1507,23 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
       try{
         const qt = queryTerms(sentence);
         const rows = await matchConnections(sb, qt, [], 8);
-        if(!dead){ setMine({q:sentence, terms:qt, rows}); track('discover_own_search', {terms:qt.length, results:rows.length}); }
+        if(!dead){
+          setMine({q:sentence, terms:qt, rows}); track('discover_own_search', {terms:qt.length, results:rows.length});
+          /* The LinkedIn export this table is built from has no photo column
+             at all, so every connection starts as initials - not just the
+             ones surfaced by a search. Same fill-in as the wider search
+             results below: one profile read per person, through the
+             extension's own globally-throttled queue (3s apart, capped at
+             25/session), patched in as each resolves. */
+          rows.forEach(c=>{
+            extBridge.photo(c.profile_url).then(r=>{
+              if(dead || !r || !r.ok || !r.dataUrl) return;
+              setMine(prev=>prev && prev.q===sentence
+                ? {...prev, rows:prev.rows.map(x=>x.profile_url===c.profile_url?{...x, avatar_url:r.dataUrl}:x)}
+                : prev);
+            }).catch(()=>{});
+          });
+        }
       }catch(e){ if(!dead) setMine({q:sentence, terms:[], rows:[]}); }
       if(!dead) setMB(false);
     }, 380);
@@ -1577,6 +1594,27 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
       try{ setRes(await evaluate(sb, found, settings)); }
       catch(e){ setNote('Found these, but Mighty could not explain the matches just now: '+(e.message||'AI unavailable')+'.'); }
       setPhase('done');
+
+      /* Google never returns a photo for a site:linkedin.com/in query - only
+         a name and a link - so every fresh result starts as initials. Filling
+         them in means reading each profile once, which is exactly what the
+         extension's photo fetch already exists for. It is fired here for the
+         whole batch, but it queues through the extension's own single global
+         chain (fetchProfilePhotoInner in background.js), so this is still one
+         photo every 3 seconds and still capped at 25 for the session - the
+         same guard that already protects the Profile page's manual button,
+         just aimed at a batch instead of one click at a time. Started only
+         after evaluate() above has already settled results, so an early
+         photo cannot be wiped out by evaluate()'s own setRes(...) landing
+         later. Best-effort and silent: a slow or missing photo just stays
+         initials, never an error the person has to see. */
+      found.forEach(person=>{
+        extBridge.photo(person.profileUrl).then(r=>{
+          if(r && r.ok && r.dataUrl){
+            setRes(prev=>prev.map(x=>x.profileUrl===person.profileUrl?{...x, avatarUrl:r.dataUrl}:x));
+          }
+        }).catch(()=>{});
+      });
     }catch(e){ setWebErr(e.message||String(e)); setPhase('idle'); }
   }
 
@@ -1590,7 +1628,7 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
     const reason = connReason(c);
     return (
       <div className="row" style={{alignItems:'flex-start',gap:13,padding:'14px 0',borderBottom:'1px solid var(--line2)'}}>
-        <Avatar name={connName(c)} size={34} hover={c}/>
+        <Avatar name={connName(c)} size={34} src={c.avatar_url} hover={c}/>
         <div style={{flex:'1 1 200px',minWidth:0}}>
           <div style={{fontSize:15,fontWeight:700}}>{connName(c)}</div>
           <div className="sub" style={{fontSize:13.5,marginTop:1}}>
@@ -1843,7 +1881,6 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
 
             {visible.map(r=>{
               const savedRow = savedUrls[(r.profileUrl||'').toLowerCase()];
-              const v = VERDICT[r.verdict]||VERDICT.potential;
               return (
                 <div key={r.profileUrl} className="fade" style={{marginTop:14,paddingTop:14,borderTop:'1px solid var(--line2)'}}>
                   <div style={{display:'flex',alignItems:'flex-start',gap:14,flexWrap:'wrap'}}>
@@ -1872,8 +1909,14 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
                     </div>
                   </div>
                   {r.why &&
+                    /* Used to badge each result "Strong fit"/"Outside your goal" -
+                       four confident-sounding tiers built off a headline and a
+                       snippet, which is not enough to actually stand behind a
+                       verdict. The reasoning underneath is still worth reading;
+                       it just should not wear a rating it hasn't earned. One
+                       label for all of them, the same honest thing every time. */
                     <div className="why" style={{marginTop:14,padding:'14px 16px'}}>
-                      <div className="eyebrow b">{v.label}</div>
+                      <div className="eyebrow b">Insight</div>
                       <div style={{fontSize:14.5,lineHeight:1.55,color:'var(--body)',marginTop:6,textWrap:'pretty'}}>{r.why}</div>
                     </div>}
                   {r.common && r.common.length>0 &&
@@ -5091,19 +5134,17 @@ function App(){
     try{
       const {data:row} = await sb.from('outreach_log').upsert({user_id:auth.user.id, profile_url:p.profileUrl,
         name:p.name||null, title:p.title||null, company:p.company||null, context:ctx,
+        avatar_url:p.avatarUrl||null,
         updated_at:new Date().toISOString()}, {onConflict:'user_id,profile_url'}).select().single();
       track('person_saved', {source:'search', verdict:p.verdict||'none', facts:[p.location,p.education,p.followers].filter(Boolean).length});
       await refreshPeople(auth.user);
-      /* Neither a Google search result nor a row out of the LinkedIn export
-         carries a photo - Google shows no profile photos and the export has
-         no photo column, so everyone starts as initials. Clicking Add is the
-         one explicit "I want this person" signal Mighty already treats as
-         license to read their profile once (the Profile page's own photo
-         button uses the same call). Firing it right here, straight after
-         that click, saves a second trip to find that button - it still goes
-         through the extension's own throttle and 25-per-session cap, so this
-         does not turn into the bulk/background fetching the extension
-         deliberately never does. Best-effort: no photo is not an error. */
+      /* Explore's own photo fill-in (see run() and the mine effect above)
+         usually already has a photo in hand by the time someone clicks Add,
+         and that one is saved straight into the row above. This is only the
+         fallback for whoever clicks fast enough to beat it, or whose photo
+         fetch failed the first time - one more try, same throttled call the
+         Profile page's manual button uses, capped the same way. Best-effort:
+         no photo is not an error. */
       if(row && !row.avatar_url){
         extBridge.photo(p.profileUrl).then(r=>{
           if(r && r.ok && r.dataUrl) updateRow(row, {avatar_url:r.dataUrl});
