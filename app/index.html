@@ -1951,6 +1951,20 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
                   </button>
                 </div>}
 
+              {/* Searching your own network and searching LinkedIn for people who
+                 aren't in it yet are two different, complementary answers - a
+                 few loose keyword matches in your own archive used to hide this
+                 option entirely, so someone with even one weak local match had
+                 no way to also ask Mighty to look wider. Now it is always here
+                 once the local search has settled, whatever it found. */}
+              {!mineBusy && mine && !(mine.rows.length===0 && filtered.length===0) &&
+                <div className="row" style={{gap:10,alignItems:'center',marginTop:filtered.length||mine.rows.length?14:0}}>
+                  <span className="sub" style={{fontSize:13}}>Looking for someone not in your network yet?</span>
+                  <button className="btn g sm" onClick={()=>run(q)} disabled={webBusy}>
+                    {webBusy ? <span><span className="spin"/> Searching</span> : 'Search LinkedIn for this'}
+                  </button>
+                </div>}
+
               {webOpen && webSearchPanel}
             </div>
           ) : (
