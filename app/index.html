@@ -2076,10 +2076,11 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
                          continuous line of things happening, not a table. Open rows
                          on the page background, with the connector line and dots
                          doing the organizing, reads more like an actual timeline. */
-                      const person = item.kind==='saved' ? null : personOf(item.personId);
-                      const avatarName = item.kind==='saved'
-                        ? (item.people.length===1 ? item.people[0].name : '+'+item.people.length)
-                        : (person ? person.name : nameOf(item.personId));
+                      const person = item.kind==='saved'
+                        ? (item.people.length===1 ? item.people[0] : null)
+                        : personOf(item.personId);
+                      const avatarName = person ? person.name : nameOf(item.personId);
+                      const multiSaved = item.kind==='saved' && item.people.length>1;
                       return (
                         <div key={item.id} className="row" style={{gap:14,padding:'14px 4px',alignItems:'stretch',
                           borderBottom:i===g.items.length-1?'none':'1px solid var(--line3)'}}>
@@ -2095,8 +2096,8 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
                               borderRadius:'50%',background:dot,boxShadow:'0 0 0 3px var(--paper)'}}/>
                           </div>
                           <div style={{flex:'none',paddingTop:16}}>
-                            {item.kind==='saved'
-                              ? <div className="av" style={{width:30,height:30,fontSize:12}}>{avatarName}</div>
+                            {multiSaved
+                              ? <div className="av" style={{width:30,height:30,fontSize:11}}>{'+'+item.people.length}</div>
                               : <Avatar name={avatarName} size={30} src={person&&person.avatar_url} hover={person}/>}
                           </div>
                           <div style={{flex:1,minWidth:0,paddingTop:16}}>
