@@ -226,13 +226,15 @@ const STAGE = {
 const stageOf = (r)=>STAGE[(r||{}).status] || STAGE.prospect;
 /* Board columns follow the Bible's default pipeline; the late statuses share
    one "Growing" column so the board stays readable. */
+/* Four columns, not six - the handoff merges everything from a first reply
+   onward (replied/coffee_chat/referral/interview/offer) into one "Active"
+   column, since past that point the meaningful question is just "is this
+   relationship moving," not which of five sub-stages it is technically in. */
 const COLUMNS = [
-  {key:'prospect',         statuses:['prospect']},
-  {key:'ready_to_contact', statuses:['ready_to_contact']},
-  {key:'contacted',        statuses:['contacted']},
-  {key:'replied',          statuses:['replied']},
-  {key:'coffee_chat',      statuses:['coffee_chat']},
-  {key:'growing',          statuses:['referral','interview','offer'], label:'Growing'},
+  {key:'prospect',         statuses:['prospect'],         label:'Potential'},
+  {key:'ready_to_contact', statuses:['ready_to_contact'], label:'Prepared'},
+  {key:'contacted',        statuses:['contacted'],        label:'Waiting'},
+  {key:'active',           statuses:['replied','coffee_chat','referral','interview','offer'], label:'Active'},
 ];
 const ORDER = ['prospect','ready_to_contact','contacted','replied','coffee_chat','referral','interview','offer'];
 const REACHED = ['contacted','replied','coffee_chat','referral','interview','offer'];
@@ -1591,7 +1593,7 @@ function nextAction(r){
   }
 }
 
-function Relationships({sb, settings, people, events, view, setView, plan, onSave, onOpen, onStage, onDelete, go}){
+function Relationships({sb, settings, people, events, tasks, view, setView, plan, onSave, onOpen, onStage, onDelete, go}){
   const boardOK = canSee('board', people, events);
   const timeOK  = canSee('timeline', people, events);
   const [dragId,setDrag] = useState(null);
@@ -1848,19 +1850,17 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
     return people.filter(r=>[r.name,r.title,r.company].filter(Boolean).join(' ').toLowerCase().indexOf(needle)>=0);
   },[people, searching, needle]);
 
-  /* Real stages, in the order they are actually urgent. A person appears in
-     exactly one group - whichever test matches first - so nobody is counted
-     twice and nobody falls through the middle. */
-  const GROUPS = [
-    {key:'reply',   label:'Reply needed',           test:r=>needsReply(r, byLog)},
-    {key:'ready',   label:'Ready to reach out',     test:r=>r.status==='ready_to_contact'},
-    {key:'saved',   label:'Not reached out yet',    test:r=>r.status==='prospect'},
-    {key:'waiting', label:'Reached out, waiting',   test:r=>r.status==='contacted' && days(r.contacted_at)<10},
-    {key:'quiet',   label:'Gone quiet',             test:r=>r.status==='contacted' && days(r.contacted_at)>=10},
-    {key:'talking', label:'In conversation',        test:r=>['replied','coffee_chat','referral','interview','offer'].indexOf(r.status)>=0 && !needsReply(r, byLog)},
-  ];
+  /* Three tiers, not six stage-groups: one single top recommendation (the
+     same ranking Today's hero uses), everyone who needs a reply from you
+     right now, and everything else in one flat list. A person appears in
+     exactly one tier - top pick first, then reply-needed, then the rest -
+     so nobody is counted twice. */
+  const todayPlan = useMemo(()=>buildPlan(people, events, tasks||[]), [people, events, tasks]);
+  const topPick = todayPlan[0] && todayPlan[0].id!=='discover' ? todayPlan[0] : null;
+  const topPickId = topPick && topPick.go && topPick.go.screen==='profile' ? topPick.go.id : null;
   const closed = filtered.filter(r=>r.status==='do_not_contact').length;
-  const grouped = GROUPS.map(g=>({...g, rows: filtered.filter(g.test)})).filter(g=>g.rows.length>0);
+  const replyRows = filtered.filter(r=>r.status!=='do_not_contact' && r.id!==topPickId && needsReply(r, byLog));
+  const restRows  = filtered.filter(r=>r.status!=='do_not_contact' && r.id!==topPickId && !needsReply(r, byLog));
 
   const nameOf = (id)=>{ const p=people.find(x=>x.id===id); return p?(p.name||'Unnamed'):' - '; };
   const personOf = (id)=>people.find(x=>x.id===id)||null;
@@ -2036,7 +2036,7 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
           <div>
             <div className="row" style={{marginTop:22,alignItems:'baseline',justifyContent:'space-between',gap:16}}>
               <div className="h4">{visible.length} {visible.length===1?'person':'people'} for "{lastQuery}"</div>
-              <div className="meta">Add now, decide later</div>
+              <div className="meta">Save now, decide later</div>
             </div>
             {phase==='thinking' &&
               <div className="meta" style={{marginTop:10}}><span className="spin"/> Working out why each of these matters to you…</div>}
@@ -2102,7 +2102,7 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
      filtered, still-open set grouped.map draws from - so "select all" can
      never silently grab a closed-out or search-hidden row the user cannot
      currently see. */
-  const selectableIds = filtered.filter(r=>r.status!=='do_not_contact').map(r=>r.id);
+  const selectableIds = filtered.filter(r=>r.status!=='do_not_contact' && r.id!==topPickId).map(r=>r.id);
   const allSelected = selectableIds.length>0 && selectableIds.every(id=>selected.has(id));
   const toggleSelectAll = ()=> setSelected(allSelected ? new Set() : new Set(selectableIds));
 
@@ -2128,16 +2128,58 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
                 }}>Delete</button>
             </div>}
         </div>}
-      {grouped.map(g=>(
-        <div key={g.key} style={{marginBottom:22}}>
-          <div className="eyebrow b" style={{marginBottom:8}}>{g.label} · {g.rows.length}</div>
-          <div className="card" style={{overflow:'hidden'}}>
-            {g.rows.map(r=><Row key={r.id} r={r} hot={g.key==='reply'}/>)}
+      {topPick &&
+        <div style={{marginBottom:22}}>
+          <div className="eyebrow b" style={{marginBottom:8}}>Top recommendation</div>
+          <div className="card" style={{padding:'20px 24px',display:'flex',alignItems:'center',gap:16,flexWrap:'wrap',
+            background:'linear-gradient(90deg,#FBEFE9 0%,#EFEDFD 100%)',border:'1px solid #E4E0F7',cursor:'pointer'}}
+            onClick={()=>go(topPick.go)}>
+            <Avatar name={topPick.title.replace(/^(Reply to|Send your first message to|Write to|Follow up with|Capture your conversation with|Understand)\s*/,'').replace(/ before you reach out$/,'')}
+              size={38} src={people.find(p=>p.id===topPickId)&&people.find(p=>p.id===topPickId).avatar_url}/>
+            <div style={{flex:'1 1 240px',minWidth:0}}>
+              <div style={{fontSize:16.5,fontWeight:800,letterSpacing:'-.015em'}}>{topPick.title}</div>
+              <div className="sub" style={{fontSize:13.5,marginTop:2}}>{topPick.sub}</div>
+            </div>
+            <button className="btn" style={{flex:'none'}} onClick={e=>{ e.stopPropagation(); go(topPick.go); }}>
+              {HERO_VERB[topPick.cta]||topPick.cta}
+            </button>
           </div>
-        </div>))}
+        </div>}
+
+      {replyRows.length>0 &&
+        <div style={{marginBottom:22}}>
+          <div className="eyebrow b" style={{marginBottom:8}}>Needs your reply · {replyRows.length}</div>
+          <div className="card" style={{overflow:'hidden'}}>
+            {replyRows.map(r=><Row key={r.id} r={r} hot={true}/>)}
+          </div>
+        </div>}
+
+      {restRows.length>0 &&
+        <div style={{marginBottom:22}}>
+          <div className="eyebrow b" style={{marginBottom:8}}>Everything else · {restRows.length}</div>
+          <div className="card" style={{overflow:'hidden'}}>
+            {restRows.map(r=><Row key={r.id} r={r} hot={false}/>)}
+          </div>
+        </div>}
+
       {closed>0 &&
         <div className="meta" style={{marginTop:8}}>{closed} closed out, hidden from this list.</div>}
     </div>);
+
+  /* Same three numbers as Today's GoalStrip, as a plain line here rather than
+     a card - this header is shared by every Relationships view, so it is the
+     one place "where do things stand" is always visible regardless of which
+     tab you're on. */
+  const relStats = useMemo(()=>{
+    const byLog = {};
+    events.forEach(e=>{ (byLog[e.log_id]=byLog[e.log_id]||[]).push(e); });
+    const f = goalFunnel(people);
+    const waiting = people.filter(r=>needsReply(r, byLog)).length;
+    const target = settings.weeklyMeetingTarget || 3;
+    const metThisWeek = events.filter(e=>e.event_type==='stage_change' &&
+      ['coffee_chat','referral','interview','offer'].indexOf((e.extracted||{}).to)>=0 && days(e.occurred_at)<=7).length;
+    return {saved:f.saved, waiting, target, metCapped:Math.min(metThisWeek, target)};
+  },[people, events, settings.weeklyMeetingTarget]);
 
   return (
     <div className="pad fade" style={{maxWidth:1120,paddingTop:34}}>
@@ -2145,6 +2187,10 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
         <div>
           <div className="eyebrow b">Toward</div>
           <h1 className="h1" style={{marginTop:6}}>{goalLine(settings)}</h1>
+          {canSee('progress', people) &&
+            <div className="sub" style={{fontSize:13.5,marginTop:8,fontWeight:600}}>
+              {relStats.saved} identified · {relStats.waiting} replied, waiting on you · {relStats.metCapped} of {relStats.target} meetings this week
+            </div>}
         </div>
         <div className="row" style={{gap:10,flexWrap:'wrap'}}>
           <div className="seg">
@@ -2227,18 +2273,24 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
                                 {[clean(c.position), clean(c.company)].filter(Boolean).join(' · ') || 'No role on the export'}
                               </div>
                             </div>
-                            <div style={{display:'flex',gap:8,flex:'none'}}>
+                            <div style={{display:'flex',gap:8,flex:'none',alignItems:'center'}}>
                               <button className="btn q" style={{fontSize:13}}
                                 onClick={()=>setMine(prev=>prev && ({...prev, rows:prev.rows.filter(x=>x.profile_url!==c.profile_url)}))}>
-                                Skip
+                                Ignore
                               </button>
-                              <button className="btn sm" disabled={savingUrls.has(c.profile_url)}
+                              <button className="btn g sm" disabled={savingUrls.has(c.profile_url)}
                                 onClick={async()=>{
                                   startSaving(c.profile_url);
                                   try{ const row = await onSave(connToPerson(c), 'own_network'); if(row) onOpen(row.id); }
                                   finally{ stopSaving(c.profile_url); }
+                                }}>Prepare</button>
+                              <button className="btn sm" disabled={savingUrls.has(c.profile_url)}
+                                onClick={async()=>{
+                                  startSaving(c.profile_url);
+                                  try{ await onSave(connToPerson(c), 'own_network'); }
+                                  finally{ stopSaving(c.profile_url); }
                                 }}>
-                                {savingUrls.has(c.profile_url) ? <span><span className="spin"/> Saving</span> : 'Message'}
+                                {savingUrls.has(c.profile_url) ? <span><span className="spin"/> Saving</span> : 'Save'}
                               </button>
                             </div>
                           </div>
@@ -2248,7 +2300,7 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
                             </div>}
                           {reason &&
                             <div className="why" style={{marginTop:12,padding:'14px 16px'}}>
-                              <div className="eyebrow b">Insight</div>
+                              <div className="eyebrow b">Why Mighty picked them</div>
                               <div style={{fontSize:14.5,lineHeight:1.55,color:'var(--body)',marginTop:6,textWrap:'pretty'}}>{reason}</div>
                             </div>}
                         </div>);
@@ -2304,17 +2356,20 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
                                 ? <button className="btn g sm" onClick={()=>onOpen(savedRow.id)}>Open</button>
                                 : <F>
                                     <button className="btn q" style={{fontSize:13}}
-                                      onClick={()=>setSkip(s=>({...s,[r.profileUrl]:true}))}>Skip</button>
+                                      onClick={()=>setSkip(s=>({...s,[r.profileUrl]:true}))}>Ignore</button>
+                                    <button className="btn g sm" disabled={atCap || savingUrls.has(r.profileUrl)}
+                                      onClick={async()=>{ startSaving(r.profileUrl); try{ const row=await onSave(r, lastQuery); if(row) onOpen(row.id); }finally{ stopSaving(r.profileUrl); } }}>
+                                      Prepare</button>
                                     <button className="btn sm" disabled={atCap || savingUrls.has(r.profileUrl)}
                                       onClick={async()=>{ startSaving(r.profileUrl); try{ await onSave(r, lastQuery); }finally{ stopSaving(r.profileUrl); } }}>
-                                      {savingUrls.has(r.profileUrl) ? <span><span className="spin"/> Adding</span> : 'Add'}
+                                      {savingUrls.has(r.profileUrl) ? <span><span className="spin"/> Saving</span> : 'Save'}
                                     </button>
                                   </F>}
                             </div>
                           </div>
                           {r.why &&
                             <div className="why" style={{marginTop:12,padding:'14px 16px'}}>
-                              <div className="eyebrow b">Insight</div>
+                              <div className="eyebrow b">Why Mighty picked them</div>
                               <div style={{fontSize:14.5,lineHeight:1.55,color:'var(--body)',marginTop:6,textWrap:'pretty'}}>{r.why}</div>
                             </div>}
                         </div>);
@@ -2361,10 +2416,11 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
                     onDragLeave={()=>setOver(o=>o===col.key?null:o)}
                     onDrop={e=>{ e.preventDefault(); setOver(null);
                       const person = dragId!=null ? people.find(r=>r.id===dragId) : null;
-                      /* Growing merges referral/interview/offer into one column. Dropping
-                         a card that already belongs there must not force it back to
-                         statuses[0] - that silently downgraded offer/interview to referral
-                         on any imprecise click that the browser read as a drag. */
+                      /* Active merges replied/coffee_chat/referral/interview/offer into one
+                         column. Dropping a card that already belongs there must not force
+                         it back to statuses[0] - that silently downgraded a later stage
+                         like offer back to replied on any imprecise click the browser
+                         read as a drag. */
                       if(person && col.statuses.indexOf(person.status)<0) onStage(person, col.statuses[0]);
                       setDrag(null); }}>
                     <div className="row" style={{gap:8,padding:'0 4px 10px'}}>
@@ -5696,7 +5752,7 @@ function App(){
           before the last person was deleted, and a screen with no nav entry is
           a dead end. */}
       {screen==='today' && people.length===0 &&
-        <Relationships sb={sb} settings={settings} people={people} events={events} view={relView} setView={setRelView}
+        <Relationships sb={sb} settings={settings} people={people} events={events} tasks={tasks} view={relView} setView={setRelView}
           plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} onDelete={deletePeople} go={go}/>}
       {screen==='today' && people.length>0 &&
         <Today people={people} events={events} tasks={tasks} settings={settings} email={auth.user.email}
@@ -5704,7 +5760,7 @@ function App(){
           pendingActivity={pendingActivity} onResolveActivity={resolveAmbiguousActivity}/>}
 
       {screen==='relationships' &&
-        <Relationships sb={sb} settings={settings} people={people} events={events} view={relView} setView={setRelView}
+        <Relationships sb={sb} settings={settings} people={people} events={events} tasks={tasks} view={relView} setView={setRelView}
           plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} onDelete={deletePeople} go={go}/>}
 
       {screen==='profile' && person &&
@@ -5712,7 +5768,7 @@ function App(){
           onBack={()=>go({screen:'relationships'})} onUpdate={updateRow} onStage={changeStage}
           onEvent={logEvent} onTask={addTask} tab={tab} setTab={setTab} go={go}/>}
       {screen==='profile' && !person &&
-        <Relationships sb={sb} settings={settings} people={people} events={events} view={relView} setView={setRelView}
+        <Relationships sb={sb} settings={settings} people={people} events={events} tasks={tasks} view={relView} setView={setRelView}
           plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} onDelete={deletePeople} go={go}/>}
 
       {screen==='you' &&
