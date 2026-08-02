@@ -1147,6 +1147,83 @@ function buildPlan(people, events, tasks){
     sub:'Five good people beat fifty saved profiles.', min:3, cta:'Find someone', go:{screen:'relationships'}});
   return plan;
 }
+/* The single sentence under the greeting - built from the exact literal
+   templates buildPlan itself writes (title/sub), so this is string surgery
+   on text this same file already produced, not free-floating fabrication.
+   Never invents a fact buildPlan did not already compute. */
+function heroLine(t, peopleLen){
+  if(!t) return peopleLen>0 ? "Nothing urgent right now. A good day to find someone new."
+    : "Nothing real to act on yet. Save someone and this fills in.";
+  if(t.id.startsWith('reply-')){
+    const name = t.title.replace(/^Reply to /,'');
+    const when = t.sub.replace('They replied ','').replace(/\.$/,'');
+    return name+' replied '+when+". Momentum is back, don't let it stall.";
+  }
+  if(t.id.startsWith('send-')){
+    const name = t.title.replace(/^(Send your first message to |Write to )/,'');
+    return t.cta==='Review & send' ? name+"'s draft is ready. Sending it keeps things moving."
+      : 'Time to reach out to '+name+'.';
+  }
+  if(t.id.startsWith('quiet-')){
+    const name = t.title.replace(/^Follow up with /,'');
+    return name+' has gone quiet. A short nudge beats losing the thread.';
+  }
+  if(t.id.startsWith('cap-')){
+    const name = t.title.replace(/^Capture your conversation with /,'');
+    return 'You met '+name+' recently. Write it down before it fades.';
+  }
+  if(t.id.startsWith('brief-')){
+    const name = t.title.replace(/ before you reach out$/,'').replace(/^Understand /,'');
+    return name+' is saved and ready for a closer look before you reach out.';
+  }
+  if(t.id.startsWith('task-')) return t.title+'.';
+  return "Five good people beat fifty saved profiles - worth a look today.";
+}
+const HERO_VERB = {Reply:'Reply now', 'Review & send':'Review & send', 'Draft it':'Draft it',
+  'Follow up':'Follow up', 'Add notes':'Add notes', 'Prepare me':'Prepare me',
+  'Find someone':'Find someone', 'Open':'Open'};
+/* Only a real signal earns HIGH IMPACT - urgent by tone, or a draft that is
+   already written and one click from sending. Everything else is GOOD NEXT,
+   never invented per-item drama the underlying data cannot back. */
+const isHighImpact = (t)=> t.tone==='red' || t.cta==='Review & send';
+
+/* Real counts, not a fabricated "68% there" - see GoalFunnel's own note on
+   why. This is the compact, goal-specific version for Today: identified,
+   waiting-on-you, and a weekly meeting target with a dot tracker. The Goal
+   tab shows the fuller stage-by-stage funnel instead. */
+function GoalStrip({people, events, settings}){
+  if(!canSee('progress', people)) return null;
+  const byLog = {};
+  events.forEach(e=>{ (byLog[e.log_id]=byLog[e.log_id]||[]).push(e); });
+  const f = goalFunnel(people);
+  const waiting = people.filter(r=>needsReply(r, byLog)).length;
+  const target = settings.weeklyMeetingTarget || 3;
+  const metThisWeek = events.filter(e=>e.event_type==='stage_change' &&
+    ['coffee_chat','referral','interview','offer'].indexOf((e.extracted||{}).to)>=0 && days(e.occurred_at)<=7).length;
+  const metCapped = Math.min(metThisWeek, target);
+  const goalKey = goalTypeList(settings)[0];
+  return (
+    <div className="card" style={{padding:'18px 22px',display:'flex',justifyContent:'space-between',
+      alignItems:'center',gap:16,flexWrap:'wrap'}}>
+      <div>
+        <div className="eyebrow b">{goalKey ? GOAL_LABEL[goalKey].toUpperCase() : 'YOUR GOAL'}</div>
+        <div className="sub" style={{fontSize:13.5,marginTop:5}}>
+          {f.saved} identified · {waiting} replied, waiting on you · {metCapped} of {target} meetings
+        </div>
+      </div>
+      <div style={{textAlign:'right'}}>
+        <div style={{fontSize:14,fontWeight:700,color:'#C75B33'}}>Need {target} meetings this week</div>
+        <div className="row" style={{gap:6,marginTop:8,justifyContent:'flex-end'}}>
+          {Array.from({length:target}).map((_,i)=>(
+            <span key={i} style={{width:13,height:13,borderRadius:999,boxSizing:'border-box',
+              border:'2px solid '+(i<metCapped?'var(--brand)':'var(--line)'),
+              background:i<metCapped?'var(--brand)':'transparent'}}/>))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const TONE = {red:'#C75B33', amber:'#E3A23C', green:'#2E8B5F', purple:'#5B4FE9', grey:'#C9C6BF'};
 /* A flat white card with only a small colored dot reads as one undifferentiated
    list - the dot is easy to miss entirely at a glance. A soft wash of the same
@@ -1201,7 +1278,6 @@ function buildSnapshot(people, events, tasks, settings, plan){
 function Today({people, events, tasks, settings, email, go, onToggleTask, doneToday, onSaveSettings, plan:aiPlan,
   pendingActivity, onResolveActivity}){
   const plan = useMemo(()=>buildPlan(people, events, tasks), [people, events, tasks]);
-  const mins = plan.reduce((a,t)=>a+(t.min||0),0);
   /* preferredName is read here but nothing anywhere ever sets it - this
      always fell through to guessing a name from the email's local part,
      which reads fine for "jane.smith@..." but produces exactly the kind of
@@ -1224,7 +1300,6 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
     // eslint-disable-next-line
   },[snap.shouldResnapshot, snap.added, snap.met]);
 
-  const [ask,setAsk] = useState('');
   /* These used to just be the plan's own task titles restated - "Reply to
      Mridul Arora" appearing as both a chip above and a card below said
      nothing twice. A chip should suggest something to ask that the cards
@@ -1248,61 +1323,47 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
     return ['Who should I talk to first?', ...uniq].slice(0,3);
   },[plan, people]);
 
+  const hero = plan[0] && plan[0].id!=='discover' ? plan[0] : null;
+  const rest = hero ? plan.slice(1).filter(t=>t.id!=='discover') : [];
+
   return (
     <div className="fade">
       <div style={{padding:'40px 48px 30px',
         background:'linear-gradient(135deg,#EFEDFD 0%,#F7F1F4 55%,#FBEFE9 100%)'}}>
-        <div style={{maxWidth:860}}>
+        <div style={{maxWidth:900}}>
           <h1 className="h1" style={{fontSize:'clamp(28px,3.4vw,36px)'}}>{greetWord()}{name?', '+name.charAt(0).toUpperCase()+name.slice(1):''}.</h1>
-          <div style={{marginTop:6,fontSize:'clamp(20px,2.6vw,27px)',fontWeight:700,letterSpacing:'-.02em',color:'var(--sub)'}}>
-            {people.length>0
-              ? <F>{plan.length} action{plan.length===1?'':'s'}, {mins} minutes. One step closer to {goalShort(settings)}.</F>
-              : <F>Nothing real to act on yet. Save someone and this fills in.</F>}
+          <div style={{marginTop:6,fontSize:'clamp(18px,2.3vw,24px)',fontWeight:700,letterSpacing:'-.02em',color:'var(--sub)',lineHeight:1.35}}>
+            {heroLine(hero, people.length)}
           </div>
 
-          <div className="card" style={{marginTop:26,padding:'18px 22px',display:'flex',alignItems:'center',gap:14}}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="var(--brand)" style={{flex:'none'}}><path d="M11 3.5 12.8 8l4.5 1.8-4.5 1.8L11 16l-1.8-4.4L4.7 9.8 9.2 8z"/></svg>
-            <input value={ask} onChange={e=>setAsk(e.target.value)}
-              onKeyDown={e=>{ if(e.key==='Enter' && clean(ask)) go({screen:'ask', ask:clean(ask)}); }}
-              placeholder="Ask Mighty anything"
-              style={{flex:1,minWidth:0,border:'none',outline:'none',background:'none',fontSize:16.5,color:'var(--ink)'}}/>
-            <button className="btn" style={{flex:'none',width:38,height:38,padding:0,borderRadius:'50%',
-              display:'flex',alignItems:'center',justifyContent:'center'}}
-              disabled={!clean(ask)} onClick={()=>go({screen:'ask', ask:clean(ask)})}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-            </button>
-          </div>
+          {hero &&
+            <div className="card" style={{marginTop:26,padding:'20px 24px',display:'flex',alignItems:'center',gap:16,flexWrap:'wrap',
+              background:'linear-gradient(90deg,#FBEFE9 0%,#EFEDFD 100%)',border:'1px solid #E4E0F7'}}>
+              <Avatar name={hero.title.replace(/^(Reply to|Send your first message to|Write to|Follow up with|Capture your conversation with|Understand)\s*/,'').replace(/ before you reach out$/,'')}
+                size={40} src={people.find(p=>hero.go&&p.id===hero.go.id)&&people.find(p=>hero.go&&p.id===hero.go.id).avatar_url}/>
+              <div style={{flex:'1 1 240px',minWidth:0}}>
+                <div className="eyebrow" style={{color:'#B8613F'}}>Start here</div>
+                <div style={{fontSize:19,fontWeight:800,letterSpacing:'-.015em',marginTop:2}}>{hero.title}</div>
+                <div className="sub" style={{fontSize:13.5,marginTop:2}}>{hero.sub} · {hero.min} min</div>
+              </div>
+              <button className="btn" style={{flex:'none'}} onClick={()=>go(hero.go)}>{HERO_VERB[hero.cta]||hero.cta}</button>
+            </div>}
+
           {askPrompts.length>0 &&
-            <div style={{display:'flex',flexWrap:'wrap',gap:9,marginTop:14}}>
+            <div className="row" style={{gap:10,flexWrap:'wrap',alignItems:'center',marginTop:20}}>
+              <span className="sub" style={{fontSize:13.5,fontWeight:600}}>What do you need?</span>
               {askPrompts.map(s=>(
                 <button key={s} className="chip" onClick={()=>go({screen:'ask', ask:s})}>{s}</button>))}
             </div>}
-
-          <div style={{marginTop:18}}>
-            <span className="pill" style={{background:'var(--brand-nav)',color:'var(--brand-ink)',padding:'8px 16px',fontSize:12.5}}>
-              YOUR GOAL · {goalLine(settings).toUpperCase()}
-            </span>
-          </div>
         </div>
       </div>
 
-      <div className="pad" style={{maxWidth:860,paddingTop:30}}>
-        {people.length>0 && <div style={{marginBottom:22}}><GoalFunnel people={people} settings={settings}/></div>}
-        {people.length>0 &&
-          <div className="sub" style={{fontSize:15,lineHeight:1.65,maxWidth:'62ch'}}>
-            {snap.added} added, {snap.talking} conversation{snap.talking===1?'':'s'} started
-            {snap.met>0 ? ', '+snap.met+' met' : ''}.
-            {snap.waiting>0 && <F> {snap.waiting} waiting on your reply.</F>}
-            {snap.quiet>0 && <F> {snap.quiet} gone quiet.</F>}
-            {snap.nearCap && <F> You are at {snap.added} of {snap.cap} relationships on your plan.</F>}
-            {snap.delta && <F> {snap.delta}.</F>}
-          </div>}
-
+      <div className="pad" style={{maxWidth:900,paddingTop:30}}>
         {/* Ambiguous reply/accept matches ingest() deliberately did not guess at - two or more
            saved people share the name the extension read off LinkedIn. Small, time-boxed, easy
            to skip, per the spec: this is the one new UI surface passive detection needed. */}
         {pendingActivity && pendingActivity.length>0 &&
-          <div className="stack" style={{gap:10,marginTop:20}}>
+          <div className="stack" style={{gap:10,marginBottom:20}}>
             {pendingActivity.map(row=>{
               const p = row.payload||{};
               const candidates = (p.candidates||[]).map(url=>people.find(x=>x.profile_url===url)).filter(Boolean);
@@ -1330,24 +1391,27 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
             })}
           </div>}
 
-        {/* The sentence above already says "N added, N conversations started" -
-            repeating it here in the section header was pure duplication. */}
-        <div className="eyebrow b" style={{marginTop:22}}>Today's {plan.length===1?'one':plan.length}</div>
+        {rest.length>0 &&
+          <F>
+            <div className="eyebrow b">Then</div>
+            <div className="card" style={{marginTop:10,overflow:'hidden'}}>
+              {rest.map(t=>(
+                <div key={t.id} onClick={()=>go(t.go)} className="row lift" style={{gap:14,padding:'15px 22px',
+                  borderBottom:'1px solid var(--line2)',cursor:'pointer',alignItems:'center'}}>
+                  <span style={{flex:'none',fontSize:10.5,fontWeight:800,letterSpacing:'.04em',padding:'4px 9px',borderRadius:999,
+                    background: isHighImpact(t)?'#FBEFE9':'var(--brand-nav)',
+                    color: isHighImpact(t)?'#C75B33':'var(--brand-ink)'}}>{isHighImpact(t)?'HIGH IMPACT':'GOOD NEXT'}</span>
+                  <div style={{flex:1,minWidth:0,fontSize:14.5,lineHeight:1.4}}>
+                    <span style={{fontWeight:700}}>{t.title}.</span> <span className="sub">{t.sub}</span>
+                  </div>
+                  <span className="meta" style={{flex:'none'}}>{t.min} min</span>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--mute)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flex:'none'}}><path d="M9 6l6 6-6 6"/></svg>
+                </div>))}
+            </div>
+          </F>}
 
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:14,marginTop:12}}>
-          {plan.map(t=>(
-            <div key={t.id} onClick={()=>go(t.go)} className="card todaycard"
-              style={{padding:'18px 20px',display:'flex',alignItems:'center',gap:14,cursor:'pointer',
-                background:TONE_BG[t.tone],borderColor:'transparent'}}>
-              <span className="dot" style={{background:TONE[t.tone]}}/>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:15.5,fontWeight:700,letterSpacing:'-.01em',lineHeight:1.3,
-                  display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{t.title}</div>
-                <div className="sub" style={{fontSize:13,marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{t.sub} · {t.min} min</div>
-              </div>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--mute)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flex:'none'}}><path d="M9 6l6 6-6 6"/></svg>
-            </div>))}
-        </div>
+        {people.length>0 &&
+          <div style={{marginTop:rest.length>0?22:0}}><GoalStrip people={people} events={events} settings={settings}/></div>}
 
         {allDone &&
           <div className="card" style={{marginTop:14,padding:'34px 26px 38px'}}>
@@ -4105,7 +4169,7 @@ const NAV = [
      where its link lives in the rail changed. */
   {key:'explore', label:'Explore', explore:true, icon:
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="m14.8 9.2-1.9 4.7-4.7 1.9 1.9-4.7z"/></svg>},
-  {key:'you', label:'You', icon:
+  {key:'you', label:'Me', icon:
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>,
     children:[
       {key:'mirror', label:'Mirror', tab:'mirror'},
@@ -4114,8 +4178,6 @@ const NAV = [
       {key:'account', label:'Account', tab:'account'},
       {key:'extension', label:'Extension', extension:true},
     ]},
-  {key:'ask', label:'Ask Mighty', icon:
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 3.5 12.8 8l4.5 1.8-4.5 1.8L11 16l-1.8-4.4L4.7 9.8 9.2 8z"/><path d="M18.5 14.5 19.4 17l2.5.9-2.5.9-.9 2.5-.9-2.5-2.5-.9 2.5-.9z"/></svg>},
 ];
 const QUESTION = {today:'What deserves my attention?', relationships:'Who should I know?',
   you:'How does this work for me?', ask:'What should I do?', extension:'Save people while you browse.'};
@@ -4130,8 +4192,7 @@ function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, em
      Relationships underneath - so its rail row is "on" precisely when
      Relationships' is not, and vice versa, rather than both lighting up
      together the moment you're anywhere inside Relationships. */
-  const parentOn = (k)=> k==='ask' ? askOpen
-    : k==='explore' ? (screen==='relationships' && relView==='explore')
+  const parentOn = (k)=> k==='explore' ? (screen==='relationships' && relView==='explore')
     : k==='relationships' ? (screen==='profile' || (screen==='relationships' && relView!=='explore'))
     : (k===screen || (k==='you'&&screen==='extension'));
   const childOn = (parent, child)=>{
@@ -4154,7 +4215,7 @@ function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, em
   /* Landing on the parent row lands on that surface's default view - List for
      Relationships, Mirror for You - rather than whatever was left over from a
      previous visit, so the row always means the same thing. */
-  const topClick = (k)=> k==='ask' ? onToggleAsk() : k==='explore' ? go({screen:'relationships', view:'explore'}) :
+  const topClick = (k)=> k==='explore' ? go({screen:'relationships', view:'explore'}) :
     go(k==='you' ? {screen:'you', tab:'mirror'} : k==='relationships' ? {screen:'relationships', view:'list'} : {screen:k});
   return (
     <div style={{display:'flex',minHeight:'100vh',background:'var(--paper)'}}>
@@ -4185,6 +4246,16 @@ function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, em
             </F>))}
         </nav>
         <div style={{flex:1}}/>
+        {/* A floating action, not a nav row - Ask Mighty is not a place you go,
+           it is a question you ask from wherever you already are, so it reads
+           differently than Today/Relationships/Explore/Me on purpose. */}
+        <div style={{padding:'0 12px 12px'}}>
+          <button className="btn" onClick={onToggleAsk} style={{width:'100%',display:'flex',
+            alignItems:'center',justifyContent:'center',gap:8,padding:'11px 16px'}}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            Ask Mighty
+          </button>
+        </div>
         {/* Identity only - Sign out has one home, the Account tab this links
            to, rather than living here too. A persistent sign-out button next
            to a persistent Account page that also has one was two controls
