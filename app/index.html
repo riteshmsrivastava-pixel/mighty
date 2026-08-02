@@ -926,15 +926,36 @@ function KbTimeline({positions, education}){
   );
 }
 
-function KnowledgeBase({settings, onEdit}){
+function KnowledgeBase({settings, onEdit, go}){
   const kb = settings.knowledge || {};
   const has = !!(kb.positions||[]).length || !!(kb.education||[]).length || !!kb.resumeText;
   const msg = kb.messages || null;
+  const hasArchive = !!(kb.positions||[]).length || !!(kb.education||[]).length;
+  const hasResume  = !!clean(kb.resumeText||'');
+  const hasGoal    = !!clean(settings.goal||'');
+  const completion = Math.round(([hasArchive,hasResume,hasGoal].filter(Boolean).length/3)*100);
+  /* The three real inputs, each on its own schedule - a LinkedIn export from
+     a week ago and a resume from six months ago are not equally fresh, so
+     they get their own dates instead of one "read 4 days ago" covering
+     both. "Correct this" used to be the only door back in, and it opened
+     onto the whole five-step wizard even to fix one thing; each source now
+     jumps straight to its own step (OB_STEPS: History=1, Resume=2). */
+  const sources = [
+    {label:'LinkedIn export', done:hasArchive,
+      status: hasArchive ? 'Read '+ago(kb.capturedAt) : 'Not added yet',
+      cta: hasArchive?'Update':'Add', onClick:()=>onEdit(1)},
+    {label:'Resume', done:hasResume,
+      status: hasResume ? 'Read '+ago(kb.resumeUpdatedAt||kb.capturedAt) : 'Not added yet',
+      cta: hasResume?'Update':'Add', onClick:()=>onEdit(2)},
+    {label:'Goal', done:hasGoal,
+      status: hasGoal ? clean(settings.goal).slice(0,64) : 'Not set yet',
+      cta: hasGoal?'Update':'Set', onClick:()=>go && go({screen:'you', tab:'goal'})},
+  ];
 
-  /* Gaps, in the order they actually cost the user something. */
+  /* Gaps, in the order they actually cost the user something. Archive and
+     resume already have their own status above, so listing them again here
+     would say the same thing twice. */
   const gaps = [
-    !has && 'your LinkedIn archive, which is what Discover ranks against',
-    has && !kb.resumeText && 'your resume, which is where achievements with numbers live',
     has && !(msg && msg.styleSamples && msg.styleSamples.length) &&
       'a sample of how you write, so drafts sound like you rather than like a product',
     !(kb.answers||[]).length && 'anything you have told it in your own words',
@@ -956,23 +977,32 @@ function KnowledgeBase({settings, onEdit}){
 
   return (
     <div className="fade">
-      {!has && <F>
-        <div className="row" style={{margin:'34px 0 12px',justifyContent:'space-between',alignItems:'baseline',gap:14}}>
-          <div className="eyebrow b">What Mighty understands about you</div>
+      <div className="card" style={{marginTop:26,padding:'22px 26px'}}>
+        <div className="row" style={{justifyContent:'space-between',alignItems:'baseline',gap:14,flexWrap:'wrap'}}>
+          <div className="h4">Profile {completion}% complete</div>
         </div>
-        <div className="card" style={{padding:'22px 26px'}}>
-          <div className="h4">Nothing yet.</div>
-          <div className="sub" style={{marginTop:7,maxWidth:'58ch'}}>
-            Mighty has your goal and nothing else, so every recommendation comes from one sentence.
-            Importing your history changes that more than anything else you can do.
-          </div>
-          <button className="btn sm" style={{marginTop:16}} onClick={onEdit}>Import my history</button>
+        <div style={{height:8,borderRadius:999,background:'var(--line2)',marginTop:12,overflow:'hidden'}}>
+          <div style={{height:'100%',width:completion+'%',background:'var(--brand)',borderRadius:999}}/>
         </div>
-      </F>}
+        <div className="stack" style={{gap:0,marginTop:16}}>
+          {sources.map((s,i)=>(
+            <div key={s.label} className="row" style={{justifyContent:'space-between',alignItems:'center',gap:14,
+              padding:'14px 0',borderTop: i>0 ? '1px solid var(--line2)' : 'none'}}>
+              <div className="row" style={{gap:11,alignItems:'center',minWidth:0}}>
+                <span className="dot" style={{background:s.done?'var(--green)':'var(--line)',flex:'none'}}/>
+                <div style={{minWidth:0}}>
+                  <div style={{fontSize:14.5,fontWeight:700}}>{s.label}</div>
+                  <div className="sub" style={{fontSize:13,marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.status}</div>
+                </div>
+              </div>
+              <button className="btn g sm" style={{flex:'none'}} onClick={s.onClick}>{s.cta}</button>
+            </div>))}
+        </div>
+      </div>
 
       {has && <F>
         {counts.length>0 &&
-          <div className="card" style={{marginTop:26,padding:'20px 24px 8px',
+          <div className="card" style={{marginTop:16,padding:'20px 24px 8px',
             background:'linear-gradient(135deg,var(--brand-soft2) 0%,#F7F1F4 55%,#FBEFE9 100%)',border:'1px solid #E4E0F7'}}>
             <KbBubbles counts={counts} capturedAt={kb.capturedAt}/>
           </div>}
@@ -988,12 +1018,6 @@ function KnowledgeBase({settings, onEdit}){
             Your messages were read, but your name could not be matched to the sender, so no writing samples
             were kept. Better than storing someone else's words as yours.
           </div>}
-
-        <div className="hint" style={{marginTop:16}}>
-          Built from your archive and resume, not assumptions. Anything wrong here is wrong everywhere
-          after it.
-        </div>
-        <button className="btn g sm" style={{marginTop:14}} onClick={onEdit}>Correct this</button>
       </F>}
 
       <div className="eyebrow b" style={{margin:'30px 0 12px'}}>What it still does not know</div>
@@ -3824,7 +3848,7 @@ function You({sb, email, settings, people, events, tasks, tab, setTab, editGoal,
         {tab==='mirror' &&
           <div style={{maxWidth:780}}>
             <div className="eyebrow b">What Mighty holds about you</div>
-            <KnowledgeBase settings={settings} onEdit={onReimport}/>
+            <KnowledgeBase settings={settings} onEdit={onReimport} go={go}/>
           </div>}
         {tab==='patterns' &&
           <Patterns sb={sb} settings={settings} people={people} onSaveSettings={onSaveSettings} onSave={onSave} onOpen={onOpen}/>}
@@ -4640,8 +4664,14 @@ function completion(st){
   return {pct: Math.round(done/items.length*100), items, done, total: items.length};
 }
 
-function Onboarding({sb, user, settings, onSave, onDone}){
-  const [step,setStep]   = useState(0);
+function Onboarding({sb, user, settings, onSave, onDone, startStep}){
+  /* Re-entering to fix one specific thing (a stale resume, a wrong role) used
+     to always restart at Privacy, a re-consent screen for something already
+     agreed to once. startStep lets "Update resume" and "Correct this" land
+     on the step that is actually relevant, not the front of a five-step
+     wizard. Brand-new accounts still start at 0 - only re-entry ever passes
+     a later step. */
+  const [step,setStep]   = useState(startStep||0);
   /* Rule 4: mechanics go behind a link, anything we do with the user's data stays
      on the surface. This is the link. */
   const [detail,setDetail] = useState(false);
@@ -4814,6 +4844,10 @@ function Onboarding({sb, user, settings, onSave, onDone}){
            messages/connections at render time. */
         decoded: arch ? buildDecoded(arch) : (kbExisting.decoded || null),
         resumeText: resume ? resume.slice(0, 12000) : (kbExisting.resumeText || ''),
+        /* Stamped only when the resume text actually changed, not on every
+           re-save - re-entering onboarding to fix an unrelated field should
+           not make an untouched resume look freshly updated. */
+        resumeUpdatedAt: resume && resume!==kbExisting.resumeText ? new Date().toISOString() : (kbExisting.resumeUpdatedAt || null),
         answers: newAnswers.length ? newAnswers : (kbExisting.answers || []),
       };
       await onSave({
@@ -5044,7 +5078,10 @@ function App(){
   const [askDraft,setAskDraft] = useState(null);
   const [askOpen,setAskOpen] = useState(false);
   const [editGoal,setEditGoal] = useState(false);
-  const [reimport,setReimport] = useState(false);
+  /* null when not reimporting; otherwise the OB_STEPS index to open straight
+     to, so "Update resume" does not first make someone click through
+     Privacy and History again to get there. */
+  const [reimport,setReimport] = useState(null);
   const [busySave,setBusySave] = useState(false);
   const [aiMeta,setAiMeta] = useState(null);
   const [err,setErr] = useState(null);
@@ -5407,9 +5444,10 @@ function App(){
      or correction that neither could do. Onboarding already pre-fills from
      existing settings, so re-entering it here is the real fix rather than
      building a second upload UI. */
-  if(!hasIntent || reimport)
+  if(!hasIntent || reimport!=null)
     return <Onboarding sb={sb} user={auth.user} settings={settings}
-      onSave={saveSettings} onDone={()=>{ setReimport(false); go({screen:'you', tab:'mirror'}); }}/>;
+      startStep={hasIntent ? reimport : 0}
+      onSave={saveSettings} onDone={()=>{ setReimport(null); go({screen:'you', tab:'mirror'}); }}/>;
 
   const signOut = async()=>{
     try{ await sb.auth.signOut(); }
@@ -5458,7 +5496,7 @@ function App(){
       {screen==='you' &&
         <You sb={sb} email={auth.user.email} settings={settings} people={people} events={events} tasks={tasks}
           tab={youTab} setTab={setYouTab} editGoal={editGoal} setEditGoal={setEditGoal} busySave={busySave}
-          onSaveSettings={saveSettings} onSignOut={signOut} onReimport={()=>setReimport(true)}
+          onSaveSettings={saveSettings} onSignOut={signOut} onReimport={(step)=>setReimport(step==null?1:step)}
           onSave={savePerson} onOpen={openPerson} go={go}/>}
 
       {screen==='extension' && <Extension/>}
