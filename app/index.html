@@ -191,6 +191,25 @@ const goalLine = (st)=>{
 const GOAL_SHORT = {job_search:'a new job', raise_funding:'funding', sales:'new customers',
   mentors:'the right mentors', networking:'a stronger network'};
 const goalShort = (st)=> GOAL_SHORT[goalTypeList(st)[0]] || 'your goal';
+/* What to call a saved person, in the goal's own words - "12 investors" says
+   more than "12 people" the moment the goal is raising money. */
+const GOAL_NOUN = {job_search:'contacts', raise_funding:'investors', sales:'prospects',
+  mentors:'mentors', networking:'people'};
+const goalNoun = (st)=> GOAL_NOUN[goalTypeList(st)[0]] || 'people';
+
+/* The funnel a goal actually moves through, in real counts only - never a
+   fabricated "68% there," which nothing here can honestly know. Do-not-contact
+   is excluded throughout: someone you closed out is not still in play toward
+   anything. */
+function goalFunnel(people){
+  const active = people.filter(r=>r.status!=='do_not_contact');
+  return {
+    saved:     active.length,
+    reachedOut:active.filter(r=>REACHED.includes(r.status)).length,
+    talking:   active.filter(r=>['replied','coffee_chat','referral','interview','offer'].indexOf(r.status)>=0).length,
+    advanced:  active.filter(r=>['referral','interview','offer'].indexOf(r.status)>=0).length,
+  };
+}
 
 /* outreach_log.status is the ONE stage field. 'prospect' IS Saved. */
 const STAGE = {
@@ -716,11 +735,41 @@ function StrategyForm({settings, onSave, busy, onCancel, firstRun}){
   );
 }
 
+/* Real counts through real pipeline stages, never a fabricated "68% there" -
+   nothing here can honestly know how close a raise or a job search actually
+   is. What it CAN say, truthfully, is how many are moving and how far. Shared
+   between Today and the Goal tab so "goal progress" means the same thing
+   wherever it appears. */
+function GoalFunnel({people, settings}){
+  if(!canSee('progress', people)) return null;
+  const f = goalFunnel(people);
+  const stages = [['Saved',f.saved], ['Reached out',f.reachedOut], ['In conversation',f.talking], ['Advanced',f.advanced]];
+  return (
+    <div className="card" style={{padding:'20px 24px',
+      background:'linear-gradient(135deg,var(--brand-soft2) 0%,#F7F1F4 55%,#FBEFE9 100%)',border:'1px solid #E4E0F7'}}>
+      <div className="row" style={{gap:10,flexWrap:'wrap',alignItems:'baseline'}}>
+        <span className="eyebrow b">Goal progress</span>
+        <span className="meta">{f.saved} {goalNoun(settings)} in play toward {goalShort(settings)}</span>
+      </div>
+      <div style={{marginTop:16,display:'flex',alignItems:'center',flexWrap:'wrap'}}>
+        {stages.map(([label,n],i)=>(
+          <F key={label}>
+            <div style={{textAlign:'center',minWidth:78}}>
+              <div style={{fontSize:24,fontWeight:800,letterSpacing:'-.03em',fontVariantNumeric:'tabular-nums',
+                color:n>0?'var(--brand-ink)':'var(--mute)'}}>{n}</div>
+              <div className="sub" style={{fontSize:12,marginTop:4}}>{label}</div>
+            </div>
+            {i<stages.length-1 &&
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--mute)" strokeWidth="2"
+                strokeLinecap="round" strokeLinejoin="round" style={{flex:'none',margin:'0 2px'}}><path d="M9 6l6 6-6 6"/></svg>}
+          </F>))}
+      </div>
+    </div>
+  );
+}
+
 function StrategyView({settings, people, onEdit}){
   const st = settings;
-  const reached = people.filter(r=>REACHED.includes(r.status)).length;
-  const talked  = people.filter(r=>['replied','coffee_chat','referral','interview','offer'].indexOf(r.status)>=0).length;
-  const met     = people.filter(r=>['coffee_chat','referral','interview','offer'].indexOf(r.status)>=0).length;
   const chipRows = [
     /* The H1 above already reads goalLine(st), which prefers the free-text
        goal when there is one. This card only earns its space when that free
@@ -736,12 +785,6 @@ function StrategyView({settings, people, onEdit}){
     (st.networkingStyle||[]).length ? ['How you network', st.networkingStyle] : null,
     (st.successMetrics||[]).length ? ['Success looks like', st.successMetrics] : null,
   ].filter(r=>r && r[1].length);
-  const activity = [
-    ['added', people.length, 'var(--brand)'],
-    ['reached out', reached, 'var(--peach)'],
-    ['in conversation', talked, 'var(--green)'],
-    ['met', met, null],
-  ];
 
   return (
     <div className="pad fade" style={{maxWidth:780}}>
@@ -753,7 +796,11 @@ function StrategyView({settings, people, onEdit}){
         <button className="btn g sm" onClick={onEdit}>Edit</button>
       </div>
 
-      <div style={{marginTop:26,display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+      <div style={{marginTop:22}}><GoalFunnel people={people} settings={st}/></div>
+      {!canSee('progress',people) &&
+        <div className="hint" style={{marginTop:12}}>{UNLOCKS.progress.hint}</div>}
+
+      <div style={{marginTop:22,display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
         {chipRows.map(([label,chips])=>(
           <div key={label} className="card" style={{padding:'18px 20px',
             background:'linear-gradient(135deg,var(--brand-soft2) 0%,#F7F1F4 55%,#FBEFE9 100%)',border:'1px solid #E4E0F7'}}>
@@ -764,32 +811,7 @@ function StrategyView({settings, people, onEdit}){
                   fontSize:13,fontWeight:600,color:'var(--brand-ink)'}}>{c}</span>))}
             </div>
           </div>))}
-
-        {canSee('progress',people) &&
-          <div className="card" style={{gridColumn:'1 / -1',padding:'20px 22px',
-            background:'linear-gradient(135deg,var(--brand-soft2) 0%,#F7F1F4 55%,#FBEFE9 100%)',border:'1px solid #E4E0F7'}}>
-            <div className="row" style={{gap:10,flexWrap:'wrap',alignItems:'baseline'}}>
-              <span className="eyebrow" style={{color:'var(--sub)'}}>Activity</span>
-              <span className="meta">Activity, not progress. Only you can judge how close you are.</span>
-            </div>
-            <div style={{marginTop:16,display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:18}}>
-              {activity.map(([label,n,dot])=>(
-                <div key={label}>
-                  <div style={{fontSize:26,fontWeight:800,letterSpacing:'-.03em',fontVariantNumeric:'tabular-nums',
-                    color: n>0 ? 'var(--ink)' : 'var(--mute)'}}>{n}</div>
-                  <div style={{marginTop:8,display:'flex',gap:4,flexWrap:'wrap'}}>
-                    {n>0 ? Array.from({length:Math.min(n,12)}).map((_,i)=>(
-                      <span key={i} style={{width:9,height:9,borderRadius:999,background:dot||'var(--sub)'}}/>))
-                    : <span style={{width:9,height:9,borderRadius:999,border:'1.5px dashed var(--mute)',boxSizing:'border-box'}}/>}
-                  </div>
-                  <div className="sub" style={{fontSize:12.5,marginTop:8}}>{label}</div>
-                </div>))}
-            </div>
-          </div>}
       </div>
-
-      {!canSee('progress',people) &&
-        <div className="hint" style={{marginTop:20}}>{UNLOCKS.progress.hint}</div>}
 
       <div className="hint" style={{marginTop:26,maxWidth:560}}>
         {st.strategyUpdatedAt ? 'Last updated ' + ago(st.strategyUpdatedAt) + '. ' : ''}
@@ -1265,6 +1287,7 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
       </div>
 
       <div className="pad" style={{maxWidth:860,paddingTop:30}}>
+        {people.length>0 && <div style={{marginBottom:22}}><GoalFunnel people={people} settings={settings}/></div>}
         {people.length>0 &&
           <div className="sub" style={{fontSize:15,lineHeight:1.65,maxWidth:'62ch'}}>
             {snap.added} added, {snap.talking} conversation{snap.talking===1?'':'s'} started
