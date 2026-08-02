@@ -3561,7 +3561,7 @@ function Extension(){
 
 const PLAN_LABEL = {trial:'Free trial', starter:'Starter', plus:'Plus', pro:'Pro',
   explorer:'Explorer', builder:'Builder', leader:'Leader'};
-function Settings({email, settings, people, events, tasks, onSignOut, go, onSaveSettings, busySave, plan}){
+function Settings({email, settings, people, events, tasks, onSignOut, onDeleteAccount, go, onSaveSettings, busySave, plan}){
   const [copied,setCopied] = useState(false);
   function exportAll(){
     const blob = new Blob([JSON.stringify({exportedAt:new Date().toISOString(), strategy:settings,
@@ -3576,71 +3576,75 @@ function Settings({email, settings, people, events, tasks, onSignOut, go, onSave
   /* Personal details - name/role/company/location live in settings already
      (onboarding writes them from the archive or the manual fields there),
      but the only door back to any of them used to be re-entering the whole
-     onboarding wizard. This is the direct one. */
+     onboarding wizard. This is the direct one. Collapsed behind Edit rather
+     than always-open inputs, so Settings reads as a summary first. */
+  const [editing,setEditing] = useState(false);
   const [name,setName]       = useState(settings.preferredName || '');
   const [role,setRole]       = useState(settings.currentRole || '');
   const [company,setCompany] = useState(settings.currentCompany || '');
   const [loc,setLoc]         = useState(settings.homeLocation || '');
-  const dirty = name!==(settings.preferredName||'') || role!==(settings.currentRole||'')
-    || company!==(settings.currentCompany||'') || loc!==(settings.homeLocation||'');
   const [saved,setSaved] = useState(false);
   async function savePersonal(){
     await onSaveSettings({preferredName:clean(name), currentRole:clean(role),
       currentCompany:clean(company), homeLocation:clean(loc)});
-    setSaved(true); setTimeout(()=>setSaved(false), 2200);
+    setSaved(true); setEditing(false); setTimeout(()=>setSaved(false), 2200);
   }
 
-  const rows = [
-    ['Account', email, 'Sign out', onSignOut],
-    /* The sidebar's Extension entry is hidden on narrow viewports (no mobile
-       equivalent), and the only other doors to it are contextual CTAs that
-       stop showing once the extension is connected or a brief exists - a
-       mobile user could otherwise have no way back to it at all. */
-    ['Extension', 'The LinkedIn browser extension - install it or check its status.',
-      'Open', ()=>go({screen:'extension'})],
-    ['Export everything', 'Your goal, people, timeline and commitments. One JSON file, yours anytime.',
-      copied?'Downloaded':'Export', exportAll],
-  ];
+  const [deleting,setDeleting] = useState(false);
+  const [confirmText,setConfirmText] = useState('');
+  const [busyDelete,setBusyDelete] = useState(false);
+
+  const kb = settings.knowledge || {};
+  const writingSamples = ((kb.messages||{}).styleSamples||[]).length;
 
   return (
     <div className="pad fade" style={{maxWidth:820}}>
-      <div className="card" style={{overflow:'hidden'}}>
-        {rows.map(([t,s,cta,fn],i)=>(
-          <div key={t} className="row" style={{gap:16,padding:'22px 26px',borderBottom:i===rows.length-1?'none':'1px solid var(--line4)'}}>
-            <div style={{flex:1,minWidth:0}}>
-              <div className="h4">{t}</div>
-              <div className="sub" style={{fontSize:14,marginTop:3,textWrap:'pretty'}}>{s}</div>
+      <div className="eyebrow b" style={{marginBottom:12}}>Profile</div>
+      <div className="card" style={{padding:'22px 26px'}}>
+        {!editing ? (
+          <div className="row" style={{justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
+            <div className="row" style={{gap:14,alignItems:'center'}}>
+              <div className="av" style={{width:40,height:40,fontSize:15}}>{initials(name||email)}</div>
+              <div>
+                <div className="h4">{name || 'Add your name'}</div>
+                <div className="sub" style={{fontSize:13.5,marginTop:2}}>
+                  {email}{[role,company].filter(Boolean).length ? ' · '+[role,company].filter(Boolean).join(', ') : ''}{loc ? ' · '+loc : ''}
+                </div>
+              </div>
             </div>
-            <button className="btn g sm" onClick={fn}>{cta}</button>
-          </div>))}
-      </div>
-
-      <div className="eyebrow b" style={{margin:'34px 0 12px'}}>Personal details</div>
-      <div className="card" style={{padding:'24px 26px'}}>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:16}}>
-          <label>
-            <div className="sub" style={{fontSize:12.5,fontWeight:700,marginBottom:6}}>PREFERRED NAME</div>
-            <input className="inp" value={name} onChange={e=>setName(e.target.value)} placeholder="What Mighty calls you"/>
-          </label>
-          <label>
-            <div className="sub" style={{fontSize:12.5,fontWeight:700,marginBottom:6}}>CURRENT ROLE</div>
-            <input className="inp" value={role} onChange={e=>setRole(e.target.value)} placeholder="e.g. Founder"/>
-          </label>
-          <label>
-            <div className="sub" style={{fontSize:12.5,fontWeight:700,marginBottom:6}}>CURRENT COMPANY</div>
-            <input className="inp" value={company} onChange={e=>setCompany(e.target.value)} placeholder="e.g. Mighty"/>
-          </label>
-          <label>
-            <div className="sub" style={{fontSize:12.5,fontWeight:700,marginBottom:6}}>LOCATION</div>
-            <input className="inp" value={loc} onChange={e=>setLoc(e.target.value)} placeholder="e.g. Boston, MA"/>
-          </label>
-        </div>
-        <div className="row" style={{gap:12,marginTop:18,alignItems:'center'}}>
-          <button className="btn sm" disabled={!dirty||busySave} onClick={savePersonal}>
-            {busySave ? <span><span className="spin"/> Saving</span> : 'Save'}
-          </button>
-          {saved && <span className="sub" style={{fontSize:13,color:'var(--green)'}}>Saved.</span>}
-        </div>
+            <button className="btn g sm" onClick={()=>setEditing(true)}>Edit</button>
+          </div>
+        ) : (
+          <F>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:16}}>
+              <label>
+                <div className="sub" style={{fontSize:12.5,fontWeight:700,marginBottom:6}}>PREFERRED NAME</div>
+                <input className="inp" value={name} onChange={e=>setName(e.target.value)} placeholder="What Mighty calls you"/>
+              </label>
+              <label>
+                <div className="sub" style={{fontSize:12.5,fontWeight:700,marginBottom:6}}>CURRENT ROLE</div>
+                <input className="inp" value={role} onChange={e=>setRole(e.target.value)} placeholder="e.g. Founder"/>
+              </label>
+              <label>
+                <div className="sub" style={{fontSize:12.5,fontWeight:700,marginBottom:6}}>CURRENT COMPANY</div>
+                <input className="inp" value={company} onChange={e=>setCompany(e.target.value)} placeholder="e.g. Mighty"/>
+              </label>
+              <label>
+                <div className="sub" style={{fontSize:12.5,fontWeight:700,marginBottom:6}}>LOCATION</div>
+                <input className="inp" value={loc} onChange={e=>setLoc(e.target.value)} placeholder="e.g. Boston, MA"/>
+              </label>
+            </div>
+            <div className="row" style={{gap:10,marginTop:18}}>
+              <button className="btn sm" disabled={busySave} onClick={savePersonal}>
+                {busySave ? <span><span className="spin"/> Saving</span> : 'Save'}
+              </button>
+              <button className="btn g sm" onClick={()=>{ setEditing(false);
+                setName(settings.preferredName||''); setRole(settings.currentRole||'');
+                setCompany(settings.currentCompany||''); setLoc(settings.homeLocation||''); }}>Cancel</button>
+            </div>
+          </F>
+        )}
+        {saved && <div className="sub" style={{fontSize:13,color:'var(--green)',marginTop:10}}>Saved.</div>}
       </div>
 
       <div className="eyebrow b" style={{margin:'34px 0 12px'}}>Subscription</div>
@@ -3657,8 +3661,58 @@ function Settings({email, settings, people, events, tasks, onSignOut, go, onSave
         </div>
       </div>
 
+      <div className="eyebrow b" style={{margin:'34px 0 12px'}}>Connected</div>
+      <div className="card" style={{overflow:'hidden'}}>
+        <div className="row" style={{gap:16,padding:'20px 24px'}}>
+          <span className="dot" style={{background:extBridge.isReady()?'var(--green)':'var(--line)',marginTop:2}}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div className="h4">LinkedIn extension</div>
+            <div className="sub" style={{fontSize:13.5,marginTop:2}}>
+              {extBridge.isReady() ? 'Connected and reachable from this tab.' : 'Not detected in this browser right now.'}
+              {' '}Saves profiles while you browse, and drives search.
+            </div>
+          </div>
+          <button className="btn g sm" onClick={()=>go({screen:'extension'})}>
+            {extBridge.isReady() ? 'Open' : 'Set up'}
+          </button>
+        </div>
+      </div>
+
+      <div className="eyebrow b" style={{margin:'34px 0 12px'}}>Your data</div>
+      <div className="card" style={{padding:'22px 26px'}}>
+        <div className="sub" style={{fontSize:14,lineHeight:1.55}}>
+          Export anytime. Delete anytime. Nothing leaves your account without you.
+        </div>
+        <div className="row" style={{gap:10,marginTop:16,flexWrap:'wrap'}}>
+          <button className="btn g sm" onClick={exportAll}>{copied?'Downloaded':'Export everything'}</button>
+          <button className="btn g sm" style={{color:'#C75B33',borderColor:'#F0D5C9'}} onClick={()=>setDeleting(true)}>
+            Delete account
+          </button>
+        </div>
+        {deleting &&
+          <div style={{marginTop:18,paddingTop:18,borderTop:'1px solid var(--line4)'}}>
+            <div className="h4" style={{color:'#C75B33'}}>This permanently deletes everything.</div>
+            <div className="sub" style={{fontSize:13.5,marginTop:6,lineHeight:1.55,maxWidth:520}}>
+              {people.length} relationships, {events.length} timeline entries, your imported archive and
+              resume, your goal, all of it - gone, not recoverable. You will be signed out. Type DELETE to
+              confirm.
+            </div>
+            <input className="inp" style={{marginTop:12,maxWidth:220}} value={confirmText}
+              onChange={e=>setConfirmText(e.target.value)} placeholder="DELETE"/>
+            <div className="row" style={{gap:10,marginTop:12}}>
+              <button className="btn" style={{background:'#C75B33'}} disabled={confirmText!=='DELETE'||busyDelete}
+                onClick={async()=>{ setBusyDelete(true); await onDeleteAccount(); }}>
+                {busyDelete ? <span><span className="spin"/> Deleting</span> : 'Permanently delete'}
+              </button>
+              <button className="btn g sm" onClick={()=>{ setDeleting(false); setConfirmText(''); }}>Cancel</button>
+            </div>
+          </div>}
+      </div>
+
       <div className="hint" style={{marginTop:26}}>
-        {people.length} {people.length===1?'relationship':'relationships'} · {events.length} timeline {events.length===1?'entry':'entries'} · {tasks.filter(t=>!t.done).length} open {tasks.filter(t=>!t.done).length===1?'commitment':'commitments'}
+        Mighty · {people.length} relationships · {events.length} timeline entries ·{' '}
+        {tasks.filter(t=>!t.done).length} open commitments{writingSamples ? ' · '+writingSamples+' writing samples' : ''} ·{' '}
+        <button className="btn q" style={{fontSize:13,padding:0,color:'var(--sub)',textDecoration:'underline'}} onClick={onSignOut}>Sign out</button>
       </div>
     </div>
   );
@@ -4099,7 +4153,14 @@ function Patterns({sb, settings, people, onSaveSettings, onSave, onOpen, onEdit}
   );
 }
 
-const YOU_TABS = [['mirror','Mirror'],['patterns','Patterns'],['goal','Goal'],['account','Account']];
+/* Mirror and Patterns used to be two tabs answering two halves of the same
+   question - what Mighty has read, and what it has noticed - split apart
+   for no reason a reader could tell. The handoff merges them into one
+   scrollable "Profile": patterns first (what changed, what it means), then
+   the raw holdings (what it actually has) after. Account becomes Settings,
+   with Extension folded in as one of its "Connected" cards instead of a
+   separate rail item. */
+const YOU_TABS = [['profile','Profile'],['goal','Goal'],['settings','Settings']];
 
 /* ===================== You =====================
    Strategy and Settings used to be two surfaces answering two different
@@ -4108,7 +4169,7 @@ const YOU_TABS = [['mirror','Mirror'],['patterns','Patterns'],['goal','Goal'],['
    is what it has noticed. Goal is what the user told it. Account is the
    mechanics. Nothing here is time-sensitive the way Today is - a user comes
    here to update themselves, not to be told what to do next. */
-function You({sb, email, settings, people, events, tasks, tab, setTab, editGoal, setEditGoal, busySave, onSaveSettings, onSignOut, onReimport, onSave, onOpen, go, aiMeta}){
+function You({sb, email, settings, people, events, tasks, tab, setTab, editGoal, setEditGoal, busySave, onSaveSettings, onSignOut, onDeleteAccount, onReimport, onSave, onOpen, go, aiMeta}){
   return (
     <div className="pad fade" style={{maxWidth:1000,paddingTop:34}}>
       <div className="seg">
@@ -4117,22 +4178,23 @@ function You({sb, email, settings, people, events, tasks, tab, setTab, editGoal,
             onClick={()=>{ if(k!==tab) setEditGoal(false); setTab(k); }}>{label}</button>))}
       </div>
       <div style={{marginTop:28}}>
-        {tab==='mirror' &&
+        {tab==='profile' &&
           <div style={{maxWidth:780}}>
-            <div className="eyebrow b">What Mighty holds about you</div>
-            <KnowledgeBase settings={settings} onEdit={onReimport} go={go}/>
+            <Patterns sb={sb} settings={settings} people={people} onSaveSettings={onSaveSettings} onSave={onSave} onOpen={onOpen} onEdit={onReimport}/>
+            <div style={{marginTop:36}}>
+              <div className="eyebrow b">What Mighty holds about you</div>
+              <KnowledgeBase settings={settings} onEdit={onReimport} go={go}/>
+            </div>
           </div>}
-        {tab==='patterns' &&
-          <Patterns sb={sb} settings={settings} people={people} onSaveSettings={onSaveSettings} onSave={onSave} onOpen={onOpen} onEdit={onReimport}/>}
         {tab==='goal' && !editGoal &&
           <StrategyView settings={settings} people={people} onEdit={()=>setEditGoal(true)}/>}
         {tab==='goal' && editGoal &&
           <StrategyForm settings={settings} busy={busySave}
             onSave={async(p)=>{ await onSaveSettings(p); setEditGoal(false); }}
             onCancel={()=>setEditGoal(false)}/>}
-        {tab==='account' &&
+        {tab==='settings' &&
           <Settings email={email} settings={settings} people={people} events={events} tasks={tasks}
-            onSignOut={onSignOut} go={go} onSaveSettings={onSaveSettings} busySave={busySave}
+            onSignOut={onSignOut} onDeleteAccount={onDeleteAccount} go={go} onSaveSettings={onSaveSettings} busySave={busySave}
             plan={aiMeta&&aiMeta.plan}/>}
       </div>
     </div>
@@ -4242,11 +4304,9 @@ const NAV = [
   {key:'you', label:'Me', icon:
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>,
     children:[
-      {key:'mirror', label:'Mirror', tab:'mirror'},
-      {key:'patterns', label:'Patterns', tab:'patterns'},
+      {key:'profile', label:'Profile', tab:'profile'},
       {key:'goal', label:'Goal', tab:'goal'},
-      {key:'account', label:'Account', tab:'account'},
-      {key:'extension', label:'Extension', extension:true},
+      {key:'settings', label:'Settings', tab:'settings'},
     ]},
 ];
 const QUESTION = {today:'What deserves my attention?', relationships:'Who should I know?',
@@ -4286,7 +4346,7 @@ function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, em
      Relationships, Mirror for You - rather than whatever was left over from a
      previous visit, so the row always means the same thing. */
   const topClick = (k)=> k==='explore' ? go({screen:'relationships', view:'explore'}) :
-    go(k==='you' ? {screen:'you', tab:'mirror'} : k==='relationships' ? {screen:'relationships', view:'list'} : {screen:k});
+    go(k==='you' ? {screen:'you', tab:'profile'} : k==='relationships' ? {screen:'relationships', view:'list'} : {screen:k});
   return (
     <div style={{display:'flex',minHeight:'100vh',background:'var(--paper)'}}>
       <aside className="railwrap" style={{width:246,flex:'none',display:'flex',flexDirection:'column',
@@ -4333,7 +4393,7 @@ function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, em
         <button className="row" style={{gap:11,padding:'16px 22px 20px',
           borderTop:'1px solid var(--line3)',borderLeft:'none',borderRight:'none',borderBottom:'none',
           background:'none',cursor:'pointer',textAlign:'left',width:'100%'}}
-          onClick={()=>go({screen:'you', tab:'account'})}>
+          onClick={()=>go({screen:'you', tab:'settings'})}>
           <div className="av" style={{width:32,height:32,fontSize:13}}>{initials(email)}</div>
           <div style={{minWidth:0,flex:1}}>
             <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{email}</div>
@@ -5354,7 +5414,7 @@ function App(){
   const [personId,setPersonId] = useState(null);
   const [tab,setTab] = useState('overview');
   const [relView,setRelView] = useState('list');
-  const [youTab,setYouTab] = useState('mirror');
+  const [youTab,setYouTab] = useState('profile');
   const [askDraft,setAskDraft] = useState(null);
   const [askOpen,setAskOpen] = useState(false);
   const [editGoal,setEditGoal] = useState(false);
@@ -5739,7 +5799,7 @@ function App(){
   if(!hasIntent || reimport!=null)
     return <Onboarding sb={sb} user={auth.user} settings={settings}
       startStep={hasIntent ? reimport : 0}
-      onSave={saveSettings} onDone={()=>{ setReimport(null); go({screen:'you', tab:'mirror'}); }}/>;
+      onSave={saveSettings} onDone={()=>{ setReimport(null); go({screen:'you', tab:'profile'}); }}/>;
 
   const signOut = async()=>{
     try{ await sb.auth.signOut(); }
@@ -5747,6 +5807,24 @@ function App(){
       server-side signOut call should not strand the user on a click that
       visibly did nothing. */ }
     window.location.href='../';
+  };
+
+  /* Erases everything RLS lets the client touch - every row this account
+     owns, in every table. What it deliberately does NOT do is remove the
+     auth.users row itself, since that needs the service-role key, which has
+     no business being anywhere near client code. Signing out after leaves
+     an empty, still-loginable account rather than a broken one - close
+     enough to "delete my account" to be the honest, safe version of it. */
+  const deleteAccount = async()=>{
+    const uid = auth.user.id;
+    try{
+      await sb.from('outreach_log').delete().eq('user_id', uid);
+      await sb.from('tasks').delete().eq('user_id', uid);
+      await sb.from('connections').delete().eq('user_id', uid);
+      await sb.from('imports').delete().eq('user_id', uid);
+      await sb.from('user_data').delete().eq('user_id', uid);
+    }catch(e){ setErr('Could not delete everything: '+(e.message||'unknown error')); }
+    await signOut();
   };
 
   return (
@@ -5788,7 +5866,7 @@ function App(){
       {screen==='you' &&
         <You sb={sb} email={auth.user.email} settings={settings} people={people} events={events} tasks={tasks}
           tab={youTab} setTab={setYouTab} editGoal={editGoal} setEditGoal={setEditGoal} busySave={busySave}
-          onSaveSettings={saveSettings} onSignOut={signOut} onReimport={(step)=>setReimport(step==null?1:step)}
+          onSaveSettings={saveSettings} onSignOut={signOut} onDeleteAccount={deleteAccount} onReimport={(step)=>setReimport(step==null?1:step)}
           onSave={savePerson} onOpen={openPerson} go={go} aiMeta={aiMeta}/>}
 
       {screen==='extension' && <Extension/>}
