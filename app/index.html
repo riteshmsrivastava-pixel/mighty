@@ -838,7 +838,7 @@ function KbBubbles({counts, capturedAt}){
              here is 1-2 - one fixed size for the lead bubble meant "19,433"
              ran past the box's own edge instead of shrinking to fit it. */
           const big = i===0;
-          const size = big ? (text.length>=6?23:text.length>=5?27:30) : (text.length>=4?17:21);
+          const size = big ? (text.length>=6?19:text.length>=5?24:30) : (text.length>=4?17:21);
           return (
           <div key={label} style={{padding:'16px 15px',borderRadius:12,minWidth:0,
             background: big ? 'var(--brand)' : '#fff',
