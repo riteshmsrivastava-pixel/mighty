@@ -2747,7 +2747,15 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
     setBusy(null);
   }
 
-  const TABS = [['overview','Overview'],['brief','Brief'],['draft','Draft message'],['timeline','Timeline'],['notes','Notes']];
+  /* Overview used to be its own tab, one click away from the two cards that
+     actually answer "why am I looking at this person" - why they matter to
+     your goal, and why you saved them in the first place. Those now sit
+     above the tabs, visible no matter which tab is open, matching the
+     handoff. What Overview also held (the raw profile-facts table, shared
+     context tags) moved into Prepare, next to the brief that already reads
+     them; memories and open commitments moved into Notes, next to the rest
+     of what you've captured about this person. */
+  const TABS = [['draft','Draft'],['brief','Prepare'],['notes','Notes'],['timeline','History']];
   const nextStage = ORDER[Math.min(ORDER.indexOf(row.status)+1, ORDER.length-1)];
   /* Only asked once a message has actually gone out, and only until they answer. */
   const askedReplied = row.status==='contacted';
@@ -2779,7 +2787,9 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
       </div>
 
       <div className="row" style={{marginTop:18,gap:10,flexWrap:'wrap'}}>
-        <button className="btn sm" onClick={()=>setTab('draft')}>Draft a message</button>
+        <button className="btn sm" onClick={()=>setTab('draft')}>
+          {row.status==='prospect' ? 'Write first message' : 'Draft a message'}
+        </button>
         {/* Does not offer to prepare a brief it cannot write. When the profile
             has never been read this takes you to the tab that explains why,
             rather than firing a request that fails. */}
@@ -2789,13 +2799,18 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
             : profileRead ? 'Prepare me' : 'Why no brief yet'}
         </button>
         <a className="btn g sm" href={row.profile_url} target="_blank" rel="noopener noreferrer">LinkedIn</a>
-        {row.status!=='offer' && row.status!=='do_not_contact' &&
-          <button className="btn g sm" disabled={!!busy}
-            onClick={()=>{ setBusy('stage'); Promise.resolve(onStage(row, nextStage)).finally(()=>setBusy(null)); }}>
-            Move to {(STAGE[nextStage]||{}).label}
-          </button>}
         {toast && <span style={{fontSize:13.5,fontWeight:600,color:'var(--green)'}}>{toast}</span>}
       </div>
+      {/* Moving pipeline stage forward is real, frequent work - the handoff's
+         three-button header just doesn't show it, probably because its
+         sample person hadn't been contacted yet. Demoted to a quiet text
+         link rather than dropped outright, so progressing someone doesn't
+         quietly lose its only door. */}
+      {row.status!=='offer' && row.status!=='do_not_contact' &&
+        <button className="btn q" style={{fontSize:13,padding:'8px 0 0',display:'block'}} disabled={!!busy}
+          onClick={()=>{ setBusy('stage'); Promise.resolve(onStage(row, nextStage)).finally(()=>setBusy(null)); }}>
+          Move to {(STAGE[nextStage]||{}).label} →
+        </button>}
       {err && <div className="banner err" style={{marginTop:14}}>{err}</div>}
 
       {askedReplied &&
@@ -2812,82 +2827,40 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
           </button>
         </div>}
 
+      {/* Why they matter, and why you saved them - the two questions "why am I
+         looking at this person" actually breaks into, always visible no
+         matter which tab is open below, matching the handoff. The first only
+         exists once a brief has been prepared; the second is always there,
+         even when nothing was recorded, because "no reason given" is itself
+         worth seeing. */}
+      {Array.isArray(ctx.timingSignals) && ctx.timingSignals.length>0 &&
+        <div className="card" style={{marginTop:16,padding:'16px 20px',background:'var(--brand-soft)',borderColor:'var(--brand-line)'}}>
+          <div className="eyebrow" style={{color:'var(--brand-ink)'}}>Worth knowing now</div>
+          <div style={{fontSize:15,fontWeight:600,color:'var(--ink2)',marginTop:5}}>
+            {ctx.timingSignals.join(' · ')}
+          </div>
+        </div>}
+      <div style={{marginTop:16,display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:16}}>
+        {br.whyMatters &&
+          <div className="why" style={{padding:'22px 24px'}}>
+            <div className="eyebrow b">Why they matter to you</div>
+            <div style={{fontSize:15,lineHeight:1.6,color:'var(--ink2)',marginTop:8,fontWeight:500,textWrap:'pretty'}}>{br.whyMatters}</div>
+          </div>}
+        <div className="card" style={{padding:'22px 24px'}}>
+          <div className="eyebrow">Why you saved them</div>
+          <div style={{fontSize:16,fontWeight:700,marginTop:7,letterSpacing:'-.01em',textWrap:'pretty'}}>
+            {ctx.whySaved || 'No reason was recorded when this was saved.'}
+          </div>
+          <div className="sub" style={{fontSize:14,marginTop:4}}>
+            {[ctx.savedFrom ? 'Found by searching "'+ctx.savedFrom+'"' : (ctx.source==='search'?'Found through search':'Saved from the extension'),
+              'Saved '+(ago(row.shortlisted_at)||'recently')].filter(Boolean).join(' · ')}
+          </div>
+        </div>
+      </div>
+
       <div className="seg" style={{marginTop:26,overflowX:'auto',maxWidth:'100%'}}>
         {TABS.map(([k,l])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)}>{l}</button>)}
       </div>
-
-      {tab==='overview' &&
-        <div className="stack fade" style={{gap:16,marginTop:24}}>
-          {/* A timing signal is the rare fact with a short shelf life, so it goes
-              above the reason they were saved rather than in a details table. */}
-          {Array.isArray(ctx.timingSignals) && ctx.timingSignals.length>0 &&
-            <div className="card" style={{padding:'16px 20px',background:'var(--brand-soft)',borderColor:'var(--brand-line)'}}>
-              <div className="eyebrow" style={{color:'var(--brand-ink)'}}>Worth knowing now</div>
-              <div style={{fontSize:15,fontWeight:600,color:'var(--ink2)',marginTop:5}}>
-                {ctx.timingSignals.join(' · ')}
-              </div>
-            </div>}
-
-          <div className="card" style={{padding:'22px 24px'}}>
-            <div className="eyebrow">Why you saved them</div>
-            <div style={{fontSize:16,fontWeight:700,marginTop:7,letterSpacing:'-.01em',textWrap:'pretty'}}>
-              {ctx.whySaved || 'No reason was recorded when this was saved.'}
-            </div>
-            <div className="sub" style={{fontSize:14,marginTop:4}}>
-              {[ctx.savedFrom ? 'Found by searching "'+ctx.savedFrom+'"' : (ctx.source==='search'?'Found through search':'Saved from the extension'),
-                'Saved '+(ago(row.shortlisted_at)||'recently')].filter(Boolean).join(' · ')}
-            </div>
-          </div>
-
-          {[['Company',row.company],['Location',ctx.location],['Education',ctx.education],['Headline',row.title]]
-            .filter(x=>x[1]).length>0 &&
-            <div className="card" style={{padding:'22px 24px'}}>
-              <div className="eyebrow">Professional overview</div>
-              <div className="stack" style={{gap:1,marginTop:12}}>
-                {[['Company',row.company],['Location',ctx.location],['Education',ctx.education],['Headline',row.title]]
-                  .filter(x=>x[1]).map(([k,v],i)=>(
-                  <div key={k} style={{display:'grid',gridTemplateColumns:'150px 1fr',gap:18,padding:'9px 0',
-                    borderTop:i===0?'none':'1px solid var(--line2)'}}>
-                    <div style={{fontSize:13.5,color:'var(--sub)'}}>{k}</div>
-                    <div style={{fontSize:14.5,fontWeight:600,color:'var(--ink2)',textWrap:'pretty'}}>{v}</div>
-                  </div>))}
-              </div>
-            </div>}
-
-          {((br.shared&&br.shared.length) || (ctx.common&&ctx.common.length)) &&
-            <div className="card" style={{padding:'22px 24px'}}>
-              <div className="eyebrow">Shared context</div>
-              <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:12}}>
-                {((br.shared&&br.shared.length?br.shared:ctx.common)||[]).map((c,i)=>
-                  <span key={i} className="tag" style={{padding:'7px 13px',fontSize:13}}>{c}</span>)}
-              </div>
-            </div>}
-
-          {memories.length>0 &&
-            <div className="card" style={{padding:'22px 24px'}}>
-              <div className="eyebrow">Things you have learned</div>
-              <div className="stack" style={{gap:9,marginTop:12}}>
-                {memories.map(m=>(
-                  <div key={m.id} className="row" style={{gap:10,alignItems:'flex-start'}}>
-                    <span className="dot" style={{background:'var(--brand)',marginTop:7}}/>
-                    <span style={{fontSize:15,color:'var(--body)',lineHeight:1.5}}>{m.value}</span>
-                  </div>))}
-              </div>
-              <div className="hint" style={{marginTop:12}}>Your words. Mighty just remembers them.</div>
-            </div>}
-
-          {myTasks.length>0 &&
-            <div className="card" style={{padding:'22px 24px'}}>
-              <div className="eyebrow">Open commitments</div>
-              <div className="stack" style={{gap:10,marginTop:12}}>
-                {myTasks.map(t=>(
-                  <div key={t.id} className="row" style={{gap:12}}>
-                    <div style={{flex:1,minWidth:0,fontSize:15,fontWeight:600}}>{t.label}</div>
-                    <div className="meta">{t.due_date?dateShort(t.due_date):''}</div>
-                  </div>))}
-              </div>
-            </div>}
-        </div>}
 
       {tab==='brief' &&
         <div className="stack fade" style={{gap:16,marginTop:24}}>
@@ -2946,6 +2919,28 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
             <div className="card" style={{padding:'22px 24px'}}>
               <div className="eyebrow">Don't lead with</div>
               <div style={{fontSize:15,lineHeight:1.6,color:'var(--body)',marginTop:8}}>{br.avoid}</div>
+            </div>}
+          {((br.shared&&br.shared.length) || (ctx.common&&ctx.common.length)) &&
+            <div className="card" style={{padding:'22px 24px'}}>
+              <div className="eyebrow">Shared context</div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:12}}>
+                {((br.shared&&br.shared.length?br.shared:ctx.common)||[]).map((c,i)=>
+                  <span key={i} className="tag" style={{padding:'7px 13px',fontSize:13}}>{c}</span>)}
+              </div>
+            </div>}
+          {[['Company',row.company],['Location',ctx.location],['Education',ctx.education],['Headline',row.title]]
+            .filter(x=>x[1]).length>0 &&
+            <div className="card" style={{padding:'22px 24px'}}>
+              <div className="eyebrow">Profile facts</div>
+              <div className="stack" style={{gap:1,marginTop:12}}>
+                {[['Company',row.company],['Location',ctx.location],['Education',ctx.education],['Headline',row.title]]
+                  .filter(x=>x[1]).map(([k,v],i)=>(
+                  <div key={k} style={{display:'grid',gridTemplateColumns:'150px 1fr',gap:18,padding:'9px 0',
+                    borderTop:i===0?'none':'1px solid var(--line2)'}}>
+                    <div style={{fontSize:13.5,color:'var(--sub)'}}>{k}</div>
+                    <div style={{fontSize:14.5,fontWeight:600,color:'var(--ink2)',textWrap:'pretty'}}>{v}</div>
+                  </div>))}
+              </div>
             </div>}
           {br.careerSummary &&
             <div className="row" style={{gap:10,flexWrap:'wrap'}}>
@@ -3034,6 +3029,29 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
 
       {tab==='notes' &&
         <div className="stack fade" style={{gap:16,marginTop:24}}>
+          {memories.length>0 &&
+            <div className="card" style={{padding:'22px 24px'}}>
+              <div className="eyebrow">Things you have learned</div>
+              <div className="stack" style={{gap:9,marginTop:12}}>
+                {memories.map(m=>(
+                  <div key={m.id} className="row" style={{gap:10,alignItems:'flex-start'}}>
+                    <span className="dot" style={{background:'var(--brand)',marginTop:7}}/>
+                    <span style={{fontSize:15,color:'var(--body)',lineHeight:1.5}}>{m.value}</span>
+                  </div>))}
+              </div>
+              <div className="hint" style={{marginTop:12}}>Your words. Mighty just remembers them.</div>
+            </div>}
+          {myTasks.length>0 &&
+            <div className="card" style={{padding:'22px 24px'}}>
+              <div className="eyebrow">Open commitments</div>
+              <div className="stack" style={{gap:10,marginTop:12}}>
+                {myTasks.map(t=>(
+                  <div key={t.id} className="row" style={{gap:12}}>
+                    <div style={{flex:1,minWidth:0,fontSize:15,fontWeight:600}}>{t.label}</div>
+                    <div className="meta">{t.due_date?dateShort(t.due_date):''}</div>
+                  </div>))}
+              </div>
+            </div>}
           <div className="card" style={{padding:'22px 24px'}}>
             <div className="h4">{justReplied ? 'What did they say?' : 'Quick capture'}</div>
             <div className="sub" style={{fontSize:13.5,marginTop:3}}>
@@ -5412,7 +5430,7 @@ function App(){
   const [pendingActivity,setPendingActivity] = useState([]);
   const [screen,setScreen] = useState('today');
   const [personId,setPersonId] = useState(null);
-  const [tab,setTab] = useState('overview');
+  const [tab,setTab] = useState('draft');
   const [relView,setRelView] = useState('list');
   const [youTab,setYouTab] = useState('profile');
   const [askDraft,setAskDraft] = useState(null);
@@ -5720,7 +5738,7 @@ function App(){
     const hit = people.find(r=>String(r.id)===String(want));
     deepLinked.current = true;
     if(hit){
-      setPersonId(hit.id); setTab('overview'); setScreen('profile');
+      setPersonId(hit.id); setTab('draft'); setScreen('profile');
       window.history.replaceState({}, '', window.location.pathname);
     }
   },[people]);
@@ -5758,7 +5776,7 @@ function App(){
       if(target.ask) setAskDraft(target.ask);
       return;
     }
-    if(target.screen==='profile' && target.id!=null){ setPersonId(target.id); setTab(target.tab||'overview'); }
+    if(target.screen==='profile' && target.id!=null){ setPersonId(target.id); setTab(target.tab||'draft'); }
     if(target.screen==='you'){
       const t = target.tab||'mirror';
       /* Re-clicking "Goal" in the sidebar while mid-edit used to silently
