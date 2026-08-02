@@ -932,7 +932,14 @@ function KnowledgeBase({settings, onEdit, go}){
   const msg = kb.messages || null;
   const hasArchive = !!(kb.positions||[]).length || !!(kb.education||[]).length;
   const hasResume  = !!clean(kb.resumeText||'');
-  const hasGoal    = !!clean(settings.goal||'');
+  /* settings.goal is the free-text elaboration, not the goal itself - picking
+     a goal type (what onboarding's Goal step actually requires) can leave
+     that sentence blank, which read as "Goal: Not set yet" here even while
+     Today and every other surface showed "RAISE INVESTMENT" front and
+     center. hasIntent below is the same check the app already uses to decide
+     whether onboarding has ever been completed at all. */
+  const hasIntent = !!settings.goalType || !!(settings.goalTypes||[]).length;
+  const hasGoal    = hasIntent || !!clean(settings.goal||'');
   const completion = Math.round(([hasArchive,hasResume,hasGoal].filter(Boolean).length/3)*100);
   /* The three real inputs, each on its own schedule - a LinkedIn export from
      a week ago and a resume from six months ago are not equally fresh, so
@@ -948,7 +955,7 @@ function KnowledgeBase({settings, onEdit, go}){
       status: hasResume ? 'Read '+ago(kb.resumeUpdatedAt||kb.capturedAt) : 'Not added yet',
       cta: hasResume?'Update':'Add', onClick:()=>onEdit(2)},
     {label:'Goal', done:hasGoal,
-      status: hasGoal ? clean(settings.goal).slice(0,64) : 'Not set yet',
+      status: hasGoal ? goalLine(settings).slice(0,64) : 'Not set yet',
       cta: hasGoal?'Update':'Set', onClick:()=>go && go({screen:'you', tab:'goal'})},
   ];
 
@@ -1489,11 +1496,16 @@ function nextAction(r){
   }
 }
 
-function Relationships({sb, settings, people, events, view, setView, plan, onSave, onOpen, onStage, go}){
+function Relationships({sb, settings, people, events, view, setView, plan, onSave, onOpen, onStage, onDelete, go}){
   const boardOK = canSee('board', people, events);
   const timeOK  = canSee('timeline', people, events);
   const [dragId,setDrag] = useState(null);
   const [overCol,setOver] = useState(null);
+  /* List's select/delete - a Set so toggling one row's checkbox never has to
+     rebuild an array, and membership checks (is this row selected) stay O(1)
+     while the list re-renders on every keystroke of the search box above. */
+  const [selected,setSelected] = useState(()=>new Set());
+  const toggleSelect = (id)=>setSelected(s=>{ const n=new Set(s); if(n.has(id)) n.delete(id); else n.add(id); return n; });
 
   /* ---- the search box: filters who is saved, and finds who is not ---- */
   const [q,setQ]           = useState('');
