@@ -2185,8 +2185,22 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
     <div className="pad fade" style={{maxWidth:1120,paddingTop:34}}>
       <div className="row" style={{justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
         <div>
-          <div className="eyebrow b">Toward</div>
-          <h1 className="h1" style={{marginTop:6}}>{goalLine(settings)}</h1>
+          {/* Explore flips the header's own emphasis - "Who should I know?" is
+             literally the question that surface answers, so it gets to be the
+             headline there; List/Board/Timeline are about managing who's
+             already in motion, so the goal itself stays the headline for
+             those three. */}
+          {view==='explore' ? (
+            <F>
+              <div className="eyebrow b">Toward · {goalLine(settings).toUpperCase()}</div>
+              <h1 className="h1" style={{marginTop:6}}>Who should I know?</h1>
+            </F>
+          ) : (
+            <F>
+              <div className="eyebrow b">Toward</div>
+              <h1 className="h1" style={{marginTop:6}}>{goalLine(settings)}</h1>
+            </F>
+          )}
           {canSee('progress', people) &&
             <div className="sub" style={{fontSize:13.5,marginTop:8,fontWeight:600}}>
               {relStats.saved} identified · {relStats.waiting} replied, waiting on you · {relStats.metCapped} of {relStats.target} meetings this week
