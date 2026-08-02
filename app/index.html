@@ -119,6 +119,11 @@
   .banner.ok{background:var(--green-soft);color:var(--green);border:1px solid #CFE5D8}
   .hint{font-size:13px;color:var(--mute2);line-height:1.5}
   .lift:hover{background:var(--card2)}
+  /* Today's cards carry a status-tinted background (see TONE_BG), which as an
+     inline style outranks .lift:hover's plain background swap - this keeps a
+     hover cue (a lift + soft shadow, neither set inline) instead of losing it. */
+  .todaycard{transition:transform .15s ease,box-shadow .15s ease}
+  .todaycard:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(38,32,14,.06)}
   .colcard{background:#fff;border:1px solid var(--line);border-radius:var(--rsm);padding:15px 16px;cursor:pointer;
     transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}
   .colcard:hover{border-color:#D6CFF8;transform:translateY(-2px);box-shadow:0 8px 18px rgba(91,79,233,.10)}
@@ -1082,6 +1087,10 @@ function buildPlan(people, events, tasks){
   return plan;
 }
 const TONE = {red:'#C75B33', amber:'#E3A23C', green:'#2E8B5F', purple:'#5B4FE9', grey:'#C9C6BF'};
+/* A flat white card with only a small colored dot reads as one undifferentiated
+   list - the dot is easy to miss entirely at a glance. A soft wash of the same
+   tone across the whole card makes urgency visible before you've read a word. */
+const TONE_BG = {red:'#FBEFE9', amber:'#FDF3E4', green:'#EDF6EF', purple:'var(--brand-soft)', grey:'var(--card2)'};
 
 /* Does r need a reply from the user right now? Same test buildPlan uses for
    its 'reply-' item: the last thing that happened was them, not us. */
@@ -1247,8 +1256,9 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
 
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:14,marginTop:12}}>
           {plan.map(t=>(
-            <div key={t.id} onClick={()=>go(t.go)} className="card lift"
-              style={{padding:'18px 20px',display:'flex',alignItems:'center',gap:14,cursor:'pointer'}}>
+            <div key={t.id} onClick={()=>go(t.go)} className="card todaycard"
+              style={{padding:'18px 20px',display:'flex',alignItems:'center',gap:14,cursor:'pointer',
+                background:TONE_BG[t.tone],borderColor:'transparent'}}>
               <span className="dot" style={{background:TONE[t.tone]}}/>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:15.5,fontWeight:700,letterSpacing:'-.01em',lineHeight:1.3,
