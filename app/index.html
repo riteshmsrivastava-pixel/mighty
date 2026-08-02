@@ -832,17 +832,25 @@ function KbBubbles({counts, capturedAt}){
         <span className="meta">{capturedAt?'read '+ago(capturedAt):''}</span>
       </div>
       <div style={{marginTop:14,display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(112px,1fr))',gap:10}}>
-        {sorted.map(([n,label],i)=>(
-          <div key={label} style={{padding:'16px 15px',borderRadius:12,
-            background: i===0 ? 'var(--brand)' : '#fff',
-            border: i===0 ? 'none' : '1px solid #E4E0F7'}}>
-            <div style={{fontSize:i===0?30:21,fontWeight:800,letterSpacing:'-.03em',lineHeight:1,
-              fontVariantNumeric:'tabular-nums', color: i===0 ? '#fff' : 'var(--brand-ink)'}}>
-              {Number(n).toLocaleString()}
+        {sorted.map(([n,label],i)=>{
+          const text = Number(n).toLocaleString();
+          /* A connection count is easily 5-6 digits where every other count
+             here is 1-2 - one fixed size for the lead bubble meant "19,433"
+             ran past the box's own edge instead of shrinking to fit it. */
+          const big = i===0;
+          const size = big ? (text.length>=6?23:text.length>=5?27:30) : (text.length>=4?17:21);
+          return (
+          <div key={label} style={{padding:'16px 15px',borderRadius:12,minWidth:0,
+            background: big ? 'var(--brand)' : '#fff',
+            border: big ? 'none' : '1px solid #E4E0F7'}}>
+            <div style={{fontSize:size,fontWeight:800,letterSpacing:'-.03em',lineHeight:1,
+              fontVariantNumeric:'tabular-nums', color: big ? '#fff' : 'var(--brand-ink)',
+              whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+              {text}
             </div>
             <div style={{marginTop:6,fontSize:12.5,fontWeight:600,
-              color: i===0 ? 'rgba(255,255,255,.82)' : 'var(--sub)'}}>{label}</div>
-          </div>))}
+              color: big ? 'rgba(255,255,255,.82)' : 'var(--sub)'}}>{label}</div>
+          </div>);})}
       </div>
     </div>
   );
@@ -1722,11 +1730,14 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
   function Row({r, hot}){
     const label = nextAction(r);
     const statusOnly = label==='Waiting on them' || label==='Keep in touch' || label===' - ';
+    const checked = selected.has(r.id);
     return (
       <div onClick={()=>onOpen(r.id)} className="lift"
         style={{display:'flex',alignItems:'center',gap:16,padding:'15px 24px',
           borderBottom:'1px solid var(--line2)',cursor:'pointer',
-          background: hot ? '#FBEFE9' : 'none'}}>
+          background: checked ? 'var(--brand-soft)' : (hot ? '#FBEFE9' : 'none')}}>
+        <input type="checkbox" checked={checked} onClick={e=>e.stopPropagation()}
+          onChange={()=>toggleSelect(r.id)} style={{flex:'none',width:16,height:16,cursor:'pointer'}}/>
         <Avatar name={r.name} size={34} src={r.avatar_url} hover={r}/>
         <div style={{flex:'1 1 220px',minWidth:0}}>
           <div className="row" style={{gap:7}}>
@@ -2000,8 +2011,36 @@ function Relationships({sb, settings, people, events, view, setView, plan, onSav
      someone, saved or not) are two different jobs and now read as two
      segments rather than one long page - a search box sitting above a
      stage-grouped list made it look like part of the same task. */
+  /* Select/delete works against exactly what's rendered below - the same
+     filtered, still-open set grouped.map draws from - so "select all" can
+     never silently grab a closed-out or search-hidden row the user cannot
+     currently see. */
+  const selectableIds = filtered.filter(r=>r.status!=='do_not_contact').map(r=>r.id);
+  const allSelected = selectableIds.length>0 && selectableIds.every(id=>selected.has(id));
+  const toggleSelectAll = ()=> setSelected(allSelected ? new Set() : new Set(selectableIds));
+
   const pipelineList = (
     <div className="fade" style={{marginTop:22}}>
+      {selectableIds.length>0 &&
+        <div className="row" style={{justifyContent:'space-between',alignItems:'center',gap:14,marginBottom:16,flexWrap:'wrap'}}>
+          <label className="row" style={{gap:9,alignItems:'center',cursor:'pointer'}}>
+            <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} style={{width:16,height:16,cursor:'pointer'}}/>
+            <span className="sub" style={{fontSize:13}}>Select all ({selectableIds.length})</span>
+          </label>
+          {selected.size>0 &&
+            <div className="row" style={{gap:10,alignItems:'center'}}>
+              <span style={{fontSize:13.5,fontWeight:600,color:'var(--brand-ink)'}}>{selected.size} selected</span>
+              <button className="btn q" style={{fontSize:13}} onClick={()=>setSelected(new Set())}>Clear</button>
+              <button className="btn sm" style={{background:'#C75B33'}}
+                onClick={async()=>{
+                  const n = selected.size;
+                  if(!window.confirm('Permanently remove '+n+' '+(n===1?'person':'people')
+                    +' from Mighty? Their notes, drafts and timeline go with them. This cannot be undone.')) return;
+                  await onDelete([...selected]);
+                  setSelected(new Set());
+                }}>Delete</button>
+            </div>}
+        </div>}
       {grouped.map(g=>(
         <div key={g.key} style={{marginBottom:22}}>
           <div className="eyebrow b" style={{marginBottom:8}}>{g.label} · {g.rows.length}</div>
@@ -3363,7 +3402,9 @@ function Extension(){
   );
 }
 
-function Settings({email, settings, people, events, tasks, onSignOut, go}){
+const PLAN_LABEL = {trial:'Free trial', starter:'Starter', plus:'Plus', pro:'Pro',
+  explorer:'Explorer', builder:'Builder', leader:'Leader'};
+function Settings({email, settings, people, events, tasks, onSignOut, go, onSaveSettings, busySave, plan}){
   const [copied,setCopied] = useState(false);
   function exportAll(){
     const blob = new Blob([JSON.stringify({exportedAt:new Date().toISOString(), strategy:settings,
@@ -3374,6 +3415,24 @@ function Settings({email, settings, people, events, tasks, onSignOut, go}){
     a.click(); URL.revokeObjectURL(a.href);
     setCopied(true); setTimeout(()=>setCopied(false), 2500);
   }
+
+  /* Personal details - name/role/company/location live in settings already
+     (onboarding writes them from the archive or the manual fields there),
+     but the only door back to any of them used to be re-entering the whole
+     onboarding wizard. This is the direct one. */
+  const [name,setName]       = useState(settings.preferredName || '');
+  const [role,setRole]       = useState(settings.currentRole || '');
+  const [company,setCompany] = useState(settings.currentCompany || '');
+  const [loc,setLoc]         = useState(settings.homeLocation || '');
+  const dirty = name!==(settings.preferredName||'') || role!==(settings.currentRole||'')
+    || company!==(settings.currentCompany||'') || loc!==(settings.homeLocation||'');
+  const [saved,setSaved] = useState(false);
+  async function savePersonal(){
+    await onSaveSettings({preferredName:clean(name), currentRole:clean(role),
+      currentCompany:clean(company), homeLocation:clean(loc)});
+    setSaved(true); setTimeout(()=>setSaved(false), 2200);
+  }
+
   const rows = [
     ['Account', email, 'Sign out', onSignOut],
     /* The sidebar's Extension entry is hidden on narrow viewports (no mobile
@@ -3385,6 +3444,7 @@ function Settings({email, settings, people, events, tasks, onSignOut, go}){
     ['Export everything', 'Your goal, people, timeline and commitments. One JSON file, yours anytime.',
       copied?'Downloaded':'Export', exportAll],
   ];
+
   return (
     <div className="pad fade" style={{maxWidth:820}}>
       <div className="card" style={{overflow:'hidden'}}>
@@ -3398,19 +3458,48 @@ function Settings({email, settings, people, events, tasks, onSignOut, go}){
           </div>))}
       </div>
 
-      <div className="eyebrow b" style={{margin:'34px 0 12px'}}>How Mighty works</div>
+      <div className="eyebrow b" style={{margin:'34px 0 12px'}}>Personal details</div>
       <div className="card" style={{padding:'24px 26px'}}>
-        <div className="stack" style={{gap:14}}>
-          {[['You always click Send','No message, connection request or reply is ever sent automatically. Mighty drafts; you decide and you send.'],
-            ['Capture is the product','Everything intelligent here depends on what you capture after a conversation. It takes a minute.'],
-            ['Explanations, not scores','Recommendations always say why. If Mighty cannot explain something, it should not be recommending it.'],
-            ['Your data is yours','Private to you, exportable in full, deletable in full. Any time.']].map(([t,d])=>(
-            <div key={t}>
-              <div style={{fontSize:15,fontWeight:700}}>{t}</div>
-              <div className="sub" style={{fontSize:14,marginTop:3,lineHeight:1.55,textWrap:'pretty'}}>{d}</div>
-            </div>))}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:16}}>
+          <label>
+            <div className="sub" style={{fontSize:12.5,fontWeight:700,marginBottom:6}}>PREFERRED NAME</div>
+            <input className="inp" value={name} onChange={e=>setName(e.target.value)} placeholder="What Mighty calls you"/>
+          </label>
+          <label>
+            <div className="sub" style={{fontSize:12.5,fontWeight:700,marginBottom:6}}>CURRENT ROLE</div>
+            <input className="inp" value={role} onChange={e=>setRole(e.target.value)} placeholder="e.g. Founder"/>
+          </label>
+          <label>
+            <div className="sub" style={{fontSize:12.5,fontWeight:700,marginBottom:6}}>CURRENT COMPANY</div>
+            <input className="inp" value={company} onChange={e=>setCompany(e.target.value)} placeholder="e.g. Mighty"/>
+          </label>
+          <label>
+            <div className="sub" style={{fontSize:12.5,fontWeight:700,marginBottom:6}}>LOCATION</div>
+            <input className="inp" value={loc} onChange={e=>setLoc(e.target.value)} placeholder="e.g. Boston, MA"/>
+          </label>
+        </div>
+        <div className="row" style={{gap:12,marginTop:18,alignItems:'center'}}>
+          <button className="btn sm" disabled={!dirty||busySave} onClick={savePersonal}>
+            {busySave ? <span><span className="spin"/> Saving</span> : 'Save'}
+          </button>
+          {saved && <span className="sub" style={{fontSize:13,color:'var(--green)'}}>Saved.</span>}
         </div>
       </div>
+
+      <div className="eyebrow b" style={{margin:'34px 0 12px'}}>Subscription</div>
+      <div className="card" style={{padding:'22px 26px'}}>
+        <div className="row" style={{justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
+          <div>
+            <div className="h4">{PLAN_LABEL[plan]||'Free trial'}</div>
+            <div className="sub" style={{fontSize:13.5,marginTop:3}}>
+              Billing is not built yet - this is a placeholder for the plan and payment details that go
+              here once it is.
+            </div>
+          </div>
+          <button className="btn g sm" disabled title="Coming soon">Manage billing</button>
+        </div>
+      </div>
+
       <div className="hint" style={{marginTop:26}}>
         {people.length} {people.length===1?'relationship':'relationships'} · {events.length} timeline {events.length===1?'entry':'entries'} · {tasks.filter(t=>!t.done).length} open {tasks.filter(t=>!t.done).length===1?'commitment':'commitments'}
       </div>
@@ -3689,7 +3778,7 @@ function ChapterTurn({sb, settings, shape, onSave}){
     </div>
   );
 }
-function Decoded({sb, settings, people, onSaveSettings, onSave, onOpen}){
+function Decoded({sb, settings, people, onSaveSettings, onSave, onOpen, onEdit}){
   const decoded = (settings.knowledge||{}).decoded || null;
   const [replay,setReplay] = useState(false);
   /* Locked in at mount, not read from settings on every render - the
@@ -3709,13 +3798,27 @@ function Decoded({sb, settings, people, onSaveSettings, onSave, onOpen}){
   },[!!decoded]);
 
   if(!decoded){
+    /* decoded is computed once, at import time, from the raw archive - an
+       account whose archive predates that computation (or whose import
+       otherwise never produced it) has positions/connectionCount/etc. in its
+       Knowledge Base already, but no decoded reading, and used to be told to
+       "import your LinkedIn export" as if nothing had ever been imported at
+       all. Distinguishing the two cases, and giving the second one a button
+       that actually does something, beats one static sentence for both. */
+    const kb = settings.knowledge||{};
+    const hasArchive = !!(kb.positions||[]).length || !!kb.connectionCount;
     return (
       <div className="card" style={{padding:'34px 30px',marginTop:24}}>
         <div className="h3">Your Network, Decoded</div>
         <div className="sub" style={{marginTop:7,lineHeight:1.55,maxWidth:520}}>
-          Import your LinkedIn export in Mirror, and Mighty reads back the shape of everything
-          you have built - told honestly, once.
+          {hasArchive
+            ? 'Mighty already has your archive, but this reading was never built from it - reimporting the same export builds it, without losing anything else already saved.'
+            : 'Import your LinkedIn export in Mirror, and Mighty reads back the shape of everything you have built - told honestly, once.'}
         </div>
+        {onEdit &&
+          <button className="btn sm" style={{marginTop:16}} onClick={()=>onEdit(1)}>
+            {hasArchive ? 'Rebuild from my archive' : 'Import my history'}
+          </button>}
       </div>);
   }
 
@@ -3762,7 +3865,7 @@ function Decoded({sb, settings, people, onSaveSettings, onSave, onOpen}){
    counts at the last visit lives in the user's own settings; no server table,
    no new schema, and it costs one write per visit through the same
    saveSettings path everything else already uses. */
-function Patterns({sb, settings, people, onSaveSettings, onSave, onOpen}){
+function Patterns({sb, settings, people, onSaveSettings, onSave, onOpen, onEdit}){
   const reached = people.filter(r=>REACHED.includes(r.status)).length;
   const talked  = people.filter(r=>['replied','coffee_chat','referral','interview','offer'].indexOf(r.status)>=0).length;
   const quiet   = people.filter(r=>r.status==='contacted' && days(r.contacted_at)>=10).length;
@@ -3834,7 +3937,7 @@ function Patterns({sb, settings, people, onSaveSettings, onSave, onOpen}){
             </div>))}
         </div>}
 
-      <Decoded sb={sb} settings={settings} people={people} onSaveSettings={onSaveSettings} onSave={onSave} onOpen={onOpen}/>
+      <Decoded sb={sb} settings={settings} people={people} onSaveSettings={onSaveSettings} onSave={onSave} onOpen={onOpen} onEdit={onEdit}/>
     </div>
   );
 }
@@ -3848,7 +3951,7 @@ const YOU_TABS = [['mirror','Mirror'],['patterns','Patterns'],['goal','Goal'],['
    is what it has noticed. Goal is what the user told it. Account is the
    mechanics. Nothing here is time-sensitive the way Today is - a user comes
    here to update themselves, not to be told what to do next. */
-function You({sb, email, settings, people, events, tasks, tab, setTab, editGoal, setEditGoal, busySave, onSaveSettings, onSignOut, onReimport, onSave, onOpen, go}){
+function You({sb, email, settings, people, events, tasks, tab, setTab, editGoal, setEditGoal, busySave, onSaveSettings, onSignOut, onReimport, onSave, onOpen, go, aiMeta}){
   return (
     <div className="pad fade" style={{maxWidth:1000,paddingTop:34}}>
       <div className="seg">
@@ -3863,7 +3966,7 @@ function You({sb, email, settings, people, events, tasks, tab, setTab, editGoal,
             <KnowledgeBase settings={settings} onEdit={onReimport} go={go}/>
           </div>}
         {tab==='patterns' &&
-          <Patterns sb={sb} settings={settings} people={people} onSaveSettings={onSaveSettings} onSave={onSave} onOpen={onOpen}/>}
+          <Patterns sb={sb} settings={settings} people={people} onSaveSettings={onSaveSettings} onSave={onSave} onOpen={onOpen} onEdit={onReimport}/>}
         {tab==='goal' && !editGoal &&
           <StrategyView settings={settings} people={people} onEdit={()=>setEditGoal(true)}/>}
         {tab==='goal' && editGoal &&
@@ -3872,7 +3975,8 @@ function You({sb, email, settings, people, events, tasks, tab, setTab, editGoal,
             onCancel={()=>setEditGoal(false)}/>}
         {tab==='account' &&
           <Settings email={email} settings={settings} people={people} events={events} tasks={tasks}
-            onSignOut={onSignOut} go={go}/>}
+            onSignOut={onSignOut} go={go} onSaveSettings={onSaveSettings} busySave={busySave}
+            plan={aiMeta&&aiMeta.plan}/>}
       </div>
     </div>
   );
@@ -5342,6 +5446,18 @@ function App(){
       await refreshPeople(auth.user);
     }catch(e){ setErr('Could not save that change: '+(e.message||'unknown error')); }
   }
+  /* outreach_events cascades on delete (schema: log_id ... on delete cascade),
+     so a person's timeline goes with them in the same statement - nothing left
+     pointing at a row that no longer exists. tasks.log_id is on delete set
+     null instead, so an open commitment tied to them survives, unlinked. */
+  async function deletePeople(ids){
+    if(!ids || !ids.length) return;
+    try{
+      await sb.from('outreach_log').delete().in('id', ids);
+      await refreshPeople(auth.user);
+      await refreshEvents(auth.user);
+    }catch(e){ setErr('Could not delete: '+(e.message||'unknown error')); }
+  }
   async function logEvent(row, type, note, extra){
     try{
       await sb.from('outreach_events').insert({user_id:auth.user.id, log_id:row.id, event_type:type,
@@ -5487,7 +5603,7 @@ function App(){
           a dead end. */}
       {screen==='today' && people.length===0 &&
         <Relationships sb={sb} settings={settings} people={people} events={events} view={relView} setView={setRelView}
-          plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} go={go}/>}
+          plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} onDelete={deletePeople} go={go}/>}
       {screen==='today' && people.length>0 &&
         <Today people={people} events={events} tasks={tasks} settings={settings} email={auth.user.email}
           go={go} onToggleTask={toggleTask} doneToday={doneToday} onSaveSettings={saveSettings} plan={aiMeta&&aiMeta.plan}
@@ -5495,7 +5611,7 @@ function App(){
 
       {screen==='relationships' &&
         <Relationships sb={sb} settings={settings} people={people} events={events} view={relView} setView={setRelView}
-          plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} go={go}/>}
+          plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} onDelete={deletePeople} go={go}/>}
 
       {screen==='profile' && person &&
         <Profile sb={sb} row={person} events={events} tasks={tasks} settings={settings} people={people}
@@ -5503,13 +5619,13 @@ function App(){
           onEvent={logEvent} onTask={addTask} tab={tab} setTab={setTab} go={go}/>}
       {screen==='profile' && !person &&
         <Relationships sb={sb} settings={settings} people={people} events={events} view={relView} setView={setRelView}
-          plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} go={go}/>}
+          plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} onDelete={deletePeople} go={go}/>}
 
       {screen==='you' &&
         <You sb={sb} email={auth.user.email} settings={settings} people={people} events={events} tasks={tasks}
           tab={youTab} setTab={setYouTab} editGoal={editGoal} setEditGoal={setEditGoal} busySave={busySave}
           onSaveSettings={saveSettings} onSignOut={signOut} onReimport={(step)=>setReimport(step==null?1:step)}
-          onSave={savePerson} onOpen={openPerson} go={go}/>}
+          onSave={savePerson} onOpen={openPerson} go={go} aiMeta={aiMeta}/>}
 
       {screen==='extension' && <Extension/>}
     </Shell>
