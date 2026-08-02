@@ -1164,10 +1164,28 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
   },[snap.shouldResnapshot, snap.added, snap.met]);
 
   const [ask,setAsk] = useState('');
-  /* Real plan items already read as questions - "Reply to Priya Shah" is a
-     fine thing to hand Ask Mighty as-is - so the suggestions below the input
-     are the day's actual plan, not a generic canned list. */
-  const suggestions = plan.filter(t=>t.id!=='discover').slice(0,3).map(t=>t.title);
+  /* These used to just be the plan's own task titles restated - "Reply to
+     Mridul Arora" appearing as both a chip above and a card below said
+     nothing twice. A chip should suggest something to ask that the cards
+     don't already say, so these are phrased as real questions, grounded in
+     the same plan data (never generic/canned), leading with one
+     goal-oriented prompt and following with per-person ones drawn from
+     today's actual names. */
+  const askPrompts = useMemo(()=>{
+    const named = plan.filter(t=>t.go && t.go.screen==='profile' && t.go.id).map(t=>{
+      const person = people.find(p=>p.id===t.go.id);
+      const first = person ? firstName(person.name||'') : '';
+      if(!first) return null;
+      if(t.cta==='Reply') return 'Draft my reply to '+first;
+      if(t.cta==='Prepare me') return 'Prep me for '+first;
+      if(t.cta==='Draft it' || t.cta==='Review & send') return 'Draft my note to '+first;
+      if(t.cta==='Follow up') return 'Draft a follow-up to '+first;
+      return 'Tell me about '+first;
+    }).filter(Boolean);
+    const seen = new Set();
+    const uniq = named.filter(p=>{ const k=p.toLowerCase(); if(seen.has(k)) return false; seen.add(k); return true; });
+    return ['Who should I talk to first?', ...uniq].slice(0,3);
+  },[plan, people]);
 
   return (
     <div className="fade">
@@ -1193,9 +1211,9 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
             </button>
           </div>
-          {suggestions.length>0 &&
+          {askPrompts.length>0 &&
             <div style={{display:'flex',flexWrap:'wrap',gap:9,marginTop:14}}>
-              {suggestions.map(s=>(
+              {askPrompts.map(s=>(
                 <button key={s} className="chip" onClick={()=>go({screen:'ask', ask:s})}>{s}</button>))}
             </div>}
 
@@ -3915,8 +3933,15 @@ const NAV = [
       {key:'list', label:'List', view:'list'},
       {key:'board', label:'Board', view:'board', lock:'board'},
       {key:'timeline', label:'Timeline', view:'timeline', lock:'timeline'},
-      {key:'explore', label:'Explore', view:'explore', gap:true},
     ]},
+  /* Explore answers a different question than List/Board/Timeline - not
+     "where is this relationship in my pipeline" but "who should be in it at
+     all" - so it reads as its own destination, one click from anywhere,
+     rather than a fourth tab buried inside Relationships. It still renders
+     through the same Relationships surface underneath (view:'explore'); only
+     where its link lives in the rail changed. */
+  {key:'explore', label:'Explore', explore:true, icon:
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="m14.8 9.2-1.9 4.7-4.7 1.9 1.9-4.7z"/></svg>},
   {key:'you', label:'You', icon:
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>,
     children:[
@@ -3938,7 +3963,14 @@ function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, em
      them, which is the opposite of what the first session should prove. The tab
      appears the moment one person is added, and never goes away again. */
   const nav = NAV.filter(n=> n.key!=='today' || savedCount>0);
-  const parentOn = (k)=> k==='ask' ? askOpen : (k===screen || (k==='relationships'&&screen==='profile') || (k==='you'&&screen==='extension'));
+  /* Explore has no screen of its own - it is still view:'explore' inside
+     Relationships underneath - so its rail row is "on" precisely when
+     Relationships' is not, and vice versa, rather than both lighting up
+     together the moment you're anywhere inside Relationships. */
+  const parentOn = (k)=> k==='ask' ? askOpen
+    : k==='explore' ? (screen==='relationships' && relView==='explore')
+    : k==='relationships' ? (screen==='profile' || (screen==='relationships' && relView!=='explore'))
+    : (k===screen || (k==='you'&&screen==='extension'));
   const childOn = (parent, child)=>{
     if(parent==='relationships') return screen==='relationships' && relView===child.view;
     if(parent==='you') return child.extension ? screen==='extension' : (screen==='you' && youTab===child.tab);
@@ -3959,7 +3991,7 @@ function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, em
   /* Landing on the parent row lands on that surface's default view - List for
      Relationships, Mirror for You - rather than whatever was left over from a
      previous visit, so the row always means the same thing. */
-  const topClick = (k)=> k==='ask' ? onToggleAsk() :
+  const topClick = (k)=> k==='ask' ? onToggleAsk() : k==='explore' ? go({screen:'relationships', view:'explore'}) :
     go(k==='you' ? {screen:'you', tab:'mirror'} : k==='relationships' ? {screen:'relationships', view:'list'} : {screen:k});
   return (
     <div style={{display:'flex',minHeight:'100vh',background:'var(--paper)'}}>
@@ -3975,11 +4007,10 @@ function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, em
                 {n.icon}<span style={{flex:1}}>{n.label}</span>
                 {n.badge && savedCount>0 && <span className="meta" style={{fontWeight:600}}>{savedCount}</span>}
               </button>
-              {/* Only the active section's children stay expanded - previously
-                 every child of every section rendered at all times, so the
-                 sidebar permanently showed all 9 sub-items regardless of
-                 where you actually were. */}
-              {n.children && parentOn(n.key) && n.children.map(c=>{
+              {/* Always expanded, not just the active section - the rail is
+                 meant to read as a full map of the product at a glance, not
+                 something that rearranges itself as you click around. */}
+              {n.children && n.children.map(c=>{
                 const locked = c.lock && !(c.lock==='board'?boardOK:timelineOK);
                 return (
                   <button key={c.key} onClick={()=>childClick(n.key, c)}
