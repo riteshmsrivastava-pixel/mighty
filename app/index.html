@@ -615,7 +615,7 @@ async function evaluate(sb, people, st){
 }
 
 /* ===================== Strategy (Slice 0 first run + the living surface) ===================== */
-function StrategyForm({settings, onSave, busy, onCancel, firstRun}){
+function StrategyForm({settings, onSave, busy, onCancel, firstRun, go}){
   const [goalTypes,setGoalTypes] = useState(goalTypeList(settings));
   const toggleGoal = (id)=>setGoalTypes(g => g.includes(id) ? g.filter(x=>x!==id) : g.concat(id));
   const [goal,setGoal]     = useState(settings.goal||'');
@@ -623,18 +623,25 @@ function StrategyForm({settings, onSave, busy, onCancel, firstRun}){
   const [cos,setCos]       = useState(settings.targetCompanies||[]);
   const [locs,setLocs]     = useState(settings.targetLocations||[]);
   const [more,setMore]     = useState(!firstRun);
-  const [role,setRole]     = useState(settings.currentRole||'');
-  const [co,setCo]         = useState(settings.currentCompany||'');
   const [schools,setSchools] = useState(settings.schools||[]);
   const [style,setStyle]   = useState(settings.networkingStyle||[]);
   const [metrics,setMetrics] = useState(settings.successMetrics||[]);
   const STYLES = ['Coffee chats','Warm introductions','LinkedIn','Email','Conferences','Alumni events'];
   const ready = goalTypes.length>0;
 
+  /* currentRole/currentCompany used to have their own input fields right
+     here, a second editing surface for exactly the fields Account already
+     edits - change it in one place and the other looked stale until you
+     happened to open it. This form now only shows them, read-only, with a
+     link to the one place that actually edits them. Same fix for
+     homeLocation: it used to get overwritten by the first target location
+     on every save, even when a real home location was already on file -
+     targetLocations is who you want to find, not where you live, and the
+     two should never silently clobber each other. */
   const submit = ()=>onSave({
     goalType: goalTypes[0]||'', goalTypes, goal:clean(goal), targetRoles:roles, targetCompanies:cos, targetLocations:locs,
-    homeLocation: locs[0] || settings.homeLocation || '',
-    currentRole:clean(role), currentCompany:clean(co), schools, networkingStyle:style,
+    homeLocation: settings.homeLocation || locs[0] || '',
+    schools, networkingStyle:style,
     successMetrics:metrics, strategyUpdatedAt:new Date().toISOString(),
   });
 
@@ -696,13 +703,16 @@ function StrategyForm({settings, onSave, busy, onCancel, firstRun}){
       {more &&
         <F>
           <div className="card fade" style={{marginTop:16,padding:'24px 26px'}}>
-            <div className="h4">You</div>
+            <div className="row" style={{justifyContent:'space-between',alignItems:'baseline'}}>
+              <div className="h4">You</div>
+              {go && <button className="btn q" style={{fontSize:13}} onClick={()=>go({screen:'you', tab:'settings'})}>Edit in Account</button>}
+            </div>
             <div className="sub" style={{marginTop:4,fontSize:14}}>Shared ground is how good first messages get written.</div>
             <div style={{display:'flex',gap:12,marginTop:14,flexWrap:'wrap'}}>
               <div style={{flex:'1 1 200px'}}><div className="lbl">Your role</div>
-                <input className="inp" value={role} onChange={e=>setRole(e.target.value)} placeholder="Product Manager"/></div>
+                <div className="sub" style={{fontSize:14.5,marginTop:2}}>{settings.currentRole || 'Not set - add it in Account'}</div></div>
               <div style={{flex:'1 1 200px'}}><div className="lbl">Your company</div>
-                <input className="inp" value={co} onChange={e=>setCo(e.target.value)} placeholder="MIT Sloan"/></div>
+                <div className="sub" style={{fontSize:14.5,marginTop:2}}>{settings.currentCompany || 'Not set - add it in Account'}</div></div>
             </div>
             <div style={{marginTop:14}}><div className="lbl">Schools</div>
               <ChipInput value={schools} onChange={setSchools} placeholder="MIT Sloan…"/></div>
@@ -957,7 +967,7 @@ function KnowledgeBase({settings, onEdit, go}){
     <div className="fade">
       <div className="card" style={{marginTop:26,padding:'22px 26px'}}>
         <div className="row" style={{justifyContent:'space-between',alignItems:'baseline',gap:14,flexWrap:'wrap'}}>
-          <div className="h4">Profile {completion}% complete</div>
+          <div className="h4">Setup {completion}% complete</div>
         </div>
         <div style={{height:8,borderRadius:999,background:'var(--line2)',marginTop:12,overflow:'hidden'}}>
           <div style={{height:'100%',width:completion+'%',background:'var(--brand)',borderRadius:999}}/>
@@ -3657,13 +3667,23 @@ function Settings({email, settings, people, events, tasks, onSignOut, onDeleteAc
     setCopied(true); setTimeout(()=>setCopied(false), 2500);
   }
 
+  const kb = settings.knowledge || {};
+  /* The archive already gave us a real name (Today greets "Good morning,
+     Ritesh" from this exact source) - falling back to it here instead of
+     showing "Add your name" stops this card from looking like it forgot
+     something the app clearly already knows. preferredName still wins once
+     someone actually sets it, and saving without changing it simply records
+     the archive name as preferredName, which only ever makes this fallback
+     chain shorter next time, never wrong. */
+  const archiveName = clean([kb.identity&&kb.identity.firstName, kb.identity&&kb.identity.lastName].filter(Boolean).join(' '));
+
   /* Personal details - name/role/company/location live in settings already
      (onboarding writes them from the archive or the manual fields there),
      but the only door back to any of them used to be re-entering the whole
      onboarding wizard. This is the direct one. Collapsed behind Edit rather
      than always-open inputs, so Settings reads as a summary first. */
   const [editing,setEditing] = useState(false);
-  const [name,setName]       = useState(settings.preferredName || '');
+  const [name,setName]       = useState(settings.preferredName || archiveName || '');
   const [role,setRole]       = useState(settings.currentRole || '');
   const [company,setCompany] = useState(settings.currentCompany || '');
   const [loc,setLoc]         = useState(settings.homeLocation || '');
@@ -3678,12 +3698,11 @@ function Settings({email, settings, people, events, tasks, onSignOut, onDeleteAc
   const [confirmText,setConfirmText] = useState('');
   const [busyDelete,setBusyDelete] = useState(false);
 
-  const kb = settings.knowledge || {};
   const writingSamples = ((kb.messages||{}).styleSamples||[]).length;
 
   return (
     <div className="pad fade" style={{maxWidth:820}}>
-      <div className="eyebrow b" style={{marginBottom:12}}>Profile</div>
+      <div className="eyebrow b" style={{marginBottom:12}}>About you</div>
       <div className="card" style={{padding:'22px 26px'}}>
         {!editing ? (
           <div className="row" style={{justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
@@ -4422,7 +4441,12 @@ function Patterns({sb, settings, people, events, tasks, appEvents, onSaveSetting
    the raw holdings (what it actually has) after. Account becomes Settings,
    with Extension folded in as one of its "Connected" cards instead of a
    separate rail item. */
-const YOU_TABS = [['profile','Profile'],['goal','Goal'],['settings','Settings']];
+/* Labelled "Account", not "Settings" - the sidebar footer below already says
+   "Account" and links here (see Shell), and having the tab call itself
+   something else was the exact split that made this feel like two features
+   instead of one. The routing key stays 'settings' everywhere else in the
+   app; only the word shown to the user changes. */
+const YOU_TABS = [['profile','Profile'],['goal','Goal'],['settings','Account']];
 
 /* ===================== You =====================
    Strategy and Settings used to be two surfaces answering two different
@@ -4452,7 +4476,7 @@ function You({sb, email, settings, people, events, tasks, appEvents, tab, setTab
         {tab==='goal' && !editGoal &&
           <StrategyView settings={settings} people={people} onEdit={()=>setEditGoal(true)}/>}
         {tab==='goal' && editGoal &&
-          <StrategyForm settings={settings} busy={busySave}
+          <StrategyForm settings={settings} busy={busySave} go={go}
             onSave={async(p)=>{ await onSaveSettings(p); setEditGoal(false); }}
             onCancel={()=>setEditGoal(false)}/>}
         {tab==='settings' &&
