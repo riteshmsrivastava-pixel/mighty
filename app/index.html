@@ -838,52 +838,6 @@ function yearOf(s){
   return m ? parseInt(m[1],10) : null;
 }
 
-/* Every number here traces to a real archive field - connectionCount, or the
-   length of a real array. Used to be a bubble chart sized by sqrt(count),
-   which sounded right but was not: connections outweighs every other count
-   here by two to three orders of magnitude, so sqrt-scaling clamped seven
-   of the eight bubbles to the same minimum size and the chart could not
-   actually do the one thing a bubble chart is for - comparing sizes. A
-   stat grid says the same numbers honestly, in a third of the height, with
-   the largest one still visually featured. */
-function KbBubbles({counts, capturedAt}){
-  if(!counts.length) return null;
-  const sorted = [...counts].sort((a,b)=>b[0]-a[0]).slice(0,8);
-  return (
-    <div>
-      <div className="row" style={{gap:10,flexWrap:'wrap',alignItems:'baseline'}}>
-        <span className="eyebrow b">What it holds</span>
-        <span className="meta">{capturedAt?'read '+ago(capturedAt):''}</span>
-      </div>
-      <div style={{marginTop:14,display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(112px,1fr))',gap:10}}>
-        {sorted.map(([n,label],i)=>{
-          const text = Number(n).toLocaleString();
-          /* A connection count is easily 5-6 digits where every other count
-             here is 1-2 - one fixed size for the lead bubble meant "19,433"
-             ran past the box's own edge instead of shrinking to fit it. */
-          const big = i===0;
-          const size = big ? (text.length>=6?19:text.length>=5?24:30) : (text.length>=4?17:21);
-          return (
-          <div key={label} style={{padding:'16px 15px',borderRadius:12,minWidth:0,
-            background: big ? 'var(--brand)' : '#fff',
-            border: big ? 'none' : '1px solid #E4E0F7'}}>
-            <div style={{fontSize:size,fontWeight:800,letterSpacing:'-.03em',lineHeight:1,
-              fontVariantNumeric:'tabular-nums', color: big ? '#fff' : 'var(--brand-ink)',
-              whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-              {text}
-            </div>
-            <div style={{marginTop:6,fontSize:12.5,fontWeight:600,
-              color: big ? 'rgba(255,255,255,.82)' : 'var(--sub)'}}>{label}</div>
-          </div>);})}
-      </div>
-    </div>
-  );
-}
-
-/* One row per role or degree, on a shared year axis built from real from/to
-   dates. No stacked-lane collision handling - real data can overlap in time,
-   and giving every item its own row is the simpler, honest way to show that
-   rather than guessing which lane it belongs in. */
 /* One color per employer/school, cycled in order of first appearance, reused
    for both its pills and its legend dot - the only way to tell two
    same-width pills apart once the label itself is too clipped to read. */
@@ -1011,17 +965,6 @@ function KnowledgeBase({settings, onEdit, go}){
     'which people have already said no, so it stops suggesting them',
   ].filter(Boolean);
 
-  const counts = [
-    (kb.positions||[]).length     && [(kb.positions||[]).length, 'roles'],
-    (kb.education||[]).length     && [(kb.education||[]).length, 'schools'],
-    (kb.skills||[]).length        && [(kb.skills||[]).length, 'skills'],
-    (kb.honors||[]).length        && [(kb.honors||[]).length, 'honours'],
-    (kb.publications||[]).length  && [(kb.publications||[]).length, 'publications'],
-    kb.connectionCount            && [kb.connectionCount, 'connections'],
-    (msg && msg.styleSamples||[]).length && [(msg.styleSamples||[]).length, 'writing samples'],
-    (kb.answers||[]).length       && [(kb.answers||[]).length, 'answers you gave'],
-  ].filter(Boolean);
-
   return (
     <div className="fade">
       <div className="card" style={{marginTop:26,padding:'22px 26px'}}>
@@ -1048,12 +991,6 @@ function KnowledgeBase({settings, onEdit, go}){
       </div>
 
       {has && <F>
-        {counts.length>0 &&
-          <div className="card" style={{marginTop:16,padding:'20px 24px 8px',
-            background:'linear-gradient(135deg,var(--brand-soft2) 0%,#F7F1F4 55%,#FBEFE9 100%)',border:'1px solid #E4E0F7'}}>
-            <KbBubbles counts={counts} capturedAt={kb.capturedAt}/>
-          </div>}
-
         {((kb.positions||[]).length>0 || (kb.education||[]).length>0) &&
           <div className="card" style={{marginTop:16,padding:'20px 24px 18px',
             background:'linear-gradient(135deg,var(--brand-soft2) 0%,#F7F1F4 55%,#FBEFE9 100%)',border:'1px solid #E4E0F7'}}>
