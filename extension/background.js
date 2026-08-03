@@ -6,6 +6,28 @@
 // No alarms, no scheduled jobs: nothing runs unless the student is actively
 // browsing LinkedIn themselves.
 
+// media.licdn.com hotlink-protects profile photos: a request with no Referer
+// (or the wrong one) comes back 403. fetch()'s own `referrer` option cannot
+// spoof a cross-origin value - the Fetch spec clamps it back to the caller's
+// real origin no matter how privileged the caller is - so the only way an
+// extension can actually set it is at the network layer, via
+// declarativeNetRequest. Registered every time the service worker wakes,
+// since session rules do not survive a worker restart.
+try {
+  chrome.declarativeNetRequest.updateSessionRules({
+    removeRuleIds: [9001],
+    addRules: [{
+      id: 9001, priority: 1,
+      action: { type: 'modifyHeaders', requestHeaders: [{ header: 'Referer', operation: 'set', value: 'https://www.linkedin.com/' }] },
+      // A fetch() made from the background service worker itself (not a page)
+      // is not attributed to a document, so Chrome classifies it as 'other'
+      // rather than 'xmlhttprequest' - restricting to the latter meant this
+      // rule matched nothing and the Referer never actually got rewritten.
+      condition: { urlFilter: '||licdn.com', resourceTypes: ['xmlhttprequest', 'other'] },
+    }],
+  }).catch(() => {});
+} catch (e) {}
+
 async function pushInbox(kind, payload) {
   const { settings = {} } = await chrome.storage.local.get('settings');
   const sb = settings.sb;
@@ -191,6 +213,9 @@ async function generateDraft(system, user, maxTokens, feature) {
 async function encodeAvatar(url) {
   try {
     if (!url || /^data:/.test(url)) return { ok: false };
+    // The declarativeNetRequest rule registered above rewrites this request's
+    // Referer at the network layer - licdn.com's hotlink check never sees
+    // that it actually came from a service worker.
     const r = await fetch(url);
     if (!r.ok) return { ok: false, error: 'http_' + r.status };
     const blob = await r.blob();
@@ -234,6 +259,68 @@ async function fetchSearchHtml(query) {
 const PHOTO_MIN_GAP_MS = 3000;
 const PHOTO_SESSION_CAP = 25;
 let photoLastAt = 0, photoCount = 0, photoChain = Promise.resolve();
+// A LinkedIn profile is a JavaScript app - a plain fetch never runs that JS,
+// so the DOM's own <img src="...profile-displayphoto..."> this used to look
+// for is never actually in the response. The page does still embed the photo
+// server-side, in an inlined JSON blob, but as a VectorImage: a "root" URL
+// that is deliberately incomplete - it cuts off with no size and no query
+// string at all - plus a separate imageRenditions array supplying the rest
+// of the path AND the signed e=/v=/t= params for each size. The real,
+// fetchable URL only exists once those two pieces are joined; a regex
+// grabbing just the root (what this used to do) was handing Akamai a
+// URL missing its own signature, which is exactly what "missing query
+// parameters" meant - not a Referer problem, a wrong-URL problem.
+function unescapeJsonInHtml(html) {
+  return html
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/\\\//g, '/')
+    // The blob is JSON embedded inside a JS string literal, so every quote
+    // inside it is backslash-escaped too (\" not just \/) - without this the
+    // lookahead below never sees a bare quote to stop on, and every "key":"
+    // pattern the rendition regex looks for never matches either.
+    .replace(/\\"/g, '"');
+}
+function extractPhotoUrl(rawHtml) {
+  const html = unescapeJsonInHtml(rawHtml);
+  // og:image first - it's a single complete, pre-signed URL LinkedIn renders
+  // server-side specifically for link previews, and it's what most profiles
+  // (5 of the first 7 saved here) already fetch a real photo through today.
+  // Try it before anything reconstructed by hand.
+  const og = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+    || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+  if (og && og[1] && /^https?:\/\//.test(og[1])) return og[1].replace(/&amp;/g, '&');
+  // Fallback for profiles with no og:image (this happens - Dhimiter Cobani's
+  // page has none): reconstruct from the embedded VectorImage JSON instead.
+  // The root ends right at the identifier's trailing slash, NOT including
+  // "profile-displayphoto-shrink_" itself - that segment is part of the
+  // signed path and belongs to the rendition suffix, which restates it with
+  // its own size. Keeping it in the root too, ahead of the suffix's own
+  // copy, corrupts the exact byte sequence the token was signed over -
+  // confirmed by LinkedIn's edge coming back "deny-InvalidToken" for exactly
+  // that duplicated URL. As of this writing the reconstructed URL matches
+  // LinkedIn's real shape byte-for-byte and *still* gets deny-InvalidToken,
+  // which points at the token being bound to something a background fetch
+  // cannot reproduce (session, IP, or similar) - left in because it can only
+  // help profiles that would otherwise return nothing, never regress a
+  // profile that already works via og:image above.
+  const root = html.match(/https:\/\/media\.licdn\.com\/dms\/image\/v2\/[^\/"']+\/(?=profile-displayphoto-shrink_)/);
+  if (root) {
+    // The page embeds more than one VectorImage - this profile photo, but
+    // also the cover/background banner, and both use the same generic
+    // "width"/"height"/"suffixUrl" keys. Searching the whole page for that
+    // shape picked up the banner's 350x1400 rendition instead (it sorts
+    // above the photo's 800x800), so scope the search to a window right
+    // after this specific root - that JSON object's own renditions sit
+    // within the next few hundred characters, well short of the banner's.
+    const scoped = html.slice(root.index, root.index + 1500);
+    const renditions = [...scoped.matchAll(/"width":(\d+),"height":\d+,"suffixUrl":"([^"]+)"/g)]
+      .map(m => ({ width: parseInt(m[1], 10), suffix: m[2] }))
+      .sort((a, b) => b.width - a.width);
+    if (renditions.length) return root[0] + renditions[0].suffix;
+  }
+  const m = html.match(/https:\/\/media\.licdn\.com\/dms\/image\/[^"'\\\s]+profile-displayphoto[^"'\\\s]*/i);
+  return m ? m[0].replace(/&amp;/g, '&') : null;
+}
 async function fetchProfilePhotoInner(profileUrl) {
   if (!/^https:\/\/(www\.)?linkedin\.com\/in\//.test(profileUrl || '')) return { ok: false, error: 'bad_url' };
   if (photoCount >= PHOTO_SESSION_CAP) return { ok: false, error: 'session_cap' };
@@ -244,23 +331,10 @@ async function fetchProfilePhotoInner(profileUrl) {
     const res = await fetch(profileUrl, { credentials: 'include' });
     if (!res.ok) return { ok: false, error: 'http_' + res.status };
     const html = await res.text();
-    // A LinkedIn profile is a JavaScript app - a plain fetch never runs that
-    // JS, so the DOM's own <img src="...profile-displayphoto..."> this regex
-    // used to look for is never actually in the response and this failed
-    // silently on every call. og:image is different: LinkedIn renders it
-    // server-side, in the raw HTML, specifically so Slack/iMessage/Twitter
-    // link previews work without executing anything - it is present before
-    // any JS runs, which is exactly the fetch this function makes. Tried
-    // first; the old pattern is kept as a fallback in case a future page
-    // layout happens to inline it after all.
-    const og = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
-      || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-    const m = (og && og[1] && /^https?:\/\//.test(og[1])) ? [og[1]]
-      : html.match(/https:\/\/media\.licdn\.com\/dms\/image\/[^"'\\\s]+profile-displayphoto[^"'\\\s]*/i);
-    if (!m) return { ok: false, error: 'no_photo' };
-    const url = m[0].replace(/&amp;/g, '&');
+    const url = extractPhotoUrl(html);
+    if (!url) return { ok: false, error: 'no_photo' };
     const enc = await encodeAvatar(url);
-    return enc && enc.ok ? { ok: true, dataUrl: enc.dataUrl } : { ok: false, error: 'encode_failed' };
+    return enc && enc.ok ? { ok: true, dataUrl: enc.dataUrl } : { ok: false, error: 'encode_failed:' + ((enc && enc.error) || 'unknown') };
   } catch (e) { return { ok: false, error: String((e && e.message) || e) }; }
 }
 function fetchProfilePhoto(profileUrl) {
