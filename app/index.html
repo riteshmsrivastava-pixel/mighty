@@ -1512,7 +1512,38 @@ function nextAction(r){
   }
 }
 
-function Relationships({sb, settings, people, events, tasks, view, setView, plan, onSave, onOpen, onStage, onDelete, go}){
+/* Decision Memory: the reason behind a save or a pass is worth more than the
+   save or pass itself - it is judgment, not activity. Kept deliberately
+   optional (a dismissible chip row, never a gate in front of the action) and
+   deliberately small (one enum choice, no free text) so it costs nothing to
+   answer and nothing to skip. */
+const SAVE_REASONS = [
+  {id:'customer',   label:'Potential customer'},
+  {id:'investor',   label:'Investor'},
+  {id:'mentor',     label:'Mentor'},
+  {id:'recruiter',  label:'Recruiter'},
+  {id:'partner',    label:'Partner'},
+  {id:'friend',     label:'Friend'},
+  {id:'other',      label:'Other'},
+];
+const SKIP_REASONS = [
+  {id:'too_junior',      label:'Too junior'},
+  {id:'wrong_industry',  label:'Wrong industry'},
+  {id:'no_overlap',      label:'No overlap'},
+  {id:'not_now',         label:'Not now'},
+  {id:'already_know',    label:'Already know them'},
+];
+function ReasonChips({prompt, options, onPick, onDismiss}){
+  return (
+    <div className="row" style={{gap:6,flexWrap:'wrap',alignItems:'center'}}>
+      <span className="meta" style={{marginRight:2,flex:'none'}}>{prompt}</span>
+      {options.map(o=>(
+        <button key={o.id} className="chip" style={{fontSize:12,padding:'4px 10px'}} onClick={()=>onPick(o.id)}>{o.label}</button>))}
+      <button className="btn q" style={{fontSize:12,padding:0,color:'var(--mute)'}} onClick={onDismiss}>Skip this</button>
+    </div>
+  );
+}
+function Relationships({sb, settings, people, events, tasks, view, setView, plan, onSave, onOpen, onStage, onDelete, onUpdate, go}){
   const boardOK = canSee('board', people, events);
   const timeOK  = canSee('timeline', people, events);
   const [dragId,setDrag] = useState(null);
@@ -1546,6 +1577,23 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
   const [webErr,setWebErr] = useState(null);
   const [notice,setNote]   = useState(null);
   const [skipped,setSkip]  = useState({});
+  /* {profileUrl, kind:'save'|'skip', rowId} of whichever row is currently
+     showing its optional reason chips - one at a time is plenty, and it
+     collapses to null (no prompt shown) the moment a choice is made or
+     dismissed. */
+  const [reasonPrompt,setReasonPrompt] = useState(null);
+  function finishSkip(profileUrl, reasonId){
+    if(reasonId) track('candidate_skipped', {reason:reasonId});
+    setSkip(s=>({...s,[profileUrl]:true}));
+    setReasonPrompt(null);
+  }
+  async function finishSaveReason(row, reasonId){
+    if(row && reasonId){
+      try{ await onUpdate(row, {context:{...(row.context||{}), saveReason:reasonId}}); }catch(e){}
+      track('save_reason_picked', {reason:reasonId});
+    }
+    setReasonPrompt(null);
+  }
   const [lastQuery,setLastQ] = useState('');
   const [noExt,setNoExt]   = useState(false);
 
@@ -2285,21 +2333,35 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
                                 style={{fontSize:13,fontWeight:600,marginTop:4,display:'inline-block'}}>View on LinkedIn</a>
                             </div>
                             <div style={{display:'flex',gap:8,flex:'none'}}>
-                              {savedRow
+                              {savedRow && reasonPrompt && reasonPrompt.kind==='save' && reasonPrompt.rowId===savedRow.id
+                                ? null
+                                : savedRow
                                 ? <button className="btn g sm" onClick={()=>onOpen(savedRow.id)}>Open</button>
+                                : reasonPrompt && reasonPrompt.kind==='skip' && reasonPrompt.profileUrl===r.profileUrl
+                                ? null
                                 : <F>
                                     <button className="btn q" style={{fontSize:13}}
-                                      onClick={()=>setSkip(s=>({...s,[r.profileUrl]:true}))}>Ignore</button>
+                                      onClick={()=>setReasonPrompt({kind:'skip', profileUrl:r.profileUrl})}>Ignore</button>
                                     <button className="btn g sm" disabled={atCap || savingUrls.has(r.profileUrl)}
                                       onClick={async()=>{ startSaving(r.profileUrl); try{ const row=await onSave(r, lastQuery); if(row) onOpen(row.id); }finally{ stopSaving(r.profileUrl); } }}>
                                       Prepare</button>
                                     <button className="btn sm" disabled={atCap || savingUrls.has(r.profileUrl)}
-                                      onClick={async()=>{ startSaving(r.profileUrl); try{ await onSave(r, lastQuery); }finally{ stopSaving(r.profileUrl); } }}>
+                                      onClick={async()=>{ startSaving(r.profileUrl); try{ const row=await onSave(r, lastQuery); if(row) setReasonPrompt({kind:'save', profileUrl:r.profileUrl, rowId:row.id}); }finally{ stopSaving(r.profileUrl); } }}>
                                       {savingUrls.has(r.profileUrl) ? <span><span className="spin"/> Saving</span> : 'Save'}
                                     </button>
                                   </F>}
                             </div>
                           </div>
+                          {reasonPrompt && reasonPrompt.kind==='save' && savedRow && reasonPrompt.rowId===savedRow.id &&
+                            <div style={{marginTop:10}}>
+                              <ReasonChips prompt="Why did you save them?" options={SAVE_REASONS}
+                                onPick={(id)=>finishSaveReason(savedRow, id)} onDismiss={()=>setReasonPrompt(null)}/>
+                            </div>}
+                          {reasonPrompt && reasonPrompt.kind==='skip' && reasonPrompt.profileUrl===r.profileUrl &&
+                            <div style={{marginTop:10}}>
+                              <ReasonChips prompt="Why pass?" options={SKIP_REASONS}
+                                onPick={(id)=>finishSkip(r.profileUrl, id)} onDismiss={()=>finishSkip(r.profileUrl, null)}/>
+                            </div>}
                           {r.why &&
                             <div className="why" style={{marginTop:12,padding:'14px 16px'}}>
                               <div className="eyebrow b">Why Mighty picked them</div>
@@ -6146,7 +6208,7 @@ function App(){
           a dead end. */}
       {screen==='today' && people.length===0 &&
         <Relationships sb={sb} settings={settings} people={people} events={events} tasks={tasks} view={relView} setView={setRelView}
-          plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} onDelete={deletePeople} go={go}/>}
+          plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} onDelete={deletePeople} onUpdate={updateRow} go={go}/>}
       {screen==='today' && people.length>0 &&
         <Today people={people} events={events} tasks={tasks} settings={settings} email={auth.user.email}
           go={go} onToggleTask={toggleTask} doneToday={doneToday} onSaveSettings={saveSettings} plan={aiMeta&&aiMeta.plan}
@@ -6154,7 +6216,7 @@ function App(){
 
       {screen==='relationships' &&
         <Relationships sb={sb} settings={settings} people={people} events={events} tasks={tasks} view={relView} setView={setRelView}
-          plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} onDelete={deletePeople} go={go}/>}
+          plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} onDelete={deletePeople} onUpdate={updateRow} go={go}/>}
 
       {screen==='profile' && person &&
         <Profile sb={sb} row={person} events={events} tasks={tasks} settings={settings} people={people}
@@ -6162,7 +6224,7 @@ function App(){
           onEvent={logEvent} onTask={addTask} tab={tab} setTab={setTab} go={go}/>}
       {screen==='profile' && !person &&
         <Relationships sb={sb} settings={settings} people={people} events={events} tasks={tasks} view={relView} setView={setRelView}
-          plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} onDelete={deletePeople} go={go}/>}
+          plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} onDelete={deletePeople} onUpdate={updateRow} go={go}/>}
 
       {screen==='you' &&
         <You sb={sb} email={auth.user.email} settings={settings} people={people} events={events} tasks={tasks} appEvents={appEvents}
