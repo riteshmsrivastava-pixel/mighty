@@ -884,75 +884,83 @@ function KbBubbles({counts, capturedAt}){
    dates. No stacked-lane collision handling - real data can overlap in time,
    and giving every item its own row is the simpler, honest way to show that
    rather than guessing which lane it belongs in. */
+/* One color per employer/school, cycled in order of first appearance, reused
+   for both its pills and its legend dot - the only way to tell two
+   same-width pills apart once the label itself is too clipped to read. */
+const TIMELINE_PALETTE = ['#5B4FE9','#C75B33','#2E8B57','#B9862F','#3E7CB1','#8A4FA6','#4A9B8E','#B0507A'];
 function KbTimeline({positions, education}){
   const rows = [
-    ...(positions||[]).map((p,i)=>({key:'p'+i, kind:'role', title:p.title||p.company||'Role', sub:p.company||'', from:p.from, to:p.to})),
-    ...(education||[]).map((e,i)=>({key:'e'+i, kind:'edu', title:e.degree||e.school||'Education', sub:e.degree?e.school:'', from:e.from, to:e.to})),
+    ...(positions||[]).map((p,i)=>({key:'p'+i, kind:'role', title:p.title||'Role', co:p.company||'', from:p.from, to:p.to})),
+    ...(education||[]).map((e,i)=>({key:'e'+i, kind:'edu', title:e.degree||'Education', co:e.school||'', from:e.from, to:e.to})),
   ].map(r=>({...r, fy:yearOf(r.from), ty: r.to ? (yearOf(r.to)||new Date().getFullYear()) : new Date().getFullYear()}))
-   .filter(r=>r.fy).sort((a,b)=>b.fy-a.fy);
+   .filter(r=>r.fy).sort((a,b)=>a.fy-b.fy);
   if(!rows.length) return null;
   const minY = Math.min(...rows.map(r=>r.fy));
   const maxY = Math.max(new Date().getFullYear(), ...rows.map(r=>r.ty));
   const span = Math.max(1, maxY-minY);
   const pct = y => Math.min(100, Math.max(0, ((y-minY)/span)*100));
+
+  const colorOf = (()=>{ const map={}; let n=0;
+    return (name)=>{ const k=name||'—'; if(!(k in map)){ map[k]=TIMELINE_PALETTE[n%TIMELINE_PALETTE.length]; n++; } return map[k]; };
+  })();
+
+  /* Two roles that overlap in time cannot share one lane without their pills
+     colliding - greedily push each into the first lane whose last pill has
+     already ended, opening a new lane only when every existing one is still
+     occupied. Ordinary non-overlapping careers stay on a single lane. */
+  const laneEnds = [];
+  const placed = rows.map(r=>{
+    const startPct = pct(r.fy), widthPct = Math.max(9, pct(r.ty)-pct(r.fy));
+    let lane = laneEnds.findIndex(end=>startPct >= end);
+    if(lane===-1){ lane = laneEnds.length; laneEnds.push(0); }
+    laneEnds[lane] = startPct+widthPct+2;
+    return {...r, startPct, widthPct, lane, color:colorOf(r.co)};
+  });
+  const laneCount = Math.max(1, ...placed.map(r=>r.lane+1));
+  const rowH = 30;
+
   const step = Math.max(1, Math.round(span/5));
   const gridYears = []; for(let y=minY; y<maxY; y+=step) gridYears.push(y);
   if(gridYears.length && maxY-gridYears[gridYears.length-1] < step/2) gridYears.pop();
   gridYears.push(maxY);
+
+  const legend = []; const seen = new Set();
+  placed.forEach(r=>{ if(!seen.has(r.co)){ seen.add(r.co); legend.push({name:r.co||'—', color:r.color, kind:r.kind}); } });
+
   return (
     <div>
       <div className="row" style={{gap:10,flexWrap:'wrap',alignItems:'baseline'}}>
         <span className="eyebrow b">The career as read</span>
         <span className="meta">{(positions||[]).length} role{(positions||[]).length===1?'':'s'}, {(education||[]).length} school{(education||[]).length===1?'':'s'}</span>
       </div>
-      <div style={{marginTop:14,display:'grid',gridTemplateColumns:'140px 1fr',rowGap:6,columnGap:14}}>
-        {rows.map(r=>{
-          /* Wide enough to register as a real mark at typical card widths -
-             2.5% used to render as a sliver a couple of pixels wide, which
-             read as no bar at all rather than a short one. */
-          const w = Math.max(4, pct(r.ty)-pct(r.fy));
-          /* A short role/degree gets a narrow bar - too narrow to hold its
-             own label without clipping into unreadable fragments ("Fou",
-             "Ser"). Below this width the label moves outside the bar
-             instead of being crammed and cut off inside it. */
-          const narrow = w < 14;
-          const tip = [r.title,r.sub].filter(Boolean).join(', ')+' · '+(r.from||'?')+' - '+(r.to||'now');
+      <div style={{marginTop:18,position:'relative',height:laneCount*rowH+6}}>
+        {placed.map(r=>{
+          const tip = [r.title,r.co].filter(Boolean).join(', ')+' · '+(r.from||'?')+' - '+(r.to||'now');
           return (
-          <F key={r.key}>
-            <div style={{fontSize:12.5,color:'var(--sub)',alignSelf:'center',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}
-              title={[r.title,r.sub].filter(Boolean).join(', ')}>{r.sub||r.title}</div>
-            <div style={{position:'relative',height:26}}>
-              <div title={tip}
-                style={{position:'absolute',left:pct(r.fy)+'%',width:w+'%',
-                  top:2,height:22,borderRadius:6,boxSizing:'border-box',
-                  display: narrow ? 'block' : 'flex',alignItems:'center',padding: narrow?0:'0 8px',
-                  fontSize:10.5,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',
-                  /* Education used to be a transparent fill behind a pale
-                     dashed border - on this card's own lavender-tinted
-                     background that combination was barely visible at any
-                     width. A faint solid tint keeps the dashed border as the
-                     work/school signal while giving the bar itself a shape
-                     you can actually see. */
-                  background: r.kind==='edu' ? 'rgba(91,79,233,.07)' : 'var(--brand-soft2)',
-                  border: r.kind==='edu' ? '1.5px dashed #B9AEE8' : '1px solid #E4E0F7',
-                  color:'var(--brand-ink)'}}>{narrow?'':r.title}</div>
-              {/* An anchor mark at the bar's start, always solid regardless of
-                 width or fill - so even the thinnest bar reads as a point on
-                 the timeline rather than a gap. */}
-              <div style={{position:'absolute',left:pct(r.fy)+'%',top:11,width:4,height:4,borderRadius:999,
-                background:'var(--brand)',transform:'translateX(-1px)'}}/>
-              {narrow &&
-                <div title={tip} style={{position:'absolute',left:'calc('+(pct(r.fy)+w)+'% + 6px)',top:2,
-                  height:22,display:'flex',alignItems:'center',fontSize:10.5,fontWeight:600,
-                  whiteSpace:'nowrap',overflow:'hidden',maxWidth:'55%',color:'var(--brand-ink)'}}>{r.title}</div>}
-            </div>
-          </F>);})}
-        <div/>
-        <div style={{position:'relative',height:16}}>
-          {gridYears.map(y=>(
-            <span key={y} style={{position:'absolute',left:pct(y)+'%',fontSize:10.5,color:'var(--mute)',
-              transform: y===minY?'none':(y===maxY?'translateX(-100%)':'translateX(-50%)')}}>{y}</span>))}
-        </div>
+            <div key={r.key} title={tip} style={{position:'absolute',left:r.startPct+'%',
+              width:r.widthPct+'%', top:r.lane*rowH, height:24, borderRadius:6,
+              boxSizing:'border-box',display:'flex',alignItems:'center',padding:'0 9px',
+              fontSize:11,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',
+              background: r.kind==='edu' ? 'transparent' : r.color+'1f',
+              border: r.kind==='edu' ? '1.5px dashed '+r.color : '1px solid '+r.color+'55',
+              color:r.color}}>
+              {r.title}
+            </div>);
+        })}
+      </div>
+      <div style={{position:'relative',height:16,marginTop:6}}>
+        {gridYears.map(y=>(
+          <span key={y} style={{position:'absolute',left:pct(y)+'%',fontSize:10.5,color:'var(--mute)',
+            transform: y===minY?'none':(y===maxY?'translateX(-100%)':'translateX(-50%)')}}>{y}</span>))}
+      </div>
+      <div className="row" style={{gap:14,marginTop:14,flexWrap:'wrap'}}>
+        {legend.map((l,i)=>(
+          <div key={i} className="row" style={{gap:6,alignItems:'center'}}>
+            <div style={{width:8,height:8,borderRadius: l.kind==='edu'?2:'50%',
+              background:l.kind==='edu'?'transparent':l.color,
+              border: l.kind==='edu' ? '1.5px dashed '+l.color : 'none'}}/>
+            <span className="meta">{l.name}</span>
+          </div>))}
       </div>
     </div>
   );
@@ -3736,14 +3744,13 @@ function Settings({email, settings, people, events, tasks, onSignOut, onDeleteAc
   );
 }
 
-/* ===================== Your Network, Decoded =====================
-   Reads kb.decoded back out - never recomputes from a raw archive, never
-   calls an AI, every number here is one buildDecoded() already produced.
-   First visit after an import plays the seven stored chapters plus a live
-   eighth as a slow reveal, one card at a time; every later visit collapses
-   to the same cards stacked and readable at a glance, with "Read it again"
-   to replay. No counting animations anywhere - a number that ticks upward
-   implies a precision the underlying export cannot back. */
+/* ===================== Your relationship profile =====================
+   One grid, side by side, built from real numbers - never a scroll of
+   paragraphs. Every card below reads either kb.decoded (computed once, at
+   import time, by buildDecoded - see decodedFrame/decodedEras/etc.) or the
+   live pipeline (people/events/tasks). Nothing here calls an AI and nothing
+   ticks upward on mount - a number that animates implies a precision the
+   underlying export cannot back. */
 function Sparkline({years}){
   if(!years || !years.length) return null;
   const max = Math.max(1, ...years.map(y=>y.count));
@@ -3757,93 +3764,120 @@ function Sparkline({years}){
     </div>
   );
 }
-/* Reveals a chapter once it scrolls into view, on the first reading only -
-   compact/replay-off mode renders everything shown immediately. */
-function Reveal({firstRead, children}){
-  const ref = useRef(null);
-  const [shown,setShown] = useState(!firstRead);
-  useEffect(()=>{
-    if(!firstRead || shown) return;
-    const el = ref.current; if(!el) return;
-    const io = new IntersectionObserver((entries)=>{
-      entries.forEach(e=>{ if(e.isIntersecting) setShown(true); });
-    }, {threshold:0.3});
-    io.observe(el);
-    return ()=>io.disconnect();
-    // eslint-disable-next-line
-  },[firstRead]);
-  return (
-    <div ref={ref} style={{opacity:shown?1:0, transform:shown?'translateY(0)':'translateY(18px)',
-      transition:'opacity .5s ease, transform .5s ease'}}>{children}</div>
-  );
-}
-function ChapterShell({n, eyebrow, firstRead, children}){
-  return (
-    <Reveal firstRead={firstRead}>
-      <div className="card" style={{padding: firstRead ? '52px 44px' : '24px 26px',
-        marginTop: firstRead ? 20 : 12,
-        minHeight: firstRead ? 'calc(100vh - 200px)' : 'auto',
-        display:'flex', flexDirection:'column', justifyContent:'center'}}>
-        <div className="eyebrow b" style={{color:'var(--brand-ink)'}}>{n}. {eyebrow}</div>
-        <div style={{marginTop:14}}>{children}</div>
-      </div>
-    </Reveal>
-  );
-}
-const GAP = {fontSize:16,color:'var(--body)',marginTop:14,lineHeight:1.65};
-const HEADLINE = {fontSize:'clamp(22px,3.6vw,34px)',fontWeight:800,letterSpacing:'-.03em',lineHeight:1.25,textWrap:'pretty'};
-const SUBHEAD = {fontSize:'clamp(19px,3.2vw,27px)',fontWeight:700,letterSpacing:'-.02em',lineHeight:1.45,textWrap:'pretty'};
+const HEADLINE = {fontSize:'clamp(19px,2.6vw,25px)',fontWeight:800,letterSpacing:'-.02em',lineHeight:1.3,textWrap:'pretty'};
+const SUBHEAD = {fontSize:'clamp(16px,2vw,18px)',fontWeight:700,letterSpacing:'-.01em',lineHeight:1.45,textWrap:'pretty'};
 
-function ChapterFrame({data}){
-  if(!data) return null;
+/* The one layout primitive every card below renders through - a plain card
+   that can span both grid columns or sit side by side with its neighbor. */
+function GridCard({eyebrow, span, tint, children}){
   return (
-    <div>
-      {data.startLabel && <div className="sub">You started building this network in {data.startLabel}.</div>}
-      <div style={{...HEADLINE, marginTop:10}}>
-        {data.total.toLocaleString()} people, across {data.companyCount.toLocaleString()} companies,
-        in {data.positionCount.toLocaleString()} different roles.
+    <div className="card" style={{padding:'24px 26px',
+      gridColumn: span==='full' ? '1 / -1' : undefined,
+      background: tint ? 'var(--brand-soft2)' : undefined}}>
+      {eyebrow && <div className="eyebrow b" style={{color:'var(--brand-ink)',marginBottom:14,fontSize:11.5}}>{eyebrow}</div>}
+      {children}
+    </div>
+  );
+}
+function DotGrid({total, per}){
+  const n = Math.max(1, Math.min(240, Math.round(total/per)));
+  return (
+    <div style={{display:'flex',flexWrap:'wrap',gap:5,maxWidth:230,justifyContent:'flex-end'}}>
+      {Array.from({length:n}).map((_,i)=>(
+        <div key={i} style={{width:6,height:6,borderRadius:'50%',background:'var(--brand)',opacity:.5}}/>))}
+    </div>
+  );
+}
+const NICE_UNITS = [1,2,5,10,25,50,100,250,500,1000,2500,5000,10000];
+function niceDotUnit(total){
+  const raw = Math.max(1, Math.ceil(total/200));
+  return NICE_UNITS.find(u=>u>=raw) || raw;
+}
+function CardFrame({data}){
+  if(!data) return null;
+  const per = niceDotUnit(data.total);
+  return (
+    <GridCard eyebrow="THE FRAME" span="full">
+      <div className="row" style={{justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:24}}>
+        <div>
+          <div style={{fontSize:'clamp(34px,4.6vw,50px)',fontWeight:800,letterSpacing:'-.03em',lineHeight:1}}>
+            {data.total.toLocaleString()}<span style={{fontSize:'.4em',fontWeight:700,color:'var(--sub)',marginLeft:8}}>people</span>
+          </div>
+          <div className="sub" style={{marginTop:10,fontSize:14.5}}>
+            across {data.companyCount.toLocaleString()} companies, in {data.positionCount.toLocaleString()} different roles{data.startLabel?`, since ${data.startLabel}`:''}.
+          </div>
+        </div>
+        <div style={{textAlign:'right'}}>
+          <DotGrid total={data.total} per={per}/>
+          <div className="meta" style={{marginTop:8}}>each dot is {per.toLocaleString()} people</div>
+        </div>
+      </div>
+    </GridCard>
+  );
+}
+function SegBar({segments}){
+  const total = segments.reduce((s,x)=>s+x.value,0) || 1;
+  return (
+    <div style={{marginTop:18}}>
+      <div style={{display:'flex',height:14,borderRadius:8,overflow:'hidden'}}>
+        {segments.map((s,i)=>(
+          <div key={i} style={{width:(s.value/total*100)+'%',background:s.color,minWidth:s.value?2:0}}/>))}
+      </div>
+      <div className="row" style={{gap:18,marginTop:10,flexWrap:'wrap'}}>
+        {segments.map((s,i)=>(
+          <div key={i} className="row" style={{gap:6,alignItems:'center'}}>
+            <div style={{width:8,height:8,borderRadius:'50%',background:s.color,flex:'none'}}/>
+            <span className="meta">{s.label}</span>
+          </div>))}
       </div>
     </div>
   );
 }
-function ChapterEras({data}){
-  if(!data) return null;
-  if(!data.years.length) return <div style={GAP}>Not enough dated connections to find your eras yet.</div>;
+function CardSleep({data, messagesPresent}){
+  if(!messagesPresent || !data) return null;
+  const atLeast = data.approx ? 'At least ' : '';
+  const quietYears = data.medianQuietDays!=null ? Math.round(data.medianQuietDays/365*10)/10 : null;
+  return (
+    <GridCard eyebrow="THE SLEEP" span="full">
+      <div style={HEADLINE}>{atLeast}{data.never.toLocaleString()} of your {data.total.toLocaleString()} connections have never exchanged a single message with you.</div>
+      <SegBar segments={[
+        {value:data.never, color:'var(--line3)', label:data.never.toLocaleString()+' never messaged'},
+        {value:data.quiet, color:'rgba(91,79,233,.35)', label:data.quiet.toLocaleString()+' went quiet'+(quietYears!=null?' · median silence '+quietYears+(quietYears===1?' year':' years'):'')},
+        {value:data.active, color:'var(--brand)', label:data.active.toLocaleString()+' still active'},
+      ]}/>
+      <div className="sub" style={{marginTop:14,fontWeight:700,fontSize:14}}>Relationships do not fail loudly.</div>
+    </GridCard>
+  );
+}
+function CardEras({data}){
+  if(!data || !data.years.length) return null;
   const parts = [];
   if(data.hasEras && data.topEra) parts.push(`Your ${data.topEra.label} years brought ${data.topEra.count.toLocaleString()} people.`);
   if(data.fastestYear) parts.push(`${data.fastestYear.year} was the fastest your network ever grew - ${data.fastestYear.count.toLocaleString()} in a single year.`);
   if(data.quietestYear && (!data.fastestYear || data.quietestYear.year!==data.fastestYear.year))
-    parts.push(`The quietest year was ${data.quietestYear.year}: ${data.quietestYear.count.toLocaleString()}.`);
+    parts.push(`Quietest: ${data.quietestYear.year}, ${data.quietestYear.count.toLocaleString()}.`);
   return (
-    <div>
+    <GridCard eyebrow="THE ERAS">
       <div style={SUBHEAD}>{parts.length ? parts.join(' ') : 'Here is every year, in order.'}</div>
-      {!data.hasEras && <div className="meta" style={{marginTop:8}}>No dated positions or education to name these years by - just the counts.</div>}
       <Sparkline years={data.years}/>
-    </div>
+    </GridCard>
   );
 }
-function ChapterSleep({data, messagesPresent}){
-  if(!messagesPresent) return <div style={GAP}>Your export did not include messages, so Mighty cannot see which connections ever became conversations.</div>;
-  if(!data) return <div style={GAP}>Mighty could not tell which messages were yours in this export, so it cannot show which connections ever became conversations.</div>;
-  const atLeast = data.approx ? 'At least ' : '';
-  const quietYears = data.medianQuietDays!=null ? Math.round(data.medianQuietDays/365*10)/10 : null;
+function SplitBar({leftPct, leftLabel, rightLabel}){
   return (
-    <div>
-      <div style={HEADLINE}>
-        {atLeast}{data.never.toLocaleString()} of your {data.total.toLocaleString()} connections
-        have never exchanged a single message with you.
+    <div style={{marginTop:18}}>
+      <div style={{display:'flex',height:10,borderRadius:6,overflow:'hidden',background:'var(--line3)'}}>
+        <div style={{width:leftPct+'%',background:'var(--brand)'}}/>
       </div>
-      {data.quiet>0 &&
-        <div style={GAP}>
-          Another {data.quiet.toLocaleString()} did once, then the thread went quiet
-          {quietYears!=null ? ` - the median silence is now ${quietYears} year${quietYears===1?'':'s'}.` : '.'}
-          {' '}Relationships do not fail loudly.
-        </div>}
+      <div className="row" style={{justifyContent:'space-between',marginTop:8}}>
+        <span className="meta">{leftLabel}</span>
+        <span className="meta">{rightLabel}</span>
+      </div>
     </div>
   );
 }
-function ChapterShowUp({data}){
-  if(!data) return <div style={GAP}>Not enough dated conversations in this export to see how you show up.</div>;
+function CardShowUp({data}){
+  if(!data) return null;
   const fmtGap = (ms)=>{
     if(ms==null) return null;
     const mins = ms/60000;
@@ -3853,220 +3887,369 @@ function ChapterShowUp({data}){
   };
   const mine = fmtGap(data.myMedianReplyMs), theirs = fmtGap(data.theirMedianReplyMs);
   return (
-    <div>
-      <div style={HEADLINE}>
-        Across {data.totalThreads.toLocaleString()} conversations, the other person wrote first {data.theyWroteFirstPct}% of the time.
-      </div>
-      <div style={GAP}>
-        {data.iWroteFirstReplyPct!=null && `When you do write first, you get a reply ${data.iWroteFirstReplyPct}% of the time. `}
-        {mine && theirs && `Your median reply takes ${mine}; theirs takes ${theirs}.`}
-      </div>
+    <GridCard eyebrow="HOW YOU SHOW UP">
+      <div style={SUBHEAD}>{data.theyWroteFirstPct>=50 ? 'You almost never write first.' : 'You usually write first.'}</div>
+      <div className="sub" style={{marginTop:6,fontSize:13.5}}>They opened {data.theyWroteFirstPct}% of your {data.totalThreads.toLocaleString()} conversations.</div>
+      <SplitBar leftPct={data.theyWroteFirstPct} leftLabel="them" rightLabel="you"/>
+      {(mine||theirs) &&
+        <div className="sub" style={{marginTop:14,fontSize:13}}>
+          {data.iWroteFirstReplyPct!=null && `When you write first, ${data.iWroteFirstReplyPct}% reply. `}
+          {mine && `Your median reply: ${mine}.`}{theirs && ` Theirs: ${theirs}.`}
+        </div>}
+    </GridCard>
+  );
+}
+function PeopleCircles({top, savedMap, onOpen, onSave}){
+  const [savingUrls,setSavingUrls] = useState(()=>new Set());
+  const max = Math.max(...top.map(p=>p.msgCount), 1);
+  const sizeFor = (n)=> 42 + Math.round((n/max)*46);
+  return (
+    <div className="row" style={{gap:16,marginTop:18,flexWrap:'wrap',alignItems:'flex-start'}}>
+      {top.map((p,i)=>{
+        const key = (p.profileUrl||'').replace(/\/$/,'').toLowerCase();
+        const savedRow = (key && savedMap.byUrl[key]) || savedMap.byName[p.name.toLowerCase()] || null;
+        const sz = sizeFor(p.msgCount);
+        const initials = p.name.split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0].toUpperCase()).join('');
+        return (
+          <div key={i} style={{textAlign:'center',width:sz+24,cursor:savedRow?'pointer':'default'}}
+            onClick={()=>{ if(savedRow) onOpen(savedRow.id); }}>
+            <div style={{width:sz,height:sz,borderRadius:'50%',background:'var(--brand)',
+              opacity:.25+.7*(p.msgCount/max),display:'flex',alignItems:'center',justifyContent:'center',
+              fontWeight:800,color:'#fff',fontSize:sz*0.27,margin:'0 auto'}}>{initials}</div>
+            <div style={{fontSize:12.5,fontWeight:700,marginTop:8}}>{p.name.split(' ')[0]}</div>
+            <div className="meta">{p.msgCount.toLocaleString()}</div>
+            {!savedRow && p.profileUrl &&
+              <button className="btn q" style={{fontSize:11,padding:0,marginTop:2}} disabled={savingUrls.has(p.profileUrl)}
+                onClick={async(e)=>{ e.stopPropagation(); setSavingUrls(s=>new Set(s).add(p.profileUrl));
+                  try{ await onSave({profileUrl:p.profileUrl, name:p.name, why:'One of the people you talk with most'}, 'decoded'); }
+                  finally{ setSavingUrls(s=>{ const n=new Set(s); n.delete(p.profileUrl); return n; }); } }}>
+                {savingUrls.has(p.profileUrl) ? 'Saving…' : 'Save'}
+              </button>}
+          </div>);
+      })}
     </div>
   );
 }
-function ChapterCircle({data, savedMap, onOpen, onSave}){
-  const [savingUrls,setSavingUrls] = useState(()=>new Set());
-  if(!data) return <div style={GAP}>Not enough message history to find who kept showing up.</div>;
-  const top = data.top;
-  const longest = top[0];
-  const spanYears = Math.max(1, Math.round((new Date(longest.lastAt)-new Date(longest.firstAt))/(365*DAY)));
+function CardCircle({data, savedMap, onOpen, onSave}){
+  if(!data || !data.top.length) return null;
   return (
-    <div>
+    <GridCard eyebrow="THE ONES WHO KEPT SHOWING UP">
       <div style={SUBHEAD}>
-        Your longest-running conversation is with {longest.name}: {longest.msgCount.toLocaleString()} messages across {spanYears} year{spanYears===1?'':'s'}.
-        {data.shareOfWordsPct!=null && ` These five people account for ${data.shareOfWordsPct}% of everything you have ever written here.`}
+        {data.shareOfWordsPct!=null ? `These five hold ${data.shareOfWordsPct}% of everything you've written here.` : 'Your longest-running conversations.'}
       </div>
-      <div className="stack" style={{gap:2,marginTop:18}}>
-        {top.map((p,i)=>{
-          const key = (p.profileUrl||'').replace(/\/$/,'').toLowerCase();
-          const savedRow = (key && savedMap.byUrl[key]) || savedMap.byName[p.name.toLowerCase()] || null;
-          return (
-            <div key={i} className="row" style={{gap:13,padding:'11px 0',borderTop:'1px solid var(--line4)',
-              cursor:savedRow?'pointer':'default'}}
-              onClick={()=>{ if(savedRow) onOpen(savedRow.id); }}>
-              <Avatar name={p.name} size={32} src={savedRow&&savedRow.avatar_url} hover={savedRow||{name:p.name}}/>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:14.5,fontWeight:700}}>{p.name}</div>
-                <div className="sub" style={{fontSize:13}}>{p.msgCount.toLocaleString()} messages - most messages over the longest stretch</div>
-              </div>
-              {savedRow
-                ? <span style={{fontSize:13.5,fontWeight:700,color:'var(--brand-ink)',flex:'none'}}>Open</span>
-                : (p.profileUrl &&
-                  <button className="btn g sm" style={{flex:'none'}} disabled={savingUrls.has(p.profileUrl)}
-                    onClick={async(e)=>{ e.stopPropagation(); setSavingUrls(s=>new Set(s).add(p.profileUrl));
-                      try{ await onSave({profileUrl:p.profileUrl, name:p.name, why:'One of the people you talk with most'}, 'decoded'); }
-                      finally{ setSavingUrls(s=>{ const n=new Set(s); n.delete(p.profileUrl); return n; }); } }}>
-                    {savingUrls.has(p.profileUrl) ? 'Adding…' : 'Add'}
-                  </button>)}
-            </div>);
-        })}
-      </div>
-      <div className="meta" style={{marginTop:12}}>Aggregates only - counts, dates, direction, name. No message content is stored or shown.</div>
-    </div>
+      <PeopleCircles top={data.top} savedMap={savedMap} onOpen={onOpen} onSave={onSave}/>
+      <div className="meta" style={{marginTop:14}}>Sized by messages. No message content stored or shown.</div>
+    </GridCard>
   );
 }
 const DECODED_FUNCTION_LABEL = {founder:'Founders', engineering:'Engineering', product:'Product',
   design:'Design', sales:'Sales', marketing:'Marketing', investing:'Investing', clinical:'Clinical',
   operations:'Operations', finance:'Finance', legal:'Legal', talent:'Talent / HR'};
-function ChapterShape({data}){
-  if(!data) return null;
-  const top3 = data.topCompanies.slice(0,3);
-  const pct = (n)=> data.total ? Math.round(n/data.total*100) : 0;
-  const seniorFrac = data.seniorFraction>0 ? Math.round(1/data.seniorFraction) : null;
+function CardCompared({yoy}){
+  if(!yoy) return null;
+  const founderDelta = yoy.curFounderPct - yoy.prevFounderPct;
+  const volDelta = yoy.curTotal - yoy.prevTotal;
+  const lines = [];
+  if(founderDelta!==0) lines.push({up:founderDelta>0,
+    text:`${founderDelta>0?'More':'Fewer'} founders - ${yoy.curFounderPct}% of new connections in ${yoy.curYear}, ${founderDelta>0?'up':'down'} from ${yoy.prevFounderPct}% in ${yoy.prevYear}.`});
+  lines.push({up:volDelta>=0,
+    text:`${volDelta>=0?'You added more people':'You added fewer people'} in ${yoy.curYear} (${yoy.curTotal.toLocaleString()}) than ${yoy.prevYear} (${yoy.prevTotal.toLocaleString()}).`});
   return (
-    <div>
-      {top3.length>0 &&
-        <div style={SUBHEAD}>
-          Your network clusters hard: {top3.map(c=>`${c.label} (${pct(c.count)}%)`).join(', then ')}.
-        </div>}
-      <div style={GAP}>
-        {seniorFrac && `One in ${seniorFrac} of your connections holds a director-or-above title. `}
-        {data.alumniCount>0 && `You know ${data.alumniCount.toLocaleString()} people at companies you have worked at.`}
+    <GridCard eyebrow="COMPARED TO LAST YEAR">
+      <div className="stack" style={{gap:12}}>
+        {lines.map((l,i)=>(
+          <div key={i} className="row" style={{gap:10,alignItems:'flex-start'}}>
+            <span style={{color: l.up?'#2E8B57':'#C75B33',fontWeight:800,flex:'none',fontSize:13}}>{l.up?'▲':'▼'}</span>
+            <span style={{fontSize:13.5,lineHeight:1.5}}>{l.text}</span>
+          </div>))}
       </div>
-      {data.functions.length>0 &&
-        <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:16}}>
-          {data.functions.map(f=>(
-            <span key={f.key} className="tag" style={{fontSize:12}}>
-              {DECODED_FUNCTION_LABEL[f.key]||f.key} · {f.count.toLocaleString()}
-            </span>))}
-        </div>}
-      <div className="meta" style={{marginTop:14}}>Read straight from titles, not inferred. No geography - your export does not include it.</div>
+    </GridCard>
+  );
+}
+function RankedBars({rows, ownSet}){
+  const max = Math.max(...rows.map(r=>r.count), 1);
+  return (
+    <div className="stack" style={{gap:11,marginTop:16}}>
+      {rows.map(r=>{
+        const mine = ownSet && ownSet.has(r.label.toLowerCase());
+        return (
+          <div key={r.label}>
+            <div className="row" style={{justifyContent:'space-between',fontSize:13.5,marginBottom:4}}>
+              <span style={{fontWeight:700}}>{r.label}{mine && <span className="meta" style={{marginLeft:6,fontWeight:400}}>· worked here</span>}</span>
+              <span className="meta" style={{fontVariantNumeric:'tabular-nums'}}>{r.count.toLocaleString()}</span>
+            </div>
+            <div style={{height:7,borderRadius:4,background:'var(--line3)',overflow:'hidden'}}>
+              <div style={{width:(r.count/max*100)+'%',height:'100%',background: mine?'var(--brand)':'var(--brand-line)',borderRadius:4}}/>
+            </div>
+          </div>);
+      })}
     </div>
   );
 }
-function ChapterDoors({data}){
-  if(!data) return <div style={GAP}>Your export did not include invitation history.</div>;
+function CardCompanies({data, settings}){
+  const ownSet = useMemo(()=>ownCompanies(settings),[settings]);
+  if(!data || !data.topCompanies.length) return null;
   return (
-    <div>
-      <div style={HEADLINE}>You have sent {data.sentTotal.toLocaleString()} invitations and received {data.receivedTotal.toLocaleString()}.</div>
-      <div style={GAP}>
-        {data.acceptancePct!=null && `Of the ones you sent, at least ${data.acceptancePct}% became connections. `}
-        {data.busiestYear && `The year you reached out the most was ${data.busiestYear.year}.`}
-      </div>
-      <Sparkline years={data.years}/>
-    </div>
+    <GridCard eyebrow="THE COMPANIES">
+      <RankedBars rows={data.topCompanies.slice(0,6)} ownSet={ownSet}/>
+      {data.alumniCount>0 && <div className="meta" style={{marginTop:14}}>A company you've worked at holds {data.alumniCount.toLocaleString()} of these connections.</div>}
+    </GridCard>
   );
 }
-/* Chapter 8 is the one chapter never stored - it is filtered through the
-   goal on file today, not the goal on file at import time, and it reuses
-   the exact ranking (connections_match) Explore and Ask already run, so
-   this is where the reading hands off into the product's real loop. */
+/* "The turn" - the one card filtered through the goal on file today, not
+   the goal on file at import time. dormancy (see decodedDormancy) is
+   goal-agnostic and computed once at rebuild time; which bucket gets shown
+   is picked live from settings.goalType, so changing the goal changes what
+   this card says without needing a rebuild. */
 const DECODED_GOAL_SEARCH = {
-  job_search:    {terms:['hiring manager','recruiter','talent acquisition','head of talent'], functionKey:'talent',    toward:'a new job'},
-  raise_funding: {terms:['investor','venture partner','angel investor','venture capital'],     functionKey:'investing',toward:'raising investment'},
-  sales:         {terms:['vp','director','head of','chief'],                                    functionKey:null,       toward:'new customers'},
-  mentors:       {terms:['founder','operator','advisor','ceo'],                                 functionKey:'founder',  toward:'the right mentors'},
-  networking:    {terms:[],                                                                      functionKey:null,       toward:'a stronger network'},
+  job_search:    {functionKey:'talent',    toward:'a new job'},
+  raise_funding: {functionKey:'investing', toward:'raising investment'},
+  sales:         {functionKey:null,        toward:'new customers'},
+  mentors:       {functionKey:'founder',   toward:'the right mentors'},
+  networking:    {functionKey:null,        toward:'a stronger network'},
 };
-function ChapterTurn({sb, settings, shape, onSave}){
+function CardTurn({dormancy, settings}){
   const goal = goalTypeList(settings)[0] || 'networking';
   const cfg = DECODED_GOAL_SEARCH[goal] || DECODED_GOAL_SEARCH.networking;
-  const ownCos = useMemo(()=>ownCompanies(settings),[settings]);
-  const [rows,setRows] = useState(null);
-  const [savingUrls,setSavingUrls] = useState(()=>new Set());
-  useEffect(()=>{
-    let dead=false;
-    if(!cfg.terms.length){ setRows([]); return ()=>{}; }
-    (async()=>{
-      try{ const r = await matchConnections(sb, cfg.terms, ownCos, 5); if(!dead) setRows(r||[]); }
-      catch(e){ if(!dead) setRows([]); }
-    })();
-    return ()=>{ dead=true; };
-    // eslint-disable-next-line
-  },[sb, goal]);
-  const functionCount = cfg.functionKey && shape ? (shape.functions.find(f=>f.key===cfg.functionKey)||{}).count : null;
+  const bucket = dormancy && cfg.functionKey && dormancy[cfg.functionKey];
+  if(!bucket || !bucket.total) return null;
+  const label = (DECODED_FUNCTION_LABEL[cfg.functionKey]||cfg.functionKey).toLowerCase();
   return (
-    <div>
-      <div style={SUBHEAD}>
-        Toward {cfg.toward}{functionCount ? `: ${functionCount.toLocaleString()} ${functionCount===1?'person':'people'} in this network hold${functionCount===1?'s':''} a title like that.` : '.'}
-      </div>
-      {rows===null && <div className="sub" style={{marginTop:16}}><span className="spin"/> Ranking your network…</div>}
-      {rows!==null && !cfg.terms.length &&
-        <div className="sub" style={{marginTop:16,maxWidth:'56ch'}}>
-          "Build my network" is broad by design - open Ask Mighty or Explore with something specific,
-          and Mighty ranks from the same network this reading just walked through.
+    <GridCard eyebrow="THE TURN">
+      <div style={SUBHEAD}>{bucket.total.toLocaleString()} people here hold {label} titles.</div>
+      <div className="sub" style={{marginTop:6,fontSize:14.5}}>{bucket.dormant.toLocaleString()} have gone quiet two years or more.</div>
+      {bucket.sample.length>0 &&
+        <div className="row" style={{gap:8,marginTop:18,alignItems:'center',flexWrap:'wrap'}}>
+          {bucket.sample.map((p,i)=>(<Avatar key={i} name={p.name||'?'} size={34} hover={p}/>))}
+          <span className="meta" style={{marginLeft:6}}>worth waking first</span>
         </div>}
-      {rows!==null && cfg.terms.length>0 && rows.length===0 &&
-        <div className="sub" style={{marginTop:16}}>Nobody unsaved matched that in your network right now.</div>}
-      {rows!==null && rows.length>0 &&
-        <div className="stack" style={{gap:2,marginTop:18}}>
-          {rows.map(c=>(
-            <div key={c.profile_url} className="row" style={{gap:13,padding:'11px 0',borderTop:'1px solid var(--line4)'}}>
-              <Avatar name={connName(c)} size={32} hover={c}/>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:14.5,fontWeight:700}}>{connName(c)}</div>
-                <div className="sub" style={{fontSize:13}}>{[c.position,c.company].filter(Boolean).join(' · ')||'No headline captured'}</div>
-              </div>
-              <button className="btn g sm" style={{flex:'none'}} disabled={savingUrls.has(c.profile_url)}
-                onClick={async()=>{ setSavingUrls(s=>new Set(s).add(c.profile_url));
-                  try{ await onSave(connToPerson(c), 'decoded'); }
-                  finally{ setSavingUrls(s=>{ const n=new Set(s); n.delete(c.profile_url); return n; }); } }}>
-                {savingUrls.has(c.profile_url) ? 'Adding…' : 'Add'}
-              </button>
-            </div>))}
-        </div>}
-      <div className="meta" style={{marginTop:14}}>Ranked live from your saved goal, excluding anyone already saved.</div>
+    </GridCard>
+  );
+}
+function StatCircles({items}){
+  const max = Math.max(...items.map(i=>i.value), 1);
+  const sizeFor = (n)=> 46 + Math.round(Math.sqrt(n/max)*84);
+  return (
+    <div className="row" style={{gap:22,flexWrap:'wrap',alignItems:'center',marginTop:16}}>
+      {items.map((it,i)=>{
+        const sz = sizeFor(it.value);
+        return (
+          <div key={i} style={{textAlign:'center',width:sz+18}}>
+            <div style={{width:sz,height:sz,borderRadius:'50%',margin:'0 auto',
+              background:i===0?'var(--brand)':'var(--brand-soft2)',
+              display:'flex',alignItems:'center',justifyContent:'center'}}>
+              <span style={{fontWeight:800,fontSize:Math.max(13,sz*0.22),color:i===0?'#fff':'var(--brand-ink)'}}>{it.value.toLocaleString()}</span>
+            </div>
+            <div className="meta" style={{marginTop:8}}>{it.label}</div>
+          </div>);
+      })}
     </div>
   );
 }
-function Decoded({sb, settings, people, onSaveSettings, onSave, onOpen, onEdit, onRebuild}){
+function CardHolds({kb, decoded}){
+  const items = [
+    {value: (decoded.chapters.frame ? decoded.chapters.frame.total : (kb.connectionCount||0))||0, label:'connections'},
+    {value: ((kb.messages&&kb.messages.styleSamples)||[]).length, label:'writing samples'},
+    {value: (kb.positions||[]).length, label:'roles'},
+    {value: (kb.skills||[]).length, label:'skills'},
+    {value: (kb.answers||[]).length, label:'answers given'},
+    {value: (kb.honors||[]).length, label:'honours'},
+    {value: (kb.publications||[]).length, label:'publications'},
+    {value: (kb.education||[]).length, label:'schools'},
+  ].filter(it=>it.value>0);
+  if(items.length<2) return null;
+  return (
+    <GridCard eyebrow="WHAT IT HOLDS" span="full">
+      <StatCircles items={items}/>
+      <div className="meta" style={{marginTop:16}}>Read from your archive and resume, on file today.</div>
+    </GridCard>
+  );
+}
+function CardDoors({data}){
+  if(!data) return null;
+  const max = Math.max(data.sentTotal, data.receivedTotal, 1);
+  return (
+    <GridCard eyebrow="THE DOORS YOU KNOCKED ON">
+      <div className="stack" style={{gap:12}}>
+        <div>
+          <div className="row" style={{justifyContent:'space-between',fontSize:13.5}}><span style={{fontWeight:700}}>You sent</span><span style={{fontVariantNumeric:'tabular-nums'}}>{data.sentTotal.toLocaleString()}</span></div>
+          <div style={{height:8,borderRadius:5,background:'var(--line3)',marginTop:4}}><div style={{width:(data.sentTotal/max*100)+'%',height:'100%',borderRadius:5,background:'var(--brand)'}}/></div>
+        </div>
+        <div>
+          <div className="row" style={{justifyContent:'space-between',fontSize:13.5}}><span style={{fontWeight:700}}>You received</span><span style={{fontVariantNumeric:'tabular-nums'}}>{data.receivedTotal.toLocaleString()}</span></div>
+          <div style={{height:8,borderRadius:5,background:'var(--line3)',marginTop:4}}><div style={{width:(data.receivedTotal/max*100)+'%',height:'100%',borderRadius:5,background:'var(--brand-line)'}}/></div>
+        </div>
+      </div>
+      <div className="sub" style={{marginTop:14,fontSize:13.5}}>
+        {data.acceptancePct!=null && `At least ${data.acceptancePct}% of what you sent became connections. `}
+        {data.busiestYear && `Busiest year: ${data.busiestYear.year}.`}
+      </div>
+    </GridCard>
+  );
+}
+function CardHabits({showUp, tasks}){
+  const fmtGap = (ms)=>{
+    if(ms==null) return null;
+    const mins = ms/60000;
+    if(mins<60) return Math.max(1,Math.round(mins))+(Math.round(mins)===1?' minute':' minutes');
+    const hrs = ms/3600000;
+    return hrs<48 ? Math.round(hrs)+' hours' : Math.round(hrs/24)+' days';
+  };
+  const mine = showUp && fmtGap(showUp.myMedianReplyMs);
+  const withDue = (tasks||[]).filter(t=>t.due_date);
+  const kept = withDue.filter(t=>t.done && t.completed_at && new Date(t.completed_at) <= new Date(t.due_date+'T23:59:59'));
+  const rows = [];
+  if(mine) rows.push({big:mine, label:'median time for you to reply'});
+  if(withDue.length>0) rows.push({big:kept.length+' of '+withDue.length, label:'promises kept, on time'});
+  if(!rows.length) return null;
+  return (
+    <GridCard eyebrow="YOUR HABITS">
+      <div className="stack" style={{gap:16}}>
+        {rows.map((r,i)=>(
+          <div key={i} className="row" style={{gap:14,alignItems:'baseline'}}>
+            <div style={{fontSize:22,fontWeight:800,color:'var(--brand-ink)',flex:'none',minWidth:64,fontVariantNumeric:'tabular-nums'}}>{r.big}</div>
+            <div className="sub" style={{fontSize:13.5}}>{r.label}</div>
+          </div>))}
+      </div>
+    </GridCard>
+  );
+}
+function CardThreeThings({decoded}){
+  const c = decoded && decoded.chapters;
+  if(!c) return null;
+  const items = [];
+  if(c.eras && c.eras.topEra) items.push(`You build through chapters, not a steady drip. Your ${c.eras.topEra.label} years alone brought ${c.eras.topEra.count.toLocaleString()} people.`);
+  if(c.showUp && c.showUp.theyWroteFirstPct!=null) items.push(`You rarely write first - they open ${c.showUp.theyWroteFirstPct}% of your conversations`
+    + (c.showUp.iWroteFirstReplyPct!=null ? `, yet ${c.showUp.iWroteFirstReplyPct}% reply when you do.` : '.'));
+  if(c.sleep && c.sleep.quiet>0) items.push(`Your relationships go quiet, not dead. ${c.sleep.quiet.toLocaleString()} conversations have already gone silent two years or more.`);
+  if(!items.length) return null;
+  return (
+    <GridCard span="full">
+      <div className="eyebrow b" style={{color:'var(--brand-ink)',marginBottom:14,fontSize:11.5}}>YOUR STORY · THE THREE THINGS THAT MATTER</div>
+      <div className="stack" style={{gap:16}}>
+        {items.slice(0,3).map((t,i)=>(
+          <div key={i} className="row" style={{gap:16,alignItems:'flex-start'}}>
+            <div style={{fontSize:14,fontWeight:800,color:'var(--brand-ink)',flex:'none',fontVariantNumeric:'tabular-nums'}}>{String(i+1).padStart(2,'0')}</div>
+            <div style={{fontSize:14.5,lineHeight:1.6}}>{t}</div>
+          </div>))}
+      </div>
+    </GridCard>
+  );
+}
+function CardThisWeek({people, events, tasks, sinceVisit}){
+  const items = [];
+  const recentReply = (events||[]).filter(e=>e.event_type==='stage_change' && e.extracted && e.extracted.to==='replied' && days(e.occurred_at)<=7)
+    .sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at))[0];
+  if(recentReply){
+    const person = people.find(p=>p.id===recentReply.log_id);
+    if(person) items.push({up:true, text:`${person.name||'Someone'} replied. Keep the thread moving.`});
+  }
+  if(sinceVisit){
+    if(sinceVisit.added>0) items.push({up:true, text:`${sinceVisit.added} new ${sinceVisit.added===1?'person':'people'} saved since your last visit.`});
+    if(sinceVisit.reached>0) items.push({up:true, text:`${sinceVisit.reached} more reached out to.`});
+  }
+  const openOverdue = (tasks||[]).filter(t=>!t.done && t.due_date && new Date(t.due_date) < new Date());
+  if(openOverdue.length>0) items.push({up:false, text:`${openOverdue.length} open ${openOverdue.length===1?'commitment is':'commitments are'} past due.`});
+  const doneRecently = (tasks||[]).filter(t=>t.done && t.completed_at && days(t.completed_at)<=7);
+  if(doneRecently.length>0) items.push({up:true, text:`You followed through on ${doneRecently.length} ${doneRecently.length===1?'commitment':'commitments'} this week.`});
+  if(!items.length) return null;
+  return (
+    <GridCard span="full" tint>
+      <div className="eyebrow b" style={{color:'var(--brand-ink)',fontSize:11.5}}>THIS WEEK</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:'10px 28px',marginTop:14}}>
+        {items.map((it,i)=>(
+          <div key={i} className="row" style={{gap:10,alignItems:'flex-start'}}>
+            <span style={{color: it.up?'#2E8B57':'#C75B33',fontWeight:800,flex:'none',fontSize:13}}>{it.up?'▲':'▼'}</span>
+            <span style={{fontSize:13.5,lineHeight:1.5}}>{it.text}</span>
+          </div>))}
+      </div>
+    </GridCard>
+  );
+}
+function CardToDo({dormancy, settings, people, go}){
+  const goal = goalTypeList(settings)[0] || 'networking';
+  const cfg = DECODED_GOAL_SEARCH[goal] || DECODED_GOAL_SEARCH.networking;
+  const bucket = dormancy && cfg.functionKey && dormancy[cfg.functionKey];
+  const reached = people.filter(r=>REACHED.includes(r.status)).length;
+  const talked = people.filter(r=>['replied','coffee_chat','referral','interview','offer'].indexOf(r.status)>=0).length;
+  const items = [];
+  if(bucket && bucket.sample.length>0)
+    items.push({text:`Wake the ${bucket.sample.length} ${(DECODED_FUNCTION_LABEL[cfg.functionKey]||'contact').toLowerCase()} ${bucket.sample.length===1?'contact':'contacts'} already surfaced.`,
+      cta:'Open Relationships', onClick:()=>go({screen:'relationships'})});
+  if(reached>=3){
+    const rate = Math.round(talked/reached*100);
+    items.push({text:`Your outreach gets a reply ${rate}% of the time - write more of it.`,
+      cta:'Find someone', onClick:()=>go({screen:'relationships', view:'explore'})});
+  }
+  if(!items.length) return null;
+  return (
+    <GridCard span="full">
+      <div className="eyebrow b" style={{color:'var(--brand-ink)',fontSize:11.5}}>WHAT TO DO ABOUT IT</div>
+      <div className="stack" style={{gap:0,marginTop:14}}>
+        {items.map((it,i)=>(
+          <div key={i} className="row" style={{justifyContent:'space-between',padding:'13px 0',gap:16,
+            borderTop:i?'1px solid var(--line4)':'none'}}>
+            <span style={{fontSize:14.5,fontWeight:600}}>{it.text}</span>
+            <button className="btn q" style={{fontSize:13.5,fontWeight:700,color:'var(--brand-ink)',flex:'none'}} onClick={it.onClick}>{it.cta}</button>
+          </div>))}
+      </div>
+    </GridCard>
+  );
+}
+function CardGaps({settings, people, onEdit}){
+  const gaps = [];
+  if(!people.some(p=>p.status==='do_not_contact')) gaps.push('No one is marked as already declined, so ranking cannot learn to avoid a repeat ask.');
+  if(!clean(settings.goal||'')) gaps.push('Your goal is set by type only, not the specific roles or people you want - naming them sharpens who gets surfaced.');
+  gaps.push('No numeric target is on file for this goal, so nothing here can say "on track" with a real number behind it.');
+  if(!gaps.length) return null;
+  return (
+    <GridCard span="full" tint>
+      <div className="eyebrow b" style={{color:'var(--brand-ink)',fontSize:11.5}}>WHAT IT STILL DOES NOT KNOW</div>
+      <div className="sub" style={{marginTop:8,fontSize:13.5}}>Each of these has a cost. Fill them in and the product gets sharper everywhere.</div>
+      <div className="stack" style={{gap:0,marginTop:14}}>
+        {gaps.map((g,i)=>(
+          <div key={i} className="row" style={{gap:14,padding:'11px 0',borderTop:i?'1px solid var(--line4)':'none'}}>
+            <span style={{fontWeight:800,color:'var(--brand-ink)',flex:'none',fontVariantNumeric:'tabular-nums'}}>{String(i+1).padStart(2,'0')}</span>
+            <span style={{fontSize:13.5,lineHeight:1.55}}>{g}</span>
+          </div>))}
+      </div>
+      {onEdit && <button className="btn sm" style={{marginTop:16}} onClick={()=>onEdit(3)}>Correct this</button>}
+    </GridCard>
+  );
+}
+
+/* ===================== Patterns (Your relationship profile) =====================
+   Owns the empty/rebuild state and the outer grid; every card above is a
+   pure function of decoded/kb/people/events/tasks and renders itself or
+   nothing. A snapshot of pipeline counts at the last visit lives in the
+   user's own settings (patternsSnapshot) - no server table, one write per
+   visit through the same saveSettings path everything else already uses. */
+function Patterns({sb, settings, people, events, tasks, onSaveSettings, onSave, onOpen, onEdit, onRebuild, go}){
   const decoded = (settings.knowledge||{}).decoded || null;
-  const [replay,setReplay] = useState(false);
+  const kb = settings.knowledge || {};
   const [rebuilding,setRebuilding] = useState(false);
   const [rebuildErr,setRebuildErr] = useState(null);
-  /* Locked in at mount, not read from settings on every render - the
-     mark-as-seen write below updates settings.decodedSeen a moment after
-     mount, and re-deriving firstRead from that live value would collapse
-     someone's very first reveal into the compact stack mid-scroll. Which
-     visit this is gets decided once, when the visit starts. */
-  const [firstVisit] = useState(()=>!settings.decodedSeen);
-  const firstRead = replay || firstVisit;
+  const [replayKey,setReplayKey] = useState(0);
 
-  /* "Seen" flips the moment the reading is opened with data present - there
-     is no scroll-completion event to key off, and the spec's own rule is
-     visit-based ("every later visit"), not completion-based. */
+  const reached = people.filter(r=>REACHED.includes(r.status)).length;
+  const talked  = people.filter(r=>['replied','coffee_chat','referral','interview','offer'].indexOf(r.status)>=0).length;
+  const prev = settings.patternsSnapshot;
+  const sinceVisit = (prev && prev.at) ? {
+    added:   people.length - (prev.added||0),
+    reached: reached - (prev.reached||0),
+    talked:  talked - (prev.talked||0),
+  } : null;
+
+  useEffect(()=>{
+    if(!onSaveSettings) return;
+    onSaveSettings({patternsSnapshot:{at:new Date().toISOString(), added:people.length, reached, talked}});
+    // eslint-disable-next-line
+  },[]);
   useEffect(()=>{
     if(decoded && !settings.decodedSeen && onSaveSettings) onSaveSettings({decodedSeen:true});
     // eslint-disable-next-line
   },[!!decoded]);
 
-  if(!decoded){
-    /* decoded is computed once, at import time, from the raw archive - an
-       account whose archive predates that computation (or whose import
-       otherwise never produced it) has positions/connectionCount/etc. in its
-       Knowledge Base already, but no decoded reading, and used to be told to
-       "import your LinkedIn export" as if nothing had ever been imported at
-       all. Distinguishing the two cases, and giving the second one a button
-       that actually does something, beats one static sentence for both. */
-    const kb = settings.knowledge||{};
-    const hasArchive = !!(kb.positions||[]).length || !!kb.connectionCount;
-    const doRebuild = async()=>{
-      if(!onRebuild) return onEdit(1);
-      setRebuilding(true); setRebuildErr(null);
-      try{ await onRebuild(); }
-      catch(e){
-        if(e && e.code==='no_archive'){ onEdit(1); return; }
-        setRebuildErr((e&&e.message)||'Could not rebuild - try again.');
-      }
-      finally{ setRebuilding(false); }
-    };
-    return (
-      <div className="card" style={{padding:'34px 30px',marginTop:24}}>
-        <div className="h3">Your Network, Decoded</div>
-        <div className="sub" style={{marginTop:7,lineHeight:1.55,maxWidth:520}}>
-          {hasArchive
-            ? 'Mighty already has your archive, but this reading was never built from it - rebuilding reads the same file back from storage, without losing anything else already saved.'
-            : 'Import your LinkedIn export in Mirror, and Mighty reads back the shape of everything you have built - told honestly, once.'}
-        </div>
-        {rebuildErr && <div className="sub" style={{marginTop:8,color:'#C75B33'}}>{rebuildErr}</div>}
-        {(onEdit || onRebuild) &&
-          <button className="btn sm" style={{marginTop:16}} disabled={rebuilding} onClick={hasArchive ? doRebuild : ()=>onEdit(1)}>
-            {rebuilding ? <span><span className="spin"/> Rebuilding…</span> : (hasArchive ? 'Rebuild from my archive' : 'Import my history')}
-          </button>}
-      </div>);
-  }
-
-  const c = decoded.chapters;
   const savedMap = (()=>{
     const byUrl={}, byName={};
     people.forEach(r=>{
@@ -4076,112 +4259,61 @@ function Decoded({sb, settings, people, onSaveSettings, onSave, onOpen, onEdit, 
     return {byUrl, byName};
   })();
 
-  return (
-    <div style={{marginTop:24}}>
-      <div className="row" style={{justifyContent:'space-between',alignItems:'baseline'}}>
-        <div className="eyebrow b" style={{color:'var(--brand-ink)'}}>Your Network, Decoded</div>
-        {!firstRead && <button className="btn q" style={{fontSize:13}} onClick={()=>setReplay(true)}>Read it again</button>}
-      </div>
-      <div>
-        <ChapterShell n={1} eyebrow="The opening frame" firstRead={firstRead}><ChapterFrame data={c.frame}/></ChapterShell>
-        <ChapterShell n={2} eyebrow="The eras" firstRead={firstRead}><ChapterEras data={c.eras}/></ChapterShell>
-        <ChapterShell n={3} eyebrow="The sleep" firstRead={firstRead}><ChapterSleep data={c.sleep} messagesPresent={decoded.messagesPresent}/></ChapterShell>
-        <ChapterShell n={4} eyebrow="How you actually show up" firstRead={firstRead}><ChapterShowUp data={c.showUp}/></ChapterShell>
-        <ChapterShell n={5} eyebrow="The ones who kept showing up" firstRead={firstRead}>
-          <ChapterCircle data={c.circle} savedMap={savedMap} onOpen={onOpen} onSave={onSave}/>
-        </ChapterShell>
-        <ChapterShell n={6} eyebrow="The shape of the room" firstRead={firstRead}><ChapterShape data={c.shape}/></ChapterShell>
-        <ChapterShell n={7} eyebrow="The doors you knocked on" firstRead={firstRead}><ChapterDoors data={c.doors}/></ChapterShell>
-        <ChapterShell n={8} eyebrow="Where this points" firstRead={firstRead}>
-          <ChapterTurn sb={sb} settings={settings} shape={c.shape} onSave={onSave}/>
-        </ChapterShell>
-      </div>
-    </div>
-  );
-}
-
-/* ===================== Patterns =====================
-   The wow of a first-day dashboard fades - a page that shows the same numbers
-   every visit stops earning the visit. So this reads two ways at once: real
-   findings, computed fresh from what has actually happened rather than
-   guessed, and - when there is one - a "since your last visit" line, which is
-   the part that changes and is the reason to come back. A snapshot of the
-   counts at the last visit lives in the user's own settings; no server table,
-   no new schema, and it costs one write per visit through the same
-   saveSettings path everything else already uses. */
-function Patterns({sb, settings, people, onSaveSettings, onSave, onOpen, onEdit, onRebuild}){
-  const reached = people.filter(r=>REACHED.includes(r.status)).length;
-  const talked  = people.filter(r=>['replied','coffee_chat','referral','interview','offer'].indexOf(r.status)>=0).length;
-  const quiet   = people.filter(r=>r.status==='contacted' && days(r.contacted_at)>=10).length;
-
-  const prev = settings.patternsSnapshot;
-  const seenBefore = !!(prev && prev.at);
-  const sinceVisit = seenBefore ? {
-    added:   people.length - (prev.added||0),
-    reached: reached - (prev.reached||0),
-    talked:  talked - (prev.talked||0),
-  } : null;
-  const hasDelta = sinceVisit && (sinceVisit.added>0 || sinceVisit.reached>0 || sinceVisit.talked>0);
-
-  useEffect(()=>{
-    if(!onSaveSettings) return;
-    onSaveSettings({patternsSnapshot:{at:new Date().toISOString(), added:people.length, reached, talked}});
-    // eslint-disable-next-line
-  },[]);
-
-  /* Every finding here is a real computed number or it does not appear. No
-     invented seniority shifts, no percentages the underlying data cannot
-     support - the candidates below are the ones the schema actually backs
-     today. How you show up in messages lives in the Decoded reading below,
-     not here, now that chapter 4 covers it with the fuller reply-time story. */
-  const findings = [];
-  if(reached>=3){
-    const rate = Math.round(talked/reached*100);
-    findings.push({big:rate+'%', body:'of the people you have reached out to have written back. '
-      + (rate>=50 ? 'Whatever you are opening with is working.'
-                  : 'Most first messages never hear back - that is normal, not a sign to change everything.')});
-  }
-  if(quiet>0){
-    findings.push({big:String(quiet),
-      body:(quiet===1?'relationship has':'relationships have')+' gone quiet - reached out, nothing since.'});
-  }
+  const hasArchive = !!(kb.positions||[]).length || !!kb.connectionCount;
+  const doRebuild = async()=>{
+    if(!onRebuild) return onEdit(1);
+    setRebuilding(true); setRebuildErr(null);
+    try{ await onRebuild(); }
+    catch(e){
+      if(e && e.code==='no_archive'){ onEdit(1); return; }
+      setRebuildErr((e&&e.message)||'Could not rebuild - try again.');
+    }
+    finally{ setRebuilding(false); }
+  };
 
   return (
-    <div style={{maxWidth:780}}>
-      <div className="eyebrow b">What your data says</div>
-      <h1 className="h1" style={{marginTop:8}}>Patterns</h1>
-      <div className="sub" style={{marginTop:8,maxWidth:'60ch'}}>
-        Computed from what has actually happened, not guessed. Nothing here moves until you do something new.
+    <div>
+      <div className="row" style={{justifyContent:'space-between',alignItems:'baseline',flexWrap:'wrap',gap:12}}>
+        <div>
+          <div className="eyebrow b" style={{color:'var(--brand-ink)'}}>ME · RELATIONSHIP PROFILE</div>
+          <h1 className="h1" style={{marginTop:6}}>Your relationship profile</h1>
+        </div>
+        {decoded && <button className="btn sm" onClick={()=>setReplayKey(k=>k+1)}>Read it again</button>}
       </div>
 
-      {hasDelta &&
-        <div className="card" style={{marginTop:24,padding:'18px 24px',background:'var(--brand-soft2)'}}>
-          <div className="eyebrow b" style={{color:'var(--brand-ink)'}}>Since your last visit</div>
-          <div style={{marginTop:8,fontSize:15,color:'var(--brand-ink)',lineHeight:1.6}}>
-            {[sinceVisit.added>0 && sinceVisit.added+' added', sinceVisit.reached>0 && sinceVisit.reached+' reached out',
-              sinceVisit.talked>0 && sinceVisit.talked+' started talking'].filter(Boolean).join(', ')}.
+      {!decoded &&
+        <div className="card" style={{padding:'34px 30px',marginTop:24}}>
+          <div className="h3">Your Network, Decoded</div>
+          <div className="sub" style={{marginTop:7,lineHeight:1.55,maxWidth:520}}>
+            {hasArchive
+              ? 'Mighty already has your archive, but this reading was never built from it - rebuilding reads the same file back from storage, without losing anything else already saved.'
+              : 'Import your LinkedIn export in Mirror, and Mighty reads back the shape of everything you have built - told honestly, once.'}
           </div>
+          {rebuildErr && <div className="sub" style={{marginTop:8,color:'#C75B33'}}>{rebuildErr}</div>}
+          <button className="btn sm" style={{marginTop:16}} disabled={rebuilding} onClick={hasArchive ? doRebuild : ()=>onEdit(1)}>
+            {rebuilding ? <span><span className="spin"/> Rebuilding…</span> : (hasArchive ? 'Rebuild from my archive' : 'Import my history')}
+          </button>
         </div>}
 
-      {findings.length===0 &&
-        <div className="card" style={{marginTop:24,padding:'26px'}}>
-          <div className="h4">Not enough happening yet to find a pattern.</div>
-          <div className="sub" style={{marginTop:6,maxWidth:'56ch'}}>
-            Reach out to a few people, and Mighty starts noticing what is actually true about how it goes.
-          </div>
+      {decoded &&
+        <div key={replayKey} className="fade" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(360px,1fr))',
+          gap:16,marginTop:24,alignItems:'start'}}>
+          <CardThreeThings decoded={decoded}/>
+          <CardThisWeek people={people} events={events} tasks={tasks} sinceVisit={sinceVisit}/>
+          <CardFrame data={decoded.chapters.frame}/>
+          <CardSleep data={decoded.chapters.sleep} messagesPresent={decoded.messagesPresent}/>
+          <CardEras data={decoded.chapters.eras}/>
+          <CardShowUp data={decoded.chapters.showUp}/>
+          <CardCircle data={decoded.chapters.circle} savedMap={savedMap} onOpen={onOpen} onSave={onSave}/>
+          <CardCompared yoy={decoded.chapters.yoy}/>
+          <CardCompanies data={decoded.chapters.shape} settings={settings}/>
+          <CardTurn dormancy={decoded.chapters.dormancy} settings={settings}/>
+          <CardHolds kb={kb} decoded={decoded}/>
+          <CardDoors data={decoded.chapters.doors}/>
+          <CardHabits showUp={decoded.chapters.showUp} tasks={tasks}/>
+          <CardToDo dormancy={decoded.chapters.dormancy} settings={settings} people={people} go={go}/>
+          <CardGaps settings={settings} people={people} onEdit={onEdit}/>
         </div>}
-
-      {findings.length>0 &&
-        <div className="stack" style={{gap:14,marginTop:24}}>
-          {findings.map((f,i)=>(
-            <div key={i} className="card" style={{padding:'22px 24px',display:'flex',gap:20,alignItems:'baseline',flexWrap:'wrap'}}>
-              <div style={{fontSize:32,fontWeight:800,letterSpacing:'-.03em',flex:'none',
-                fontVariantNumeric:'tabular-nums',color:'var(--brand-ink)'}}>{f.big}</div>
-              <div style={{fontSize:15,lineHeight:1.55,color:'var(--body)',flex:'1 1 300px'}}>{f.body}</div>
-            </div>))}
-        </div>}
-
-      <Decoded sb={sb} settings={settings} people={people} onSaveSettings={onSaveSettings} onSave={onSave} onOpen={onOpen} onEdit={onEdit} onRebuild={onRebuild}/>
     </div>
   );
 }
@@ -4204,7 +4336,7 @@ const YOU_TABS = [['profile','Profile'],['goal','Goal'],['settings','Settings']]
    here to update themselves, not to be told what to do next. */
 function You({sb, email, settings, people, events, tasks, tab, setTab, editGoal, setEditGoal, busySave, onSaveSettings, onSignOut, onDeleteAccount, onReimport, onRebuildDecoded, onSave, onOpen, go, aiMeta}){
   return (
-    <div className="pad fade" style={{maxWidth:1000,paddingTop:34}}>
+    <div className="pad fade" style={{maxWidth: tab==='profile' ? 1180 : 1000,paddingTop:34}}>
       <div className="seg">
         {YOU_TABS.map(([k,label])=>(
           <button key={k} className={tab===k?'on':''}
@@ -4212,9 +4344,10 @@ function You({sb, email, settings, people, events, tasks, tab, setTab, editGoal,
       </div>
       <div style={{marginTop:28}}>
         {tab==='profile' &&
-          <div style={{maxWidth:780}}>
-            <Patterns sb={sb} settings={settings} people={people} onSaveSettings={onSaveSettings} onSave={onSave} onOpen={onOpen} onEdit={onReimport} onRebuild={onRebuildDecoded}/>
-            <div style={{marginTop:36}}>
+          <div>
+            <Patterns sb={sb} settings={settings} people={people} events={events} tasks={tasks}
+              onSaveSettings={onSaveSettings} onSave={onSave} onOpen={onOpen} onEdit={onReimport} onRebuild={onRebuildDecoded} go={go}/>
+            <div style={{marginTop:36,maxWidth:780}}>
               <div className="eyebrow b">What Mighty holds about you</div>
               <KnowledgeBase settings={settings} onEdit={onReimport} go={go}/>
             </div>
@@ -4859,6 +4992,72 @@ function decodedShape(connections, positions){
   };
 }
 
+/* "The turn" card needs a per-function dormancy count - of the people who
+   hold a title in each function bucket, how many have gone quiet - so the
+   live goal can be crossed against real per-connection message recency
+   instead of just the all-time aggregate sleep chapter gives. Computed once
+   here (goal-agnostic, every function bucket at once) rather than at render
+   time, since per-connection message dates only ever exist transiently
+   inside this parse - nothing else stores them. Someone never messaged at
+   all still counts as dormant (not active), matching "gone quiet" plainly. */
+function decodedDormancy(connections, messages){
+  const byUrl = {}, byName = {};
+  if(messages && messages.identified) (messages.counterparts||[]).forEach(cp=>{
+    if(cp.profileUrl) byUrl[cp.profileUrl.replace(/\/$/,'').toLowerCase()] = cp;
+    const nk = cp.name.toLowerCase();
+    if(nk && !byName[nk]) byName[nk] = cp;
+  });
+  const TWO_YEARS = 2*365*DAY;
+  const byFunction = {};
+  connections.forEach(c=>{
+    const t = ' '+clean(c.position).toLowerCase()+' ';
+    const hit = DECODED_FUNCTIONS.find(f=>f.words.some(w=>t.indexOf(w)>=0));
+    if(!hit) return;
+    const urlKey = (c.profile_url||'').replace(/\/$/,'').toLowerCase();
+    let cp = urlKey ? byUrl[urlKey] : null;
+    if(!cp){ const nameKey = clean((c.first_name||'')+' '+(c.last_name||'')).toLowerCase(); cp = nameKey ? byName[nameKey] : null; }
+    const isActive = cp && (Date.now()-new Date(cp.lastAt).getTime()) < TWO_YEARS;
+    const bucket = byFunction[hit.key] = byFunction[hit.key] || {key:hit.key, total:0, dormant:0, sample:[]};
+    bucket.total++;
+    if(!isActive){
+      bucket.dormant++;
+      bucket.sample.push({
+        name: clean((c.first_name||'')+' '+(c.last_name||''))||(cp&&cp.name)||'',
+        profileUrl: c.profile_url||(cp&&cp.profileUrl)||null,
+        company: clean(c.company), position: clean(c.position),
+        msgCount: cp ? cp.msgCount : 0,
+      });
+    }
+  });
+  Object.values(byFunction).forEach(b=>{ b.sample.sort((x,y)=>y.msgCount-x.msgCount); b.sample = b.sample.slice(0,5); });
+  return byFunction;
+}
+
+/* "Compared to last year" - the only two comparisons the raw export can back
+   without geography or per-year message buckets: how the founder share of
+   new connections moved, and how much the network grew. Null (card hidden)
+   with under two dated years on file. */
+function decodedYoY(connections){
+  const years = {};
+  connections.forEach(c=>{
+    if(!c.connected_on) return;
+    const y = parseInt(c.connected_on.slice(0,4),10);
+    if(!y) return;
+    const t = ' '+clean(c.position).toLowerCase()+' ';
+    const bucket = years[y] = years[y] || {year:y, total:0, founders:0};
+    bucket.total++;
+    if(/\bco-founder\b|\bfounder\b/.test(t)) bucket.founders++;
+  });
+  const sorted = Object.values(years).sort((a,b)=>b.year-a.year);
+  if(sorted.length<2) return null;
+  const [cur, prev] = sorted;
+  return {
+    curYear:cur.year, prevYear:prev.year, curTotal:cur.total, prevTotal:prev.total,
+    curFounderPct: cur.total ? Math.round(cur.founders/cur.total*100) : 0,
+    prevFounderPct: prev.total ? Math.round(prev.founders/prev.total*100) : 0,
+  };
+}
+
 /* Chapter 7 - the doors you knocked on. Acceptance is joined by name against
    Connections.csv, so it is always phrased "at least" - a name match
    undercounts (remarried surnames, nicknames, non-Latin transliteration). */
@@ -4899,6 +5098,8 @@ function buildDecoded(archive){
       showUp: messages ? messages.showUp : null,
       circle: decodedCircle(messages),
       shape: decodedShape(archive.connections, archive.positions),
+      dormancy: decodedDormancy(archive.connections, messages),
+      yoy: decodedYoY(archive.connections),
       doors: decodedDoors(archive.invitations, archive.connections),
     },
   };
