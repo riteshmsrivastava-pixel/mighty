@@ -1662,6 +1662,45 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
   const savedUrls = useMemo(()=>{
     const m = {}; people.forEach(r=>{ if(r.profile_url) m[r.profile_url.toLowerCase()]=r; }); return m;
   },[people]);
+  /* Explore's two candidate lists - people already in the archive, and fresh
+     search results - never had a photo attempt at all: the archive export
+     carries no photo column, and search only ever parsed a Google snippet.
+     This quietly fetches one (the same og:image extBridge.photo() already
+     uses for saved people, no unverified fallback) per candidate still
+     missing one, throttled by background.js's own 3-second gap and 25-per-
+     session cap. inFlight is a ref, not state, so re-fetching the same URL
+     across renders doesn't restart it mid-throttle. */
+  const [photoCache,setPhotoCache] = useState({});
+  const photoInFlight = useRef(new Set());
+  useEffect(()=>{
+    if(!extBridge.isReady()) return;
+    const targets = [];
+    if(mine) mine.rows.forEach(c=>{
+      const url = c.profile_url;
+      if(url && !savedUrls[url.toLowerCase()] && !c.avatar_url && !photoCache[url] && !photoInFlight.current.has(url)) targets.push(url);
+    });
+    results.forEach(r=>{
+      const url = r.profileUrl;
+      if(!url || skipped[url]) return;
+      const savedRow = savedUrls[url.toLowerCase()];
+      const has = savedRow ? savedRow.avatar_url : r.avatarUrl;
+      if(!has && !photoCache[url] && !photoInFlight.current.has(url)) targets.push(url);
+    });
+    if(!targets.length) return;
+    let dead = false;
+    targets.forEach(u=>photoInFlight.current.add(u));
+    (async()=>{
+      for(const url of targets){
+        if(dead) return;
+        try{
+          const r = await extBridge.photo(url);
+          if(r && r.ok && r.dataUrl) setPhotoCache(prev=>({...prev, [url]:r.dataUrl}));
+        }catch(e){}
+        photoInFlight.current.delete(url);
+      }
+    })();
+    return ()=>{ dead=true; };
+  },[mine, results, skipped, savedUrls]);
   const cap = PLAN_CAPS[plan||'trial'] || 50;
   const atCap = people.length >= cap;
   const terms = useMemo(()=>goalTerms(settings),[settings]);
@@ -1818,7 +1857,7 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
     const reason = connReason(c);
     return (
       <div className="row" style={{alignItems:'flex-start',gap:13,padding:'14px 0',borderBottom:'1px solid var(--line2)'}}>
-        <Avatar name={connName(c)} size={34} src={c.avatar_url} hover={c}/>
+        <Avatar name={connName(c)} size={34} src={c.avatar_url || photoCache[c.profile_url]} hover={c}/>
         <div style={{flex:'1 1 200px',minWidth:0}}>
           <div style={{fontSize:15,fontWeight:700}}>{connName(c)}</div>
           <div className="sub" style={{fontSize:13.5,marginTop:1}}>
@@ -2075,7 +2114,7 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
               return (
                 <div key={r.profileUrl} className="fade" style={{marginTop:14,paddingTop:14,borderTop:'1px solid var(--line2)'}}>
                   <div style={{display:'flex',alignItems:'flex-start',gap:14,flexWrap:'wrap'}}>
-                    <Avatar name={r.name} src={savedRow ? savedRow.avatar_url : r.avatarUrl} hover={savedRow||r}/>
+                    <Avatar name={r.name} src={(savedRow ? savedRow.avatar_url : r.avatarUrl) || photoCache[r.profileUrl]} hover={savedRow||r}/>
                     <div style={{flex:'1 1 200px',minWidth:0}}>
                       <div style={{fontSize:17,fontWeight:700,letterSpacing:'-.015em'}}>{r.name}</div>
                       <div className="sub" style={{fontSize:14,marginTop:2}}>{r.title||'No headline on the profile'}</div>
@@ -2309,7 +2348,7 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
                       return (
                         <div key={c.profile_url} style={{padding:'16px 0',borderTop:'1px solid var(--line2)'}}>
                           <div className="row" style={{alignItems:'flex-start',gap:13,flexWrap:'wrap'}}>
-                            <Avatar name={connName(c)} size={34} src={c.avatar_url} hover={c}/>
+                            <Avatar name={connName(c)} size={34} src={c.avatar_url || photoCache[c.profile_url]} hover={c}/>
                             <div style={{flex:'1 1 160px',minWidth:0}}>
                               <div style={{fontSize:15,fontWeight:700}}>{connName(c)}</div>
                               <div className="sub" style={{fontSize:13.5,marginTop:1}}>
@@ -2383,7 +2422,7 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
                       return (
                         <div key={r.profileUrl} style={{padding:'16px 0',borderTop:'1px solid var(--line2)'}}>
                           <div className="row" style={{alignItems:'flex-start',gap:13,flexWrap:'wrap'}}>
-                            <Avatar name={r.name} src={savedRow ? savedRow.avatar_url : r.avatarUrl} hover={savedRow||r}/>
+                            <Avatar name={r.name} src={(savedRow ? savedRow.avatar_url : r.avatarUrl) || photoCache[r.profileUrl]} hover={savedRow||r}/>
                             <div style={{flex:'1 1 160px',minWidth:0}}>
                               <div style={{fontSize:15,fontWeight:700}}>{r.name}</div>
                               <div className="sub" style={{fontSize:13.5,marginTop:1}}>{r.title||'No headline on the profile'}</div>
