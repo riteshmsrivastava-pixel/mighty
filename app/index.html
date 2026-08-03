@@ -3846,6 +3846,8 @@ function ChapterShowUp({data}){
   if(!data) return <div style={GAP}>Not enough dated conversations in this export to see how you show up.</div>;
   const fmtGap = (ms)=>{
     if(ms==null) return null;
+    const mins = ms/60000;
+    if(mins<60) return Math.max(1,Math.round(mins))+(Math.round(mins)===1?' minute':' minutes');
     const hrs = ms/3600000;
     return hrs<48 ? Math.round(hrs)+' hours' : Math.round(hrs/24)+' days';
   };
