@@ -282,44 +282,19 @@ function unescapeJsonInHtml(html) {
 }
 function extractPhotoUrl(rawHtml) {
   const html = unescapeJsonInHtml(rawHtml);
-  // og:image first - it's a single complete, pre-signed URL LinkedIn renders
-  // server-side specifically for link previews, and it's what most profiles
-  // (5 of the first 7 saved here) already fetch a real photo through today.
-  // Try it before anything reconstructed by hand.
+  // og:image ONLY. It's the one thing on the page guaranteed to represent
+  // this specific document - the profile subject - because that's what the
+  // OpenGraph tag is for. A logged-in LinkedIn page also embeds the VIEWER's
+  // own nav-bar photo (and other people's, in sidebars like "People also
+  // viewed"), all using the exact same VectorImage JSON shape as the actual
+  // subject's photo. An earlier version of this function grabbed the first
+  // such match anywhere on the page as a fallback when og:image was missing,
+  // which on at least one profile pulled the logged-in user's OWN photo onto
+  // someone else's saved row - wrong data is worse than no data, so that
+  // fallback is gone. No og:image means no photo, and initials stay.
   const og = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
     || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-  if (og && og[1] && /^https?:\/\//.test(og[1])) return og[1].replace(/&amp;/g, '&');
-  // Fallback for profiles with no og:image (this happens - Dhimiter Cobani's
-  // page has none): reconstruct from the embedded VectorImage JSON instead.
-  // The root ends right at the identifier's trailing slash, NOT including
-  // "profile-displayphoto-shrink_" itself - that segment is part of the
-  // signed path and belongs to the rendition suffix, which restates it with
-  // its own size. Keeping it in the root too, ahead of the suffix's own
-  // copy, corrupts the exact byte sequence the token was signed over -
-  // confirmed by LinkedIn's edge coming back "deny-InvalidToken" for exactly
-  // that duplicated URL. As of this writing the reconstructed URL matches
-  // LinkedIn's real shape byte-for-byte and *still* gets deny-InvalidToken,
-  // which points at the token being bound to something a background fetch
-  // cannot reproduce (session, IP, or similar) - left in because it can only
-  // help profiles that would otherwise return nothing, never regress a
-  // profile that already works via og:image above.
-  const root = html.match(/https:\/\/media\.licdn\.com\/dms\/image\/v2\/[^\/"']+\/(?=profile-displayphoto-shrink_)/);
-  if (root) {
-    // The page embeds more than one VectorImage - this profile photo, but
-    // also the cover/background banner, and both use the same generic
-    // "width"/"height"/"suffixUrl" keys. Searching the whole page for that
-    // shape picked up the banner's 350x1400 rendition instead (it sorts
-    // above the photo's 800x800), so scope the search to a window right
-    // after this specific root - that JSON object's own renditions sit
-    // within the next few hundred characters, well short of the banner's.
-    const scoped = html.slice(root.index, root.index + 1500);
-    const renditions = [...scoped.matchAll(/"width":(\d+),"height":\d+,"suffixUrl":"([^"]+)"/g)]
-      .map(m => ({ width: parseInt(m[1], 10), suffix: m[2] }))
-      .sort((a, b) => b.width - a.width);
-    if (renditions.length) return root[0] + renditions[0].suffix;
-  }
-  const m = html.match(/https:\/\/media\.licdn\.com\/dms\/image\/[^"'\\\s]+profile-displayphoto[^"'\\\s]*/i);
-  return m ? m[0].replace(/&amp;/g, '&') : null;
+  return (og && og[1] && /^https?:\/\//.test(og[1])) ? og[1].replace(/&amp;/g, '&') : null;
 }
 async function fetchProfilePhotoInner(profileUrl) {
   if (!/^https:\/\/(www\.)?linkedin\.com\/in\//.test(profileUrl || '')) return { ok: false, error: 'bad_url' };
