@@ -2495,15 +2495,38 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
   const [toast,setToast] = useState(null);
   const [err,setErr]     = useState(null);
   const [photoBusy,setPhotoBusy] = useState(false);
-  const [approach,setApproach] = useState('curiosity');
-  const [draft,setDraft] = useState(row.ai_draft||'');
+  /* One angle used to mean one API call, so seeing a different approach cost a
+     full Claude round-trip and only ever showed one message at a time. All
+     five now come back in a single call - one assist, same as before - and
+     switching chips is a local state change, free and instant. lastApproach
+     on ctx remembers which one was actually sent, so a later reply can be
+     attributed back to it (see markReplied). */
+  const initialApproach = (ctx.lastApproach && APPROACHES.some(a=>a.id===ctx.lastApproach)) ? ctx.lastApproach : 'curiosity';
+  const [approach,setApproach] = useState(initialApproach);
+  const [drafts,setDrafts] = useState(()=> row.ai_draft
+    ? {[initialApproach]: {message:row.ai_draft, original:row.ai_draft, subject:''}} : {});
   const [noteS,setNoteS] = useState(''); const [noteC,setNoteC] = useState(''); const [noteP,setNoteP] = useState('');
   const [justReplied,setJustReplied] = useState(false);
   const mine = events.filter(e=>e.log_id===row.id);
   const memories = Array.isArray(ctx.memories)?ctx.memories:[];
   const myTasks = tasks.filter(t=>t.log_id===row.id && !t.done);
 
-  useEffect(()=>{ setDraft(row.ai_draft||''); }, [row.id]);
+  useEffect(()=>{
+    const ia = (ctx.lastApproach && APPROACHES.some(a=>a.id===ctx.lastApproach)) ? ctx.lastApproach : 'curiosity';
+    setApproach(ia);
+    setDrafts(row.ai_draft ? {[ia]: {message:row.ai_draft, original:row.ai_draft, subject:''}} : {});
+    // eslint-disable-next-line
+  }, [row.id]);
+
+  /* A chip click used to just switch which single draft was visible - now it
+     is also the first, cheapest signal in the behavioral graph: which angle
+     someone actually reaches for, before any edit or send. */
+  function selectApproach(id){
+    if(id===approach) return;
+    setApproach(id);
+    track('approach_chosen', {approach:id, has_draft: !!drafts[id]});
+    if(drafts[id]) onUpdate(row, {ai_draft: drafts[id].message, context:{...ctx, lastApproach:id}});
+  }
   const flash = (m)=>{ setToast(m); setTimeout(()=>setToast(null), 2600); };
 
   /* A photo only exists if the extension captured one at save time - LinkedIn's
@@ -2561,7 +2584,49 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
      parsed and then dropped at the last step. */
   const voice = (((settings.knowledge||{}).messages||{}).styleSamples||[]).slice(0, 6);
 
-  async function makeDraft(){
+  const DRAFT_SYSTEM_ONE = "You write a real first outreach message for a professional. Ground it ONLY in the given context - never invent shared history, mutual friends, articles or events. Sound like a person, not a template. No flattery, no buzzwords, no 'I hope this finds you well', no generic greeting line before the real content ('Greeting for the day', 'Hope you're doing well', or similar - go straight from the salutation into the actual reason for writing). Under 110 words. Ask for one specific, easy thing. Never use em dashes; write a spaced hyphen instead.";
+  const draftContext = ()=>
+    `The sender:\n${strategyBrief(settings)}\n\nThe recipient:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nWhy the sender saved them: ${ctx.whySaved||'unknown'}\nShared ground: ${((br.shared&&br.shared.length?br.shared:ctx.common)||[]).join('; ')||'none confirmed'}\nBrief: ${br.careerSummary||'none'}\nThings the sender has learned about them: ${memories.map(m=>m.value).join('; ')||'nothing captured yet'}\n${captured||''}${voice.length ? '\n\nHOW THIS SENDER ACTUALLY WRITES. These are verbatim messages they have sent before. Match their rhythm, sentence length, level of formality and habits of greeting and sign-off. Do not copy phrases from them and do not reuse their content:\n' + voice.map((v,i)=>(i+1)+'. '+v).join('\n') : ''}`;
+
+  /* One call, all five angles, so the model sees every approach at once and
+     can actually make them distinct from each other - the old one-at-a-time
+     flow gave it no reason not to write the same message five different
+     times. Counts as a single take, same as the old single-message call. */
+  async function makeDrafts(){
+    if(busy) return;
+    if(takesLeft <= 0){
+      setErr('Ten takes is the limit on one Assist. Send one, or edit the last one yourself.');
+      return;
+    }
+    setBusy('draft'); setErr(null);
+    try{
+      const out = await llmJSON(sb, 'draft_message',
+        DRAFT_SYSTEM_ONE + " You are asked for several messages at once, one per approach listed below, each using the exact approach id given. Make the messages genuinely distinct in angle and opening line, not five versions of the same message with different greetings.",
+        `${draftContext()}\n\nWrite one message for EACH of these approaches, using its exact id:\n${APPROACHES.map(a=>'- '+a.id+': '+a.label+' - '+a.brief).join('\n')}\n\nReturn JSON {"drafts":[{"approach":"(one of the ids above)","subject":"short subject line for email use","message":"the message body"}, ... one entry per approach listed, same order]}`,
+        3000, exchangeKey);
+      const next = {};
+      (Array.isArray(out.drafts)?out.drafts:[]).forEach(d=>{
+        const id = d && APPROACHES.some(a=>a.id===d.approach) ? d.approach : null;
+        if(id && clean(d.message)) next[id] = {message:clean(d.message), original:clean(d.message), subject:clean(d.subject||'')};
+      });
+      if(!Object.keys(next).length) throw new Error('That did not come back in the right shape - try again.');
+      setDrafts(next);
+      const first = next[approach] ? approach : Object.keys(next)[0];
+      if(first!==approach) setApproach(first);
+      await onUpdate(row, {ai_draft: next[first].message,
+        status: row.status==='prospect'?'ready_to_contact':row.status,
+        context: {...ctx, exchange: exchangeNo, takes: takes + 1, lastApproach: first}});
+      track('drafts_generated', {count: Object.keys(next).length, take: takes + 1, exchange: exchangeNo});
+      flash(takes === 0 ? 'Five drafts ready. One Assist covers all ten takes.'
+                        : 'Take ' + (takes+1) + ' of ' + TAKE_LIMIT + '. Same Assist.');
+    }catch(e){ setErr(e.message||String(e)); }
+    setBusy(null);
+  }
+
+  /* Rewriting one angle after the first five exist is still the same feature
+     and the same exchange - just scoped to whichever chip is selected, so
+     regenerating Curiosity does not throw away the other four. */
+  async function regenerateOne(){
     if(busy) return;
     if(takesLeft <= 0){
       setErr('Ten takes is the limit on one Assist. Send one, or edit the last one yourself.');
@@ -2570,24 +2635,28 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
     setBusy('draft'); setErr(null);
     const a = APPROACHES.find(x=>x.id===approach)||APPROACHES[1];
     try{
-      const out = await llmJSON(sb, 'draft_message',
-        "You write a real first outreach message for a professional. Ground it ONLY in the given context - never invent shared history, mutual friends, articles or events. Sound like a person, not a template. No flattery, no buzzwords, no 'I hope this finds you well', no generic greeting line before the real content ('Greeting for the day', 'Hope you're doing well', or similar - go straight from the salutation into the actual reason for writing). Under 110 words. Ask for one specific, easy thing. Never use em dashes; write a spaced hyphen instead.",
-        `The sender:\n${strategyBrief(settings)}\n\nThe recipient:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nWhy the sender saved them: ${ctx.whySaved||'unknown'}\nShared ground: ${((br.shared&&br.shared.length?br.shared:ctx.common)||[]).join('; ')||'none confirmed'}\nBrief: ${br.careerSummary||'none'}\nThings the sender has learned about them: ${memories.map(m=>m.value).join('; ')||'nothing captured yet'}\n${captured||''}\n\nApproach: ${a.label} - ${a.brief}.${voice.length ? '\n\nHOW THIS SENDER ACTUALLY WRITES. These are verbatim messages they have sent before. Match their rhythm, sentence length, level of formality and habits of greeting and sign-off. Do not copy phrases from them and do not reuse their content:\n' + voice.map((v,i)=>(i+1)+'. '+v).join('\n') : ''}\n\nReturn JSON {"subject":"short subject line for email use","message":"the message body"}`,
+      const out = await llmJSON(sb, 'draft_message', DRAFT_SYSTEM_ONE,
+        `${draftContext()}\n\nApproach: ${a.label} - ${a.brief}.\n\nReturn JSON {"subject":"short subject line for email use","message":"the message body"}`,
         800, exchangeKey);
-      setDraft(clean(out.message));
+      setDrafts(d=>({...d, [approach]: {message:clean(out.message), original:clean(out.message), subject:clean(out.subject||'')}}));
       await onUpdate(row, {ai_draft:clean(out.message),
         status: row.status==='prospect'?'ready_to_contact':row.status,
-        context: {...ctx, exchange: exchangeNo, takes: takes + 1}});
-      track('draft_written', {approach, had_brief: !!br.careerSummary, memories: memories.length,
-        take: takes + 1, exchange: exchangeNo});
-      flash(takes === 0 ? 'Draft written. One Assist covers all ten takes.'
-                        : 'Take ' + (takes+1) + ' of ' + TAKE_LIMIT + '. Same Assist.');
+        context: {...ctx, exchange: exchangeNo, takes: takes + 1, lastApproach: approach}});
+      track('draft_rewritten', {approach, take: takes + 1, exchange: exchangeNo});
+      flash('Take ' + (takes+1) + ' of ' + TAKE_LIMIT + '. Same Assist.');
     }catch(e){ setErr(e.message||String(e)); }
     setBusy(null);
   }
 
   async function copyAndOpen(){
-    try{ await navigator.clipboard.writeText(draft); }catch(e){}
+    const cur = drafts[approach] || {};
+    const text = cur.message || '';
+    /* Whether this was sent unedited or heavily rewritten is exactly the
+       signal the behavioral graph needs - not to judge the message, but so a
+       later reply (markReplied) can be attributed to what was actually sent,
+       edited or not, rather than to whatever the model first proposed. */
+    const edited = !!cur.original && text.trim() !== cur.original.trim();
+    try{ await navigator.clipboard.writeText(text); }catch(e){}
     window.open(row.profile_url, '_blank', 'noopener');
     /* Only the very first outreach auto-transitions the stage. But every send
        needs its own event logged, not just the first - buildPlan's "Reply to
@@ -2596,11 +2665,12 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
        message, so the task could never be cleared by actually replying. */
     if(row.status!=='contacted' && REACHED.indexOf(row.status)<0){
       await onStage(row, 'contacted');
-      await onEvent(row, 'first_message', draft.slice(0,400));
+      await onEvent(row, 'first_message', text.slice(0,400));
     } else {
-      await onEvent(row, 'note', 'Sent: '+draft.slice(0,380));
+      await onEvent(row, 'note', 'Sent: '+text.slice(0,380));
     }
-    track('draft_copied', {stage: row.status});
+    await onUpdate(row, {context:{...ctx, lastApproach:approach, lastEdited:edited}});
+    track('draft_copied', {stage: row.status, approach, edited});
     flash('Copied. Paste it, read it once more, then click Send yourself.');
   }
 
@@ -2657,8 +2727,12 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
          take counter resets and the next draft costs a fresh assist. The event
          is written first, above, so a failure here cannot lose the signal. */
       await onUpdate(row, {context: {...ctx, exchange: exchangeNo + 1, takes: 0}});
+      /* approach/edited close the loop this exchange started at send time
+         (see copyAndOpen) - the one join that turns "someone replied" into
+         "curiosity openings replied X of Y times," the actual behavioral
+         signal, not just an activity count. */
       track('reply_logged', {days_since_sent: Math.max(0, Math.round(days(row.contacted_at)||0)),
-        exchange: exchangeNo + 1});
+        exchange: exchangeNo + 1, approach: ctx.lastApproach || 'unknown', edited: !!ctx.lastEdited});
       setJustReplied(true);
       setTab('notes');
       flash('Logged. What did they say?');
@@ -2875,42 +2949,53 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
         <div className="fade" style={{marginTop:24}}>
           <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
             {APPROACHES.map(a=>(
-              <button key={a.id} className={'chip'+(approach===a.id?' on':'')} onClick={()=>setApproach(a.id)}>{a.label}</button>))}
+              <button key={a.id} className={'chip'+(approach===a.id?' on':'')} onClick={()=>selectApproach(a.id)}>
+                {a.label}{drafts[a.id] && <span style={{marginLeft:6,opacity:.6}}>&middot;</span>}
+              </button>))}
           </div>
           <div className="card" style={{marginTop:16,padding:'22px 24px'}}>
             <div className="row" style={{alignItems:'baseline',justifyContent:'space-between',gap:14}}>
               <div className="eyebrow b">Draft · {(APPROACHES.find(a=>a.id===approach)||{}).label}</div>
               <div className="meta">You always click Send</div>
             </div>
-            {!draft &&
+            {Object.keys(drafts).length===0 &&
               <div className="stack" style={{gap:14,marginTop:14}}>
                 <div className="sub" style={{fontSize:14.5,lineHeight:1.55,textWrap:'pretty'}}>
-                  Mighty writes from your strategy, this person's profile, and anything you've captured. Then you edit it,
-                  and you send it.
+                  Mighty writes all five approaches at once, from your strategy, this person's profile, and anything
+                  you've captured. Then you pick one, edit it, and send it.
                 </div>
-                <button className="btn" style={{alignSelf:'flex-start'}} onClick={makeDraft} disabled={!!busy && busy!=='draft'}>
-                  {busy==='draft'?<span><span className="spin"/> Writing</span>:'Write the draft'}
+                <button className="btn" style={{alignSelf:'flex-start'}} onClick={makeDrafts} disabled={!!busy && busy!=='draft'}>
+                  {busy==='draft'?<span><span className="spin"/> Writing</span>:'Write five drafts'}
                 </button>
                 <div className="hint">
                   {takes===0
-                    ? 'Costs one Assist, and that Assist covers every rewrite of this message, up to ten.'
+                    ? 'Costs one Assist for all five approaches, and that Assist covers every rewrite of any of them, up to ten takes total.'
                     : 'Already paid for on this message. ' + takesLeft + ' of ' + TAKE_LIMIT + ' takes left.'}
                   {voice.length>0 &&
                     ' Written to match how you write, from ' + voice.length + ' of your own past messages.'}
                 </div>
               </div>}
-            {draft &&
+            {Object.keys(drafts).length>0 && !drafts[approach] &&
+              <div className="stack" style={{gap:14,marginTop:14}}>
+                <div className="sub" style={{fontSize:14.5}}>This angle has not been generated yet.</div>
+                <button className="btn g sm" style={{alignSelf:'flex-start'}} onClick={regenerateOne}
+                  disabled={(!!busy && busy!=='draft')||takesLeft<=0}>
+                  {busy==='draft'?<span><span className="spin"/> Writing</span>: takesLeft<=0?'No takes left':'Generate this angle'}
+                </button>
+              </div>}
+            {drafts[approach] &&
               <F>
                 <textarea className="inp" style={{marginTop:14,minHeight:180,fontSize:15.5,lineHeight:1.65}}
-                  value={draft} onChange={e=>setDraft(e.target.value)}/>
+                  value={drafts[approach].message}
+                  onChange={e=>{ const v=e.target.value; setDrafts(d=>({...d, [approach]: {...d[approach], message:v}})); }}/>
                 <div className="row" style={{gap:10,marginTop:16,flexWrap:'wrap'}}>
                   <button className="btn sm" onClick={copyAndOpen}>Copy &amp; open LinkedIn</button>
                   <button className="btn g sm" disabled={!!busy}
-                    onClick={()=>{ setBusy('save'); onUpdate(row,{ai_draft:draft}).then(()=>flash('Saved')).finally(()=>setBusy(null)); }}>Save draft</button>
-                  <button className="btn g sm" onClick={makeDraft}
+                    onClick={()=>{ setBusy('save'); onUpdate(row,{ai_draft:drafts[approach].message}).then(()=>flash('Saved')).finally(()=>setBusy(null)); }}>Save draft</button>
+                  <button className="btn g sm" onClick={regenerateOne}
                     disabled={(!!busy && busy!=='draft')||takesLeft<=0}>
                     {busy==='draft'?<span><span className="spin"/> Rewriting</span>
-                      : takesLeft<=0 ? 'No takes left' : 'Rewrite'}
+                      : takesLeft<=0 ? 'No takes left' : 'Rewrite this one'}
                   </button>
                   <span className="meta">
                     {takes>0 ? 'Take '+takes+' of '+TAKE_LIMIT+' · same Assist' : ''}
@@ -5305,7 +5390,7 @@ function Onboarding({sb, user, settings, onSave, onDone, startStep}){
          has a Knowledge Base. Finishing without re-uploading a file must keep
          what was already there, not overwrite it with these fields' empty
          defaults - that silently erased an existing KB (including voice
-         samples makeDraft() depends on) on every re-entry that skipped the
+         samples makeDrafts() depends on) on every re-entry that skipped the
          upload step. Every arch-less fallback below reads the existing value
          instead of a hardcoded empty one. */
       const newAnswers = Object.keys(answers).map(k => ({q:k, a:clean(answers[k])})).filter(x => x.a);
