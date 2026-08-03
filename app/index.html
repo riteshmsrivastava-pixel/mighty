@@ -4083,6 +4083,44 @@ function CardDoors({data}){
     </GridCard>
   );
 }
+/* Reads app_events back - exact tallies only, never a comparison. With a
+   handful of sends per approach, "Curiosity converts better" would be noise
+   dressed up as insight; "3 sent, 2 replied" is just true regardless of
+   sample size. The comparative/predictive version of this card is a later
+   phase, once there is enough volume per approach for it to mean something. */
+function CardApproaches({appEvents}){
+  if(!appEvents || !appEvents.length) return null;
+  const sent = {}, replied = {};
+  appEvents.forEach(e=>{
+    const a = e.props && e.props.approach;
+    if(!a) return;
+    if(e.event==='draft_copied') sent[a] = (sent[a]||0)+1;
+    if(e.event==='reply_logged') replied[a] = (replied[a]||0)+1;
+  });
+  const rows = APPROACHES.filter(a=>sent[a.id]).map(a=>({
+    label:a.label, sentCount:sent[a.id]||0, repliedCount:replied[a.id]||0,
+  })).sort((a,b)=>b.sentCount-a.sentCount);
+  if(!rows.length) return null;
+  const totalSent = rows.reduce((s,r)=>s+r.sentCount,0);
+  const totalReplied = rows.reduce((s,r)=>s+r.repliedCount,0);
+  return (
+    <GridCard eyebrow="YOUR APPROACH">
+      <div style={SUBHEAD}>
+        {totalSent} draft{totalSent===1?'':'s'} sent{totalReplied>0 ? `, ${totalReplied} with a reply so far` : ''}.
+      </div>
+      <div className="stack" style={{gap:10,marginTop:16}}>
+        {rows.map((r,i)=>(
+          <div key={i} className="row" style={{justifyContent:'space-between',fontSize:13.5}}>
+            <span style={{fontWeight:700}}>{r.label}</span>
+            <span className="meta">{r.sentCount} sent{r.repliedCount>0?', '+r.repliedCount+' replied':''}</span>
+          </div>))}
+      </div>
+      <div className="meta" style={{marginTop:14}}>
+        Counts only, not a comparison yet - too early to say which approach works better for you.
+      </div>
+    </GridCard>
+  );
+}
 function CardHabits({showUp, tasks}){
   const fmtGap = (ms)=>{
     if(ms==null) return null;
@@ -4220,7 +4258,7 @@ function CardGaps({settings, people, onEdit}){
    nothing. A snapshot of pipeline counts at the last visit lives in the
    user's own settings (patternsSnapshot) - no server table, one write per
    visit through the same saveSettings path everything else already uses. */
-function Patterns({sb, settings, people, events, tasks, onSaveSettings, onSave, onOpen, onEdit, onRebuild, go}){
+function Patterns({sb, settings, people, events, tasks, appEvents, onSaveSettings, onSave, onOpen, onEdit, onRebuild, go}){
   const decoded = (settings.knowledge||{}).decoded || null;
   const kb = settings.knowledge || {};
   const [rebuilding,setRebuilding] = useState(false);
@@ -4307,6 +4345,7 @@ function Patterns({sb, settings, people, events, tasks, onSaveSettings, onSave, 
           <CardHolds kb={kb} decoded={decoded}/>
           <CardDoors data={decoded.chapters.doors}/>
           <CardHabits showUp={decoded.chapters.showUp} tasks={tasks}/>
+          <CardApproaches appEvents={appEvents}/>
           <CardToDo dormancy={decoded.chapters.dormancy} settings={settings} people={people} go={go}/>
           <CardGaps settings={settings} people={people} onEdit={onEdit}/>
         </div>}
@@ -4330,7 +4369,7 @@ const YOU_TABS = [['profile','Profile'],['goal','Goal'],['settings','Settings']]
    is what it has noticed. Goal is what the user told it. Account is the
    mechanics. Nothing here is time-sensitive the way Today is - a user comes
    here to update themselves, not to be told what to do next. */
-function You({sb, email, settings, people, events, tasks, tab, setTab, editGoal, setEditGoal, busySave, onSaveSettings, onSignOut, onDeleteAccount, onReimport, onRebuildDecoded, onSave, onOpen, go, aiMeta}){
+function You({sb, email, settings, people, events, tasks, appEvents, tab, setTab, editGoal, setEditGoal, busySave, onSaveSettings, onSignOut, onDeleteAccount, onReimport, onRebuildDecoded, onSave, onOpen, go, aiMeta}){
   return (
     <div className="pad fade" style={{maxWidth: tab==='profile' ? 1180 : 1000,paddingTop:34}}>
       <div className="seg">
@@ -4341,7 +4380,7 @@ function You({sb, email, settings, people, events, tasks, tab, setTab, editGoal,
       <div style={{marginTop:28}}>
         {tab==='profile' &&
           <div>
-            <Patterns sb={sb} settings={settings} people={people} events={events} tasks={tasks}
+            <Patterns sb={sb} settings={settings} people={people} events={events} tasks={tasks} appEvents={appEvents}
               onSaveSettings={onSaveSettings} onSave={onSave} onOpen={onOpen} onEdit={onReimport} onRebuild={onRebuildDecoded} go={go}/>
             <div style={{marginTop:36,maxWidth:780}}>
               <div className="eyebrow b">What Mighty holds about you</div>
@@ -5637,6 +5676,11 @@ function App(){
   const [people,setPeople] = useState([]);
   const [events,setEvents] = useState([]);
   const [tasks,setTasks] = useState([]);
+  /* Counts-and-categories-only behavioral log (see track()/app_events in
+     supabase-setup.sql) - which draft approach got picked, sent, edited, and
+     replied to. Read back here so the Profile grid can show real tallies of
+     the user's own choices, not just facts about their network. */
+  const [appEvents,setAppEvents] = useState([]);
   /* Ambiguous reply_detected / connection_accepted rows ingest() deliberately left in
      outreach_inbox rather than guessing - see the comment in ingest() itself. */
   const [pendingActivity,setPendingActivity] = useState([]);
@@ -5684,7 +5728,7 @@ function App(){
       setBlob((data && data.data) ? data.data : {});
     }catch(e){ setBlob({}); setErr('Could not load your strategy. Working from a blank one.'); }
     await ingest(u);
-    await Promise.all([refreshPeople(u), refreshEvents(u), refreshTasks(u), refreshPendingActivity(u)]);
+    await Promise.all([refreshPeople(u), refreshEvents(u), refreshTasks(u), refreshPendingActivity(u), refreshAppEvents(u)]);
   }
 
   /* Drain whatever the extension pushed into outreach_inbox. profile_context is
@@ -5815,6 +5859,10 @@ function App(){
   async function refreshTasks(u){
     try{ const {data} = await sb.from('tasks').select('*').eq('user_id',u.id)
       .order('created_at',{ascending:false}); setTasks(data||[]); }catch(e){}
+  }
+  async function refreshAppEvents(u){
+    try{ const {data} = await sb.from('app_events').select('event,props,created_at').eq('user_id',u.id)
+      .order('created_at',{ascending:false}).limit(500); setAppEvents(data||[]); }catch(e){}
   }
   async function refreshPendingActivity(u){
     try{ const {data} = await sb.from('outreach_inbox').select('id,kind,payload,created_at')
@@ -6117,7 +6165,7 @@ function App(){
           plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} onDelete={deletePeople} go={go}/>}
 
       {screen==='you' &&
-        <You sb={sb} email={auth.user.email} settings={settings} people={people} events={events} tasks={tasks}
+        <You sb={sb} email={auth.user.email} settings={settings} people={people} events={events} tasks={tasks} appEvents={appEvents}
           tab={youTab} setTab={setYouTab} editGoal={editGoal} setEditGoal={setEditGoal} busySave={busySave}
           onSaveSettings={saveSettings} onSignOut={signOut} onDeleteAccount={deleteAccount} onReimport={(step)=>setReimport(step==null?1:step)}
           onRebuildDecoded={rebuildDecoded}
