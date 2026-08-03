@@ -4007,9 +4007,11 @@ function ChapterTurn({sb, settings, shape, onSave}){
     </div>
   );
 }
-function Decoded({sb, settings, people, onSaveSettings, onSave, onOpen, onEdit}){
+function Decoded({sb, settings, people, onSaveSettings, onSave, onOpen, onEdit, onRebuild}){
   const decoded = (settings.knowledge||{}).decoded || null;
   const [replay,setReplay] = useState(false);
+  const [rebuilding,setRebuilding] = useState(false);
+  const [rebuildErr,setRebuildErr] = useState(null);
   /* Locked in at mount, not read from settings on every render - the
      mark-as-seen write below updates settings.decodedSeen a moment after
      mount, and re-deriving firstRead from that live value would collapse
@@ -4036,17 +4038,28 @@ function Decoded({sb, settings, people, onSaveSettings, onSave, onOpen, onEdit})
        that actually does something, beats one static sentence for both. */
     const kb = settings.knowledge||{};
     const hasArchive = !!(kb.positions||[]).length || !!kb.connectionCount;
+    const doRebuild = async()=>{
+      if(!onRebuild) return onEdit(1);
+      setRebuilding(true); setRebuildErr(null);
+      try{ await onRebuild(); }
+      catch(e){
+        if(e && e.code==='no_archive'){ onEdit(1); return; }
+        setRebuildErr((e&&e.message)||'Could not rebuild - try again.');
+      }
+      finally{ setRebuilding(false); }
+    };
     return (
       <div className="card" style={{padding:'34px 30px',marginTop:24}}>
         <div className="h3">Your Network, Decoded</div>
         <div className="sub" style={{marginTop:7,lineHeight:1.55,maxWidth:520}}>
           {hasArchive
-            ? 'Mighty already has your archive, but this reading was never built from it - reimporting the same export builds it, without losing anything else already saved.'
+            ? 'Mighty already has your archive, but this reading was never built from it - rebuilding reads the same file back from storage, without losing anything else already saved.'
             : 'Import your LinkedIn export in Mirror, and Mighty reads back the shape of everything you have built - told honestly, once.'}
         </div>
-        {onEdit &&
-          <button className="btn sm" style={{marginTop:16}} onClick={()=>onEdit(1)}>
-            {hasArchive ? 'Rebuild from my archive' : 'Import my history'}
+        {rebuildErr && <div className="sub" style={{marginTop:8,color:'#C75B33'}}>{rebuildErr}</div>}
+        {(onEdit || onRebuild) &&
+          <button className="btn sm" style={{marginTop:16}} disabled={rebuilding} onClick={hasArchive ? doRebuild : ()=>onEdit(1)}>
+            {rebuilding ? <span><span className="spin"/> Rebuilding…</span> : (hasArchive ? 'Rebuild from my archive' : 'Import my history')}
           </button>}
       </div>);
   }
@@ -4094,7 +4107,7 @@ function Decoded({sb, settings, people, onSaveSettings, onSave, onOpen, onEdit})
    counts at the last visit lives in the user's own settings; no server table,
    no new schema, and it costs one write per visit through the same
    saveSettings path everything else already uses. */
-function Patterns({sb, settings, people, onSaveSettings, onSave, onOpen, onEdit}){
+function Patterns({sb, settings, people, onSaveSettings, onSave, onOpen, onEdit, onRebuild}){
   const reached = people.filter(r=>REACHED.includes(r.status)).length;
   const talked  = people.filter(r=>['replied','coffee_chat','referral','interview','offer'].indexOf(r.status)>=0).length;
   const quiet   = people.filter(r=>r.status==='contacted' && days(r.contacted_at)>=10).length;
@@ -4166,7 +4179,7 @@ function Patterns({sb, settings, people, onSaveSettings, onSave, onOpen, onEdit}
             </div>))}
         </div>}
 
-      <Decoded sb={sb} settings={settings} people={people} onSaveSettings={onSaveSettings} onSave={onSave} onOpen={onOpen} onEdit={onEdit}/>
+      <Decoded sb={sb} settings={settings} people={people} onSaveSettings={onSaveSettings} onSave={onSave} onOpen={onOpen} onEdit={onEdit} onRebuild={onRebuild}/>
     </div>
   );
 }
@@ -4187,7 +4200,7 @@ const YOU_TABS = [['profile','Profile'],['goal','Goal'],['settings','Settings']]
    is what it has noticed. Goal is what the user told it. Account is the
    mechanics. Nothing here is time-sensitive the way Today is - a user comes
    here to update themselves, not to be told what to do next. */
-function You({sb, email, settings, people, events, tasks, tab, setTab, editGoal, setEditGoal, busySave, onSaveSettings, onSignOut, onDeleteAccount, onReimport, onSave, onOpen, go, aiMeta}){
+function You({sb, email, settings, people, events, tasks, tab, setTab, editGoal, setEditGoal, busySave, onSaveSettings, onSignOut, onDeleteAccount, onReimport, onRebuildDecoded, onSave, onOpen, go, aiMeta}){
   return (
     <div className="pad fade" style={{maxWidth:1000,paddingTop:34}}>
       <div className="seg">
@@ -4198,7 +4211,7 @@ function You({sb, email, settings, people, events, tasks, tab, setTab, editGoal,
       <div style={{marginTop:28}}>
         {tab==='profile' &&
           <div style={{maxWidth:780}}>
-            <Patterns sb={sb} settings={settings} people={people} onSaveSettings={onSaveSettings} onSave={onSave} onOpen={onOpen} onEdit={onReimport}/>
+            <Patterns sb={sb} settings={settings} people={people} onSaveSettings={onSaveSettings} onSave={onSave} onOpen={onOpen} onEdit={onReimport} onRebuild={onRebuildDecoded}/>
             <div style={{marginTop:36}}>
               <div className="eyebrow b">What Mighty holds about you</div>
               <KnowledgeBase settings={settings} onEdit={onReimport} go={go}/>
@@ -5654,6 +5667,29 @@ function App(){
     setBusySave(false);
   }
 
+  /* "Rebuild from my archive" on an account whose archive predates
+     buildDecoded() used to just reopen the full onboarding wizard asking for
+     a fresh .zip - even though the exact file is already sitting in the
+     'archives' storage bucket (see supabase-setup.sql: kept specifically so
+     re-deriving costs nothing). Pull that same file back down and recompute
+     kb.decoded from it directly; only knowledge.decoded changes, nothing
+     else in the Knowledge Base is touched. Throws with .code='no_archive'
+     when there is nothing stored to pull, so the caller can fall back to
+     the upload wizard instead of showing a dead-end error. */
+  async function rebuildDecoded(){
+    if(!sb || auth.status!=='in') throw new Error('Not signed in.');
+    const {data:rows, error} = await sb.from('imports').select('storage_path')
+      .eq('user_id', auth.user.id).eq('kind','linkedin_archive')
+      .not('storage_path','is', null).order('id',{ascending:false}).limit(1);
+    if(error) throw error;
+    const path = rows && rows[0] && rows[0].storage_path;
+    if(!path){ const e = new Error('no_stored_archive'); e.code='no_archive'; throw e; }
+    const dl = await sb.storage.from('archives').download(path);
+    if(dl.error){ const e = new Error(dl.error.message||'download_failed'); e.code='no_archive'; throw e; }
+    const arch = await readArchive(dl.data);
+    await saveSettings({knowledge:{...settings.knowledge, decoded: buildDecoded(arch)}});
+  }
+
   async function savePerson(p, query){
     if(!sb || auth.status!=='in') return;
     const ctx = {source:'search', savedFrom:query||'', whySaved:p.why||'', common:p.common||[]};
@@ -5885,6 +5921,7 @@ function App(){
         <You sb={sb} email={auth.user.email} settings={settings} people={people} events={events} tasks={tasks}
           tab={youTab} setTab={setYouTab} editGoal={editGoal} setEditGoal={setEditGoal} busySave={busySave}
           onSaveSettings={saveSettings} onSignOut={signOut} onDeleteAccount={deleteAccount} onReimport={(step)=>setReimport(step==null?1:step)}
+          onRebuildDecoded={rebuildDecoded}
           onSave={savePerson} onOpen={openPerson} go={go} aiMeta={aiMeta}/>}
 
       {screen==='extension' && <Extension/>}
