@@ -356,6 +356,41 @@ function Avatar({name, size, src, hover}){
     </span>
   );
 }
+/* A guessed .com for a company name - stripping the legal-entity noise
+   ("Inc", "Ltd", "Pvt", "Group"...) that would otherwise never match a real
+   domain. Wrong often enough that this is a best-effort guess, not a lookup -
+   CompanyLogo below always has an initials fallback for when it misses. */
+const companyDomainGuess = (name)=>{
+  const s = clean(name).toLowerCase()
+    .replace(/\(.*?\)/g,'')
+    .replace(/[.,'']/g,'')
+    .replace(/&/g,' and ')
+    .replace(/\b(inc|incorporated|ltd|limited|llc|llp|corp|corporation|co|company|companies|group|holdings|holding|pvt|private|plc|technologies|technology)\b/g,'')
+    .trim().replace(/\s+/g,'');
+  return s || null;
+};
+/* Company logo via a public logo CDN keyed off the guessed domain, falling
+   back to a colored initials chip the moment the image 404s - same pattern
+   as Avatar just above, for companies instead of people. */
+function CompanyLogo({name, size, color}){
+  const s = size||20;
+  const [broken,setBroken] = useState(false);
+  const domain = companyDomainGuess(name);
+  const fallback = (
+    <div title={name} style={{width:s,height:s,borderRadius:'50%',flex:'none',display:'flex',
+      alignItems:'center',justifyContent:'center',fontSize:Math.round(s*0.4),fontWeight:800,
+      color: color||'var(--sub)', background: color?color+'26':'var(--card2)',
+      border:'1px solid '+(color?color+'55':'var(--line3)')}}>
+      {initials(name)}
+    </div>);
+  if(!domain || broken) return fallback;
+  return (
+    <img src={'https://logo.clearbit.com/'+domain+'.com?size='+(s*3)} alt="" title={name}
+      width={s} height={s} onError={()=>setBroken(true)}
+      style={{width:s,height:s,borderRadius:'50%',objectFit:'contain',background:'#fff',
+        border:'1px solid var(--line3)',flex:'none'}}/>
+  );
+}
 /* Real, visible movement for an accepted connection request without a new pipeline stage - the
    spec's own decided design. Reads context.connectionAccepted, set by ingest()'s reply_detected/
    connection_accepted branch (or resolveAmbiguousActivity) once the extension's own match on
@@ -917,12 +952,10 @@ function KbTimeline({positions, education}){
           <span key={y} style={{position:'absolute',left:pct(y)+'%',fontSize:10.5,color:'var(--mute)',
             transform: y===minY?'none':(y===maxY?'translateX(-100%)':'translateX(-50%)')}}>{y}</span>))}
       </div>
-      <div style={{display:'flex',flexWrap:'wrap',rowGap:6,columnGap:16,marginTop:10}}>
+      <div style={{display:'flex',flexWrap:'wrap',rowGap:10,columnGap:16,marginTop:12}}>
         {legend.map((l,i)=>(
-          <div key={i} className="row" style={{gap:6,alignItems:'center'}}>
-            <div style={{width:7,height:7,borderRadius: l.kind==='edu'?2:'50%',
-              background:l.kind==='edu'?'transparent':l.color,
-              border: l.kind==='edu' ? '1.5px dashed '+l.color : 'none'}}/>
+          <div key={i} className="row" style={{gap:7,alignItems:'center'}}>
+            <CompanyLogo name={l.name} size={18} color={l.color}/>
             <span className="meta">{l.name}</span>
           </div>))}
       </div>
@@ -1592,6 +1625,32 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
      collapses to null (no prompt shown) the moment a choice is made or
      dismissed. */
   const [reasonPrompt,setReasonPrompt] = useState(null);
+  /* Saving already best-effort-fetches a photo the moment someone is added,
+     but that call needs the extension live in this exact tab at that exact
+     moment - miss it (bulk-added while the extension wasn't connected, added
+     from a device without it, etc.) and the row is stuck on initials with no
+     retry. This sweeps every saved person still missing one, one request at
+     a time - the same extBridge.photo() the per-person "Add photo" button
+     already uses - rather than making it a per-person chore. */
+  const [photoBackfill,setPhotoBackfill] = useState(null);
+  async function bulkFetchPhotos(){
+    const targets = people.filter(p=>!p.avatar_url && p.profile_url);
+    if(!targets.length) return;
+    if(!extBridge.isReady()){
+      alert("The Mighty extension isn't connected in this tab right now - photos are read live from LinkedIn through it, so nothing can be fetched until it's active. Open a LinkedIn tab with the extension on, then try again.");
+      return;
+    }
+    setPhotoBackfill({done:0, total:targets.length});
+    for(let i=0;i<targets.length;i++){
+      try{
+        const r = await extBridge.photo(targets[i].profile_url);
+        if(r && r.ok && r.dataUrl) await onUpdate(targets[i], {avatar_url:r.dataUrl});
+      }catch(e){}
+      setPhotoBackfill({done:i+1, total:targets.length});
+      await new Promise(res=>setTimeout(res, 350));
+    }
+    setPhotoBackfill(null);
+  }
   function finishSkip(profileUrl, reasonId){
     if(reasonId) track('candidate_skipped', {reason:reasonId});
     setSkip(s=>({...s,[profileUrl]:true}));
@@ -2183,7 +2242,11 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
               {relStats.saved} identified · {relStats.waiting} replied, waiting on you · {relStats.metCapped} of {relStats.target} meetings this week
             </div>}
         </div>
-        <div className="row" style={{gap:10,flexWrap:'wrap'}}>
+        <div className="row" style={{gap:10,flexWrap:'wrap',alignItems:'center'}}>
+          {view!=='explore' && people.some(p=>!p.avatar_url && p.profile_url) &&
+            <button className="btn g sm" style={{flex:'none'}} disabled={!!photoBackfill} onClick={bulkFetchPhotos}>
+              {photoBackfill ? `Fetching photos… ${photoBackfill.done}/${photoBackfill.total}` : 'Fill in missing photos'}
+            </button>}
           <div className="seg">
             <button className={view==='list'?'on':''} onClick={()=>setView('list')}>List</button>
             <button className={view==='board'?'on':''} onClick={()=>setView('board')}
@@ -4052,7 +4115,10 @@ function RankedBars({rows, ownSet}){
         return (
           <div key={r.label}>
             <div className="row" style={{justifyContent:'space-between',fontSize:13.5,marginBottom:4}}>
-              <span style={{fontWeight:700}}>{r.label}{mine && <span className="meta" style={{marginLeft:6,fontWeight:400}}>· worked here</span>}</span>
+              <span className="row" style={{gap:7,alignItems:'center'}}>
+                <CompanyLogo name={r.label} size={16}/>
+                <span style={{fontWeight:700}}>{r.label}{mine && <span className="meta" style={{marginLeft:6,fontWeight:400}}>· worked here</span>}</span>
+              </span>
               <span className="meta" style={{fontVariantNumeric:'tabular-nums'}}>{r.count.toLocaleString()}</span>
             </div>
             <div style={{height:7,borderRadius:4,background:'var(--line3)',overflow:'hidden'}}>
@@ -4456,8 +4522,11 @@ const YOU_TABS = [['profile','Profile'],['goal','Goal'],['settings','Account']];
    mechanics. Nothing here is time-sensitive the way Today is - a user comes
    here to update themselves, not to be told what to do next. */
 function You({sb, email, settings, people, events, tasks, appEvents, tab, setTab, editGoal, setEditGoal, busySave, onSaveSettings, onSignOut, onDeleteAccount, onReimport, onRebuildDecoded, onSave, onOpen, go, aiMeta}){
+  // Profile has no maxWidth cap - the old 1180px ceiling left a dead margin
+  // on wide monitors. Goal/Settings stay capped at 1000: single-column forms
+  // don't get more readable by stretching edge to edge.
   return (
-    <div className="pad fade" style={{maxWidth: tab==='profile' ? 1180 : 1000,paddingTop:34}}>
+    <div className="pad fade" style={{maxWidth: tab==='profile' ? 'none' : 1000,paddingTop:34}}>
       <div className="seg">
         {YOU_TABS.map(([k,label])=>(
           <button key={k} className={tab===k?'on':''}
@@ -4596,8 +4665,7 @@ const NAV = [
       {key:'settings', label:'Account', tab:'settings'},
     ]},
 ];
-const QUESTION = {today:'What deserves my attention?', relationships:'Who should I know?',
-  you:'How does this work for me?', ask:'What should I do?', extension:'Save people while you browse.'};
+const QUESTION = {ask:'What should I do?', extension:'Save people while you browse.'};
 
 function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, email, onSignOut, aiMeta, askOpen, onToggleAsk, children}){
   /* Today does not exist until there is something to be doing.
