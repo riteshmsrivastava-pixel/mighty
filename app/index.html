@@ -503,9 +503,28 @@ const extBridge = (()=>{
     window.addEventListener('message', ev=>{
       if(ev.source!==window) return;
       const d=ev.data; if(!d || d.source!=='mighty-ext') return;
-      if(d.ready){ ready=true; return; }
+      ready = true;                              // any reply at all proves it's connected
+      if(d.ready) return;
       const cb=pending.get(d.id); if(cb){ pending.delete(d.id); cb(d); }
     });
+    /* bridge.js's content script runs at document_start and announces itself
+       exactly once, synchronously, right then - which is routinely before
+       this file (350kb of JSX the browser is still Babel-transforming) has
+       reached this line and attached the listener above. Miss that single
+       broadcast and isReady() reports false for the rest of the session even
+       though the extension is fully installed and connected - which is
+       exactly what made photos silently never fetch. Ping instead of only
+       listening passively: bridge.js answers 'ping' any time, so a handful
+       of retries over the first few seconds catches it whenever its own
+       listener is actually up, no matter which side won the race. */
+    let pingTries=0;
+    const pingUntilReady = ()=>{
+      if(ready || pingTries>=6) return;
+      pingTries++;
+      window.postMessage({source:'mighty-app', id:'boot-ping-'+pingTries, kind:'ping'}, window.location.origin);
+      setTimeout(pingUntilReady, pingTries*600);
+    };
+    pingUntilReady();
   }
   function call(kind, extra, timeoutMs){
     return new Promise(resolve=>{
@@ -1625,32 +1644,6 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
      collapses to null (no prompt shown) the moment a choice is made or
      dismissed. */
   const [reasonPrompt,setReasonPrompt] = useState(null);
-  /* Saving already best-effort-fetches a photo the moment someone is added,
-     but that call needs the extension live in this exact tab at that exact
-     moment - miss it (bulk-added while the extension wasn't connected, added
-     from a device without it, etc.) and the row is stuck on initials with no
-     retry. This sweeps every saved person still missing one, one request at
-     a time - the same extBridge.photo() the per-person "Add photo" button
-     already uses - rather than making it a per-person chore. */
-  const [photoBackfill,setPhotoBackfill] = useState(null);
-  async function bulkFetchPhotos(){
-    const targets = people.filter(p=>!p.avatar_url && p.profile_url);
-    if(!targets.length) return;
-    if(!extBridge.isReady()){
-      alert("The Mighty extension isn't connected in this tab right now - photos are read live from LinkedIn through it, so nothing can be fetched until it's active. Open a LinkedIn tab with the extension on, then try again.");
-      return;
-    }
-    setPhotoBackfill({done:0, total:targets.length});
-    for(let i=0;i<targets.length;i++){
-      try{
-        const r = await extBridge.photo(targets[i].profile_url);
-        if(r && r.ok && r.dataUrl) await onUpdate(targets[i], {avatar_url:r.dataUrl});
-      }catch(e){}
-      setPhotoBackfill({done:i+1, total:targets.length});
-      await new Promise(res=>setTimeout(res, 350));
-    }
-    setPhotoBackfill(null);
-  }
   function finishSkip(profileUrl, reasonId){
     if(reasonId) track('candidate_skipped', {reason:reasonId});
     setSkip(s=>({...s,[profileUrl]:true}));
@@ -2243,10 +2236,6 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
             </div>}
         </div>
         <div className="row" style={{gap:10,flexWrap:'wrap',alignItems:'center'}}>
-          {view!=='explore' && people.some(p=>!p.avatar_url && p.profile_url) &&
-            <button className="btn g sm" style={{flex:'none'}} disabled={!!photoBackfill} onClick={bulkFetchPhotos}>
-              {photoBackfill ? `Fetching photos… ${photoBackfill.done}/${photoBackfill.total}` : 'Fill in missing photos'}
-            </button>}
           <div className="seg">
             <button className={view==='list'?'on':''} onClick={()=>setView('list')}>List</button>
             <button className={view==='board'?'on':''} onClick={()=>setView('board')}
@@ -6198,6 +6187,42 @@ function App(){
     window.addEventListener('focus', onFocus);
     return ()=>window.removeEventListener('focus', onFocus);
   },[auth.status, sb]);
+
+  /* savePerson() already best-effort-fetches a photo the moment someone is
+     added, but that call only works if the extension's bridge is live in
+     this exact tab at that exact moment - miss it (bulk-added, extension not
+     open yet, the boot-time race extBridge's own ping loop exists to close)
+     and a row is stuck on initials with no way back except the per-person
+     "Add photo" button. This quietly catches every saved person still
+     missing one, everywhere in the app rather than one screen, the moment
+     the extension proves it's actually connected - throttled, silent,
+     self-healing as new people get saved (people.length in the deps). */
+  useEffect(()=>{
+    if(auth.status!=='in' || !sb || !auth.user) return;
+    let dead=false;
+    let tries=0;
+    const poll = setInterval(()=>{
+      tries++;
+      if(dead){ clearInterval(poll); return; }
+      if(!extBridge.isReady()){ if(tries>=10) clearInterval(poll); return; }
+      clearInterval(poll);
+      (async()=>{
+        const targets = people.filter(p=>!p.avatar_url && p.profile_url);
+        for(const row of targets){
+          if(dead) return;
+          try{
+            const r = await extBridge.photo(row.profile_url);
+            if(r && r.ok && r.dataUrl){
+              await sb.from('outreach_log').update({avatar_url:r.dataUrl, updated_at:new Date().toISOString()}).eq('id', row.id);
+              setPeople(prev=>prev.map(x=>x.id===row.id ? {...x, avatar_url:r.dataUrl} : x));
+            }
+          }catch(e){}
+          await new Promise(res=>setTimeout(res, 400));
+        }
+      })();
+    }, 500);
+    return ()=>{ dead=true; clearInterval(poll); };
+  },[auth.status, sb, auth.user, people.length]);
 
   const person = useMemo(()=>people.find(r=>r.id===personId)||null, [people, personId]);
   const doneToday = useMemo(()=>tasks.filter(t=>t.done && t.completed_at && days(t.completed_at)<=0), [tasks]);
