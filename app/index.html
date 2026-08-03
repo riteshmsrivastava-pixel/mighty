@@ -5790,7 +5790,7 @@ function App(){
     setScreen(target.screen);
     window.scrollTo({top:0});
   }
-  const openPerson = (id, t)=>go({screen:'profile', id, tab:t||'overview'});
+  const openPerson = (id, t)=>go({screen:'profile', id, tab:t||'draft'});
 
   if(auth.status==='loading')
     return <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}><span className="spin"/></div>;
