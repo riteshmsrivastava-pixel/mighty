@@ -871,7 +871,7 @@ function KbTimeline({positions, education}){
     return {...r, startPct, widthPct, lane, color:colorOf(r.co)};
   });
   const laneCount = Math.max(1, ...placed.map(r=>r.lane+1));
-  const rowH = 30;
+  const rowH = 24;
 
   const step = Math.max(1, Math.round(span/5));
   const gridYears = []; for(let y=minY; y<maxY; y+=step) gridYears.push(y);
@@ -887,14 +887,14 @@ function KbTimeline({positions, education}){
         <span className="eyebrow b">The career as read</span>
         <span className="meta">{(positions||[]).length} role{(positions||[]).length===1?'':'s'}, {(education||[]).length} school{(education||[]).length===1?'':'s'}</span>
       </div>
-      <div style={{marginTop:18,position:'relative',height:laneCount*rowH+6}}>
+      <div style={{marginTop:12,position:'relative',height:laneCount*rowH+2}}>
         {placed.map(r=>{
           const tip = [r.title,r.co].filter(Boolean).join(', ')+' · '+(r.from||'?')+' - '+(r.to||'now');
           return (
             <div key={r.key} title={tip} style={{position:'absolute',left:r.startPct+'%',
-              width:r.widthPct+'%', top:r.lane*rowH, height:24, borderRadius:6,
-              boxSizing:'border-box',display:'flex',alignItems:'center',padding:'0 9px',
-              fontSize:11,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',
+              width:r.widthPct+'%', top:r.lane*rowH, height:19, borderRadius:5,
+              boxSizing:'border-box',display:'flex',alignItems:'center',padding:'0 8px',
+              fontSize:10.5,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',
               background: r.kind==='edu' ? 'transparent' : r.color+'1f',
               border: r.kind==='edu' ? '1.5px dashed '+r.color : '1px solid '+r.color+'55',
               color:r.color}}>
@@ -902,15 +902,15 @@ function KbTimeline({positions, education}){
             </div>);
         })}
       </div>
-      <div style={{position:'relative',height:16,marginTop:6}}>
+      <div style={{position:'relative',height:14,marginTop:4}}>
         {gridYears.map(y=>(
           <span key={y} style={{position:'absolute',left:pct(y)+'%',fontSize:10.5,color:'var(--mute)',
             transform: y===minY?'none':(y===maxY?'translateX(-100%)':'translateX(-50%)')}}>{y}</span>))}
       </div>
-      <div className="row" style={{gap:14,marginTop:14,flexWrap:'wrap'}}>
+      <div style={{display:'flex',flexWrap:'wrap',rowGap:6,columnGap:16,marginTop:10}}>
         {legend.map((l,i)=>(
           <div key={i} className="row" style={{gap:6,alignItems:'center'}}>
-            <div style={{width:8,height:8,borderRadius: l.kind==='edu'?2:'50%',
+            <div style={{width:7,height:7,borderRadius: l.kind==='edu'?2:'50%',
               background:l.kind==='edu'?'transparent':l.color,
               border: l.kind==='edu' ? '1.5px dashed '+l.color : 'none'}}/>
             <span className="meta">{l.name}</span>
