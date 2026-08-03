@@ -3987,7 +3987,7 @@ function RankedBars({rows, ownSet}){
   );
 }
 function CardCompanies({data, settings}){
-  const ownSet = useMemo(()=>ownCompanies(settings),[settings]);
+  const ownSet = useMemo(()=>new Set(ownCompanies(settings).map(c=>c.toLowerCase())),[settings]);
   if(!data || !data.topCompanies.length) return null;
   return (
     <GridCard eyebrow="THE COMPANIES">
