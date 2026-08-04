@@ -2982,7 +2982,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
       <div className="sub" style={{marginTop:14,fontSize:13.5,lineHeight:1.5}}>
         {ctx.whySaved && <>{ctx.whySaved}{' · '}</>}
         {ctx.savedFrom ? 'Found by searching "'+ctx.savedFrom+'"' : (ctx.source==='search'?'Found through search':'Saved from the extension')}
-        {' · saved '}{ago(row.shortlisted_at)||'recently'}
+        {' · saved '}{dateShort(row.shortlisted_at)||'recently'}
       </div>
 
       <div className="seg" style={{marginTop:26,overflowX:'auto',maxWidth:'100%'}}>
@@ -3074,7 +3074,6 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
               <button className="btn g sm" onClick={makeBrief} disabled={busy==='brief'}>
                 {busy==='brief'?<span><span className="spin"/> Refreshing</span>:'Rebuild brief'}
               </button>
-              <span className="meta">Built {ago(br.builtAt)||'just now'} · free</span>
             </div>}
         </div>}
 
