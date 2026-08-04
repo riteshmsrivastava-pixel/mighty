@@ -286,14 +286,38 @@ function personPreview(p){
     why, common, summary: (p.briefing && clean(p.briefing.careerSummary)) || '', status: p.status,
   };
 }
+/* Module-level, not component state - every Avatar on screen for the same
+   person shares one fetch and one cached result, survives that Avatar
+   unmounting (a list re-render, a tab switch), and a second Avatar for the
+   same profileUrl elsewhere on the page never re-fetches. */
+const _photoCache = new Map();
+const _photoInFlight = new Set();
 function Avatar({name, size, src, hover}){
   const s = size||38;
   const [broken,setBroken] = useState(false);
   const [show,setShow] = useState(false);
   const [rect,setRect] = useState(null);
   const ref = useRef(null);
-  const core = (src && !broken)
-    ? <img ref={ref} src={src} alt="" width={s} height={s} onError={()=>setBroken(true)}
+  /* Wherever a person appears with enough identity to look them up (which is
+     everywhere `hover` is already passed, for the preview card), also try
+     for their real photo - no separate wiring needed per screen. Never
+     overrides a photo that already came back with the row (src wins), and
+     never re-fetches something already cached or already in flight. */
+  const profileUrl = hover && (hover.profile_url || hover.profileUrl);
+  const [fetched,setFetched] = useState(()=> profileUrl ? _photoCache.get(profileUrl) : null);
+  useEffect(()=>{
+    if(src || !profileUrl) return;
+    if(_photoCache.has(profileUrl)){ setFetched(_photoCache.get(profileUrl)); return; }
+    if(_photoInFlight.has(profileUrl) || !extBridge.isReady()) return;
+    _photoInFlight.add(profileUrl);
+    extBridge.photo(profileUrl).then(r=>{
+      _photoInFlight.delete(profileUrl);
+      if(r && r.ok && r.dataUrl){ _photoCache.set(profileUrl, r.dataUrl); setFetched(r.dataUrl); }
+    });
+  },[src, profileUrl]);
+  const effectiveSrc = src || fetched;
+  const core = (effectiveSrc && !broken)
+    ? <img ref={ref} src={effectiveSrc} alt="" width={s} height={s} onError={()=>setBroken(true)}
         style={{width:s,height:s,borderRadius:'50%',objectFit:'cover',flex:'none',background:'var(--card2)'}}/>
     : <div ref={ref} className="av" style={{width:s,height:s,fontSize:Math.round(s*0.36)}}>{initials(name)}</div>;
   const p = hover && personPreview(hover);
@@ -1662,45 +1686,6 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
   const savedUrls = useMemo(()=>{
     const m = {}; people.forEach(r=>{ if(r.profile_url) m[r.profile_url.toLowerCase()]=r; }); return m;
   },[people]);
-  /* Explore's two candidate lists - people already in the archive, and fresh
-     search results - never had a photo attempt at all: the archive export
-     carries no photo column, and search only ever parsed a Google snippet.
-     This quietly fetches one (the same og:image extBridge.photo() already
-     uses for saved people, no unverified fallback) per candidate still
-     missing one, throttled by background.js's own 3-second gap and 25-per-
-     session cap. inFlight is a ref, not state, so re-fetching the same URL
-     across renders doesn't restart it mid-throttle. */
-  const [photoCache,setPhotoCache] = useState({});
-  const photoInFlight = useRef(new Set());
-  useEffect(()=>{
-    if(!extBridge.isReady()) return;
-    const targets = [];
-    if(mine) mine.rows.forEach(c=>{
-      const url = c.profile_url;
-      if(url && !savedUrls[url.toLowerCase()] && !c.avatar_url && !photoCache[url] && !photoInFlight.current.has(url)) targets.push(url);
-    });
-    results.forEach(r=>{
-      const url = r.profileUrl;
-      if(!url || skipped[url]) return;
-      const savedRow = savedUrls[url.toLowerCase()];
-      const has = savedRow ? savedRow.avatar_url : r.avatarUrl;
-      if(!has && !photoCache[url] && !photoInFlight.current.has(url)) targets.push(url);
-    });
-    if(!targets.length) return;
-    let dead = false;
-    targets.forEach(u=>photoInFlight.current.add(u));
-    (async()=>{
-      for(const url of targets){
-        if(dead) return;
-        try{
-          const r = await extBridge.photo(url);
-          if(r && r.ok && r.dataUrl) setPhotoCache(prev=>({...prev, [url]:r.dataUrl}));
-        }catch(e){}
-        photoInFlight.current.delete(url);
-      }
-    })();
-    return ()=>{ dead=true; };
-  },[mine, results, skipped, savedUrls]);
   const cap = PLAN_CAPS[plan||'trial'] || 50;
   const atCap = people.length >= cap;
   const terms = useMemo(()=>goalTerms(settings),[settings]);
@@ -1857,7 +1842,7 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
     const reason = connReason(c);
     return (
       <div className="row" style={{alignItems:'flex-start',gap:13,padding:'14px 0',borderBottom:'1px solid var(--line2)'}}>
-        <Avatar name={connName(c)} size={34} src={c.avatar_url || photoCache[c.profile_url]} hover={c}/>
+        <Avatar name={connName(c)} size={34} src={c.avatar_url} hover={c}/>
         <div style={{flex:'1 1 200px',minWidth:0}}>
           <div style={{fontSize:15,fontWeight:700}}>{connName(c)}</div>
           <div className="sub" style={{fontSize:13.5,marginTop:1}}>
@@ -2114,7 +2099,7 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
               return (
                 <div key={r.profileUrl} className="fade" style={{marginTop:14,paddingTop:14,borderTop:'1px solid var(--line2)'}}>
                   <div style={{display:'flex',alignItems:'flex-start',gap:14,flexWrap:'wrap'}}>
-                    <Avatar name={r.name} src={(savedRow ? savedRow.avatar_url : r.avatarUrl) || photoCache[r.profileUrl]} hover={savedRow||r}/>
+                    <Avatar name={r.name} src={savedRow ? savedRow.avatar_url : r.avatarUrl} hover={savedRow||r}/>
                     <div style={{flex:'1 1 200px',minWidth:0}}>
                       <div style={{fontSize:17,fontWeight:700,letterSpacing:'-.015em'}}>{r.name}</div>
                       <div className="sub" style={{fontSize:14,marginTop:2}}>{r.title||'No headline on the profile'}</div>
@@ -2348,7 +2333,7 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
                       return (
                         <div key={c.profile_url} style={{padding:'16px 0',borderTop:'1px solid var(--line2)'}}>
                           <div className="row" style={{alignItems:'flex-start',gap:13,flexWrap:'wrap'}}>
-                            <Avatar name={connName(c)} size={34} src={c.avatar_url || photoCache[c.profile_url]} hover={c}/>
+                            <Avatar name={connName(c)} size={34} src={c.avatar_url} hover={c}/>
                             <div style={{flex:'1 1 160px',minWidth:0}}>
                               <div style={{fontSize:15,fontWeight:700}}>{connName(c)}</div>
                               <div className="sub" style={{fontSize:13.5,marginTop:1}}>
@@ -2422,7 +2407,7 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
                       return (
                         <div key={r.profileUrl} style={{padding:'16px 0',borderTop:'1px solid var(--line2)'}}>
                           <div className="row" style={{alignItems:'flex-start',gap:13,flexWrap:'wrap'}}>
-                            <Avatar name={r.name} src={(savedRow ? savedRow.avatar_url : r.avatarUrl) || photoCache[r.profileUrl]} hover={savedRow||r}/>
+                            <Avatar name={r.name} src={savedRow ? savedRow.avatar_url : r.avatarUrl} hover={savedRow||r}/>
                             <div style={{flex:'1 1 160px',minWidth:0}}>
                               <div style={{fontSize:15,fontWeight:700}}>{r.name}</div>
                               <div className="sub" style={{fontSize:13.5,marginTop:1}}>{r.title||'No headline on the profile'}</div>
@@ -3400,7 +3385,7 @@ function Ask({sb, people, events, tasks, settings, onOpen, onSave, initialQuesti
                       </div>
                     ) : (
                       <div key={j} className="row" style={{gap:13,padding:'11px 0',borderTop:'1px solid var(--line4)'}}>
-                        <Avatar name={p.row.name} size={32}/>
+                        <Avatar name={p.row.name} size={32} hover={p.row}/>
                         <div style={{flex:1,minWidth:0}}>
                           <div style={{fontSize:14.5,fontWeight:700}}>{p.row.name||'Unnamed'}
                             <span className="meta" style={{marginLeft:8,fontWeight:600}}>not saved</span></div>
