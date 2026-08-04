@@ -786,6 +786,17 @@ function styleFingerprintLine(fp){
     fp.signsOffPct>=40 ? 'usually signs off with something like "Thanks" or "Best"' : 'usually ends without a formal sign-off',
   ].join('; ');
 }
+/* LinkedIn's own Profile.csv export carries no public-profile-URL column for
+   the account holder - only headline/location/industry/summary - which is
+   why the account's own photo was never fetched anywhere the "other people"
+   Avatar/hover pipeline already handles it. The resume almost always states
+   the URL in plain text, so that's the one place to look rather than asking
+   the user to paste it separately. Null when nothing matches - the Avatar
+   simply falls back to initials, same as any other missing field. */
+function selfProfileUrl(kb){
+  const m = String((kb||{}).resumeText||'').match(/https?:\/\/(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9\-_%]+/i);
+  return m ? m[0].replace(/\/+$/,'') : null;
+}
 function localKeywords(sentence, st){
   const stop = /\b(find|show|me|people|person|who|that|which|are|is|a|an|the|and|or|of|in|at|to|for|with|from|working|works|based|i|want|meet|looking|like|some)\b/gi;
   let s = clean(sentence).replace(stop,' ').replace(/\s+/g,' ').trim();
@@ -3936,7 +3947,7 @@ function Settings({email, settings, people, events, tasks, onSignOut, onDeleteAc
         {!editing ? (
           <div className="row" style={{justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
             <div className="row" style={{gap:14,alignItems:'center'}}>
-              <div className="av" style={{width:40,height:40,fontSize:15}}>{initials(name||email)}</div>
+              <Avatar name={name||email} size={40} hover={{profileUrl:selfProfileUrl(kb)}}/>
               <div>
                 <div className="h4">{name || 'Add your name'}</div>
                 <div className="sub" style={{fontSize:13.5,marginTop:2}}>
@@ -4855,7 +4866,7 @@ const NAV = [
 ];
 const QUESTION = {ask:'What should I do?', extension:'Save people while you browse.'};
 
-function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, email, onSignOut, aiMeta, askOpen, onToggleAsk, children}){
+function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, email, selfLinkedInUrl, onSignOut, aiMeta, askOpen, onToggleAsk, children}){
   /* Today does not exist until there is something to be doing.
      An empty Today on day one teaches a new user that Mighty has nothing for
      them, which is the opposite of what the first session should prove. The tab
@@ -4937,7 +4948,7 @@ function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, em
           borderTop:'1px solid var(--line3)',borderLeft:'none',borderRight:'none',borderBottom:'none',
           background:'none',cursor:'pointer',textAlign:'left',width:'100%'}}
           onClick={()=>go({screen:'you', tab:'settings'})}>
-          <div className="av" style={{width:32,height:32,fontSize:13}}>{initials(email)}</div>
+          <Avatar name={email} size={32} hover={{profileUrl:selfLinkedInUrl}}/>
           <div style={{minWidth:0,flex:1}}>
             <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{email}</div>
             <div style={{fontSize:12,color:'var(--sub)'}}>Account</div>
@@ -6741,7 +6752,7 @@ function App(){
     <F>
     <Shell screen={screen} relView={relView} youTab={youTab} boardOK={canSee('board',people,events)}
       timelineOK={canSee('timeline',people,events)} go={go} savedCount={people.length}
-      email={auth.user.email} onSignOut={signOut} aiMeta={aiMeta}
+      email={auth.user.email} selfLinkedInUrl={selfProfileUrl(settings.knowledge||{})} onSignOut={signOut} aiMeta={aiMeta}
       askOpen={askOpen} onToggleAsk={()=>setAskOpen(o=>!o)}>
       {err &&
         <div className="banner warn" style={{margin:'20px 48px 0',display:'flex',gap:14,alignItems:'flex-start',justifyContent:'space-between'}}>
