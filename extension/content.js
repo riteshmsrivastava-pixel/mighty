@@ -133,7 +133,7 @@ function normProfileUrl(href) {
   catch (e) { return href; }
 }
 
-/* ---------- 1. shortlist panel on search-results pages ----------
+/* ---------- 1. score badges on search-results pages ----------
    LinkedIn's result cards use rotated hashed class names, so we anchor on the
    only stable things: /in/ profile links, the profile-photo src pattern, and
    the text layout (name / "· Nth" degree / headline / location). Each result
@@ -162,22 +162,6 @@ function extractCards() {
     out.push({ profileUrl: url, name, title, company: companyFromTitle(title), photo: (photoEl && photoEl.src) || '', el: card });
   }
   return out;
-}
-
-let panel = null;
-function ensurePanel() {
-  if (panel && document.body.contains(panel)) return panel;
-  panel = document.createElement('div');
-  panel.id = 'mighty-shortlist-panel';
-  panel.style.cssText = 'position:fixed;bottom:18px;right:18px;z-index:99999;background:#1D1B26;color:#F4F2EF;'
-    + "font:14px 'Schibsted Grotesk',-apple-system,system-ui,sans-serif;padding:10px 12px 10px 18px;border-radius:999px;box-shadow:0 18px 40px -18px rgba(29,27,38,.5);"
-    + 'display:flex;align-items:center;gap:12px;';
-  const btn = document.createElement('button');
-  btn.textContent = 'Send 0 to Mighty';
-  btn.style.cssText = "background:#5B4FE9;color:#fff;border:none;border-radius:999px;padding:9px 18px;font-weight:500;font-size:14px;cursor:pointer;font-family:inherit;";
-  panel.appendChild(btn);
-  document.body.appendChild(panel);
-  return panel;
 }
 
 // Score badges: real, transparent scores only for profiles already in the
@@ -215,47 +199,16 @@ async function decorateCardsWithScores(cards) {
   });
 }
 
-function renderCardCheckboxes() {
+/* Used to also render a floating "Send N to Mighty" pill bottom-right with a
+   checkbox per card for bulk-saving - removed: it sat there reading "Send 0
+   to Mighty" even with nothing selected, and saving one person at a time from
+   their profile (the docked panel above) or from the app itself already
+   covers it. Score badges are the part worth keeping - real signal, no
+   action required to see it. */
+function decorateSearchCards() {
   const cards = extractCards();
-  if (!cards.length) { if (panel) panel.remove(); panel = null; return; }
-  const p = ensurePanel();
-  const btn = p.querySelector('button');
-  const checked = new Set();
+  if (!cards.length) return;
   decorateCardsWithScores(cards).catch(() => {});
-
-  cards.forEach(c => {
-    if (c.el.querySelector('.mighty-check')) return; // already wired
-    const box = document.createElement('input');
-    box.type = 'checkbox'; box.className = 'mighty-check';
-    box.style.cssText = 'position:absolute;top:8px;left:8px;width:18px;height:18px;z-index:10;';
-    box.title = 'Shortlist in Mighty';
-    box.addEventListener('change', () => {
-      if (box.checked) checked.add(c.profileUrl); else checked.delete(c.profileUrl);
-      btn.textContent = `Send ${checked.size} to Mighty`;
-    });
-    if (getComputedStyle(c.el).position === 'static') c.el.style.position = 'relative';
-    c.el.appendChild(box);
-    box._mightyCard = c;
-  });
-
-  btn.onclick = async () => {
-    const selected = cards.filter(c => checked.has(c.profileUrl));
-    if (!selected.length) return;
-    btn.textContent = 'Saving…';
-    for (const c of selected) {
-      // Encode the photo to a self-contained thumbnail first - the raw
-      // licdn.com URL is signed and referrer-locked, so storing it would give
-      // the web app a broken image.
-      let avatar = '';
-      if (c.photo) { try { const enc = await send('encodeAvatar', { url: c.photo }); if (enc && enc.ok) avatar = enc.dataUrl; } catch (e) {} }
-      await send('saveProfile', { payload: { profileUrl: c.profileUrl, name: c.name, title: c.title, company: c.company, avatarUrl: avatar || '' } });
-    }
-    selected.forEach(c => { const b = c.el.querySelector('.mighty-badge'); if (b) b.remove(); });
-    checked.clear();
-    document.querySelectorAll('.mighty-check').forEach(el => { el.checked = false; });
-    btn.textContent = `Saved ✓. Send 0 to Mighty`;
-    decorateCardsWithScores(cards).catch(() => {});
-  };
 }
 
 /* ---------- 2. opt-in compose pre-fill ----------
@@ -553,7 +506,7 @@ function fitRecommendation(fit, r) {
   if (fit.label === 'Potential match')
     return 'Matches your goal. Save only if you have your own reason.';
   // Nothing matched - say that plainly rather than dressing it up.
-  return 'Nothing here matches your strategy. Skip, unless you know something Mighty does not.';
+  return 'Nothing here matches your strategy. Skip, unless you know something Mighty does not. Save only if you have your own reason.';
 }
 // Panel section: small caps label above content, hairline rule above.
 function panelSection(label, inner, first) {
@@ -1125,7 +1078,7 @@ function scan() {
   setTimeout(() => {
     try {
       if (IS_LINKEDIN) {
-        renderCardCheckboxes(); wireComposeFill(); captureProfileContext(); renderProfileSidebar(); wireSendObserver();
+        decorateSearchCards(); wireComposeFill(); captureProfileContext(); renderProfileSidebar(); wireSendObserver();
         // Async, deliberately not awaited here - each has its own try/catch and just posts to
         // outreach_inbox in the background when it finds something. Never blocks page render.
         scanNotificationsForActivity(); scanMessagingForActivity(); scanProfileViewsForActivity();
