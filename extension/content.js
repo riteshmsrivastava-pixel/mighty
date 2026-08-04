@@ -420,6 +420,51 @@ function networkOverlap(log, company) {
   const hits = (log || []).filter(r => String(r.company || '').trim().toLowerCase() === c);
   return { count: hits.length, names: hits.slice(0, 3).map(r => r.name || '').filter(Boolean) };
 }
+/* Real overlap using everything Mighty already knows about the account
+   holder, not just what happens to already be in outreach_log. Every line
+   traces to a specific stored fact (own career history, own schools, the
+   warm-intro company index, synthesizeKnowledge()'s keywords) - never
+   inferred, never invented. Capped so a strong match on every front doesn't
+   turn this into a wall of text. */
+function sharedGround(r, company, sec, mutualRaw, location) {
+  const shared = [];
+  const co = String(company || '').trim();
+  const prof = r.profile || {};
+
+  // Already pursuing someone else at this company - your own pipeline, a
+  // different population from the warm-intro index just below.
+  const pipeline = networkOverlap(r.log, co);
+  if (pipeline.count) shared.push(`Already tracking ${pipeline.count} ${pipeline.count === 1 ? 'person' : 'people'} at ${co}${pipeline.names.length ? ` - ${pipeline.names.join(', ')}` : ''}`);
+
+  // Warm intro from your full LinkedIn network (decodedCompanyIndex, bounded
+  // to companies with 2+ connections) - who you actually know there, not
+  // just who you're already reaching out to.
+  const idx = prof.companyIndex || [];
+  const hit = co && idx.find(e => e.label.toLowerCase() === co.toLowerCase());
+  if (hit) shared.push(`You know ${hit.count} ${hit.count === 1 ? 'person' : 'people'} at ${hit.label}${(hit.sample || []).length ? ` - ${hit.sample.map(s => s.name).filter(Boolean).join(', ')}` : ''}`);
+
+  // Your own career history - literal company match first, then domain-level
+  // keyword overlap (e.g. both fintech) when the company itself doesn't match.
+  const ownCos = prof.ownCompanies || [];
+  const ownHit = co && ownCos.find(c => mightySameCompany(c, co));
+  if (ownHit) shared.push(`You've also worked at ${ownHit}`);
+  else {
+    const hay = `${company || ''} ${sec.about || ''} ${sec.experience || ''}`.toLowerCase();
+    const kwHit = (prof.keywords || []).find(k => k.length > 3 && hay.includes(k.toLowerCase()));
+    if (kwHit) shared.push(`Shared ground: ${kwHit}`);
+  }
+
+  // Your own schools (prof.schools here means the account holder's alma
+  // mater, not a target list) against their Education section.
+  const eduHay = String(sec.education || '').toLowerCase();
+  const schoolHit = (prof.schools || []).find(s => { const t = String(s || '').trim(); return t.length > 2 && eduHay.includes(t.toLowerCase()); });
+  if (schoolHit) shared.push(`You both went to ${schoolHit}`);
+
+  const mut = (mutualRaw || '').match(/(\d+)\s*mutual/i);
+  if (mut) shared.push(`${mut[1]} mutual connection${mut[1] === '1' ? '' : 's'}`);
+  if (location) shared.push(location);
+  return shared.slice(0, 5);
+}
 // Relationship stated in words, not a bare percentage.
 function relationshipWords(row, evs) {
   if (!row) return { icon: '✦', label: 'Not tracked', sub: 'Save to start remembering' };
@@ -687,13 +732,7 @@ async function renderProfileSidebar() {
       text: [sec.about, sec.experience, sec.education, sec.skills].filter(Boolean).join('\n') || profileMainText(),
       sections: sec };
     const fit = fitFromStrategy(person, r);
-    const timing = timingSignals(sec);
-    const overlap = networkOverlap(r.log, liveCompany);
-    const shared = [];
-    if (overlap.count) shared.push(`${overlap.count} ${overlap.count === 1 ? 'person' : 'people'} you know at ${liveCompany}${overlap.names.length ? ` - ${overlap.names.join(', ')}` : ''}`);
-    const mut = (mutualText() || '').match(/(\d+)\s*mutual/i);
-    if (mut) shared.push(`${mut[1]} mutual connection${mut[1] === '1' ? '' : 's'}`);
-    if (liveLocation) shared.push(liveLocation);
+    const shared = sharedGround(r, liveCompany, sec, mutualText(), liveLocation);
 
     el.innerHTML = mightyBrandHead('')
       + panelPerson(livePhoto, liveName, personSub(liveHeadline, liveCompany))
@@ -702,7 +741,6 @@ async function renderProfileSidebar() {
              <span style="width:8px;height:8px;border-radius:50%;flex:none;background:${FIT_DOT[fit.label] || MUTE};"></span>
              <span style="font-size:17px;font-weight:700;letter-spacing:-.015em;">${esc(fit.label)}</span>
            </div>`, true)
-      + (timing.length ? panelSection('Why now', panelLines(timing)) : '')
       + (shared.length ? panelSection('What you share', panelLines(shared)) : '')
       + panelSection('Recommendation',
           `<div style="font-size:14.5px;line-height:1.5;color:#2A2724;margin-top:7px;">${esc(fitRecommendation(fit, r))}</div>`);
@@ -739,7 +777,6 @@ async function renderProfileSidebar() {
   const rowEvents = r.events.filter(e => e.log_id === row.id);
   const next = mightySuggestedNext(row);
   const rel = relationshipWords(row, rowEvents);
-  const overlap = networkOverlap(r.log, row.company || liveCompany);
   const name = row.name || liveName;
   const headline = row.title || liveHeadline;
   const company = row.company || liveCompany;
@@ -774,11 +811,9 @@ async function renderProfileSidebar() {
     text: [sec.about, sec.experience, sec.education, sec.skills].filter(Boolean).join('\n') || profileMainText(),
     sections: sec };
   const fit = fitFromStrategy(person, r);
-  const timing = timingSignals(sec);
-  const shared = [];
-  if (overlap.count > 1) shared.push(`${overlap.count} people you know at ${company}`);
-  const savedMut = ((row.context || {}).mutualConnectionsRaw || '').match(/(\d+)\s*mutual/i);
-  if (savedMut) shared.push(`${savedMut[1]} mutual connection${savedMut[1] === '1' ? '' : 's'}`);
+  const savedMutRaw = (row.context || {}).mutualConnectionsRaw || mutualText();
+  const savedLocation = (row.context || {}).location || liveLocation;
+  const shared = sharedGround(r, company, sec, savedMutRaw, savedLocation);
 
   el.innerHTML =
     mightyBrandHead(`<span style="font-size:11.5px;font-weight:700;color:#2E8B5F;background:#E6F4EC;padding:4px 11px;border-radius:999px;">Saved</span>`)
@@ -789,7 +824,6 @@ async function renderProfileSidebar() {
            <span style="font-size:17px;font-weight:700;letter-spacing:-.015em;">${esc(fit.label)}</span>
          </div>
          <div style="font-size:13px;color:${SUB};margin-top:4px;">${esc(rel.label)} · ${esc(rel.sub)}</div>`, true)
-    + (timing.length ? panelSection('Why now', panelLines(timing)) : '')
     + (shared.length ? panelSection('What you share', panelLines(shared)) : '')
     + panelSection('Where you are',
         `<div style="display:flex;flex-direction:column;gap:9px;font-size:13.5px;margin-top:9px;">

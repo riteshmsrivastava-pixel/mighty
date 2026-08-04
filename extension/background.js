@@ -100,9 +100,22 @@ async function fetchLog(force) {
     try {
       const ud = await userDataRes.json(); const st = ud?.[0]?.data?.settings || {};
       targetCompanies = st.targetCompanies || []; goal = st.goal || '';
+      const kbForProfile = st.knowledge || {};
       profile = {
         targetRoles: st.targetRoles || [], schools: st.schools || [], industries: st.industries || [],
         skills: st.skills || [], targetLocations: st.targetLocations || [], homeLocation: st.homeLocation || '',
+        // Everything below is the account holder's own history, not a target
+        // list - "what you share" with the person on screen, not "does this
+        // person match what you're looking for" (that's the score above).
+        ownCompanies: (kbForProfile.positions || []).map(p => p.company).filter(Boolean),
+        // Bounded to companies with 2+ connections (decodedCompanyIndex, see
+        // app/index.html) - the same warm-intro index the app's own Discover
+        // ranking and person profiles already read.
+        companyIndex: (kbForProfile.decoded && kbForProfile.decoded.chapters && kbForProfile.decoded.chapters.companyIndex) || [],
+        // synthesizeKnowledge()'s extracted keywords - domain/industry terms,
+        // not just literal company names, so "both in fintech" counts even
+        // when neither company name matches the other.
+        keywords: (kbForProfile.synthesis && kbForProfile.synthesis.keywords) || [],
       };
       // Lets the content script recognize "this profile page is the account
       // holder's own" and capture their photo from the live DOM, the same
