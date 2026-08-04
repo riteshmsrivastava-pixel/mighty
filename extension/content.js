@@ -765,7 +765,6 @@ async function renderProfileSidebar() {
         `<div style="display:flex;flex-direction:column;gap:9px;font-size:13.5px;margin-top:9px;">
            <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:${SUB};">Stage</span><span style="font-weight:700;">${esc(statusLabel)}</span></div>
            <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:${SUB};">Last interaction</span><span style="font-weight:700;">${esc(lastInteractionLabel(row, rowEvents))}</span></div>
-           <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:${SUB};">Next step</span><span style="font-weight:700;color:${ACCENT_DEEP};text-align:right;max-width:170px;">${esc(next || ' - ')}</span></div>
          </div>`);
 
   // Writing and sending happen in the web app, deliberately - the panel's only
@@ -773,7 +772,7 @@ async function renderProfileSidebar() {
   const actions = document.createElement('div');
   actions.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:20px;';
   const openBtn = document.createElement('button');
-  openBtn.textContent = next ? `Open in Mighty · ${next}` : 'Open in Mighty';
+  openBtn.textContent = next || 'Open in Mighty';
   openBtn.style.cssText = pbtn('', 'primary');
   openBtn.onclick = () => window.open(`${(r.appUrl || 'https://yourmighty.com/app/')}?open=${row.id}`, '_blank');
   actions.appendChild(openBtn);
