@@ -362,6 +362,13 @@ These principles guide every product decision.
     or something is being recommended.
 12. **Humans Build Relationships.** Mighty provides intelligence. People
     provide trust. No AI can replace authenticity.
+13. **A Person Is a Face, Not Just a Name.** Wherever someone appears -
+    saved or not, in a list, a board, a search result, an AI answer -
+    Mighty tries for their real photo automatically, the moment enough is
+    known to look them up. Nobody should have to click "add photo" for
+    someone who already has one on LinkedIn. Initials are the honest
+    fallback for a photo LinkedIn itself did not have to give, never a
+    corner Mighty cut.
 
 ## 8. What Mighty Will Never Become
 
