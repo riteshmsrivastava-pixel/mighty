@@ -237,6 +237,23 @@ const COLUMNS = [
   {key:'active',           statuses:['replied','coffee_chat','referral','interview','offer'], label:'Active'},
 ];
 const ORDER = ['prospect','ready_to_contact','contacted','replied','coffee_chat','referral','interview','offer'];
+/* For the status dropdown on the profile page: ORDER has 8 raw statuses, but
+   several intentionally share one label (referral/interview both read
+   "Opportunity in motion") - the Board already collapses them the same way
+   into one "Active" column. Keeping every raw value in a picker would show
+   that label twice with no visible difference; the first status carrying
+   each label is the one a pick actually sets. do_not_contact is appended
+   since it is a real, reachable status the dropdown should be able to set
+   too, not just the forward path. */
+const STAGE_OPTIONS = (()=>{
+  const seen = new Set(); const out = [];
+  [...ORDER, 'do_not_contact'].forEach(s=>{
+    const label = STAGE[s].label;
+    if(seen.has(label)) return;
+    seen.add(label); out.push({value:s, label});
+  });
+  return out;
+})();
 const REACHED = ['contacted','replied','coffee_chat','referral','interview','offer'];
 const EVENT_LABEL = {connection_request:'Connection request', first_message:'Reached out',
   reply:'They replied', coffee_chat:'Met', note:'Note captured', referral:'Introduction made',
@@ -2882,12 +2899,11 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
      them; memories and open commitments moved into Notes, next to the rest
      of what you've captured about this person. */
   const TABS = [['draft','Draft'],['brief','Prepare'],['notes','Notes'],['timeline','History']];
-  const nextStage = ORDER[Math.min(ORDER.indexOf(row.status)+1, ORDER.length-1)];
   /* Only asked once a message has actually gone out, and only until they answer. */
   const askedReplied = row.status==='contacted';
 
   return (
-    <div className="pad fade" style={{maxWidth:820,paddingTop:28}}>
+    <div className="pad fade" style={{maxWidth:1200,paddingTop:28}}>
       <button className="btn q" style={{padding:'6px 0',display:'flex',alignItems:'center',gap:7}} onClick={onBack}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 6l-6 6 6 6"/></svg>
         <span>Relationships</span>
@@ -2914,19 +2930,26 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
           </div>
           <div className="sub" style={{marginTop:2}}>{row.title||'No headline captured'}</div>
         </div>
-        <span className="pill" style={{background:st.bg,color:st.fg,padding:'7px 15px',fontSize:13}}>{st.label}</span>
+        {/* A quiet "Move to X ->" link below the header used to be the only
+           way to change stage from here, and it only ever offered the next
+           forward step - no way back, no way to jump. The pill already shows
+           the current stage; making it the control itself (a native select,
+           styled to still read as a pill) means one element does both jobs,
+           anywhere in the pipeline, not just forward. */}
+        <div style={{position:'relative',flex:'none'}}>
+          <select value={row.status} disabled={!!busy}
+            onChange={e=>{ const v=e.target.value; if(v===row.status) return;
+              setBusy('stage'); Promise.resolve(onStage(row, v)).finally(()=>setBusy(null)); }}
+            style={{appearance:'none',WebkitAppearance:'none',MozAppearance:'none',fontFamily:'inherit',
+              background:st.bg,color:st.fg,padding:'7px 32px 7px 15px',fontSize:13,fontWeight:700,
+              borderRadius:999,border:'none',cursor:'pointer'}}>
+            {STAGE_OPTIONS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={st.fg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+            style={{position:'absolute',right:12,top:'50%',marginTop:-5,pointerEvents:'none'}}><path d="M6 9l6 6 6-6"/></svg>
+        </div>
       </div>
       {toast && <div style={{marginTop:14,fontSize:13.5,fontWeight:600,color:'var(--green)'}}>{toast}</div>}
-      {/* Moving pipeline stage forward is real, frequent work - the handoff's
-         three-button header just doesn't show it, probably because its
-         sample person hadn't been contacted yet. Demoted to a quiet text
-         link rather than dropped outright, so progressing someone doesn't
-         quietly lose its only door. */}
-      {row.status!=='offer' && row.status!=='do_not_contact' &&
-        <button className="btn q" style={{fontSize:13,padding:'8px 0 0',display:'block'}} disabled={!!busy}
-          onClick={()=>{ setBusy('stage'); Promise.resolve(onStage(row, nextStage)).finally(()=>setBusy(null)); }}>
-          Move to {(STAGE[nextStage]||{}).label} →
-        </button>}
       {err && <div className="banner err" style={{marginTop:14}}>{err}</div>}
 
       {askedReplied &&
@@ -2943,12 +2966,12 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
           </button>
         </div>}
 
-      {/* Why they matter, and why you saved them - the two questions "why am I
-         looking at this person" actually breaks into, always visible no
-         matter which tab is open below, matching the handoff. The first only
-         exists once a brief has been prepared; the second is always there,
-         even when nothing was recorded, because "no reason given" is itself
-         worth seeing. */}
+      {/* "Why they matter to you" used to also live here, but it repeats the
+         Prepare tab word for word once a brief exists - one copy, in the tab
+         that already owns that content, is enough. "Why you saved them" has
+         nowhere else it appears, so it stays - folded into one caption
+         line instead of its own card, since a full card was disproportionate
+         to how little space one line of text actually needs. */}
       {Array.isArray(ctx.timingSignals) && ctx.timingSignals.length>0 &&
         <div className="card" style={{marginTop:16,padding:'16px 20px',background:'var(--brand-soft)',borderColor:'var(--brand-line)'}}>
           <div className="eyebrow" style={{color:'var(--brand-ink)'}}>Worth knowing now</div>
@@ -2956,22 +2979,10 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
             {ctx.timingSignals.join(' · ')}
           </div>
         </div>}
-      <div style={{marginTop:16,display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:16}}>
-        {br.whyMatters &&
-          <div className="why" style={{padding:'22px 24px'}}>
-            <div className="eyebrow b">Why they matter to you</div>
-            <div style={{fontSize:15,lineHeight:1.6,color:'var(--ink2)',marginTop:8,fontWeight:500,textWrap:'pretty'}}>{br.whyMatters}</div>
-          </div>}
-        <div className="card" style={{padding:'22px 24px'}}>
-          <div className="eyebrow">Why you saved them</div>
-          <div style={{fontSize:16,fontWeight:700,marginTop:7,letterSpacing:'-.01em',textWrap:'pretty'}}>
-            {ctx.whySaved || 'No reason was recorded when this was saved.'}
-          </div>
-          <div className="sub" style={{fontSize:14,marginTop:4}}>
-            {[ctx.savedFrom ? 'Found by searching "'+ctx.savedFrom+'"' : (ctx.source==='search'?'Found through search':'Saved from the extension'),
-              'Saved '+(ago(row.shortlisted_at)||'recently')].filter(Boolean).join(' · ')}
-          </div>
-        </div>
+      <div className="sub" style={{marginTop:14,fontSize:13.5,lineHeight:1.5}}>
+        {ctx.whySaved || 'No reason was recorded when this was saved'}
+        {' · '}{ctx.savedFrom ? 'found by searching "'+ctx.savedFrom+'"' : (ctx.source==='search'?'found through search':'saved from the extension')}
+        {' · saved '}{ago(row.shortlisted_at)||'recently'}
       </div>
 
       <div className="seg" style={{marginTop:26,overflowX:'auto',maxWidth:'100%'}}>
