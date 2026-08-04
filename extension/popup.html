@@ -20,13 +20,11 @@
   .btn:hover{ background:var(--brand2); }
   .ghost{ background:var(--card); color:var(--ink); border:1px solid rgba(27,26,31,.12); border-radius:999px; padding:9px 14px; font-size:13.5px; }
   .statrow{ display:flex; align-items:center; justify-content:space-between; }
-  .kpi{ font-family:'Figtree',sans-serif; font-weight:600; font-size:22px; letter-spacing:-.03em; }
   .dot{ width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px; }
   .ok{background:var(--green);} .warn{background:#C08A5A;}
   label{ display:block; font-size:12px; font-weight:500; text-transform:none; letter-spacing:.02em; color:var(--mute); margin:10px 0 4px; }
   input{ width:100%; padding:10px 12px; border:1px solid rgba(27,26,31,.12); border-radius:12px; background:var(--inp); font-size:14px; font-family:inherit; }
   .note{ font-size:12px; color:var(--sub); margin-top:6px; line-height:1.5; }
-  .bluebox{ background:#EFEDFD;border:1px solid rgba(29,27,38,.04);border-radius:12px;padding:10px 12px;font-size:12px;color:var(--brand2);line-height:1.5;margin-bottom:8px; }
   a{ color:var(--brand); font-size:12px; }
 </style>
 </head>
@@ -37,17 +35,12 @@
     <div><div class="title">Mighty · Outreach</div><div class="sub">human in the loop, always</div></div>
   </div>
 
-  <div class="bluebox">Never clicks Connect or Message. Every send is your click.</div>
-
   <div class="card" id="statusCard">
     <div class="statrow"><span><span class="dot" id="statusDot"></span><span id="statusText">Not connected</span></span></div>
   </div>
 
   <div class="card" id="connectedCard" style="display:none;">
-    <div class="statrow"><span>This week</span><span class="kpi" id="weekCount">–/–</span></div>
-    <div class="note" id="planLine" style="display:none;margin-top:6px;font-weight:700;color:var(--brand);"></div>
-    <div class="note" style="margin-top:6px;">Open Mighty to add people, draft, and track.</div>
-    <button class="ghost" id="signOutBtn" style="margin-top:9px;width:100%;">Log off</button>
+    <button class="ghost" id="signOutBtn" style="width:100%;">Log off</button>
   </div>
 
   <details id="signinDetails">

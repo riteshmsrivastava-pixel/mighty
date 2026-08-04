@@ -789,12 +789,18 @@ function styleFingerprintLine(fp){
 /* LinkedIn's own Profile.csv export carries no public-profile-URL column for
    the account holder - only headline/location/industry/summary - which is
    why the account's own photo was never fetched anywhere the "other people"
-   Avatar/hover pipeline already handles it. The resume almost always states
-   the URL in plain text, so that's the one place to look rather than asking
-   the user to paste it separately. Null when nothing matches - the Avatar
-   simply falls back to initials, same as any other missing field. */
+   Avatar/hover pipeline already handles it. messages.csv's SENDER PROFILE URL
+   on the account holder's own sent rows is the reliable source - parsed once
+   at archive import into identity.profileUrl (see messageGraph/readArchive) -
+   and covers anyone who has ever sent a LinkedIn message, not just people
+   whose resume happens to mention the URL in plain text. The regex against
+   resumeText is only a fallback for an account with a resume but no message
+   archive. Null when neither source has it - the Avatar simply falls back to
+   initials, same as any other missing field. */
 function selfProfileUrl(kb){
-  const m = String((kb||{}).resumeText||'').match(/https?:\/\/(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9\-_%]+/i);
+  const k = kb||{};
+  if(k.identity && k.identity.profileUrl) return k.identity.profileUrl;
+  const m = String(k.resumeText||'').match(/https?:\/\/(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9\-_%]+/i);
   return m ? m[0].replace(/\/+$/,'') : null;
 }
 function localKeywords(sentence, st){
@@ -5066,12 +5072,20 @@ function messageGraph(rows, profile, connections){
     return !!n && me && (n === me || (first && last && n.indexOf(first)>=0 && n.indexOf(last)>=0));
   };
   const mine = [], theirs = [];
+  /* SENDER PROFILE URL is populated on every row regardless of direction -
+     on a row the account holder sent, it's their own profile URL, which is
+     otherwise nowhere in the archive (Profile.csv has no URL column at all).
+     Read once here, off the first sent row that has it - virtually everyone
+     who has ever sent a LinkedIn message carries this, unlike a resume
+     mentioning the URL in plain text, which most people's resumes don't. */
+  let ownProfileUrl = null;
   const byThread = {};
   (rows||[]).forEach(r=>{
     const from = clean(r['FROM']);
     if(!from) return;
     const mineRow = isMe(from);
     (mineRow ? mine : theirs).push(r);
+    if(mineRow && !ownProfileUrl){ const u = clean(r['SENDER PROFILE URL']); if(u) ownProfileUrl = u.replace(/\/+$/,''); }
     /* No CONVERSATION ID in some exports - fall back to grouping by the
        other party's name, which is what a thread means in a 1:1 DM export. */
     const key = clean(r['CONVERSATION ID']) || 'name:'+clean(mineRow ? r['TO'] : from).toLowerCase();
@@ -5217,6 +5231,7 @@ function messageGraph(rows, profile, connections){
       })(),
     } : null,
     sleep,
+    selfProfileUrl: ownProfileUrl,
   };
 }
 const liDate = (s)=>{                       // "26 Jul 2026" -> "2026-07-26"
@@ -5603,11 +5618,18 @@ async function readArchive(file){
     connected_on: liDate(r['Connected On']),
   })).filter(c => c.profile_url);
 
+  /* Computed before identity below so identity.profileUrl can read it -
+     Profile.csv itself carries no URL column for the account holder, and
+     messages.csv's SENDER PROFILE URL on the account holder's own sent rows
+     is the one place in the whole archive that reliably has it. */
+  const messagesResult = msgs ? messageGraph(msgs, p, connections) : null;
+
   return {
     identity: {
       firstName: p['First Name'] || '', lastName: p['Last Name'] || '',
       headline: p['Headline'] || '', location: p['Geo Location'] || '',
       industry: p['Industry'] || '', summary: (p['Summary'] || '').slice(0, 2500),
+      profileUrl: (messagesResult && messagesResult.selfProfileUrl) || '',
     },
     positions: pos,
     education: (education || []).map(r => ({
@@ -5641,7 +5663,7 @@ async function readArchive(file){
        The received half is deliberately not: those are someone else's words,
        written to one person, and they teach Mighty nothing about how the user
        writes. Counting them is enough. */
-    messages: msgs ? messageGraph(msgs, p, connections) : null,
+    messages: messagesResult,
     messagesPresent: !!msgs,
     missing: [
       !find('Shares.csv') && 'your posts',
