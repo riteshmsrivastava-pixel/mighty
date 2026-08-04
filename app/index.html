@@ -5634,6 +5634,7 @@ function Onboarding({sb, user, settings, onSave, onDone, startStep}){
         // carried over from kbExisting is silently dropped.
         selfResearch: kbExisting.selfResearch || null,
       };
+      console.log('[finish] resume state length', resume.length, 'kb.resumeText length', kb.resumeText.length);
       await onSave({
         goalType: goalTypes[0] || 'networking',
         goalTypes,
@@ -6102,9 +6103,13 @@ function App(){
     setBusySave(true);
     const firstRun = !settings.goalType;
     const next = {...(blob||{}), settings:{...settings, ...patch}};
+    console.log('[saveSettings] patch keys', Object.keys(patch), 'resumeTextLen', patch.knowledge && (patch.knowledge.resumeText||'').length);
     setBlob(next);
-    try{ await sb.from('user_data').upsert({user_id:auth.user.id, data:next, updated_at:new Date().toISOString()}); }
-    catch(e){ setErr('Saved on this device, but syncing failed: '+(e.message||'unknown error')); }
+    try{
+      const res = await sb.from('user_data').upsert({user_id:auth.user.id, data:next, updated_at:new Date().toISOString()}).select();
+      console.log('[saveSettings] upsert result', res);
+    }
+    catch(e){ console.error('[saveSettings] upsert threw', e); setErr('Saved on this device, but syncing failed: '+(e.message||'unknown error')); }
     /* Counts only: which goal, how many targets named, whether this was the
        first time. Never the goal text itself, which is free prose. */
     track(firstRun?'strategy_first_saved':'strategy_updated', {
