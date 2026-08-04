@@ -6141,7 +6141,8 @@ function App(){
       setBlob(next);
       try{
         const res = await sb.from('user_data').upsert({user_id:auth.user.id, data:next, updated_at:new Date().toISOString()}).select();
-        console.log('[saveSettings '+callId+'] UPSERT DONE error=', res.error, 'savedResumeLen=', ((res.data&&res.data[0]&&res.data[0].data.settings.knowledge)||{}).resumeText && res.data[0].data.settings.knowledge.resumeText.length);
+        if(res.error) console.error('[saveSettings '+callId+'] UPSERT ERROR', JSON.stringify(res.error));
+        else console.log('[saveSettings '+callId+'] UPSERT OK');
       }
       catch(e){ console.error('[saveSettings '+callId+'] THREW', e); setErr('Saved on this device, but syncing failed: '+(e.message||'unknown error')); }
       /* Counts only: which goal, how many targets named, whether this was the
