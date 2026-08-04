@@ -1337,7 +1337,7 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
     <div className="fade">
       <div style={{padding:'40px 48px 30px',
         background:'linear-gradient(135deg,#EFEDFD 0%,#F7F1F4 55%,#FBEFE9 100%)'}}>
-        <div style={{maxWidth:900}}>
+        <div style={{maxWidth:1280}}>
           <h1 className="h1" style={{fontSize:'clamp(28px,3.4vw,36px)'}}>{greetWord()}{name?', '+name.charAt(0).toUpperCase()+name.slice(1):''}.</h1>
           <div style={{marginTop:6,fontSize:'clamp(18px,2.3vw,24px)',fontWeight:700,letterSpacing:'-.02em',color:'var(--sub)',lineHeight:1.35}}>
             {heroLine(hero, people.length)}
@@ -1365,7 +1365,7 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
         </div>
       </div>
 
-      <div className="pad" style={{maxWidth:900,paddingTop:30}}>
+      <div className="pad" style={{maxWidth:1280,paddingTop:30}}>
         {/* Ambiguous reply/accept matches ingest() deliberately did not guess at - two or more
            saved people share the name the extension read off LinkedIn. Small, time-boxed, easy
            to skip, per the spec: this is the one new UI surface passive detection needed. */}
