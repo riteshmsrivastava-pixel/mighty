@@ -3953,7 +3953,7 @@ function Settings({email, settings, people, events, tasks, onSignOut, onDeleteAc
         {!editing ? (
           <div className="row" style={{justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
             <div className="row" style={{gap:14,alignItems:'center'}}>
-              <Avatar name={name||email} size={40} hover={{profileUrl:selfProfileUrl(kb)}}/>
+              <Avatar name={name||email} size={40} src={kb.identity&&kb.identity.avatarUrl} hover={{profileUrl:selfProfileUrl(kb)}}/>
               <div>
                 <div className="h4">{name || 'Add your name'}</div>
                 <div className="sub" style={{fontSize:13.5,marginTop:2}}>
@@ -4872,7 +4872,7 @@ const NAV = [
 ];
 const QUESTION = {ask:'What should I do?', extension:'Save people while you browse.'};
 
-function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, email, selfLinkedInUrl, onSignOut, aiMeta, askOpen, onToggleAsk, children}){
+function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, email, selfLinkedInUrl, selfAvatarUrl, onSignOut, aiMeta, askOpen, onToggleAsk, children}){
   /* Today does not exist until there is something to be doing.
      An empty Today on day one teaches a new user that Mighty has nothing for
      them, which is the opposite of what the first session should prove. The tab
@@ -4954,7 +4954,7 @@ function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, em
           borderTop:'1px solid var(--line3)',borderLeft:'none',borderRight:'none',borderBottom:'none',
           background:'none',cursor:'pointer',textAlign:'left',width:'100%'}}
           onClick={()=>go({screen:'you', tab:'settings'})}>
-          <Avatar name={email} size={32} hover={{profileUrl:selfLinkedInUrl}}/>
+          <Avatar name={email} size={32} src={selfAvatarUrl} hover={{profileUrl:selfLinkedInUrl}}/>
           <div style={{minWidth:0,flex:1}}>
             <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{email}</div>
             <div style={{fontSize:12,color:'var(--sub)'}}>Account</div>
@@ -5888,7 +5888,13 @@ function Onboarding({sb, user, settings, onSave, onDone, startStep}){
       const kb = {
         source: 'linkedin_archive',
         capturedAt: arch ? new Date().toISOString() : (kbExisting.capturedAt || new Date().toISOString()),
-        identity: arch ? arch.identity : (kbExisting.identity || {headline: ident.headline, location: ident.location}),
+        /* arch.identity never carries avatarUrl - that's captured separately,
+           live, by the extension visiting the account holder's own profile
+           (see the self_photo ingest branch) - so a reimport must not drop it
+           just because this rebuild otherwise replaces identity wholesale. */
+        identity: arch
+          ? {...arch.identity, avatarUrl: (kbExisting.identity||{}).avatarUrl || ''}
+          : (kbExisting.identity || {headline: ident.headline, location: ident.location}),
         positions: arch ? arch.positions : (kbExisting.positions || []),
         education: arch ? arch.education : (kbExisting.education || []),
         skills: arch ? arch.skills : (kbExisting.skills || []),
@@ -6337,6 +6343,18 @@ function App(){
                 }).eq('id',existing.id);
               }
             }
+          } else if(row.kind==='self_photo'){
+            /* Not a person to track - this is the account holder's own photo,
+               captured by the extension from their own rendered profile page
+               (see renderProfileSidebar in content.js) since a background
+               fetch of that same URL never gets an og:image. Written into
+               knowledge.identity, never outreach_log, and only once - a
+               second capture this session would just repeat the check. */
+            const curKb = (blobRef.current && blobRef.current.settings && blobRef.current.settings.knowledge)
+              || settings.knowledge || {};
+            if(p.avatarUrl && !(curKb.identity && curKb.identity.avatarUrl)){
+              await saveSettings({knowledge:{...curKb, identity:{...(curKb.identity||{}), avatarUrl:p.avatarUrl}}});
+            }
           } else {
             const ctx = {source:'extension'};
             if(p.why) ctx.whySaved = p.why;
@@ -6774,7 +6792,9 @@ function App(){
     <F>
     <Shell screen={screen} relView={relView} youTab={youTab} boardOK={canSee('board',people,events)}
       timelineOK={canSee('timeline',people,events)} go={go} savedCount={people.length}
-      email={auth.user.email} selfLinkedInUrl={selfProfileUrl(settings.knowledge||{})} onSignOut={signOut} aiMeta={aiMeta}
+      email={auth.user.email} selfLinkedInUrl={selfProfileUrl(settings.knowledge||{})}
+      selfAvatarUrl={(settings.knowledge||{}).identity && (settings.knowledge||{}).identity.avatarUrl}
+      onSignOut={signOut} aiMeta={aiMeta}
       askOpen={askOpen} onToggleAsk={()=>setAskOpen(o=>!o)}>
       {err &&
         <div className="banner warn" style={{margin:'20px 48px 0',display:'flex',gap:14,alignItems:'flex-start',justifyContent:'space-between'}}>

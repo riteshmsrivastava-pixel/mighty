@@ -96,7 +96,7 @@ async function fetchLog(force) {
     const log = await logRes.json(); const events = await eventsRes.json();
     // The sidebar answers "why this person?" locally, so it needs the same goal
     // signals the web app scores with - not just target companies.
-    let targetCompanies = [], goal = '', profile = {};
+    let targetCompanies = [], goal = '', profile = {}, selfProfileUrl = '', hasSelfAvatar = false;
     try {
       const ud = await userDataRes.json(); const st = ud?.[0]?.data?.settings || {};
       targetCompanies = st.targetCompanies || []; goal = st.goal || '';
@@ -104,9 +104,18 @@ async function fetchLog(force) {
         targetRoles: st.targetRoles || [], schools: st.schools || [], industries: st.industries || [],
         skills: st.skills || [], targetLocations: st.targetLocations || [], homeLocation: st.homeLocation || '',
       };
+      // Lets the content script recognize "this profile page is the account
+      // holder's own" and capture their photo from the live DOM, the same
+      // reliable path already used to save other people's photos - a
+      // background fetch of the account holder's own profile URL comes back
+      // with no og:image and the reconstructed CDN URL was already found to
+      // get rejected (deny-InvalidToken) even when it could be built at all.
+      const identity = (st.knowledge || {}).identity || {};
+      selfProfileUrl = identity.profileUrl || '';
+      hasSelfAvatar = !!identity.avatarUrl;
     } catch (e) {}
-    logCache = { at: Date.now(), log, events, targetCompanies, goal, profile };
-    return { ok: true, log, events, targetCompanies, goal, profile };
+    logCache = { at: Date.now(), log, events, targetCompanies, goal, profile, selfProfileUrl, hasSelfAvatar };
+    return { ok: true, log, events, targetCompanies, goal, profile, selfProfileUrl, hasSelfAvatar };
   } catch (e) { return { ok: false, error: String(e && e.message || e) }; }
 }
 

@@ -389,6 +389,10 @@ const skippedThisSession = new Set();
 // Profiles we've already auto-enriched this browsing session, so viewing the
 // same sparse profile twice doesn't re-write it while the log cache is warm.
 const enrichedThisSession = new Set();
+// The self-photo capture below only needs to fire once per session - the log
+// cache itself only refreshes every 5 minutes, so re-checking hasSelfAvatar
+// on every visit to your own profile would just resend the same photo.
+let selfPhotoSentThisSession = false;
 function ensureSidebar() {
   if (sidebarEl && document.body.contains(sidebarEl)) return sidebarEl;
   if (!document.getElementById('mighty-panel-css')) {
@@ -641,6 +645,22 @@ async function renderProfileSidebar() {
   if (skippedThisSession.has(profileUrl)) { if (sidebarEl) { sidebarEl.remove(); sidebarEl = null; } return; }
   const r = await fetchLogCached();
   if (!r || !r.ok) return;
+
+  // This is the account holder's own profile, not someone to evaluate - a
+  // "relationship fit" panel makes no sense here. Instead, once per session,
+  // grab their photo straight from the rendered page (the one reliable path -
+  // a background fetch of this same URL gets no og:image, and the signed CDN
+  // URL cannot be reconstructed from raw HTML either) and hand it to the app.
+  if (r.selfProfileUrl && profileUrl === normProfileUrl(r.selfProfileUrl)) {
+    if (sidebarEl) { sidebarEl.remove(); sidebarEl = null; }
+    if (!r.hasSelfAvatar && !selfPhotoSentThisSession) {
+      selfPhotoSentThisSession = true;
+      const avatarData = await profilePhotoDataUrl();
+      if (avatarData) send('pushInbox', { kind: 'self_photo', payload: { profileUrl, avatarUrl: avatarData } });
+    }
+    return;
+  }
+
   const row = r.log.find(x => x.profile_url === profileUrl);
   const el = ensureSidebar();
 
