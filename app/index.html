@@ -686,7 +686,53 @@ function strategyBrief(st){
       ? 'Unverified web mentions (do not state as settled fact; use only as color if it fits): '
         + kb.selfResearch.findings.map(f=>f.text).join(' | ').slice(0,1500)
       : '',
+    /* Extracted layer on top of the raw fields above - see synthesizeKnowledge(). */
+    (kb.synthesis && (kb.synthesis.keywords||[]).length) ? 'Keywords: ' + kb.synthesis.keywords.join(', ') : '',
+    (kb.synthesis && (kb.synthesis.themes||[]).length) ? 'Career themes: ' + kb.synthesis.themes.map(t=>t.title+' - '+t.summary).join('; ') : '',
+    (kb.synthesis && (kb.synthesis.insights||[]).length) ? 'Specific differentiators to draw on: ' + kb.synthesis.insights.join('; ') : '',
   ].filter(Boolean).join('\n');
+}
+/* Cheap fingerprint of the fields synthesizeKnowledge() actually reads, so the
+   background effect that runs it can tell "nothing changed" from "resume just
+   got replaced" without an extra network round trip. Collisions are harmless -
+   worst case is one skipped recompute, caught next time something real changes. */
+function kbFingerprint(kb){
+  const parts = [
+    kb.resumeText||'',
+    (kb.identity&&kb.identity.headline)||'',
+    (kb.identity&&kb.identity.summary)||'',
+    (kb.positions||[]).map(p=>[p.title,p.company].join('@')).join('|'),
+    (kb.education||[]).map(e=>[e.degree,e.school].join('@')).join('|'),
+    (kb.skills||[]).join(','),
+    (kb.selfResearch&&kb.selfResearch.lastRunAt)||'',
+  ].join('~~');
+  let h = 0;
+  for(let i=0;i<parts.length;i++) h = (h*31 + parts.charCodeAt(i)) | 0;
+  return String(h);
+}
+/* Turns the raw archive/resume fields into the layer strategyBrief() actually
+   wants to hand the model: specific keywords, the throughlines across a
+   career, and the kind of concrete differentiator that makes a message read
+   as written by someone with real, evidenced experience rather than a vague
+   bio. Runs in the background (see the effect in App()), never on-screen,
+   and is billed on the free profile_briefing feature slot since the user
+   never asked for this call and shouldn't pay assists for upkeep they can't
+   see or control. */
+async function synthesizeKnowledge(sb, st){
+  const raw = strategyBrief(st);
+  if(!raw.trim()) return null;
+  const out = await llmJSON(sb, 'profile_briefing',
+    'You read a professional profile (career history, education, resume, self-description) and extract a structured knowledge base from it, for use later in personalized outreach messages. '+
+    'Return JSON: {"keywords":[...], "themes":[{"title":"...","summary":"..."}], "insights":[...]}. '+
+    'keywords: 12-25 specific, searchable terms - skills, technologies, industries, functions, methodologies. No generic buzzwords like "hard worker" or "team player". '+
+    'themes: 3-5 real throughlines in the career, e.g. "built and scaled data/AI orgs from zero" or "operates at the boardroom/regulator level, not just technical" - each with a one-sentence summary. '+
+    'insights: 4-6 specific, concrete differentiators or achievements with numbers where available - the kind of detail that makes a message sound like it came from someone with real, evidenced experience, not a vague bio.',
+    raw, 1400);
+  return {
+    keywords: Array.isArray(out.keywords) ? out.keywords.filter(Boolean).slice(0,25) : [],
+    themes: Array.isArray(out.themes) ? out.themes.filter(t=>t&&t.title).slice(0,6) : [],
+    insights: Array.isArray(out.insights) ? out.insights.filter(Boolean).slice(0,8) : [],
+  };
 }
 function localKeywords(sentence, st){
   const stop = /\b(find|show|me|people|person|who|that|which|are|is|a|an|the|and|or|of|in|at|to|for|with|from|working|works|based|i|want|meet|looking|like|some)\b/gi;
@@ -5637,10 +5683,12 @@ function Onboarding({sb, user, settings, onSave, onDone, startStep}){
            not make an untouched resume look freshly updated. */
         resumeUpdatedAt: resume && resume!==kbExisting.resumeText ? new Date().toISOString() : (kbExisting.resumeUpdatedAt || null),
         answers: newAnswers.length ? newAnswers : (kbExisting.answers || []),
-        // Background self-research (App's own daily effect) - this object
-        // rebuilds from scratch on every save, so anything not explicitly
-        // carried over from kbExisting is silently dropped.
+        // Background self-research and knowledge synthesis (App's own daily
+        // effects) - this object rebuilds from scratch on every save, so
+        // anything not explicitly carried over from kbExisting is silently
+        // dropped.
         selfResearch: kbExisting.selfResearch || null,
+        synthesis: kbExisting.synthesis || null,
       };
       await onSave({
         goalType: goalTypes[0] || 'networking',
@@ -6387,6 +6435,30 @@ function App(){
     }, 500);
     return ()=>{ dead=true; clearInterval(poll); };
   },[auth.status, sb, auth.user]);
+
+  /* The extracted layer on top of the raw archive/resume - keywords, career
+     themes, concrete differentiators - that strategyBrief() folds into every
+     draft, brief and ranking call. Recomputed only when the underlying data
+     actually changed (kbFingerprint), never on every load or every save, so
+     re-entering onboarding to fix an unrelated field doesn't spend a call.
+     Never rendered anywhere - purely a backend enrichment step. */
+  useEffect(()=>{
+    if(auth.status!=='in' || !sb || !auth.user) return;
+    const kb = settings.knowledge || {};
+    if(!kb.resumeText && !(kb.positions||[]).length) return;
+    const fp = kbFingerprint(kb);
+    if(kb.synthesis && kb.synthesis.sourceFingerprint===fp) return;
+    let dead=false;
+    (async()=>{
+      try{
+        const synthesis = await synthesizeKnowledge(sb, settings);
+        if(dead || !synthesis) return;
+        const curKb = (blobRef.current && blobRef.current.settings && blobRef.current.settings.knowledge) || kb;
+        await saveSettings({knowledge:{...curKb, synthesis:{...synthesis, sourceFingerprint:fp, computedAt:new Date().toISOString()}}});
+      }catch(e){ /* best-effort background enrichment - never surfaced to the user */ }
+    })();
+    return ()=>{ dead=true; };
+  },[auth.status, sb, auth.user, settings.knowledge]);
 
   const person = useMemo(()=>people.find(r=>r.id===personId)||null, [people, personId]);
   const doneToday = useMemo(()=>tasks.filter(t=>t.done && t.completed_at && days(t.completed_at)<=0), [tasks]);
