@@ -690,6 +690,14 @@ function strategyBrief(st){
     (kb.synthesis && (kb.synthesis.keywords||[]).length) ? 'Keywords: ' + kb.synthesis.keywords.join(', ') : '',
     (kb.synthesis && (kb.synthesis.themes||[]).length) ? 'Career themes: ' + kb.synthesis.themes.map(t=>t.title+' - '+t.summary).join('; ') : '',
     (kb.synthesis && (kb.synthesis.insights||[]).length) ? 'Specific differentiators to draw on: ' + kb.synthesis.insights.join('; ') : '',
+    (kb.synthesis && (kb.synthesis.proofPoints||[]).length)
+      ? 'Reusable proof points (pull the one that fits the conversation, tagged by what it supports): '
+        + kb.synthesis.proofPoints.map(p=>p.claim+' ['+p.pitch+']').join('; ')
+      : '',
+    (kb.synthesis && (kb.synthesis.questionBank||[]).length)
+      ? 'Good questions to ask someone in an industry this person has real experience in: '
+        + kb.synthesis.questionBank.map(q=>q.industry+': '+q.questions.join(' / ')).join(' | ')
+      : '',
   ].filter(Boolean).join('\n');
 }
 /* Cheap fingerprint of the fields synthesizeKnowledge() actually reads, so the
@@ -718,21 +726,65 @@ function kbFingerprint(kb){
    and is billed on the free profile_briefing feature slot since the user
    never asked for this call and shouldn't pay assists for upkeep they can't
    see or control. */
+/* Bumped whenever synthesizeKnowledge()'s output shape grows (e.g. adding
+   proofPoints/questionBank) - the fingerprint below only tracks the SOURCE
+   data, so without this an account whose data hasn't changed since an
+   earlier version would keep serving the old, narrower shape forever. */
+const SYNTHESIS_SCHEMA_VERSION = 2;
 async function synthesizeKnowledge(sb, st){
   const raw = strategyBrief(st);
   if(!raw.trim()) return null;
   const out = await llmJSON(sb, 'profile_briefing',
     'You read a professional profile (career history, education, resume, self-description) and extract a structured knowledge base from it, for use later in personalized outreach messages. '+
-    'Return JSON: {"keywords":[...], "themes":[{"title":"...","summary":"..."}], "insights":[...]}. '+
+    'Return JSON: {"keywords":[...], "themes":[{"title":"...","summary":"..."}], "insights":[...], "proofPoints":[{"claim":"...","pitch":"fundraising"|"hiring"|"advisory"|"partnership"|"general"}], "questionBank":[{"industry":"...","questions":["...","...","..."]}]}. '+
     'keywords: 12-25 specific, searchable terms - skills, technologies, industries, functions, methodologies. No generic buzzwords like "hard worker" or "team player". '+
     'themes: 3-5 real throughlines in the career, e.g. "built and scaled data/AI orgs from zero" or "operates at the boardroom/regulator level, not just technical" - each with a one-sentence summary. '+
-    'insights: 4-6 specific, concrete differentiators or achievements with numbers where available - the kind of detail that makes a message sound like it came from someone with real, evidenced experience, not a vague bio.',
-    raw, 1400);
+    'insights: 4-6 specific, concrete differentiators or achievements with numbers where available - the kind of detail that makes a message sound like it came from someone with real, evidenced experience, not a vague bio. '+
+    'proofPoints: 4-8 standalone, reusable claims mined from the numbers already in the profile (budgets owned, headcount, users, revenue, awards, years) - each tagged with which kind of conversation it actually supports, so the right one gets pulled up rather than always leading with the same fact. '+
+    'questionBank: for every distinct industry this person has real, direct experience in (not aspirational, not adjacent), 3 specific questions worth asking someone else in that same industry - grounded in what this person has actually done there, not generic interview questions.',
+    raw, 1900);
   return {
     keywords: Array.isArray(out.keywords) ? out.keywords.filter(Boolean).slice(0,25) : [],
     themes: Array.isArray(out.themes) ? out.themes.filter(t=>t&&t.title).slice(0,6) : [],
     insights: Array.isArray(out.insights) ? out.insights.filter(Boolean).slice(0,8) : [],
+    proofPoints: Array.isArray(out.proofPoints) ? out.proofPoints.filter(p=>p&&p.claim).slice(0,8)
+      .map(p=>({claim:clean(p.claim), pitch:['fundraising','hiring','advisory','partnership','general'].indexOf(p.pitch)>=0?p.pitch:'general'})) : [],
+    questionBank: Array.isArray(out.questionBank) ? out.questionBank.filter(q=>q&&q.industry&&Array.isArray(q.questions)&&q.questions.length)
+      .slice(0,8).map(q=>({industry:clean(q.industry), questions:q.questions.filter(Boolean).slice(0,3)})) : [],
   };
+}
+/* Deterministic reading of how someone actually writes, from their own sent
+   messages - length, question habit, formality, whether they open/close with
+   a greeting - so the draft prompt can state these as measured facts instead
+   of leaving the model to infer "sound like me" from a handful of raw
+   examples alone. Pure and instant, no AI call, recomputed fresh from
+   whatever styleSamples already holds - never persisted, since it's cheap
+   enough to just derive at draft time. */
+function styleFingerprint(samples){
+  if(!samples || samples.length<4) return null;
+  const clean1 = s=>clean(s);
+  const words = samples.map(s=>clean1(s).split(/\s+/).filter(Boolean).length);
+  const avgWords = Math.round(words.reduce((a,b)=>a+b,0)/words.length);
+  const pct = test => Math.round(samples.filter(s=>test(clean1(s))).length/samples.length*100);
+  return {
+    sampleCount: samples.length,
+    avgWords,
+    questionPct: pct(s=>/\?/.test(s)),
+    exclaimPct: pct(s=>/!/.test(s)),
+    contractionPct: pct(s=>/\b(don't|i'm|it's|that's|you're|we're|can't|won't|didn't|isn't)\b/i.test(s)),
+    opensWithGreetingPct: pct(s=>/^(hi|hey|hello)\b/i.test(s)),
+    signsOffPct: pct(s=>/\b(thanks|best|cheers|regards)[,!.]?\s*$/i.test(s)),
+  };
+}
+function styleFingerprintLine(fp){
+  if(!fp) return '';
+  return [
+    `averages about ${fp.avgWords} words`,
+    fp.questionPct>=40 ? 'often asks a direct question' : fp.questionPct<=10 ? 'rarely asks questions, mostly states things' : 'sometimes asks a question',
+    fp.contractionPct>=50 ? 'writes casually, with contractions' : fp.contractionPct<=15 ? 'writes formally, few contractions' : 'a mix of formal and casual',
+    fp.opensWithGreetingPct>=50 ? 'usually opens with a greeting like "Hi"' : 'usually skips a greeting and goes straight into it',
+    fp.signsOffPct>=40 ? 'usually signs off with something like "Thanks" or "Best"' : 'usually ends without a formal sign-off',
+  ].join('; ');
 }
 function localKeywords(sentence, st){
   const stop = /\b(find|show|me|people|person|who|that|which|are|is|a|an|the|and|or|of|in|at|to|for|with|from|working|works|based|i|want|meet|looking|like|some)\b/gi;
@@ -2839,11 +2891,15 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
      to keep the prompt honest about length. Without this, reading the message
      archive would be the fourth time in this codebase that data was fetched,
      parsed and then dropped at the last step. */
-  const voice = (((settings.knowledge||{}).messages||{}).styleSamples||[]).slice(0, 6);
+  const allSamples = ((settings.knowledge||{}).messages||{}).styleSamples||[];
+  const voice = allSamples.slice(0, 6);
+  const fp = styleFingerprint(allSamples);
 
   const DRAFT_SYSTEM_ONE = "You write a real first outreach message for a professional. Ground it ONLY in the given context - never invent shared history, mutual friends, articles or events. Sound like a person, not a template. No flattery, no buzzwords, no 'I hope this finds you well', no generic greeting line before the real content ('Greeting for the day', 'Hope you're doing well', or similar - go straight from the salutation into the actual reason for writing). Under 110 words. Ask for one specific, easy thing. Never use em dashes; write a spaced hyphen instead.";
   const draftContext = ()=>
-    `The sender:\n${strategyBrief(settings)}\n\nThe recipient:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nWhy the sender saved them: ${ctx.whySaved||'unknown'}\nShared ground: ${((br.shared&&br.shared.length?br.shared:ctx.common)||[]).join('; ')||'none confirmed'}\nBrief: ${br.careerSummary||'none'}\nThings the sender has learned about them: ${memories.map(m=>m.value).join('; ')||'nothing captured yet'}\n${captured||''}${voice.length ? '\n\nHOW THIS SENDER ACTUALLY WRITES. These are verbatim messages they have sent before. Match their rhythm, sentence length, level of formality and habits of greeting and sign-off. Do not copy phrases from them and do not reuse their content:\n' + voice.map((v,i)=>(i+1)+'. '+v).join('\n') : ''}`;
+    `The sender:\n${strategyBrief(settings)}\n\nThe recipient:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nWhy the sender saved them: ${ctx.whySaved||'unknown'}\nShared ground: ${((br.shared&&br.shared.length?br.shared:ctx.common)||[]).join('; ')||'none confirmed'}\nBrief: ${br.careerSummary||'none'}\nThings the sender has learned about them: ${memories.map(m=>m.value).join('; ')||'nothing captured yet'}\n${captured||''}${voice.length ? '\n\nHOW THIS SENDER ACTUALLY WRITES.'
+      + (fp ? ' Measured across all '+fp.sampleCount+' of their sent messages on file, they '+styleFingerprintLine(fp)+'.' : '')
+      + ' Below are verbatim messages they have sent before. Match their rhythm, sentence length, level of formality and habits of greeting and sign-off. Do not copy phrases from them and do not reuse their content:\n' + voice.map((v,i)=>(i+1)+'. '+v).join('\n') : ''}`;
 
   /* One call, all five angles, so the model sees every approach at once and
      can actually make them distinct from each other - the old one-at-a-time
@@ -4340,11 +4396,13 @@ function CardDoors({data}){
     </GridCard>
   );
 }
-/* Reads app_events back - exact tallies only, never a comparison. With a
-   handful of sends per approach, "Curiosity converts better" would be noise
-   dressed up as insight; "3 sent, 2 replied" is just true regardless of
-   sample size. The comparative/predictive version of this card is a later
-   phase, once there is enough volume per approach for it to mean something. */
+/* Reads app_events back. With a handful of sends per approach, "Curiosity
+   converts better" would be noise dressed up as insight, so this stays exact
+   tallies only until real volume exists - then, and only then, a reply-rate
+   comparison switches on. Two gates, not one: enough total sends AND at
+   least two approaches individually past MIN_PER_APPROACH, so one lucky
+   early approach with 5 sends can't "win" against three approaches nobody
+   has tried yet. */
 function CardApproaches({appEvents}){
   if(!appEvents || !appEvents.length) return null;
   const sent = {}, replied = {};
@@ -4355,25 +4413,36 @@ function CardApproaches({appEvents}){
     if(e.event==='reply_logged') replied[a] = (replied[a]||0)+1;
   });
   const rows = APPROACHES.filter(a=>sent[a.id]).map(a=>({
-    label:a.label, sentCount:sent[a.id]||0, repliedCount:replied[a.id]||0,
+    id:a.id, label:a.label, sentCount:sent[a.id]||0, repliedCount:replied[a.id]||0,
   })).sort((a,b)=>b.sentCount-a.sentCount);
   if(!rows.length) return null;
   const totalSent = rows.reduce((s,r)=>s+r.sentCount,0);
   const totalReplied = rows.reduce((s,r)=>s+r.repliedCount,0);
+  const MIN_TOTAL = 15, MIN_PER_APPROACH = 5;
+  const canCompare = totalSent>=MIN_TOTAL && rows.filter(r=>r.sentCount>=MIN_PER_APPROACH).length>=2;
+  const rated = rows.map(r=>({...r, pct: canCompare && r.sentCount>=MIN_PER_APPROACH ? Math.round(r.repliedCount/r.sentCount*100) : null}));
+  if(canCompare) rated.sort((a,b)=>(b.pct==null?-1:b.pct)-(a.pct==null?-1:a.pct));
+  const best = canCompare ? rated.find(r=>r.pct!=null) : null;
   return (
     <GridCard eyebrow="YOUR APPROACH">
       <div style={SUBHEAD}>
         {totalSent} draft{totalSent===1?'':'s'} sent{totalReplied>0 ? `, ${totalReplied} with a reply so far` : ''}.
       </div>
       <div className="stack" style={{gap:10,marginTop:16}}>
-        {rows.map((r,i)=>(
+        {rated.map((r,i)=>(
           <div key={i} className="row" style={{justifyContent:'space-between',fontSize:13.5}}>
             <span style={{fontWeight:700}}>{r.label}</span>
-            <span className="meta">{r.sentCount} sent{r.repliedCount>0?', '+r.repliedCount+' replied':''}</span>
+            <span className="meta">
+              {r.pct!=null
+                ? r.pct+'% reply rate ('+r.sentCount+' sent)'+(best && r.id===best.id ? ' · best so far' : '')
+                : r.sentCount+' sent'+(r.repliedCount>0?', '+r.repliedCount+' replied':'')}
+            </span>
           </div>))}
       </div>
       <div className="meta" style={{marginTop:14}}>
-        Counts only, not a comparison yet - too early to say which approach works better for you.
+        {canCompare
+          ? 'Reply rate shown for approaches with '+MIN_PER_APPROACH+'+ sends each - real volume, not a hunch.'
+          : 'Counts only, not a comparison yet - too early to say which approach works better for you.'}
       </div>
     </GridCard>
   );
@@ -6572,14 +6641,14 @@ function App(){
     const kb = settings.knowledge || {};
     if(!kb.resumeText && !(kb.positions||[]).length) return;
     const fp = kbFingerprint(kb);
-    if(kb.synthesis && kb.synthesis.sourceFingerprint===fp) return;
+    if(kb.synthesis && kb.synthesis.sourceFingerprint===fp && kb.synthesis.schemaVersion===SYNTHESIS_SCHEMA_VERSION) return;
     let dead=false;
     (async()=>{
       try{
         const synthesis = await synthesizeKnowledge(sb, settings);
         if(dead || !synthesis) return;
         const curKb = (blobRef.current && blobRef.current.settings && blobRef.current.settings.knowledge) || kb;
-        await saveSettings({knowledge:{...curKb, synthesis:{...synthesis, sourceFingerprint:fp, computedAt:new Date().toISOString()}}});
+        await saveSettings({knowledge:{...curKb, synthesis:{...synthesis, sourceFingerprint:fp, schemaVersion:SYNTHESIS_SCHEMA_VERSION, computedAt:new Date().toISOString()}}});
       }catch(e){ /* best-effort background enrichment - never surfaced to the user */ }
     })();
     return ()=>{ dead=true; };
