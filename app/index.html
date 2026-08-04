@@ -2898,7 +2898,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
      context tags) moved into Prepare, next to the brief that already reads
      them; memories and open commitments moved into Notes, next to the rest
      of what you've captured about this person. */
-  const TABS = [['draft','Draft'],['brief','Prepare'],['notes','Notes'],['timeline','History']];
+  const TABS = [['brief','Prepare'],['draft','Draft'],['notes','Notes'],['timeline','History']];
   /* Only asked once a message has actually gone out, and only until they answer. */
   const askedReplied = row.status==='contacted';
 
@@ -5834,7 +5834,7 @@ function App(){
   const [pendingActivity,setPendingActivity] = useState([]);
   const [screen,setScreen] = useState('today');
   const [personId,setPersonId] = useState(null);
-  const [tab,setTab] = useState('draft');
+  const [tab,setTab] = useState('brief');
   const [relView,setRelView] = useState('list');
   const [youTab,setYouTab] = useState('profile');
   const [askDraft,setAskDraft] = useState(null);
