@@ -1208,13 +1208,13 @@ function GoalStrip({people, events, settings}){
   const metThisWeek = events.filter(e=>e.event_type==='stage_change' &&
     ['coffee_chat','referral','interview','offer'].indexOf((e.extracted||{}).to)>=0 && days(e.occurred_at)<=7).length;
   const metCapped = Math.min(metThisWeek, target);
-  const goalKey = goalTypeList(settings)[0];
   return (
     <div className="card" style={{padding:'18px 22px',display:'flex',justifyContent:'space-between',
       alignItems:'center',gap:16,flexWrap:'wrap'}}>
       <div>
-        <div className="eyebrow b">{goalKey ? GOAL_LABEL[goalKey].toUpperCase() : 'YOUR GOAL'}</div>
-        <div className="sub" style={{fontSize:13.5,marginTop:5}}>
+        <div className="eyebrow b">Toward</div>
+        <div style={{fontSize:15.5,fontWeight:800,marginTop:3,lineHeight:1.3,letterSpacing:'-.01em'}}>{goalLine(settings)}</div>
+        <div className="sub" style={{fontSize:13.5,marginTop:6}}>
           {f.saved} identified · {waiting} replied, waiting on you · {metCapped} of {target} meetings
         </div>
       </div>
@@ -2642,7 +2642,6 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
   const [busy,setBusy]   = useState(null);
   const [toast,setToast] = useState(null);
   const [err,setErr]     = useState(null);
-  const [photoBusy,setPhotoBusy] = useState(false);
   /* One angle used to mean one API call, so seeing a different approach cost a
      full Claude round-trip and only ever showed one message at a time. All
      five now come back in a single call - one assist, same as before - and
@@ -2676,20 +2675,6 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
     if(drafts[id]) onUpdate(row, {ai_draft: drafts[id].message, context:{...ctx, lastApproach:id}});
   }
   const flash = (m)=>{ setToast(m); setTimeout(()=>setToast(null), 2600); };
-
-  /* A photo only exists if the extension captured one at save time - LinkedIn's
-     own data export has no photo column, so anyone added from the ranked
-     suggestions or the archive never gets one that way. This reads the one
-     profile page, on the explicit click below, never automatically. */
-  async function fetchPhoto(){
-    setPhotoBusy(true); setErr(null);
-    const r = await extBridge.photo(row.profile_url);
-    if(r && r.ok && r.dataUrl){ await onUpdate(row, {avatar_url:r.dataUrl}); flash('Photo added'); }
-    else setErr(r && r.error==='no_photo' ? 'No photo found on their profile.'
-      : r && r.error==='session_cap' ? 'Photo limit reached for this session. Try again later.'
-      : 'Could not read their photo. The extension may not be running.');
-    setPhotoBusy(false);
-  }
 
   /* Everything the extension read off the rendered profile, in one place so the
      brief and the draft cannot disagree about it. timingSignals matters most:
@@ -2909,39 +2894,29 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
       </button>
 
       <div style={{marginTop:18,display:'flex',alignItems:'flex-start',gap:16,flexWrap:'wrap'}}>
-        <div style={{position:'relative',flex:'none'}}>
-          <Avatar name={row.name} size={52} src={row.avatar_url}/>
-          {!row.avatar_url &&
-            <button className="btn q" style={{position:'absolute',top:'100%',left:0,padding:'4px 0 0',
-              fontSize:11.5,whiteSpace:'nowrap'}} onClick={fetchPhoto} disabled={photoBusy}>
-              {photoBusy ? <span><span className="spin"/> Reading</span> : 'Add photo'}
-            </button>}
-        </div>
+        <Avatar name={row.name} size={52} src={row.avatar_url}/>
         <div style={{flex:'1 1 200px',minWidth:0}}>
-          <div className="row" style={{gap:10,flexWrap:'wrap'}}>
+          <div className="row" style={{gap:10,flexWrap:'wrap',alignItems:'center'}}>
             <h2 className="h2">{row.name||'Unnamed'}</h2>
             <ConnectedBadge r={row}/>
+            {/* Write first message / Prepare me / LinkedIn used to sit here as
+               three buttons, directly duplicating the Draft/Prepare tabs one
+               scroll down and the LinkedIn link inside Prepare - three ways
+               in for two destinations. LinkedIn earns a permanent spot (it's
+               the one action nothing below replaces) as an icon by the name;
+               Draft and Prepare are one click away as the tabs' own default
+               view, so the redundant buttons are gone. */}
+            <a href={row.profile_url} target="_blank" rel="noopener noreferrer" title="Open on LinkedIn"
+              style={{display:'flex',alignItems:'center',justifyContent:'center',width:26,height:26,
+                borderRadius:'50%',background:'var(--card2)',color:'var(--sub)',flex:'none'}}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.34V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.38-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45z"/></svg>
+            </a>
           </div>
           <div className="sub" style={{marginTop:2}}>{row.title||'No headline captured'}</div>
         </div>
         <span className="pill" style={{background:st.bg,color:st.fg,padding:'7px 15px',fontSize:13}}>{st.label}</span>
       </div>
-
-      <div className="row" style={{marginTop:18,gap:10,flexWrap:'wrap'}}>
-        <button className="btn sm" onClick={()=>setTab('draft')}>
-          {row.status==='prospect' ? 'Write first message' : 'Draft a message'}
-        </button>
-        {/* Does not offer to prepare a brief it cannot write. When the profile
-            has never been read this takes you to the tab that explains why,
-            rather than firing a request that fails. */}
-        <button className="btn g sm" disabled={!!busy && busy!=='brief'}
-          onClick={()=>{ setTab('brief'); if(profileRead && !br.careerSummary) makeBrief(); }}>
-          {busy==='brief' ? <span><span className="spin"/> Preparing</span>
-            : profileRead ? 'Prepare me' : 'Why no brief yet'}
-        </button>
-        <a className="btn g sm" href={row.profile_url} target="_blank" rel="noopener noreferrer">LinkedIn</a>
-        {toast && <span style={{fontSize:13.5,fontWeight:600,color:'var(--green)'}}>{toast}</span>}
-      </div>
+      {toast && <div style={{marginTop:14,fontSize:13.5,fontWeight:600,color:'var(--green)'}}>{toast}</div>}
       {/* Moving pipeline stage forward is real, frequent work - the handoff's
          three-button header just doesn't show it, probably because its
          sample person hadn't been contacted yet. Demoted to a quiet text
