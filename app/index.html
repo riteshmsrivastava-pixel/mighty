@@ -6271,10 +6271,25 @@ function App(){
     return ()=>clearTimeout(t);
   },[auth.status, sb, auth.user]);
 
-  /* Coming back from LinkedIn is the moment new extension saves should appear. */
+  /* Coming back from LinkedIn is the moment new extension saves should
+     appear - but this used to call pull(), which also re-fetches and
+     wholesale-overwrites blob/settings from whatever is on the server RIGHT
+     NOW. A native file picker (Upload resume, Update LinkedIn export) blurs
+     the tab while it's open and re-focuses it the instant a file is
+     chosen - which fired this same handler mid-save, stomping the
+     just-parsed resume out of local state before finish() ever got to
+     persist it, with no error anywhere since nothing had actually failed.
+     People/events/tasks/pending-activity are the only things "coming back
+     from LinkedIn" was ever meant to catch, so only those refresh here now;
+     settings/knowledge only ever changes through saveSettings, which
+     already serialises its own writes correctly. */
   useEffect(()=>{
     if(auth.status!=='in' || !sb) return;
-    const onFocus = ()=>{ pull(auth.user); };
+    const onFocus = async()=>{
+      const u = auth.user;
+      await ingest(u);
+      await Promise.all([refreshPeople(u), refreshEvents(u), refreshTasks(u), refreshPendingActivity(u), refreshAppEvents(u)]);
+    };
     window.addEventListener('focus', onFocus);
     return ()=>window.removeEventListener('focus', onFocus);
   },[auth.status, sb]);
