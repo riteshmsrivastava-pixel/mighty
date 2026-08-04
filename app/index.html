@@ -6128,7 +6128,8 @@ function App(){
        blobRef.current, so it always merges onto what the last save
        actually wrote, never a stale pre-save snapshot. */
     const callId = Math.random().toString(36).slice(2,8);
-    console.log('[saveSettings '+callId+'] START patch keys', Object.keys(patch), 'resumeTextLen', patch.knowledge && (patch.knowledge.resumeText||'').length);
+    console.log('[saveSettings '+callId+'] START patch=', JSON.stringify(patch).slice(0,300));
+    console.trace('[saveSettings '+callId+'] caller trace');
     const run = async ()=>{
       const curBlob = blobRef.current || {};
       const curSettings = curBlob.settings || {};
