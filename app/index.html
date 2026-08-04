@@ -5415,7 +5415,15 @@ async function readResumePdf(file){
     const tc = await page.getTextContent();
     out += tc.items.map(x => x.str).join(' ') + '\n';
   }
-  return out.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  /* Postgres text/jsonb columns reject   outright ("unsupported Unicode
+     escape sequence") - some PDFs' internal text encoding embeds a null
+     byte here and there, invisible in the UI but fatal to the save. This
+     was the actual cause behind resume uploads that looked successful
+     (no thrown error - Supabase returns {error}, it does not throw) and
+     then were never actually on the server. Stripping C0 control
+     characters generally (tab and newline excepted, both meaningful here)
+     closes the whole class, not just the one byte that got caught. */
+  return out.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 const OB_STEPS = ['Privacy','History','Resume','Goal','Questions'];
@@ -5634,7 +5642,6 @@ function Onboarding({sb, user, settings, onSave, onDone, startStep}){
         // carried over from kbExisting is silently dropped.
         selfResearch: kbExisting.selfResearch || null,
       };
-      console.log('[finish] about to call onSave, kb.resumeText.length=', kb.resumeText.length, 'resume state length=', resume.length);
       await onSave({
         goalType: goalTypes[0] || 'networking',
         goalTypes,
@@ -5945,10 +5952,8 @@ function App(){
   },[sb]);
 
   async function pull(u){
-    console.trace('[pull] called');
     try{
       const {data} = await sb.from('user_data').select('data').eq('user_id',u.id).maybeSingle();
-      console.log('[pull] setting blob, resumeTextLen=', ((data && data.data && data.data.settings && data.data.settings.knowledge)||{}).resumeText && data.data.settings.knowledge.resumeText.length);
       setBlob((data && data.data) ? data.data : {});
     }catch(e){ setBlob({}); setErr('Could not load your strategy. Working from a blank one.'); }
     await ingest(u);
@@ -6127,24 +6132,22 @@ function App(){
        previous to fully land (success or failure) before it reads
        blobRef.current, so it always merges onto what the last save
        actually wrote, never a stale pre-save snapshot. */
-    const callId = Math.random().toString(36).slice(2,8);
-    console.log('[saveSettings '+callId+'] START patch=', JSON.stringify(patch).slice(0,300));
-    console.trace('[saveSettings '+callId+'] caller trace');
     const run = async ()=>{
       const curBlob = blobRef.current || {};
       const curSettings = curBlob.settings || {};
       const firstRun = !curSettings.goalType;
       const next = {...curBlob, settings:{...curSettings, ...patch}};
-      console.log('[saveSettings '+callId+'] RUN curBlob.resumeTextLen', ((curSettings.knowledge||{}).resumeText||'').length,
-        'next.resumeTextLen', ((next.settings.knowledge||{}).resumeText||'').length);
       blobRef.current = next;
       setBlob(next);
       try{
         const res = await sb.from('user_data').upsert({user_id:auth.user.id, data:next, updated_at:new Date().toISOString()}).select();
-        if(res.error) console.error('[saveSettings '+callId+'] UPSERT ERROR', JSON.stringify(res.error));
-        else console.log('[saveSettings '+callId+'] UPSERT OK');
+        /* upsert() resolves normally even when Postgres rejects the write
+           (e.g. 22P05 on a stray null byte) - it never throws, it just
+           returns {error}. Missing this check is what let resume saves
+           fail silently for so long: the UI moved on as if it had worked. */
+        if(res.error) setErr('Saving failed: '+(res.error.message || 'the server rejected this save') + '. Please try again.');
       }
-      catch(e){ console.error('[saveSettings '+callId+'] THREW', e); setErr('Saved on this device, but syncing failed: '+(e.message||'unknown error')); }
+      catch(e){ setErr('Saved on this device, but syncing failed: '+(e.message||'unknown error')); }
       /* Counts only: which goal, how many targets named, whether this was the
          first time. Never the goal text itself, which is free prose. */
       track(firstRun?'strategy_first_saved':'strategy_updated', {
@@ -6298,7 +6301,6 @@ function App(){
   useEffect(()=>{
     if(auth.status!=='in' || !sb) return;
     const onFocus = async()=>{
-      console.log('[onFocus] fired');
       const u = auth.user;
       await ingest(u);
       await Promise.all([refreshPeople(u), refreshEvents(u), refreshTasks(u), refreshPendingActivity(u), refreshAppEvents(u)]);
