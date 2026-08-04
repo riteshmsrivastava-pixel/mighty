@@ -5466,6 +5466,7 @@ function Onboarding({sb, user, settings, onSave, onDone, startStep}){
      writing back empty defaults over it. */
   const kbExisting = settings.knowledge || {};
   const [resume,setResume] = useState(kbExisting.resumeText || '');
+  const [resumeFileName,setResumeFileName] = useState('');
   const [ident,setIdent] = useState({
     headline: (kbExisting.identity||{}).headline || '',
     location: settings.homeLocation || (kbExisting.identity||{}).location || '',
@@ -5548,7 +5549,7 @@ function Onboarding({sb, user, settings, onSave, onDone, startStep}){
     try{
       const t = await readResumePdf(file);
       if(t.length < 200) throw new Error('short');
-      setResume(t); setBusy(null);
+      setResume(t); setResumeFileName(file.name); setBusy(null);
       track('kb_resume_parsed', {chars:t.length});
     }catch(e){
       setBusy(null);
@@ -5628,6 +5629,10 @@ function Onboarding({sb, user, settings, onSave, onDone, startStep}){
            not make an untouched resume look freshly updated. */
         resumeUpdatedAt: resume && resume!==kbExisting.resumeText ? new Date().toISOString() : (kbExisting.resumeUpdatedAt || null),
         answers: newAnswers.length ? newAnswers : (kbExisting.answers || []),
+        // Background self-research (App's own daily effect) - this object
+        // rebuilds from scratch on every save, so anything not explicitly
+        // carried over from kbExisting is silently dropped.
+        selfResearch: kbExisting.selfResearch || null,
       };
       await onSave({
         goalType: goalTypes[0] || 'networking',
@@ -5659,10 +5664,19 @@ function Onboarding({sb, user, settings, onSave, onDone, startStep}){
      moment finish() ran with resume still empty, and clicking it mid-archive
      upload (busy==='arch') left that upload running with no UI anywhere
      left to show its progress. */
-  const Later = ()=>
-    <button className="btn q" style={{fontSize:13.5}} onClick={finish} disabled={!!busy}>
-      {busy==='save' ? 'Saving…' : busy ? 'One moment…' : 'Do it later'}
-    </button>;
+  /* Same button, same finish() - but "Do it later" reads as skip/defer,
+     which is the opposite of what it means right after actually uploading
+     something. On the resume step with a resume already read, that mislabel
+     looks like exactly what got reported: upload, see "Read, N characters",
+     click the only other button on the step expecting it to save, and
+     because its label said "later" it read like nothing had happened. */
+  const Later = ()=>{
+    const savingNow = step===2 && resume;
+    return (
+      <button className="btn q" style={{fontSize:13.5}} onClick={finish} disabled={!!busy}>
+        {busy==='save' ? 'Saving…' : busy ? 'One moment…' : savingNow ? 'Save and finish' : 'Do it later'}
+      </button>);
+  };
   const Actions = ({label, onNext, disabled})=>
     <div className="row" style={{gap:14,marginTop:38,flexWrap:'wrap',alignItems:'center'}}>
       <button className="btn" style={{padding:'13px 30px',fontSize:15}} onClick={onNext} disabled={disabled}>{label}</button>
@@ -5773,24 +5787,42 @@ function Onboarding({sb, user, settings, onSave, onDone, startStep}){
             <Sub>Your biggest achievements usually are not on LinkedIn. Your resume fills them in.</Sub>
             <input ref={cvRef} type="file" accept=".pdf" style={{display:'none'}}
               onChange={e=>onResume(e.target.files && e.target.files[0])}/>
-            <div onClick={()=>cvRef.current && cvRef.current.click()}
-              style={{marginTop:32,border:'1.5px dashed var(--line)',borderRadius:22,padding:'36px 34px',
-                cursor:'pointer',maxWidth:520,background:'var(--card2)'}}>
-              <div className="eyebrow">Upload</div>
-              <div style={{fontSize:17,fontWeight:700,marginTop:10}}>Drop your resume</div>
-              <div style={{fontSize:15,color:'var(--sub)',marginTop:6,lineHeight:1.5}}>
-                PDF. Read once, then stored as text.
+            {/* The extracted text used to sit in the "paste it" textarea below
+               once a PDF was read, which turned "upload a resume" into "look
+               at a wall of raw PDF text" - unnecessary and looked broken.
+               Once there is resume text, whether from a real upload or a
+               paste, this shows only what the user actually needs to know:
+               that something is on file, and how to replace it. */}
+            {resume ? (
+              <div style={{marginTop:32,border:'1px solid var(--line)',borderRadius:22,padding:'26px 28px',
+                display:'flex',alignItems:'center',gap:16,flexWrap:'wrap',maxWidth:520,background:'var(--card2)'}}>
+                <div style={{width:38,height:38,borderRadius:'50%',background:'var(--green)',flex:'none',
+                  display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:800}}>&#10003;</div>
+                <div style={{flex:'1 1 200px',minWidth:0}}>
+                  <div style={{fontSize:15.5,fontWeight:700}}>{resumeFileName || 'Resume added'}</div>
+                  <div className="sub" style={{fontSize:13,marginTop:2}}>Uploaded and stored as text.</div>
+                </div>
+                <button className="btn q" style={{fontSize:13,flex:'none'}}
+                  onClick={()=>{ setResume(''); setResumeFileName(''); }}>Replace</button>
               </div>
-            </div>
-            {resume &&
-              <div style={{marginTop:16,color:'var(--green)',fontWeight:700,fontSize:14.5}}>
-                &#10003; Read, {resume.length.toLocaleString()} characters.
-              </div>}
-            <div style={{marginTop:26,maxWidth:640}}>
-              <div className="lbl">Or paste it</div>
-              <textarea className="inp" style={{minHeight:120,borderRadius:18}} value={resume}
-                onChange={e=>setResume(e.target.value)} placeholder="Paste the text here."/>
-            </div>
+            ) : (
+              <F>
+                <div onClick={()=>cvRef.current && cvRef.current.click()}
+                  style={{marginTop:32,border:'1.5px dashed var(--line)',borderRadius:22,padding:'36px 34px',
+                    cursor:'pointer',maxWidth:520,background:'var(--card2)'}}>
+                  <div className="eyebrow">Upload</div>
+                  <div style={{fontSize:17,fontWeight:700,marginTop:10}}>Drop your resume</div>
+                  <div style={{fontSize:15,color:'var(--sub)',marginTop:6,lineHeight:1.5}}>
+                    PDF. Read once, then stored as text.
+                  </div>
+                </div>
+                <div style={{marginTop:26,maxWidth:640}}>
+                  <div className="lbl">Or paste it</div>
+                  <textarea className="inp" style={{minHeight:120,borderRadius:18}} value={resume}
+                    onChange={e=>setResume(e.target.value)} placeholder="Paste the text here."/>
+                </div>
+              </F>
+            )}
             <Actions label={busy==='cv' ? 'Reading…' : 'Continue'} onNext={next} disabled={busy==='cv'}/>
           </div>}
 
