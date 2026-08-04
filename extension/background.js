@@ -96,7 +96,7 @@ async function fetchLog(force) {
     const log = await logRes.json(); const events = await eventsRes.json();
     // The sidebar answers "why this person?" locally, so it needs the same goal
     // signals the web app scores with - not just target companies.
-    let targetCompanies = [], goal = '', profile = {}, selfProfileUrl = '', hasSelfAvatar = false;
+    let targetCompanies = [], goal = '', profile = {}, selfProfileUrl = '', hasSelfAvatar = false, selfName = '';
     try {
       const ud = await userDataRes.json(); const st = ud?.[0]?.data?.settings || {};
       targetCompanies = st.targetCompanies || []; goal = st.goal || '';
@@ -110,12 +110,24 @@ async function fetchLog(force) {
       // background fetch of the account holder's own profile URL comes back
       // with no og:image and the reconstructed CDN URL was already found to
       // get rejected (deny-InvalidToken) even when it could be built at all.
-      const identity = (st.knowledge || {}).identity || {};
-      selfProfileUrl = identity.profileUrl || '';
+      const kb = st.knowledge || {};
+      const identity = kb.identity || {};
+      // identity.profileUrl only exists once a fresh archive import has run
+      // (see readArchive in app/index.html) - an account whose data predates
+      // that still has nothing here. This is exactly the gap that let one
+      // account's OWN profile get scored and saved as a stranger: the check
+      // that was supposed to catch it read a field that was silently empty.
+      // The resume text almost always states the URL too, so it's checked
+      // the same way the app's own selfProfileUrl() fallback does.
+      const resumeMatch = String(kb.resumeText || '').match(/https?:\/\/(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9\-_%]+/i);
+      selfProfileUrl = identity.profileUrl || (resumeMatch ? resumeMatch[0].replace(/\/+$/, '') : '');
       hasSelfAvatar = !!identity.avatarUrl;
+      // Independent of any URL at all - a second, unrelated signal so a page
+      // whose URL doesn't resolve the same way still gets caught by name.
+      selfName = [identity.firstName, identity.lastName].filter(Boolean).join(' ').trim() || (st.preferredName || '');
     } catch (e) {}
-    logCache = { at: Date.now(), log, events, targetCompanies, goal, profile, selfProfileUrl, hasSelfAvatar };
-    return { ok: true, log, events, targetCompanies, goal, profile, selfProfileUrl, hasSelfAvatar };
+    logCache = { at: Date.now(), log, events, targetCompanies, goal, profile, selfProfileUrl, hasSelfAvatar, selfName };
+    return { ok: true, log, events, targetCompanies, goal, profile, selfProfileUrl, hasSelfAvatar, selfName };
   } catch (e) { return { ok: false, error: String(e && e.message || e) }; }
 }
 

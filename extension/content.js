@@ -647,11 +647,21 @@ async function renderProfileSidebar() {
   if (!r || !r.ok) return;
 
   // This is the account holder's own profile, not someone to evaluate - a
-  // "relationship fit" panel makes no sense here. Instead, once per session,
-  // grab their photo straight from the rendered page (the one reliable path -
-  // a background fetch of this same URL gets no og:image, and the signed CDN
-  // URL cannot be reconstructed from raw HTML either) and hand it to the app.
-  if (r.selfProfileUrl && profileUrl === normProfileUrl(r.selfProfileUrl)) {
+  // "relationship fit" panel makes no sense here, and scoring/saving it as a
+  // stranger is a real bug, confirmed live: an account whose identity.profileUrl
+  // hadn't been computed yet (predates the archive-parsing change that fills
+  // it) got its own profile saved into its own pipeline, because the ONLY
+  // check was a URL match against a field that was silently empty. Two
+  // independent signals now, so one being unavailable doesn't reopen this -
+  // URL match (from identity.profileUrl or a resume-text fallback) OR a name
+  // match against the live page, checked separately since neither depends on
+  // the other having worked. Instead, once per session, grab their photo
+  // straight from the rendered page (the one reliable path - a background
+  // fetch of this same URL gets no og:image, and the signed CDN URL cannot be
+  // reconstructed from raw HTML either) and hand it to the app.
+  const isSelfByUrl = r.selfProfileUrl && profileUrl === normProfileUrl(r.selfProfileUrl);
+  const isSelfByName = r.selfName && profileName().trim().toLowerCase() === r.selfName.trim().toLowerCase();
+  if (isSelfByUrl || isSelfByName) {
     if (sidebarEl) { sidebarEl.remove(); sidebarEl = null; }
     if (!r.hasSelfAvatar && !selfPhotoSentThisSession) {
       selfPhotoSentThisSession = true;
