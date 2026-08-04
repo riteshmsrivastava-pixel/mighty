@@ -5634,7 +5634,6 @@ function Onboarding({sb, user, settings, onSave, onDone, startStep}){
         // carried over from kbExisting is silently dropped.
         selfResearch: kbExisting.selfResearch || null,
       };
-      console.log('[finish] resume state length', resume.length, 'kb.resumeText length', kb.resumeText.length);
       await onSave({
         goalType: goalTypes[0] || 'networking',
         goalTypes,
@@ -5876,6 +5875,21 @@ function App(){
   const [sb,setSb] = useState(null);
   const [auth,setAuth] = useState({status:'loading', user:null});
   const [blob,setBlob] = useState(null);
+  /* Two independent saves - onboarding's finish() writing a real resume, and
+     Patterns' own decodedSeen/patternsSnapshot effect, which mounts and
+     fires the instant finish() navigates to the profile tab it lives on -
+     both read-modify-write the SAME blob. Each captured `settings` from
+     whichever render created its own closure, so if the second one's
+     closure predates the first one's setBlob(), it merges onto a
+     stale base and its Supabase write - if it lands after the first's -
+     silently erases whatever the first just saved. blobRef always holds
+     the true latest value, updated synchronously the moment a save starts
+     rather than waiting on React's render cycle, and saveChainRef
+     serialises the actual writes so two saves can never race each other
+     to Supabase out of order. This is what was silently dropping the
+     resume text on every "Update resume" re-entry. */
+  const blobRef = useRef(null);
+  const saveChainRef = useRef(Promise.resolve());
   const [people,setPeople] = useState([]);
   const [events,setEvents] = useState([]);
   const [tasks,setTasks] = useState([]);
@@ -5903,6 +5917,10 @@ function App(){
   const [aiMeta,setAiMeta] = useState(null);
   const [err,setErr] = useState(null);
   const pulled = useRef(false);
+  /* Keeps blobRef correct for setBlob() calls outside saveSettings (the
+     initial pull(), signing out) - saveSettings itself updates blobRef
+     synchronously and does not depend on this effect's timing. */
+  useEffect(()=>{ blobRef.current = blob; },[blob]);
 
   useEffect(()=>{
     if(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase){
@@ -6101,23 +6119,32 @@ function App(){
   async function saveSettings(patch){
     if(!sb || auth.status!=='in') return;
     setBusySave(true);
-    const firstRun = !settings.goalType;
-    const next = {...(blob||{}), settings:{...settings, ...patch}};
-    console.log('[saveSettings] patch keys', Object.keys(patch), 'resumeTextLen', patch.knowledge && (patch.knowledge.resumeText||'').length);
-    setBlob(next);
-    try{
-      const res = await sb.from('user_data').upsert({user_id:auth.user.id, data:next, updated_at:new Date().toISOString()}).select();
-      console.log('[saveSettings] upsert result', res);
-    }
-    catch(e){ console.error('[saveSettings] upsert threw', e); setErr('Saved on this device, but syncing failed: '+(e.message||'unknown error')); }
-    /* Counts only: which goal, how many targets named, whether this was the
-       first time. Never the goal text itself, which is free prose. */
-    track(firstRun?'strategy_first_saved':'strategy_updated', {
-      goal_type: next.settings.goalType || 'none',
-      roles: (next.settings.targetRoles||[]).length,
-      companies: (next.settings.targetCompanies||[]).length,
-      schools: (next.settings.schools||[]).length,
-    });
+    /* The actual read-modify-write, queued onto saveChainRef so two calls
+       can never race each other to Supabase - each one waits for the
+       previous to fully land (success or failure) before it reads
+       blobRef.current, so it always merges onto what the last save
+       actually wrote, never a stale pre-save snapshot. */
+    const run = async ()=>{
+      const curBlob = blobRef.current || {};
+      const curSettings = curBlob.settings || {};
+      const firstRun = !curSettings.goalType;
+      const next = {...curBlob, settings:{...curSettings, ...patch}};
+      blobRef.current = next;
+      setBlob(next);
+      try{ await sb.from('user_data').upsert({user_id:auth.user.id, data:next, updated_at:new Date().toISOString()}); }
+      catch(e){ setErr('Saved on this device, but syncing failed: '+(e.message||'unknown error')); }
+      /* Counts only: which goal, how many targets named, whether this was the
+         first time. Never the goal text itself, which is free prose. */
+      track(firstRun?'strategy_first_saved':'strategy_updated', {
+        goal_type: next.settings.goalType || 'none',
+        roles: (next.settings.targetRoles||[]).length,
+        companies: (next.settings.targetCompanies||[]).length,
+        schools: (next.settings.schools||[]).length,
+      });
+    };
+    const chained = saveChainRef.current.then(run, run);
+    saveChainRef.current = chained;
+    await chained;
     setBusySave(false);
   }
 
