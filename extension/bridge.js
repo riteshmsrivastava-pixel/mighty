@@ -171,6 +171,22 @@
       return;
     }
 
+    // Plain web search for the self-research knowledge-base refresh. No
+    // structured parsing (general results have none of the durable anchors
+    // parseProfiles relies on) - just the page's own visible text, script/
+    // style stripped, so whatever mentions exist come through as-is. Raw
+    // and unverified by design; the caller labels it that way downstream.
+    if (d.kind === 'webSearch') {
+      const r = await send('fetchWebSearchHtml', { query: String(d.query || '') });
+      if (!r || !r.ok) { reply(d.id, { ok: false, error: (r && r.error) || 'search_failed' }); return; }
+      if (looksBlocked(r.html)) { reply(d.id, { ok: false, error: 'blocked' }); return; }
+      const doc = new DOMParser().parseFromString(r.html, 'text/html');
+      doc.querySelectorAll('script,style').forEach(el => el.remove());
+      const text = (doc.body ? doc.body.innerText : '').replace(/\s+/g, ' ').trim();
+      reply(d.id, { ok: true, text: text.slice(0, 1500) });
+      return;
+    }
+
     // Photo for one profile: fetch that profile page, pull the display-photo URL
     // out of it, and encode it to a thumbnail. Called one person at a time by
     // the app, on the student's explicit request.

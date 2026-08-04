@@ -251,6 +251,21 @@ async function fetchSearchHtml(query) {
   } catch (e) { return { ok: false, error: String((e && e.message) || e) }; }
 }
 
+// Same fetch, no site:linkedin.com/in restriction - a plain web search for
+// the self-research knowledge-base refresh (name + a known employer/school,
+// to disambiguate from anyone else sharing the name). Results are raw,
+// unverified web mentions, not confirmed facts - the caller is responsible
+// for labeling them that way to anything downstream.
+async function fetchWebSearchHtml(query) {
+  const url = 'https://www.google.com/search?num=10&q=' + encodeURIComponent(query);
+  try {
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) return { ok: false, error: 'http_' + res.status };
+    const html = await res.text();
+    return { ok: true, html };
+  } catch (e) { return { ok: false, error: String((e && e.message) || e) }; }
+}
+
 // Reading one profile page to recover a missing photo. Deliberately throttled:
 // requests are serialised with a minimum gap and capped per browser session, so
 // this never becomes the burst-of-requests pattern that gets accounts flagged.
@@ -320,6 +335,7 @@ function fetchProfilePhoto(profileUrl) {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg && msg.type === 'encodeAvatar') { encodeAvatar(msg.url).then(sendResponse); return true; }
   if (msg && msg.type === 'fetchSearchHtml') { fetchSearchHtml(msg.query).then(sendResponse); return true; }
+  if (msg && msg.type === 'fetchWebSearchHtml') { fetchWebSearchHtml(msg.query).then(sendResponse); return true; }
   if (msg && msg.type === 'fetchProfilePhoto') { fetchProfilePhoto(msg.profileUrl).then(sendResponse); return true; }
   if (msg && msg.type === 'pushInbox') { pushInboxWithRetry(msg.kind, msg.payload).then(sendResponse); return true; }
   if (msg && msg.type === 'fetchLog') { fetchLog(msg.force).then(sendResponse); return true; }

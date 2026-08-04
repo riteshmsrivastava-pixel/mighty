@@ -579,6 +579,7 @@ const extBridge = (()=>{
     isReady: ()=>ready,
     search: (query)=>call('search',{query}),
     photo: (profileUrl)=>call('photo',{profileUrl}, 30000),
+    webSearch: (query)=>call('webSearch',{query}, 20000),
   };
 })();
 
@@ -677,6 +678,14 @@ function strategyBrief(st){
     clean(kb.resumeText) ? 'Resume: ' + clean(kb.resumeText).slice(0,600) : '',
     (st.successMetrics||[]).length ? 'Success looks like: ' + st.successMetrics.join(', ') : '',
     (st.networkingStyle||[]).length ? 'Prefers: ' + st.networkingStyle.join(', ') : '',
+    /* Raw web-search text, refreshed roughly daily - explicitly unverified,
+       since a search on a name can just as easily surface someone else who
+       shares it. Labeled that way so the model treats it as color, never
+       states it as settled fact. */
+    (kb.selfResearch && kb.selfResearch.findings && kb.selfResearch.findings.length)
+      ? 'Unverified web mentions (do not state as settled fact; use only as color if it fits): '
+        + kb.selfResearch.findings.map(f=>f.text).join(' | ').slice(0,1500)
+      : '',
   ].filter(Boolean).join('\n');
 }
 function localKeywords(sentence, st){
@@ -6241,6 +6250,49 @@ function App(){
     }, 500);
     return ()=>{ dead=true; clearInterval(poll); };
   },[auth.status, sb, auth.user, people.length]);
+
+  /* Nothing about the user's own knowledge base should need manual upkeep -
+     strategyBrief() (the one function every draft, brief, and ranking call
+     reads to describe the sender) is meant to grow on its own. Once a day
+     - checked on load, not a real server-side cron, since writing one needs
+     Supabase CLI access this environment does not have - this runs a
+     couple of name+employer/school searches to pick up real-world mentions
+     a LinkedIn export and a resume cannot carry (talks, press, other bios),
+     and folds the raw text into settings.knowledge.selfResearch. Never
+     shown in any screen, and never asserted as fact downstream -
+     strategyBrief() labels it explicitly unverified, because a search
+     result can just as easily belong to someone else who shares the name. */
+  useEffect(()=>{
+    if(auth.status!=='in' || !sb || !auth.user) return;
+    const kb = settings.knowledge || {};
+    const last = kb.selfResearch && kb.selfResearch.lastRunAt;
+    if(last && Date.now()-new Date(last).getTime() < 24*60*60*1000) return;
+    const fullName = clean([kb.identity&&kb.identity.firstName, kb.identity&&kb.identity.lastName].filter(Boolean).join(' ')) || settings.preferredName || '';
+    const anchors = [...(kb.positions||[]).map(p=>p.company), ...(kb.education||[]).map(e=>e.school)].filter(Boolean).slice(0,3);
+    if(!fullName || !anchors.length) return;
+    let dead=false;
+    let tries=0;
+    const poll = setInterval(()=>{
+      tries++;
+      if(dead){ clearInterval(poll); return; }
+      if(!extBridge.isReady()){ if(tries>=10) clearInterval(poll); return; }
+      clearInterval(poll);
+      (async()=>{
+        const findings = [];
+        for(const anchor of anchors){
+          if(dead) return;
+          try{
+            const r = await extBridge.webSearch(fullName+' '+anchor);
+            if(r && r.ok && clean(r.text)) findings.push({anchor, text:clean(r.text).slice(0,1200)});
+          }catch(e){}
+          await new Promise(res=>setTimeout(res, 800));
+        }
+        if(dead || !findings.length) return;
+        await saveSettings({knowledge:{...kb, selfResearch:{lastRunAt:new Date().toISOString(), findings}}});
+      })();
+    }, 500);
+    return ()=>{ dead=true; clearInterval(poll); };
+  },[auth.status, sb, auth.user]);
 
   const person = useMemo(()=>people.find(r=>r.id===personId)||null, [people, personId]);
   const doneToday = useMemo(()=>tasks.filter(t=>t.done && t.completed_at && days(t.completed_at)<=0), [tasks]);
