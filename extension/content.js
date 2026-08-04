@@ -551,9 +551,7 @@ function fitRecommendation(fit, r) {
   if (fit.label === 'Strong match')
     return 'Worth saving. Read the brief in Mighty before you write.';
   if (fit.label === 'Potential match')
-    return goal
-      ? `A stretch against "${goal.replace(/\.$/, '')}". Save only if you have your own reason.`
-      : 'A stretch against your current goal. Save only if you have your own reason.';
+    return 'Matches your goal. Save only if you have your own reason.';
   // Nothing matched - say that plainly rather than dressing it up.
   return 'Nothing here matches your strategy. Skip, unless you know something Mighty does not.';
 }
@@ -721,9 +719,6 @@ async function renderProfileSidebar() {
              <span style="width:8px;height:8px;border-radius:50%;flex:none;background:${FIT_DOT[fit.label] || MUTE};"></span>
              <span style="font-size:17px;font-weight:700;letter-spacing:-.015em;">${esc(fit.label)}</span>
            </div>`, true)
-      + panelSection('Why', fit.why.length
-          ? panelLines(fit.why)
-          : `<div style="font-size:14px;color:${SUB};line-height:1.45;margin-top:8px;">Nothing on this page lines up with your strategy yet.</div>`)
       + (timing.length ? panelSection('Why now', panelLines(timing)) : '')
       + (shared.length ? panelSection('What you share', panelLines(shared)) : '')
       + panelSection('Recommendation',
@@ -811,7 +806,6 @@ async function renderProfileSidebar() {
            <span style="font-size:17px;font-weight:700;letter-spacing:-.015em;">${esc(fit.label)}</span>
          </div>
          <div style="font-size:13px;color:${SUB};margin-top:4px;">${esc(rel.label)} · ${esc(rel.sub)}</div>`, true)
-    + (fit.why.length ? panelSection('Why', panelLines(fit.why)) : '')
     + (timing.length ? panelSection('Why now', panelLines(timing)) : '')
     + (shared.length ? panelSection('What you share', panelLines(shared)) : '')
     + panelSection('Where you are',
