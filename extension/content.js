@@ -462,7 +462,18 @@ function sharedGround(r, company, sec, mutualRaw, location) {
 
   const mut = (mutualRaw || '').match(/(\d+)\s*mutual/i);
   if (mut) shared.push(`${mut[1]} mutual connection${mut[1] === '1' ? '' : 's'}`);
-  if (location) shared.push(location);
+
+  // Their location alone is not shared ground - it was pushed here
+  // unconditionally before, which read as "you two share this" when it just
+  // meant "here is where they live" (confirmed live: showed someone else's
+  // city under What you share for an account based somewhere else entirely).
+  // Only counts if it actually overlaps with where the account holder is or
+  // is looking.
+  const loc = String(location || '').trim().toLowerCase();
+  if (loc) {
+    const mine = [prof.homeLocation, ...(prof.targetLocations || [])].filter(Boolean).map(s => String(s).trim().toLowerCase());
+    if (mine.some(m => m.length > 2 && (loc.includes(m) || m.includes(loc)))) shared.push(location);
+  }
   return shared.slice(0, 5);
 }
 // Relationship stated in words, not a bare percentage.
