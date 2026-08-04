@@ -762,9 +762,22 @@ const VERDICT = {
 };
 const VERDICT_KEYS = ['excellent','strong','potential','low'];
 async function evaluate(sb, people, st){
-  const list = people.map((p,i)=>`${i+1}. ${p.name} - ${p.title||'(no headline)'}${p.company?' - '+p.company:''}`).join('\n');
+  /* Deterministic, not AI-inferred: does the user already know people at this
+     candidate's company (decodedCompanyIndex, computed once at archive
+     import). Handed to the model as a fact per candidate so its "common"
+     reasoning is grounded in something real instead of guessing from a
+     headline alone, and also returned untouched on each result so the UI can
+     show it even when the model doesn't mention it. */
+  const companyIndex = st.knowledge && st.knowledge.decoded
+    && st.knowledge.decoded.chapters && st.knowledge.decoded.chapters.companyIndex;
+  const overlaps = people.map(p => p.company ? companyOverlap(companyIndex, p.company) : null);
+  const list = people.map((p,i)=>{
+    const ov = overlaps[i];
+    return `${i+1}. ${p.name} - ${p.title||'(no headline)'}${p.company?' - '+p.company:''}`
+      + (ov ? ` [you already know ${ov.count} ${ov.count===1?'person':'people'} there]` : '');
+  }).join('\n');
   const out = await llmJSON(sb, 'profile_briefing',
-    'You help a professional decide who is worth building a relationship with. For each candidate, judge relevance to THEIR stated goal and explain it in plain language. Never output a numeric score. Ground every claim only in the given headline text - if the headline does not support a claim, do not make it. Be honest: never inflate a weak fit, and when nothing about someone matches the goal, say so outright rather than implying promise that is not there. Common ground must be real overlap between the two people; "both in tech" is not common ground. Never use em dashes; write a spaced hyphen instead.',
+    'You help a professional decide who is worth building a relationship with. For each candidate, judge relevance to THEIR stated goal and explain it in plain language. Never output a numeric score. Ground every claim only in the given headline text (and the bracketed fact when present) - if nothing supports a claim, do not make it. Be honest: never inflate a weak fit, and when nothing about someone matches the goal, say so outright rather than implying promise that is not there. Common ground must be real overlap: literal (same company, school, city) or domain-level (a genuinely comparable industry to the sender\'s own career history, e.g. both fintech, both pharma - reasoned from their actual background, not restated titles); "both in tech" alone is not common ground. Never use em dashes; write a spaced hyphen instead.',
     `The person doing the networking:\n${strategyBrief(st)}\n\nCandidates:\n${list}\n\nReturn JSON exactly like {"matches":[{"n":1,"verdict":"excellent"|"strong"|"potential"|"low","why":"one or two sentences, starts with the reason, no score","common":["short shared-ground phrase"]}]}. Use "excellent" only when they match the goal squarely, "strong" for a clear fit, "potential" when the connection is real but loose, and "low" when nothing about them lines up with the goal. Include every candidate by its number n. "common" may be empty.`,
     1500);
   const byN = {};
@@ -773,7 +786,7 @@ async function evaluate(sb, people, st){
     const m = byN[i+1]||{};
     const raw = String(m.verdict||'').toLowerCase();
     const v = VERDICT_KEYS.indexOf(raw)>=0 ? raw : 'potential';
-    return {...p, verdict:v, why:clean(m.why), common:Array.isArray(m.common)?m.common.filter(Boolean).slice(0,4):[]};
+    return {...p, verdict:v, why:clean(m.why), common:Array.isArray(m.common)?m.common.filter(Boolean).slice(0,4):[], warmIntro:overlaps[i]};
   });
 }
 
@@ -1224,6 +1237,21 @@ function buildPlan(people, events, tasks){
       out.push({id:'cap-'+r.id, tone:'green', title:'Capture your conversation with '+(r.name||'them'),
         sub:'You met '+ago(met.occurred_at)+' and nothing is written down yet.', min:5, cta:'Add notes',
         go:{screen:'profile', id:r.id, tab:'notes'}});
+  });
+
+  /* The 'quiet-' rule above only watches 'contacted' - a relationship that
+     already got a reply, a coffee chat, or a referral and then had no event
+     of any kind for three weeks goes cold in a way that rule never catches.
+     Capped like every other rule here so a long backlog can't crowd out the
+     rest of Today. Excludes anyone the 'cap-' rule above already covers this
+     week (a fresh coffee chat isn't cold, it's just uncaptured yet). */
+  people.filter(r=>['replied','coffee_chat','referral','interview'].indexOf(r.status)>=0).slice(0,2).forEach(r=>{
+    const last = lastOf(r);
+    const lastAt = (last && last.occurred_at) || r.updated_at || r.shortlisted_at;
+    if(lastAt && days(lastAt)>=21)
+      out.push({id:'cold-'+r.id, tone:'amber', title:(r.name||'They')+' is going quiet',
+        sub:'Nothing since '+ago(lastAt)+'. A short nudge keeps the thread alive.',
+        min:5, cta:'Follow up', go:{screen:'profile', id:r.id, tab:'draft'}});
   });
 
   people.filter(r=>r.status==='prospect' && !(r.briefing&&r.briefing.careerSummary)).slice(0,2).forEach(r=>{
@@ -2219,9 +2247,13 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
                       <div className="eyebrow b">Insight</div>
                       <div style={{fontSize:14.5,lineHeight:1.55,color:'var(--body)',marginTop:6,textWrap:'pretty'}}>{r.why}</div>
                     </div>}
-                  {r.common && r.common.length>0 &&
+                  {(r.warmIntro || (r.common && r.common.length>0)) &&
                     <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:12}}>
-                      {r.common.map((c,i)=><span key={i} className="tag">{c}</span>)}
+                      {r.warmIntro &&
+                        <span className="tag" style={{background:'var(--brand-soft2)',borderColor:'var(--brand-line)',color:'var(--brand-ink)',fontWeight:700}}>
+                          You know {r.warmIntro.count} at {r.warmIntro.label}
+                        </span>}
+                      {r.common && r.common.map((c,i)=><span key={i} className="tag">{c}</span>)}
                     </div>}
                 </div>);
             })}
@@ -2704,6 +2736,13 @@ const APPROACHES = [
 ];
 function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, onStage, onEvent, onTask, tab, setTab, go}){
   const ctx = row.context||{};
+  /* Do I already know someone at their company? A real, specific opening -
+     "ask Jane for an intro" beats any AI-inferred "shared interest in tech" -
+     computed once at archive import (decodedCompanyIndex) and just looked up
+     here, never re-derived from anything the model says. */
+  const companyIndex = settings.knowledge && settings.knowledge.decoded
+    && settings.knowledge.decoded.chapters && settings.knowledge.decoded.chapters.companyIndex;
+  const warmIntro = row.company ? companyOverlap(companyIndex, row.company) : null;
   /* An exchange is one outbound conversation: the brief, the draft, and every
      take of that draft. It costs one assist. When they reply, answering them is
      a new exchange and a new assist, because it is new work. The counter lives
@@ -3114,6 +3153,15 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
             <div className="card" style={{padding:'22px 24px'}}>
               <div className="eyebrow">Don't lead with</div>
               <div style={{fontSize:15,lineHeight:1.6,color:'var(--body)',marginTop:8}}>{br.avoid}</div>
+            </div>}
+          {warmIntro &&
+            <div className="card" style={{padding:'22px 24px',borderColor:'var(--brand-line)'}}>
+              <div className="eyebrow">Warm intro</div>
+              <div style={{fontSize:15,lineHeight:1.6,color:'var(--body)',marginTop:8}}>
+                You already know {warmIntro.count} {warmIntro.count===1?'person':'people'} at {warmIntro.label}
+                {warmIntro.sample.length ? ': '+warmIntro.sample.map(s=>s.name).filter(Boolean).join(', ') : ''}.
+                Worth asking one of them for an intro before cold-messaging.
+              </div>
             </div>}
           {((br.shared&&br.shared.length) || (ctx.common&&ctx.common.length)) &&
             <div className="card" style={{padding:'22px 24px'}}>
@@ -4344,16 +4392,25 @@ function CardHabits({showUp, tasks}){
   const rows = [];
   if(mine) rows.push({big:mine, label:'median time for you to reply'});
   if(withDue.length>0) rows.push({big:kept.length+' of '+withDue.length, label:'promises kept, on time'});
-  if(!rows.length) return null;
+  const timing = showUp && showUp.sendTiming;
+  const bestBits = timing && timing.enoughData
+    ? [timing.bestDow && timing.bestDow.label, timing.bestTod && timing.bestTod.label].filter(Boolean)
+    : [];
+  if(!rows.length && !bestBits.length) return null;
   return (
     <GridCard eyebrow="YOUR HABITS">
-      <div className="stack" style={{gap:16}}>
+      {rows.length>0 && <div className="stack" style={{gap:16}}>
         {rows.map((r,i)=>(
           <div key={i} className="row" style={{gap:14,alignItems:'baseline'}}>
             <div style={{fontSize:22,fontWeight:800,color:'var(--brand-ink)',flex:'none',minWidth:64,fontVariantNumeric:'tabular-nums'}}>{r.big}</div>
             <div className="sub" style={{fontSize:13.5}}>{r.label}</div>
           </div>))}
-      </div>
+      </div>}
+      {bestBits.length>0 &&
+        <div className="sub" style={{fontSize:12.5,marginTop:rows.length?16:0,paddingTop:rows.length?14:0,borderTop:rows.length?'1px solid var(--line)':'none'}}>
+          Best odds of a reply when you write first: <b style={{color:'var(--ink)'}}>{bestBits.join(', ')}</b>
+          {timing.bestDow && timing.bestDow.pct!=null && ` (${timing.bestDow.pct}% reply rate)`}.
+        </div>}
     </GridCard>
   );
 }
@@ -4952,6 +5009,21 @@ function messageGraph(rows, profile, connections){
   const counterparts = [];
   const myReplyGaps = [], theirReplyGaps = [];
   let threadsWhereTheyWroteFirst = 0, threadsIStartedWithReply = 0, threadsIStarted = 0, datedThreads = 0;
+  /* Best-time-to-send: day-of-week and time-of-day of the first message in
+     every thread I opened, split by whether it ever got a reply. Two
+     independent single-dimension buckets rather than one 7x4 grid - with a
+     few hundred threads at most, a cross-tab would be mostly empty cells
+     dressed up as a pattern. Local time of the browser that ran this import,
+     same as every other date already read out of the export. */
+  const DOW_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const TOD_BUCKETS = [
+    {key:'morning',   label:'Morning (5am–noon)',  test:h=>h>=5&&h<12},
+    {key:'afternoon', label:'Afternoon (noon–5pm)', test:h=>h>=12&&h<17},
+    {key:'evening',   label:'Evening (5–9pm)',      test:h=>h>=17&&h<21},
+    {key:'night',     label:'Night (9pm–5am)',      test:h=>h>=21||h<5},
+  ];
+  const byDow = DOW_NAMES.map(label=>({label, sent:0, replied:0}));
+  const byTod = {}; TOD_BUCKETS.forEach(b=>{ byTod[b.key] = {label:b.label, sent:0, replied:0}; });
   if(identified) Object.keys(byThread).forEach(key=>{
     const msgs = byThread[key].filter(m=>m._date).sort((a,b)=>a._date-b._date);
     if(!msgs.length) return;
@@ -4966,6 +5038,11 @@ function messageGraph(rows, profile, connections){
     else {
       threadsIStarted++;
       if(receivedCount>0) threadsIStartedWithReply++;
+      const opened = msgs[0]._date, gotReply = receivedCount>0;
+      byDow[opened.getDay()].sent++;
+      if(gotReply) byDow[opened.getDay()].replied++;
+      const tb = TOD_BUCKETS.find(b=>b.test(opened.getHours()));
+      if(tb){ byTod[tb.key].sent++; if(gotReply) byTod[tb.key].replied++; }
     }
     for(let i=1;i<msgs.length;i++){
       if(msgs[i]._mine === msgs[i-1]._mine) continue;
@@ -5045,6 +5122,19 @@ function messageGraph(rows, profile, connections){
       iWroteFirstReplyPct: threadsIStarted>0 ? Math.round(threadsIStartedWithReply/threadsIStarted*100) : null,
       myMedianReplyMs: median(myReplyGaps),
       theirMedianReplyMs: median(theirReplyGaps),
+      /* A per-bucket rate only ever reports once that bucket alone has 5+
+         opened threads, and a "best" pick only ever surfaces once 20+ threads
+         were opened in total - the same "counts only until it's real" rule
+         CardApproaches already applies to approach angles, applied here too. */
+      sendTiming: (()=>{
+        const MIN_BUCKET = 5;
+        const rate = b => b.sent>=MIN_BUCKET ? Math.round(b.replied/b.sent*100) : null;
+        const byDowRated = byDow.map(b=>({...b, pct:rate(b)}));
+        const byTodRated = TOD_BUCKETS.map(b=>({key:b.key, ...byTod[b.key], pct:rate(byTod[b.key])}));
+        const enoughData = threadsIStarted>=20;
+        const best = list => enoughData ? (list.filter(b=>b.pct!=null).sort((a,b)=>b.pct-a.pct)[0]||null) : null;
+        return {enoughData, byDow:byDowRated, byTod:byTodRated, bestDow:best(byDowRated), bestTod:best(byTodRated)};
+      })(),
     } : null,
     sleep,
   };
@@ -5336,6 +5426,40 @@ function decodedDoors(invitations, connections){
    rather than seven empty chapters. Individual chapters are null on their
    own narrower gaps (no messages.csv, no positions, no invitations) so each
    one can show its own honest one-liner instead of silently vanishing. */
+/* Which companies you actually know people at, for a "you already know N
+   people at [company]" lookup when a new person gets saved. Bounded to
+   companies with 2+ connections, top 500 by count - the long tail (a single
+   connection at some company) would blow this up to a multi-megabyte add on
+   something re-saved whole on every settings write, for a hit that's marginal
+   anyway. Same size discipline as topCompanies/counterparts/styleSamples
+   above, just a bigger cap since this one exists to be looked up by company
+   name later, not read top-to-bottom. */
+function decodedCompanyIndex(connections){
+  if(!connections || !connections.length) return null;
+  const byKey = {};
+  connections.forEach(c=>{
+    const co = clean(c.company);
+    if(!co) return;
+    const k = co.toLowerCase();
+    const entry = byKey[k] = byKey[k] || {label:co, count:0, sample:[]};
+    entry.count++;
+    if(entry.sample.length<3){
+      const name = clean((c.first_name||'')+' '+(c.last_name||''));
+      if(name) entry.sample.push({name, profileUrl:c.profile_url||null, title:clean(c.position)});
+    }
+  });
+  return Object.values(byKey).filter(e=>e.count>=2).sort((a,b)=>b.count-a.count).slice(0,500);
+}
+/* Looks up a target company against the bounded index above. Exact match on
+   the cleaned, lowercased name only - the index is already a "the big,
+   obvious overlaps" list, not a fuzzy company-resolution engine, and a wrong
+   match here would put a stranger's name in front of the user as a warm
+   intro, which is worse than no match at all. */
+function companyOverlap(companyIndex, companyName){
+  const k = clean(companyName).toLowerCase();
+  if(!k || !companyIndex) return null;
+  return companyIndex.find(e=>e.label.toLowerCase()===k) || null;
+}
 function buildDecoded(archive){
   if(!archive || !(archive.connections||[]).length) return null;
   const messages = archive.messages;
@@ -5352,6 +5476,7 @@ function buildDecoded(archive){
       dormancy: decodedDormancy(archive.connections, messages),
       yoy: decodedYoY(archive.connections),
       doors: decodedDoors(archive.invitations, archive.connections),
+      companyIndex: decodedCompanyIndex(archive.connections),
     },
   };
 }
