@@ -654,6 +654,14 @@ async function llmJSON(sb, feature, system, user, maxTokens, exchangeKey){
   }
 }
 function strategyBrief(st){
+  /* The archived LinkedIn export and resume were captured for the Knowledge
+     Base view and nothing else - this is the one function every draft and
+     brief prompt reads to describe the sender, and it never looked at
+     settings.knowledge at all. That's the whole reason a real LinkedIn
+     history and resume sat in the account without ever reaching a message. */
+  const kb = st.knowledge || {};
+  const positions = (kb.positions||[]).slice(0,4).map(p=>[p.title,p.company].filter(Boolean).join(' at ')).filter(Boolean);
+  const education = (kb.education||[]).slice(0,3).map(e=>[e.degree,e.school].filter(Boolean).join(', ')).filter(Boolean);
   return [
     'Goal: ' + (goalTypeList(st).map(t=>GOAL_LABEL[t]).filter(Boolean).join(' and ') || 'building a professional network'),
     st.goal ? 'In their words: ' + st.goal : '',
@@ -661,7 +669,12 @@ function strategyBrief(st){
     (st.targetCompanies||[]).length ? 'Target organizations: ' + st.targetCompanies.join(', ') : '',
     (st.targetLocations||[]).length ? 'Places that matter: ' + st.targetLocations.join(', ') : '',
     (st.currentRole||st.currentCompany) ? 'Currently: ' + [st.currentRole, st.currentCompany].filter(Boolean).join(' at ') : '',
+    (kb.identity&&kb.identity.headline) ? 'LinkedIn headline: ' + kb.identity.headline : '',
+    positions.length ? 'Career history: ' + positions.join('; ') : '',
+    education.length ? 'Education: ' + education.join('; ') : '',
     (st.schools||[]).length ? 'Schools: ' + st.schools.join(', ') : '',
+    (kb.identity&&clean(kb.identity.summary)) ? 'About: ' + clean(kb.identity.summary).slice(0,400) : '',
+    clean(kb.resumeText) ? 'Resume: ' + clean(kb.resumeText).slice(0,600) : '',
     (st.successMetrics||[]).length ? 'Success looks like: ' + st.successMetrics.join(', ') : '',
     (st.networkingStyle||[]).length ? 'Prefers: ' + st.networkingStyle.join(', ') : '',
   ].filter(Boolean).join('\n');
