@@ -500,11 +500,11 @@ function fitFromStrategy(p, r) {
 function fitRecommendation(fit, r) {
   const goal = String(r.goal || '').trim();
   if (fit.label === 'Excellent match')
-    return goal ? `Save them. They line up with your goal: ${goal.replace(/\.$/, '')}.` : 'Save them - they line up with what you are building.';
+    return goal ? 'Save them. They line up with your goal.' : 'Save them - they line up with what you are building.';
   if (fit.label === 'Strong match')
     return 'Worth saving. Read the brief in Mighty before you write.';
   if (fit.label === 'Potential match')
-    return 'Matches your goal. Save only if you have your own reason.';
+    return 'Slightly matches your goal. Save only if you have your own reason.';
   // Nothing matched - say that plainly rather than dressing it up.
   return 'Nothing here matches your strategy. Skip, unless you know something Mighty does not. Save only if you have your own reason.';
 }
