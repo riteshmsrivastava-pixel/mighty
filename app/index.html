@@ -2980,8 +2980,8 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
           </div>
         </div>}
       <div className="sub" style={{marginTop:14,fontSize:13.5,lineHeight:1.5}}>
-        {ctx.whySaved || 'No reason was recorded when this was saved'}
-        {' · '}{ctx.savedFrom ? 'found by searching "'+ctx.savedFrom+'"' : (ctx.source==='search'?'found through search':'saved from the extension')}
+        {ctx.whySaved && <>{ctx.whySaved}{' · '}</>}
+        {ctx.savedFrom ? 'Found by searching "'+ctx.savedFrom+'"' : (ctx.source==='search'?'Found through search':'Saved from the extension')}
         {' · saved '}{ago(row.shortlisted_at)||'recently'}
       </div>
 
@@ -3050,9 +3050,8 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
           {((br.shared&&br.shared.length) || (ctx.common&&ctx.common.length)) &&
             <div className="card" style={{padding:'22px 24px'}}>
               <div className="eyebrow">Shared context</div>
-              <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:12}}>
-                {((br.shared&&br.shared.length?br.shared:ctx.common)||[]).map((c,i)=>
-                  <span key={i} className="tag" style={{padding:'7px 13px',fontSize:13}}>{c}</span>)}
+              <div style={{fontSize:15,lineHeight:1.6,color:'var(--body)',marginTop:8}}>
+                {((br.shared&&br.shared.length?br.shared:ctx.common)||[]).join(' · ')}
               </div>
             </div>}
           {[['Company',row.company],['Location',ctx.location],['Education',ctx.education],['Headline',row.title]]
