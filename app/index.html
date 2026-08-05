@@ -4814,13 +4814,16 @@ function Gate({sb}){
           <button className="btn" style={{width:'100%',marginTop:18}} onClick={go} disabled={busy}>
             {busy?<span><span className="spin"/> Working…</span>:mode==='up'?'Create account':mode==='in'?'Sign in':'Send reset link'}
           </button>
+          {/* Self-serve signup is deliberately closed. Access is granted a
+              person at a time (see /request/), so an open "Create an account"
+              button here would quietly make that gate decorative - anyone who
+              found /app/ could walk straight past it. The reset flow stays,
+              because it is for people who already have an account. */}
           <div className="row" style={{justifyContent:'space-between',marginTop:14}}>
-            <button className="btn q" style={{fontSize:13.5,padding:0}}
-              onClick={()=>{ setMode(mode==='in'?'up':'in'); setErr(null); setMsg(null); }}>
-              {mode==='in'?'Create an account':'I already have an account'}
-            </button>
-            {mode!=='reset' &&
-              <button className="btn q" style={{fontSize:13.5,padding:0}} onClick={()=>{ setMode('reset'); setErr(null); }}>Forgot password</button>}
+            <a className="btn q" style={{fontSize:13.5,padding:0}} href="/request/">Request access</a>
+            {mode!=='reset'
+              ? <button className="btn q" style={{fontSize:13.5,padding:0}} onClick={()=>{ setMode('reset'); setErr(null); }}>Forgot password</button>
+              : <button className="btn q" style={{fontSize:13.5,padding:0}} onClick={()=>{ setMode('in'); setErr(null); setMsg(null); }}>Back to sign in</button>}
           </div>
         </div>
       </div>
