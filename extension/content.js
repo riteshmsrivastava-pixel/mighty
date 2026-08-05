@@ -443,16 +443,14 @@ function sharedGround(r, company, sec, mutualRaw, location) {
   const hit = co && idx.find(e => e.label.toLowerCase() === co.toLowerCase());
   if (hit) shared.push(`You know ${hit.count} ${hit.count === 1 ? 'person' : 'people'} at ${hit.label}${(hit.sample || []).length ? ` - ${hit.sample.map(s => s.name).filter(Boolean).join(', ')}` : ''}`);
 
-  // Your own career history - literal company match first, then domain-level
-  // keyword overlap (e.g. both fintech) when the company itself doesn't match.
+  // Your own career history - literal company match. Domain-level keyword
+  // overlap is no longer folded in here: it now has its own labelled section
+  // (kbKeywordMatches below), because "which of MY keywords matched" is a
+  // different claim than "we have this in common" and deserves to be legible
+  // as such.
   const ownCos = prof.ownCompanies || [];
   const ownHit = co && ownCos.find(c => mightySameCompany(c, co));
   if (ownHit) shared.push(`You've also worked at ${ownHit}`);
-  else {
-    const hay = `${company || ''} ${sec.about || ''} ${sec.experience || ''}`.toLowerCase();
-    const kwHit = (prof.keywords || []).find(k => k.length > 3 && hay.includes(k.toLowerCase()));
-    if (kwHit) shared.push(`Shared ground: ${kwHit}`);
-  }
 
   // Your own schools (prof.schools here means the account holder's alma
   // mater, not a target list) against their Education section.
@@ -475,6 +473,35 @@ function sharedGround(r, company, sec, mutualRaw, location) {
     if (mine.some(m => m.length > 2 && (loc.includes(m) || m.includes(loc)))) shared.push(location);
   }
   return shared.slice(0, 5);
+}
+/* Which of the account holder's OWN knowledge-base keywords actually appear on
+   the profile being viewed.
+
+   This has its own section in the panel rather than being folded into "what
+   you share" for a specific reason: the most common doubt about a tool like
+   this is "is it really using what it knows about me, or is it producing
+   plausible-sounding generic filler?" A named list of keywords, each of which
+   demonstrably came out of the user's own resume and career history via
+   synthesizeKnowledge(), answers that by being checkable - you can read them
+   and recognise them as yours. Matching is plain substring on the page text,
+   so nothing here is inferred. */
+function kbKeywordMatches(prof, company, sec) {
+  const hay = `${company || ''} ${sec.about || ''} ${sec.experience || ''} ${sec.skills || ''}`.toLowerCase();
+  const out = [];
+  for (const k of (prof.keywords || [])) {
+    const t = String(k || '').trim();
+    // Short tokens ("AI", "VC") match inside unrelated words far too readily -
+    // "ai" alone hits "email", "raise", "chair" - so the floor stays at 4.
+    if (t.length > 3 && hay.indexOf(t.toLowerCase()) >= 0 && out.indexOf(t) < 0) out.push(t);
+    if (out.length >= 5) break;
+  }
+  return out;
+}
+// Keyword chips, so a match reads as a discrete thing rather than a sentence.
+function panelChips(list) {
+  return `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">
+    ${list.map(x => `<span style="background:${TINT};color:${ACCENT_DEEP};font-size:21px;font-weight:700;
+      padding:7px 15px;border-radius:99px;line-height:1.25;">${esc(x)}</span>`).join('')}</div>`;
 }
 // Relationship stated in words, not a bare percentage.
 function relationshipWords(row, evs) {
@@ -744,6 +771,7 @@ async function renderProfileSidebar() {
       sections: sec };
     const fit = fitFromStrategy(person, r);
     const shared = sharedGround(r, liveCompany, sec, mutualText(), liveLocation);
+    const kw = kbKeywordMatches(r.profile || {}, liveCompany, sec);
 
     el.innerHTML = mightyBrandHead('')
       + panelPerson(livePhoto, liveName, personSub(liveHeadline, liveCompany))
@@ -752,6 +780,7 @@ async function renderProfileSidebar() {
              <span style="width:8px;height:8px;border-radius:50%;flex:none;background:${FIT_DOT[fit.label] || MUTE};"></span>
              <span style="font-size:17px;font-weight:700;letter-spacing:-.015em;">${esc(fit.label)}</span>
            </div>`, true)
+      + (kw.length ? panelSection('From your knowledge base', panelChips(kw)) : '')
       + (shared.length ? panelSection('What you share', panelLines(shared)) : '')
       + panelSection('Recommendation',
           `<div style="font-size:14.5px;line-height:1.5;color:#2A2724;margin-top:7px;">${esc(fitRecommendation(fit, r))}</div>`);
@@ -825,6 +854,7 @@ async function renderProfileSidebar() {
   const savedMutRaw = (row.context || {}).mutualConnectionsRaw || mutualText();
   const savedLocation = (row.context || {}).location || liveLocation;
   const shared = sharedGround(r, company, sec, savedMutRaw, savedLocation);
+  const kw = kbKeywordMatches(r.profile || {}, company, sec);
 
   el.innerHTML =
     mightyBrandHead(`<span style="font-size:11.5px;font-weight:700;color:#2E8B5F;background:#E6F4EC;padding:4px 11px;border-radius:999px;">Saved</span>`)
@@ -835,6 +865,7 @@ async function renderProfileSidebar() {
            <span style="font-size:17px;font-weight:700;letter-spacing:-.015em;">${esc(fit.label)}</span>
          </div>
          <div style="font-size:13px;color:${SUB};margin-top:4px;">${esc(rel.label)} · ${esc(rel.sub)}</div>`, true)
+    + (kw.length ? panelSection('From your knowledge base', panelChips(kw)) : '')
     + (shared.length ? panelSection('What you share', panelLines(shared)) : '')
     + panelSection('Where you are',
         `<div style="display:flex;flex-direction:column;gap:9px;font-size:13.5px;margin-top:9px;">
