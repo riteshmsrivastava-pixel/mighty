@@ -3978,6 +3978,41 @@ function Settings({email, settings, people, events, tasks, onSignOut, onDeleteAc
     setSaved(true); setEditing(false); setTimeout(()=>setSaved(false), 2200);
   }
 
+  /* Downscale in the browser to a small square data URL, exactly as the
+     extension's encodeAvatar does for everyone else's photo, so both paths
+     produce the same shape and the same cost. It has to be small: this is
+     stored inside settings.knowledge, which lives in one jsonb row that is
+     re-saved whole on every settings write - a full-size photo here would be
+     paid for on every future save. 128px JPEG lands around 5-8KB. */
+  const [photoBusy,setPhotoBusy] = useState(false);
+  const [photoErr,setPhotoErr]   = useState(null);
+  async function pickPhoto(file){
+    setPhotoErr(null);
+    if(!/^image\//.test(file.type||'')){ setPhotoErr('That is not an image file.'); return; }
+    setPhotoBusy(true);
+    try{
+      const dataUrl = await new Promise((resolve, reject)=>{
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = ()=>{
+          try{
+            const S = 128, c = document.createElement('canvas');
+            c.width = S; c.height = S;
+            const side = Math.min(img.naturalWidth, img.naturalHeight);
+            const sx = (img.naturalWidth - side)/2, sy = (img.naturalHeight - side)/2;
+            c.getContext('2d').drawImage(img, sx, sy, side, side, 0, 0, S, S);
+            resolve(c.toDataURL('image/jpeg', 0.82));
+          }catch(e){ reject(e); }
+          finally{ URL.revokeObjectURL(url); }
+        };
+        img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('That image could not be read.')); };
+        img.src = url;
+      });
+      await onSaveSettings({knowledge:{...kb, identity:{...(kb.identity||{}), avatarUrl:dataUrl}}});
+    }catch(e){ setPhotoErr(e.message || 'Could not read that image.'); }
+    setPhotoBusy(false);
+  }
+
   const [deleting,setDeleting] = useState(false);
   const [confirmText,setConfirmText] = useState('');
   const [busyDelete,setBusyDelete] = useState(false);
@@ -3991,11 +4026,29 @@ function Settings({email, settings, people, events, tasks, onSignOut, onDeleteAc
         {!editing ? (
           <div className="row" style={{justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
             <div className="row" style={{gap:14,alignItems:'center'}}>
-              <Avatar name={name||email} size={40} src={kb.identity&&kb.identity.avatarUrl} hover={{profileUrl:selfProfileUrl(kb)}}/>
+              {/* Clicking the avatar sets the photo. The extension can capture
+                  everyone else's from their profile page, but not the account
+                  holder's own: LinkedIn serves no og:image on a self-view, and
+                  the only fallback that could find it was removed for a good
+                  reason - it was matching the viewer's nav-bar photo, which is
+                  the wrong person on anyone else's card. So this is the one
+                  photo the product cannot fetch, and asking directly beats
+                  leaving initials forever. */}
+              <label title="Choose a photo" style={{cursor:photoBusy?'default':'pointer',position:'relative',flex:'none'}}>
+                <input type="file" accept="image/*" style={{display:'none'}} disabled={photoBusy}
+                  onChange={e=>{ const f=e.target.files&&e.target.files[0]; e.target.value=''; if(f) pickPhoto(f); }}/>
+                <Avatar name={name||email} size={40} src={kb.identity&&kb.identity.avatarUrl}/>
+                {photoBusy && <span className="spin" style={{position:'absolute',left:12,top:12}}/>}
+              </label>
               <div>
                 <div className="h4">{name || 'Add your name'}</div>
                 <div className="sub" style={{fontSize:13.5,marginTop:2}}>
                   {email}{[role,company].filter(Boolean).length ? ' · '+[role,company].filter(Boolean).join(', ') : ''}{loc ? ' · '+loc : ''}
+                </div>
+                <div className="meta" style={{marginTop:3}}>
+                  {photoErr ? <span style={{color:'#C75B33'}}>{photoErr}</span>
+                    : (kb.identity&&kb.identity.avatarUrl) ? 'Click your photo to change it'
+                    : 'Click the circle to add a photo'}
                 </div>
               </div>
             </div>
