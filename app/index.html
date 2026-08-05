@@ -2854,7 +2854,12 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
      switching chips is a local state change, free and instant. lastApproach
      on ctx remembers which one was actually sent, so a later reply can be
      attributed back to it (see markReplied). */
-  const initialApproach = (ctx.lastApproach && APPROACHES.some(a=>a.id===ctx.lastApproach)) ? ctx.lastApproach : 'curiosity';
+  /* Warm introduction is the default angle, not Curiosity: it is the first
+     chip in APPROACHES, so landing anywhere else made the selection look
+     arbitrary, and it is the safer opener for a first message to a stranger.
+     A person who has already been written to keeps whatever was actually sent
+     (ctx.lastApproach), which still wins over this default. */
+  const initialApproach = (ctx.lastApproach && APPROACHES.some(a=>a.id===ctx.lastApproach)) ? ctx.lastApproach : 'warm';
   const [approach,setApproach] = useState(initialApproach);
   const [drafts,setDrafts] = useState(()=> row.ai_draft
     ? {[initialApproach]: {message:row.ai_draft, original:row.ai_draft, subject:''}} : {});
@@ -6742,7 +6747,13 @@ function App(){
       if(target.ask) setAskDraft(target.ask);
       return;
     }
-    if(target.screen==='profile' && target.id!=null){ setPersonId(target.id); setTab(target.tab||'draft'); }
+    /* Opening a person lands on Prepare, not Draft. Understanding someone
+       comes before writing to them, and the brief is free while a draft costs
+       an assist - defaulting to Draft put the paid step first and the reading
+       step second. Call sites that genuinely mean "write now" (Today's Reply
+       to X, Send the first message, Follow up) pass tab:'draft' explicitly and
+       are unaffected; this fallback is what a plain click on a name gets. */
+    if(target.screen==='profile' && target.id!=null){ setPersonId(target.id); setTab(target.tab||'brief'); }
     if(target.screen==='you'){
       const t = target.tab||'mirror';
       /* Re-clicking "Goal" in the sidebar while mid-edit used to silently
