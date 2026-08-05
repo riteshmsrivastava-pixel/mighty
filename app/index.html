@@ -2876,10 +2876,16 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
   const memories = Array.isArray(ctx.memories)?ctx.memories:[];
   const myTasks = tasks.filter(t=>t.log_id===row.id && !t.done);
 
+  /* Resets when you switch to a different person, because this component is
+     reused rather than remounted - without it, person B would inherit person
+     A's selected chip and drafts. It must use the SAME default as
+     initialApproach above: it runs on mount too, so any disagreement between
+     the two silently wins here and makes the useState default dead code. That
+     is exactly what happened - useState said 'warm', this said 'curiosity',
+     and every profile still opened on Curiosity. */
   useEffect(()=>{
-    const ia = (ctx.lastApproach && APPROACHES.some(a=>a.id===ctx.lastApproach)) ? ctx.lastApproach : 'curiosity';
-    setApproach(ia);
-    setDrafts(row.ai_draft ? {[ia]: {message:row.ai_draft, original:row.ai_draft, subject:''}} : {});
+    setApproach(initialApproach);
+    setDrafts(row.ai_draft ? {[initialApproach]: {message:row.ai_draft, original:row.ai_draft, subject:''}} : {});
     // eslint-disable-next-line
   }, [row.id]);
 
