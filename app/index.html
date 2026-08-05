@@ -2854,12 +2854,19 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
      switching chips is a local state change, free and instant. lastApproach
      on ctx remembers which one was actually sent, so a later reply can be
      attributed back to it (see markReplied). */
-  /* Warm introduction is the default angle, not Curiosity: it is the first
-     chip in APPROACHES, so landing anywhere else made the selection look
-     arbitrary, and it is the safer opener for a first message to a stranger.
-     A person who has already been written to keeps whatever was actually sent
-     (ctx.lastApproach), which still wins over this default. */
-  const initialApproach = (ctx.lastApproach && APPROACHES.some(a=>a.id===ctx.lastApproach)) ? ctx.lastApproach : 'warm';
+  /* Always Warm introduction - the first chip in APPROACHES, and the safer
+     opener for a first message to a stranger.
+
+     This deliberately does NOT restore ctx.lastApproach. That field is written
+     in two places: when a draft is copied to send (a real choice) and when
+     drafts are generated (just whichever chip happened to be selected at the
+     time). Because of the second one it is polluted - every person drafted
+     before today carries 'curiosity' purely because that used to be the
+     default, not because anyone picked it. Reopening on a stored value that
+     may mean nothing is worse than opening somewhere predictable, so the
+     landing chip is fixed and lastApproach stays what it is actually good
+     for: attributing a reply to what was sent (see markReplied). */
+  const initialApproach = 'warm';
   const [approach,setApproach] = useState(initialApproach);
   const [drafts,setDrafts] = useState(()=> row.ai_draft
     ? {[initialApproach]: {message:row.ai_draft, original:row.ai_draft, subject:''}} : {});
@@ -6767,7 +6774,10 @@ function App(){
     setScreen(target.screen);
     window.scrollTo({top:0});
   }
-  const openPerson = (id, t)=>go({screen:'profile', id, tab:t||'draft'});
+  /* Same default as go()'s own fallback, and it has to be repeated here
+     because passing tab:'draft' explicitly is what List/Board/Timeline/Ask all
+     do through this helper - go()'s fallback never got a chance to apply. */
+  const openPerson = (id, t)=>go({screen:'profile', id, tab:t||'brief'});
 
   if(auth.status==='loading')
     return <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}><span className="spin"/></div>;
