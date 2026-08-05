@@ -686,18 +686,31 @@ function strategyBrief(st){
       ? 'Unverified web mentions (do not state as settled fact; use only as color if it fits): '
         + kb.selfResearch.findings.map(f=>f.text).join(' | ').slice(0,1500)
       : '',
-    /* Extracted layer on top of the raw fields above - see synthesizeKnowledge(). */
-    (kb.synthesis && (kb.synthesis.keywords||[]).length) ? 'Keywords: ' + kb.synthesis.keywords.join(', ') : '',
-    (kb.synthesis && (kb.synthesis.themes||[]).length) ? 'Career themes: ' + kb.synthesis.themes.map(t=>t.title+' - '+t.summary).join('; ') : '',
-    (kb.synthesis && (kb.synthesis.insights||[]).length) ? 'Specific differentiators to draw on: ' + kb.synthesis.insights.join('; ') : '',
+    /* Extracted layer on top of the raw fields above - see synthesizeKnowledge().
+       Every line here is capped. This function is the preamble on EVERY real
+       AI call, so anything unbounded here is paid for on every brief, every
+       draft and every ranking - and it is not just cost. Left uncapped this
+       grew to ~2,000 tokens, which pushed the briefing model into longer
+       output than its own maxTokens allowed and truncated the JSON mid-object;
+       the user saw "Mighty's answer did not come back in the right shape" and
+       nothing worked. A preamble that starves the answer is worse than a
+       shorter preamble. */
+    (kb.synthesis && (kb.synthesis.keywords||[]).length)
+      ? 'Keywords: ' + kb.synthesis.keywords.slice(0,18).join(', ') : '',
+    (kb.synthesis && (kb.synthesis.themes||[]).length)
+      ? 'Career themes: ' + kb.synthesis.themes.slice(0,4).map(t=>t.title).join('; ') : '',
+    (kb.synthesis && (kb.synthesis.insights||[]).length)
+      ? 'Specific differentiators to draw on: ' + kb.synthesis.insights.slice(0,4).join('; ').slice(0,600) : '',
     (kb.synthesis && (kb.synthesis.proofPoints||[]).length)
-      ? 'Reusable proof points (pull the one that fits the conversation, tagged by what it supports): '
-        + kb.synthesis.proofPoints.map(p=>p.claim+' ['+p.pitch+']').join('; ')
+      ? 'Reusable proof points (pull the one that fits): '
+        + kb.synthesis.proofPoints.slice(0,4).map(p=>p.claim).join('; ').slice(0,600)
       : '',
-    (kb.synthesis && (kb.synthesis.questionBank||[]).length)
-      ? 'Good questions to ask someone in an industry this person has real experience in: '
-        + kb.synthesis.questionBank.map(q=>q.industry+': '+q.questions.join(' / ')).join(' | ')
-      : '',
+    /* questionBank is deliberately NOT here. It is the single largest block
+       synthesizeKnowledge() produces (three questions per industry, all
+       industries), it is situational rather than descriptive of the sender,
+       and dumping every industry's questions into a prompt about one specific
+       person is noise that crowded out the parts that actually matter. It
+       stays in the knowledge base for surfaces that want it. */
   ].filter(Boolean).join('\n');
 }
 /* Cheap fingerprint of the fields synthesizeKnowledge() actually reads, so the
@@ -2892,7 +2905,13 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
       const out = await llmJSON(sb, 'profile_briefing',
         'You prepare someone for a first conversation. Use ONLY the facts given - never invent employers, dates, achievements or posts. If you do not know something, leave that field out. Plain language, no scores, no flattery. Address the reader directly as "you" and "your" throughout every field - never write "the user" or "the user\'s goal" in third person. Never use em dashes; write a spaced hyphen instead.',
         `About the person doing the outreach (this is you, the reader):\n${strategyBrief(settings)}\n\nThe person they want to understand:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nLocation: ${ctx.location||'unknown'}\nEducation: ${ctx.education||'unknown'}\nProfile text captured: ${clean(ctx.aboutText||ctx.snippet||'').slice(0,900)}\n${captured||''}\nWhy they were saved: ${ctx.whySaved||'unknown'}\nShared ground noted at save time: ${(ctx.common||[]).join('; ')||'none noted'}\n\nReturn JSON {"careerSummary":"2-3 sentences","whyMatters":"1-2 sentences on why this person matters to your goal, written directly to you as 'you'","shared":["real overlap - literal (same company, school, city) AND domain-level (both have worked in the same or a comparable industry, e.g. fintech, healthcare/pharma, deep tech - reason this out from each person's actual career history above, do not just restate their titles)"],"starters":["specific opening, grounded in the facts above"],"avoid":"one thing not to lead with, or omit"}`,
-        1000, exchangeKey);
+        /* 1000 was not enough headroom once the sender preamble grew: five
+           JSON fields, two of them arrays of full sentences, on a person with
+           a rich profile ran past it and came back truncated mid-string, which
+           surfaces to the user as "did not come back in the right shape". The
+           preamble is capped now too, but the ceiling should not be the thing
+           that decides whether a brief parses. */
+        1600, exchangeKey);
       const briefing = {...br, careerSummary:clean(out.careerSummary), whyMatters:clean(out.whyMatters),
         shared:Array.isArray(out.shared)?out.shared:[], conversationStarters:Array.isArray(out.starters)?out.starters:[],
         avoid:clean(out.avoid), builtAt:new Date().toISOString()};
@@ -2912,32 +2931,6 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
   const voice = allSamples.slice(0, 6);
   const fp = styleFingerprint(allSamples);
 
-  /* What the knowledge base actually contributes to THIS person's draft.
-     Shown in the Draft tab rather than left implicit, because the honest
-     question about any AI draft is "did it use what it knows about me, or is
-     this generic?" - and the only convincing answer is a list the user can
-     read and recognise as their own. Everything here is what gets handed to
-     the model via strategyBrief(); it is not a claim about which parts the
-     model leaned on, and the copy says "drew on" rather than "used" for
-     exactly that reason. */
-  const kbUsed = useMemo(()=>{
-    const kb = settings.knowledge || {};
-    const syn = kb.synthesis || {};
-    const hay = [row.title, row.company, ctx.aboutText, ctx.experienceText, ctx.skillsText, ctx.snippet]
-      .filter(Boolean).join(' ').toLowerCase();
-    const matched = (syn.keywords||[])
-      .filter(k => String(k).length>3 && hay.indexOf(String(k).toLowerCase())>=0)
-      .slice(0,6);
-    return {
-      matched,
-      keywordTotal: (syn.keywords||[]).length,
-      themes: (syn.themes||[]).length,
-      proofPoints: (syn.proofPoints||[]).length,
-      samples: allSamples.length,
-      resume: !!clean(kb.resumeText),
-      positions: (kb.positions||[]).length,
-    };
-  }, [settings.knowledge, row.title, row.company, ctx.aboutText, ctx.experienceText, ctx.skillsText, ctx.snippet, allSamples.length]);
 
   const DRAFT_SYSTEM_ONE = "You write a real first outreach message for a professional. Ground it ONLY in the given context - never invent shared history, mutual friends, articles or events. Sound like a person, not a template. No flattery, no buzzwords, no 'I hope this finds you well', no generic greeting line before the real content ('Greeting for the day', 'Hope you're doing well', or similar - go straight from the salutation into the actual reason for writing). Under 110 words. Ask for one specific, easy thing. Never use em dashes; write a spaced hyphen instead.";
   const draftContext = ()=>
@@ -3301,30 +3294,6 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                 {a.label}{drafts[a.id] && <span style={{marginLeft:6,opacity:.6}}>&middot;</span>}
               </button>))}
           </div>
-          {(kbUsed.matched.length>0 || kbUsed.keywordTotal>0) &&
-            <div className="card" style={{marginTop:16,padding:'18px 24px',background:'var(--brand-soft)',borderColor:'var(--brand-line)'}}>
-              <div className="eyebrow b" style={{color:'var(--brand-ink)'}}>From your knowledge base</div>
-              {kbUsed.matched.length>0
-                ? <F>
-                    <div className="sub" style={{fontSize:13.5,marginTop:7}}>
-                      Your keywords that appear on {row.name ? row.name.split(' ')[0] : 'this'}&rsquo;s profile:
-                    </div>
-                    <div style={{display:'flex',flexWrap:'wrap',gap:7,marginTop:9}}>
-                      {kbUsed.matched.map((k,i)=>(
-                        <span key={i} className="tag" style={{background:'var(--brand-soft2)',
-                          borderColor:'var(--brand-line)',color:'var(--brand-ink)',fontWeight:700}}>{k}</span>))}
-                    </div>
-                  </F>
-                : <div className="sub" style={{fontSize:13.5,marginTop:7}}>
-                    None of your {kbUsed.keywordTotal} keywords appear on this profile, so the draft leans on your
-                    goal and career history rather than a domain overlap.
-                  </div>}
-              <div className="meta" style={{marginTop:12,lineHeight:1.5}}>
-                Every draft also draws on {kbUsed.keywordTotal} keywords, {kbUsed.themes} career theme{kbUsed.themes===1?'':'s'} and {kbUsed.proofPoints} proof point{kbUsed.proofPoints===1?'':'s'} built from
-                your {kbUsed.positions} role{kbUsed.positions===1?'':'s'}{kbUsed.resume?' and your resume':''}
-                {kbUsed.samples>0 ? ', and matches how you write from '+kbUsed.samples+' of your own sent messages' : ''}.
-              </div>
-            </div>}
           <div className="card" style={{marginTop:16,padding:'22px 24px'}}>
             <div className="eyebrow b">Draft · {(APPROACHES.find(a=>a.id===approach)||{}).label}</div>
             {Object.keys(drafts).length===0 &&
