@@ -98,7 +98,13 @@
       </div>
       <div style="margin-top:18px">
         <div class="lbl"><label for="linkedin">LinkedIn profile</label></div>
-        <input class="inp" id="linkedin" name="linkedin" type="url" inputmode="url"
+        <!-- type="text", NOT type="url". The handler below deliberately accepts
+             "linkedin.com/in/name" and adds the scheme itself, because that is
+             how people actually type it - but the browser's native validator
+             runs FIRST on type="url" and rejects a scheme-less value with
+             "Please enter a URL", so the normalisation never got a chance. -->
+        <input class="inp" id="linkedin" name="linkedin" type="text" inputmode="url"
+          autocapitalize="off" spellcheck="false"
           placeholder="linkedin.com/in/your-name">
       </div>
       <div style="margin-top:18px">
@@ -136,8 +142,25 @@
     msg.textContent = text;
   }
 
+  /* Anything that throws between disabling the button and the fetch resolving
+     would otherwise leave the form stuck on "Sending..." with no message and
+     no request sent - which is exactly what happened when this body still
+     referenced a removed field. The fetch's own .catch cannot see a
+     synchronous throw that happens before fetch is called, so the whole
+     handler is wrapped. A visitor who cannot get in must at least be told. */
+  function fail(err){
+    btn.disabled = false;
+    btn.textContent = 'Request access';
+    say('err', 'Could not send that just now. Try again, or email rmohans@mit.edu.');
+    console.error('access_request failed', err);
+  }
+
   f.addEventListener('submit', function(e){
     e.preventDefault();
+    try{ submitRequest(); }catch(err){ fail(err); }
+  });
+
+  function submitRequest(){
     var name        = document.getElementById('name').value.trim();
     var email       = document.getElementById('email').value.trim();
     var linkedin    = document.getElementById('linkedin').value.trim();
@@ -176,7 +199,19 @@
         'Content-Type': 'application/json',
         'Prefer': 'return=minimal'
       },
-      body: JSON.stringify({ email: email, name: name || null, note: note || null })
+      /* Keys must match the access_requests columns exactly (name, email,
+         linkedin_url, affiliation). An earlier revision of this form collected
+         a free-text `note`; the fields changed but this body did not, so it
+         referenced an undeclared variable and threw a ReferenceError before
+         fetch was ever reached - after the button had already been disabled
+         and set to "Sending...", and before the .catch below could run. The
+         form locked silently on every submit and nothing was ever recorded. */
+      body: JSON.stringify({
+        name: name,
+        email: email,
+        linkedin_url: linkedin || null,
+        affiliation: affiliation || null
+      })
     }).then(function(res){
       /* A duplicate email is a unique-index violation (409). That is not a
          failure from the visitor's side - they already asked - so it reads as
@@ -190,13 +225,8 @@
         return;
       }
       return res.text().then(function(t){ throw new Error(t || ('HTTP ' + res.status)); });
-    }).catch(function(err){
-      btn.disabled = false;
-      btn.textContent = 'Request access';
-      say('err', 'Could not send that just now. Try again, or email rmohans@mit.edu.');
-      console.error('access_request failed', err);
-    });
-  });
+    }).catch(fail);
+  }
 })();
 </script>
 

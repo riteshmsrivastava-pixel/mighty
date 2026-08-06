@@ -500,8 +500,8 @@ function kbKeywordMatches(prof, company, sec) {
 // Keyword chips, so a match reads as a discrete thing rather than a sentence.
 function panelChips(list) {
   return `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">
-    ${list.map(x => `<span style="background:${TINT};color:${ACCENT_DEEP};font-size:21px;font-weight:700;
-      padding:7px 15px;border-radius:99px;line-height:1.25;">${esc(x)}</span>`).join('')}</div>`;
+    ${list.map(x => `<span style="background:${TINT};color:${ACCENT_DEEP};font-size:13px;font-weight:700;
+      padding:5px 11px;border-radius:99px;line-height:1.3;">${esc(x)}</span>`).join('')}</div>`;
 }
 // Relationship stated in words, not a bare percentage.
 function relationshipWords(row, evs) {
@@ -1167,8 +1167,7 @@ async function renderGoogleImportPanel() {
   /* Says the quiet part: a search result is a name and a headline. Mighty will
      not pretend it can brief you on someone from that, and opening the profile
      once is what turns a row into something worth reading. */
-  foot.textContent = 'A search result is a name and a headline. Open each profile once and Mighty can brief you properly. '
-    + 'you properly.';
+  foot.textContent = 'A search result is a name and a headline. Open each profile once and Mighty can brief you properly.';
   gPanel.appendChild(foot);
   document.body.appendChild(gPanel);
 }

@@ -1327,7 +1327,9 @@ function buildPlan(people, events, tasks){
      Capped like every other rule here so a long backlog can't crowd out the
      rest of Today. Excludes anyone the 'cap-' rule above already covers this
      week (a fresh coffee chat isn't cold, it's just uncaptured yet). */
-  people.filter(r=>['replied','coffee_chat','referral','interview'].indexOf(r.status)>=0).slice(0,2).forEach(r=>{
+  /* 'offer' belongs here too - it was omitted, which meant the one stage you
+     least want going silent was the only active stage this rule ignored. */
+  people.filter(r=>['replied','coffee_chat','referral','interview','offer'].indexOf(r.status)>=0).slice(0,2).forEach(r=>{
     const last = lastOf(r);
     const lastAt = (last && last.occurred_at) || r.updated_at || r.shortlisted_at;
     if(lastAt && days(lastAt)>=21)
@@ -4045,11 +4047,12 @@ function Settings({email, settings, people, events, tasks, onSignOut, onDeleteAc
                 <div className="sub" style={{fontSize:13.5,marginTop:2}}>
                   {email}{[role,company].filter(Boolean).length ? ' · '+[role,company].filter(Boolean).join(', ') : ''}{loc ? ' · '+loc : ''}
                 </div>
-                <div className="meta" style={{marginTop:3}}>
-                  {photoErr ? <span style={{color:'#C75B33'}}>{photoErr}</span>
-                    : (kb.identity&&kb.identity.avatarUrl) ? 'Click your photo to change it'
-                    : 'Click the circle to add a photo'}
-                </div>
+                {/* Only speaks when something actually went wrong. The avatar
+                    carries a title tooltip and a pointer cursor, which is
+                    affordance enough - a permanent instruction line under
+                    someone's own name is noise on every visit. */}
+                {photoErr &&
+                  <div className="meta" style={{marginTop:3,color:'#C75B33'}}>{photoErr}</div>}
               </div>
             </div>
             <button className="btn g sm" onClick={()=>setEditing(true)}>Edit</button>
@@ -6328,9 +6331,23 @@ function App(){
 
   async function pull(u){
     try{
-      const {data} = await sb.from('user_data').select('data').eq('user_id',u.id).maybeSingle();
+      /* `error` has to be read here, and the app has to refuse to continue
+         without it. supabase-js resolves with {error} rather than throwing, so
+         an expired JWT or an RLS/500 gave data === null, which is
+         indistinguishable from "brand new account" - the catch below never
+         ran, blob became {}, hasIntent went false, Onboarding rendered, and
+         finishing it called saveSettings, which merges onto blobRef.current
+         ({}) and upserts that over the real row. One failed read could
+         therefore destroy the archive, resume, decoded network, style samples
+         and synthesis. Leaving blob null keeps the app on its loading state
+         instead, which is recoverable; a wrong write is not. */
+      const {data, error} = await sb.from('user_data').select('data').eq('user_id',u.id).maybeSingle();
+      if(error) throw error;
       setBlob((data && data.data) ? data.data : {});
-    }catch(e){ setBlob({}); setErr('Could not load your strategy. Working from a blank one.'); }
+    }catch(e){
+      setErr('Could not load your account just now, so nothing has been changed. Reload to try again.');
+      return; // deliberately not setBlob({}) - see above
+    }
     await ingest(u);
     await Promise.all([refreshPeople(u), refreshEvents(u), refreshTasks(u), refreshPendingActivity(u), refreshAppEvents(u)]);
   }
@@ -6570,7 +6587,11 @@ function App(){
     const dl = await sb.storage.from('archives').download(path);
     if(dl.error){ const e = new Error(dl.error.message||'download_failed'); e.code='no_archive'; throw e; }
     const arch = await readArchive(dl.data);
-    await saveSettings({knowledge:{...settings.knowledge, decoded: buildDecoded(arch)}});
+    /* Live knowledge, not the render closure: a storage download plus a full
+       zip parse sits between this function starting and this write, and
+       saveSettings replaces the knowledge key wholesale. */
+    const liveKb = (blobRef.current && blobRef.current.settings && blobRef.current.settings.knowledge) || settings.knowledge || {};
+    await saveSettings({knowledge:{...liveKb, decoded: buildDecoded(arch)}});
   }
 
   async function savePerson(p, query){
@@ -6769,7 +6790,15 @@ function App(){
           await new Promise(res=>setTimeout(res, 800));
         }
         if(dead || !findings.length) return;
-        await saveSettings({knowledge:{...kb, selfResearch:{lastRunAt:new Date().toISOString(), findings}}});
+        /* Re-read the live knowledge here rather than using the `kb` captured
+           when this effect started: several seconds of extension polling and
+           three paced web searches happen in between, and saveSettings
+           REPLACES the knowledge key rather than deep-merging it. Writing the
+           stale snapshot would drop anything saved meanwhile - most painfully
+           identity.avatarUrl from the self_photo ingest branch, whose inbox
+           row is deleted in the same pass and so cannot be replayed. */
+        const liveKb = (blobRef.current && blobRef.current.settings && blobRef.current.settings.knowledge) || kb;
+        await saveSettings({knowledge:{...liveKb, selfResearch:{lastRunAt:new Date().toISOString(), findings}}});
       })();
     }, 500);
     return ()=>{ dead=true; clearInterval(poll); };
