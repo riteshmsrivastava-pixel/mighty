@@ -78,8 +78,11 @@
   .btn.g:hover:not(:disabled){border-color:var(--brand);color:var(--brand-ink);background:#fff}
   .btn.sm{padding:9px 17px;font-size:14px}
   .btn.xs{padding:7px 14px;font-size:13px}
-  .btn.q{background:none;color:var(--sub);font-weight:600;padding:8px 12px}
-  .btn.q:hover{color:var(--ink)}
+  .btn.q{background:none;color:var(--sub);font-weight:600;padding:12px 8px}
+  /* Restating the background is not redundant: .btn:hover above matches these
+     too and would otherwise paint a brand-coloured pill behind what is meant to
+     read as plain text. .btn.g:hover does the same thing for the same reason. */
+  .btn.q:hover:not(:disabled){color:var(--ink);background:#F4F2EE}
   .btn.soft{background:#F4F2EE;color:#5B554D;font-weight:600}
   .btn.soft:hover{background:#EDEAE4}
 
@@ -4860,19 +4863,31 @@ function You({sb, email, settings, people, events, tasks, appEvents, tab, setTab
 function Gate({sb}){
   const [mode,setMode] = useState('in');
   const [email,setEmail] = useState(''); const [pw,setPw] = useState('');
+  const [code,setCode] = useState('');
   const [busy,setBusy] = useState(false); const [msg,setMsg] = useState(null); const [err,setErr] = useState(null);
   async function go(){
     setErr(null); setMsg(null);
-    /* Signup is open. The MIT check that used to live here was browser-side
-       only, so it excluded the founders, recruiters and investors this is for
-       while stopping nobody who opened devtools. Abuse is handled where it
-       actually costs money instead: assists are granted only once a LinkedIn
-       profile is claimed, and a profile can be claimed by one account. */
+    /* Signing yourself up needs a code from the current round. Everything below
+       is for the message only - the lock is a trigger on auth.users, because
+       this file ships the publishable key and /auth/v1/signup answers with or
+       without our JavaScript in front of it. */
     if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(clean(email))){ setErr('That does not look like an email address.'); return; }
+    if(mode==='up' && !code.trim()){ setErr('An invite code is required. Request access if you do not have one.'); return; }
     setBusy(true);
     try{
       if(mode==='up'){
-        const {error} = await sb.auth.signUp({email:clean(email), password:pw});
+        /* Asked before signUp purely so a refused code reads as a sentence.
+           The trigger surfaces as "Database error saving new user", which
+           tells nobody anything. */
+        const {data:ok, error:ckErr} = await sb.rpc('invite_code_valid', {p_code:code.trim()});
+        if(ckErr) throw ckErr;
+        if(!ok){
+          setErr('That code is not valid, or every seat in this round has been taken. Request access below and we will come back to you.');
+          return;
+        }
+        const {error} = await sb.auth.signUp({
+          email:clean(email), password:pw,
+          options:{data:{invite_code:code.trim()}}});
         if(error) throw error;
         setMsg('Account created. Check your inbox for the confirmation link, then sign in.'); setMode('in');
       } else if(mode==='in'){
@@ -4903,22 +4918,39 @@ function Gate({sb}){
                 onKeyDown={e=>{ if(e.key==='Enter') go(); }}
                 autoComplete={mode==='up'?'new-password':'current-password'}/>
             </div>}
+          {mode==='up' &&
+            <div style={{marginTop:14}}>
+              <div className="lbl">Invite code</div>
+              <input className="inp" value={code} onChange={e=>setCode(e.target.value)}
+                onKeyDown={e=>{ if(e.key==='Enter') go(); }}
+                placeholder="MIGHTY-XXXXXX" autoComplete="off" spellCheck={false}
+                style={{textTransform:'uppercase',letterSpacing:'.04em'}}/>
+              <div className="sub" style={{marginTop:6,fontSize:12.5}}>Mighty is in private testing. Codes come from us.</div>
+            </div>}
           {err && <div className="banner err" style={{marginTop:14}}>{err}</div>}
           {msg && <div className="banner ok" style={{marginTop:14}}>{msg}</div>}
           <button className="btn" style={{width:'100%',marginTop:18}} onClick={go} disabled={busy}>
             {busy?<span><span className="spin"/> Working…</span>:mode==='up'?'Create account':mode==='in'?'Sign in':'Send reset link'}
           </button>
-          {/* Self-serve signup is deliberately closed. Access is granted a
-              person at a time (see /request/), so an open "Create an account"
-              button here would quietly make that gate decorative - anyone who
-              found /app/ could walk straight past it. The reset flow stays,
-              because it is for people who already have an account. */}
+          {/* Two doors, and the difference between them is the point. Signing
+              yourself up needs a code from this round, so the plain "Create an
+              account" button that used to sit here does not come back; /request/
+              stays the way in for everyone without one. Both still end at the
+              same seat counter in the database - a code cannot mint seat 31 any
+              more than a hand-made account can. */}
           <div className="row" style={{justifyContent:'space-between',marginTop:14}}>
-            <a className="btn q" style={{fontSize:13.5,padding:0}} href="/request/">Request access</a>
-            {mode!=='reset'
-              ? <button className="btn q" style={{fontSize:13.5,padding:0}} onClick={()=>{ setMode('reset'); setErr(null); }}>Forgot password</button>
-              : <button className="btn q" style={{fontSize:13.5,padding:0}} onClick={()=>{ setMode('in'); setErr(null); setMsg(null); }}>Back to sign in</button>}
+            {mode==='in'
+              ? <button className="btn q" style={{fontSize:13.5,padding:0}}
+                  onClick={()=>{ setMode('up'); setErr(null); setMsg(null); }}>I have an invite code</button>
+              : <button className="btn q" style={{fontSize:13.5,padding:0}}
+                  onClick={()=>{ setMode('in'); setErr(null); setMsg(null); }}>Back to sign in</button>}
+            {mode==='in' &&
+              <button className="btn q" style={{fontSize:13.5,padding:0}} onClick={()=>{ setMode('reset'); setErr(null); }}>Forgot password</button>}
           </div>
+          {mode!=='reset' &&
+            <div className="sub" style={{marginTop:12,fontSize:12.5}}>
+              No code? <a href="/request/" style={{color:'var(--brand)',fontWeight:600}}>Request access</a>.
+            </div>}
         </div>
       </div>
     </div>

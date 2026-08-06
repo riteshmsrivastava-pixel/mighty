@@ -27,17 +27,21 @@ drop policy if exists "own row update" on public.user_data;
 create policy "own row update" on public.user_data
   for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
--- 3. Sign-up is OPEN. There used to be a trigger here restricting registration
--- to @mit.edu addresses, enforced properly at the database level. It is removed
--- deliberately: Mighty is for founders, recruiters, investors and operators as
--- well as students, and an email-domain gate turned all of them away.
+-- 3. Sign-up is BY INVITE, seat-limited. See section 15 for the mechanism.
 --
--- Abuse moved to where it actually costs money rather than where it is easy to
--- check. Assists are granted only once a LinkedIn profile has been claimed, and
--- a profile URL can be claimed by one account, so farming trials needs a new
--- real LinkedIn profile each time - and a profile with no history is useless
--- here, because there is nothing to import or enrich. Email addresses are free
--- and infinite; LinkedIn profiles worth having are neither.
+-- There used to be a trigger here restricting registration to @mit.edu, and it
+-- was removed deliberately: Mighty is for founders, recruiters, investors and
+-- operators as well as students, and an email-domain gate turned all of them
+-- away. The gate that replaced it asks a different question - not who you are,
+-- but whether a seat is left in this test round.
+--
+-- Beyond the seat count, abuse is handled where it actually costs money rather
+-- than where it is easy to check. Assists are granted only once a LinkedIn
+-- profile has been claimed, and a profile URL can be claimed by one account, so
+-- farming trials needs a new real LinkedIn profile each time - and a profile
+-- with no history is useless here, because there is nothing to import or
+-- enrich. Email addresses are free and infinite; LinkedIn profiles worth having
+-- are neither.
 --
 -- Both statements are safe to run on a database that never had the trigger.
 drop trigger if exists enforce_mit_email_trg on auth.users;
@@ -928,6 +932,237 @@ grant  execute on function public.connections_count() to authenticated, service_
 -- function anyone adds from arriving world-executable, which is the actual bug:
 -- the default, not any individual mistake.
 alter default privileges in schema public revoke execute on functions from public;
+
+-- ============================================================
+-- 14b. Early-access requests (from the 4 Aug 2026 migration, folded in here so
+-- a fresh project gets it - section 15 below reads this table to decide whether
+-- a hand-made account is one somebody actually approved).
+create table if not exists public.access_requests (
+  id           bigint generated always as identity primary key,
+  name         text not null,
+  email        text not null,
+  linkedin_url text,
+  affiliation  text,
+  status       text not null default 'new' check (status in ('new','invited','declined')),
+  created_at   timestamptz not null default now()
+);
+
+-- Older revision of this table shipped with a free-text note field; keep any
+-- existing data addressable while the new columns become the ones in use.
+alter table public.access_requests add column if not exists linkedin_url text;
+alter table public.access_requests add column if not exists affiliation  text;
+
+-- One row per email. A second request from the same person is not a new lead,
+-- and without this a refresh-and-resubmit quietly fills the table.
+create unique index if not exists access_requests_email_key
+  on public.access_requests (lower(email));
+
+alter table public.access_requests enable row level security;
+
+-- Anonymous visitors may ask, and may do nothing else.
+--
+-- Insert only: no select policy exists, so the anon key cannot read the list
+-- back. That matters more than it looks - without it, the publishable key in
+-- the page source would let anyone enumerate every person who has asked for
+-- access, which is exactly the kind of list that should not be public.
+drop policy if exists "ar insert anon" on public.access_requests;
+create policy "ar insert anon" on public.access_requests
+  for insert to anon, authenticated with check (true);
+
+-- Reading and triaging the list is service-role only (the Supabase dashboard,
+-- or the query at the bottom of this file).
+revoke all on public.access_requests from anon, authenticated;
+grant insert on public.access_requests to anon, authenticated;
+
+-- Cap what one insert can carry, so the form cannot be used to store arbitrary
+-- payloads through the public key.
+alter table public.access_requests drop constraint if exists access_requests_len_check;
+alter table public.access_requests add constraint access_requests_len_check check (
+  length(email) between 5 and 200
+  and length(name) between 1 and 120
+  and (linkedin_url is null or length(linkedin_url) <= 300)
+  and (affiliation  is null or length(affiliation)  <= 160)
+);
+
+-- ============================================================
+-- 15. A hard ceiling on the first round, and a second way in (6 Aug 2026).
+--
+-- Section 3 above stopped being "sign-up is open" in two steps: the 4 Aug
+-- change closed self-serve and made access something granted by hand off
+-- /request/, and this adds the ceiling that keeps the round small whether or
+-- not anyone remembers to stop inviting. Two doors - a code, or an
+-- access_request marked 'invited' - and one seat counter behind both.
+--
+-- It lives on auth.users rather than in the Gate component because
+-- app/index.html ships the publishable key: /auth/v1/signup answers with or
+-- without our JavaScript in front of it. See
+-- migrations/2026-08-06-invite-code-gate.sql for the operator notes.
+create extension if not exists pgcrypto;
+
+-- Codes are read off a message and retyped, so comparison ignores case and any
+-- punctuation gained or lost on the way. Store the pretty form, compare bare.
+create or replace function public.norm_invite_code(p_code text)
+returns text
+language sql
+immutable
+as $$
+  select upper(regexp_replace(coalesce(p_code, ''), '[^A-Za-z0-9]', '', 'g'));
+$$;
+
+-- One row per round, not one per person. uses is the seat counter and every
+-- door decrements it, so "how many people are in" has a single answer.
+create table if not exists public.invite_codes (
+  code       text primary key,
+  max_uses   int  not null default 30,
+  uses       int  not null default 0,
+  plan       text not null default 'pro',
+  active     boolean not null default true,
+  note       text,
+  created_at timestamptz not null default now()
+);
+alter table public.invite_codes enable row level security;
+-- No policies at all. Reading or editing a code needs the service role or the
+-- SQL editor - the same stance as user_plans, where plan changes never go
+-- through a client. Anonymous callers reach this table only through
+-- invite_code_valid() below, which answers one boolean and nothing else.
+
+-- Which seat, and how it was taken. Cascades with the user, so a deleted
+-- tester leaves nothing behind here either.
+create table if not exists public.invite_claims (
+  user_id    uuid primary key references auth.users(id) on delete cascade,
+  code       text not null references public.invite_codes(code),
+  via        text not null default 'code' check (via in ('code','invited')),
+  claimed_at timestamptz not null default now()
+);
+alter table public.invite_claims enable row level security;
+
+-- Seed exactly one code, once. Re-running this file will not mint a second one
+-- or reset the counter on the live one.
+insert into public.invite_codes (code, max_uses, plan, note)
+select 'MIGHTY-' || (
+         select string_agg(
+           substr('23456789ABCDEFGHJKLMNPQRSTUVWXYZ', 1 + get_byte(b, i) % 32, 1), '')
+         from (select gen_random_bytes(6) b) t, generate_series(0, 5) i
+       ),
+       30, 'pro', 'first round'
+where not exists (select 1 from public.invite_codes);
+-- 0/O and 1/I are absent from the alphabet on purpose: this gets read off a
+-- screen and retyped, and those four are where that goes wrong. 32^6 leaves the
+-- space around 1.07 billion, which matters because invite_code_valid() will
+-- answer guesses from anyone holding the publishable key.
+
+-- The gate. AFTER, not BEFORE: user_plans.user_id references auth.users(id), so
+-- seeding a plan before the user row exists fails the foreign key. Raising here
+-- still aborts the whole transaction, so a refused signup leaves no user, no
+-- claim, and no spent seat.
+create or replace function public.claim_invite_seat()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_code text := norm_invite_code(new.raw_user_meta_data ->> 'invite_code');
+  v_via  text;
+  v_plan text;
+begin
+  -- Door 1: a code from an open round. One statement, not SELECT-then-UPDATE.
+  -- Concurrent signups serialise on this row, and under READ COMMITTED the
+  -- blocked one re-evaluates uses < max_uses against the version the winner
+  -- committed. Seat 31 always loses - but only because the read and the write
+  -- are the same command; splitting them reintroduces the race.
+  if v_code <> '' then
+    update public.invite_codes
+       set uses = uses + 1
+     where norm_invite_code(code) = v_code
+       and active
+       and uses < max_uses
+    returning code, plan into v_code, v_plan;
+    v_via := 'code';
+  end if;
+
+  -- Door 2: someone triaged off /request/ and created by hand. Without this the
+  -- trigger would refuse the dashboard's own Add user button and take the 4 Aug
+  -- access flow down with it. Marking the request 'invited' is the approval, so
+  -- it is also the credential - no second list to keep in step.
+  if v_plan is null then
+    update public.invite_codes
+       set uses = uses + 1
+     where active
+       and uses < max_uses
+       and exists (
+         select 1 from public.access_requests r
+          where lower(r.email) = lower(new.email)
+            and r.status = 'invited')
+    returning code, plan into v_code, v_plan;
+    v_via := 'invited';
+  end if;
+
+  if v_plan is null then
+    raise exception 'no seat: invite code missing, invalid, or this round is full'
+      using errcode = 'check_violation';
+  end if;
+
+  insert into public.invite_claims (user_id, code, via) values (new.id, v_code, v_via);
+
+  insert into public.user_plans (user_id, plan)
+  values (new.id, v_plan)
+  on conflict (user_id) do update set plan = excluded.plan, updated_at = now();
+
+  return new;
+end;
+$$;
+
+drop trigger if exists claim_invite_seat_trg on auth.users;
+create trigger claim_invite_seat_trg
+  after insert on auth.users
+  for each row execute function public.claim_invite_seat();
+
+-- Deleting a tester frees their seat. BEFORE, not AFTER: invite_claims cascades
+-- off auth.users, so by the time an AFTER trigger ran there would be no row
+-- left saying which round to credit.
+create or replace function public.release_invite_seat()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.invite_codes c
+     set uses = greatest(c.uses - 1, 0)
+    from public.invite_claims k
+   where k.user_id = old.id
+     and k.code = c.code;
+  return old;
+end;
+$$;
+
+drop trigger if exists release_invite_seat_trg on auth.users;
+create trigger release_invite_seat_trg
+  before delete on auth.users
+  for each row execute function public.release_invite_seat();
+
+-- Message only, never the gate. A refused trigger reaches the browser as
+-- "Database error saving new user", which tells a tester nothing, so the client
+-- asks this first and prints a sentence instead. Returns a bare boolean: seats
+-- remaining would be useful to show and is also exactly what someone
+-- enumerating the code space would want to watch.
+create or replace function public.invite_code_valid(p_code text)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.invite_codes
+     where norm_invite_code(code) = norm_invite_code(p_code)
+       and active
+       and uses < max_uses
+  );
+$$;
+revoke all on function public.invite_code_valid(text) from public;
+grant execute on function public.invite_code_valid(text) to anon, authenticated;
 
 -- ============================================================
 -- Also in the dashboard (not SQL):
