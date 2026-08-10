@@ -4885,11 +4885,21 @@ function Gate({sb}){
           setErr('That code is not valid, or every seat in this round has been taken. Request access below and we will come back to you.');
           return;
         }
+        /* emailRedirectTo has to be set explicitly. Without it, Supabase sends
+           people to the project's Site URL after verifying - which was landing
+           on a 404. They were verified, but the only thing they saw said
+           otherwise, so they assumed signup had failed. Pointing it back at
+           this exact page also means supabase-js picks the session out of the
+           URL fragment on arrival (detectSessionInUrl is on by default), so the
+           link lands them signed in rather than at a login form. */
         const {error} = await sb.auth.signUp({
           email:clean(email), password:pw,
-          options:{data:{invite_code:code.trim()}}});
+          options:{
+            data:{invite_code:code.trim()},
+            emailRedirectTo: location.origin + location.pathname,
+          }});
         if(error) throw error;
-        setMsg('Account created. Check your inbox for the confirmation link, then sign in.'); setMode('in');
+        setMsg('Account created. Check your inbox and click the link - it will bring you straight back here, signed in.'); setMode('in');
       } else if(mode==='in'){
         const {error} = await sb.auth.signInWithPassword({email:clean(email), password:pw});
         if(error) throw error;
