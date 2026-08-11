@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "MIghTy \u2014 LinkedIn Outreach",
-  "version": "0.3.9",
-  "description": "Shortlist LinkedIn profiles, see real match scores and a docked context panel, and log confirmed sends back to your MIghTy account. Never clicks Connect/Message for you.",
+  "name": "Mighty - LinkedIn Outreach",
+  "version": "0.4.0",
+  "description": "Intentional, intelligent networking on LinkedIn: shortlist profiles, see real match scores and a docked context panel, and log confirmed sends back to your Mighty account. Never clicks Connect/Message for you.",
   "permissions": [
     "storage",
     "declarativeNetRequest"
@@ -57,7 +57,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "MIghTy \u2014 LinkedIn Outreach",
+    "default_title": "Mighty - LinkedIn Outreach",
     "default_icon": {
       "16": "icons-grey/logo-16.png",
       "32": "icons-grey/logo-32.png",
