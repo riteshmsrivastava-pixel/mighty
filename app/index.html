@@ -4889,6 +4889,36 @@ function Gate({sb}){
   const [email,setEmail] = useState(''); const [pw,setPw] = useState('');
   const [code,setCode] = useState('');
   const [busy,setBusy] = useState(false); const [msg,setMsg] = useState(null); const [err,setErr] = useState(null);
+  /* "Continue with MIT" renders only once the server says the OIDC client is
+     actually configured - a visible button that errors is worse than no
+     button, and the function ships before the oidc.mit.edu registration
+     exists. The probe is unauthenticated by design (nobody is signed in on
+     this screen; the function is deployed without JWT verification). */
+  const [mit,setMit] = useState(false);
+  useEffect(()=>{
+    let dead=false;
+    fetch(SUPABASE_URL+'/functions/v1/mit-auth?action=status')
+      .then(r=>r.json()).then(d=>{ if(!dead) setMit(!!(d&&d.configured)); })
+      .catch(()=>{});
+    /* A failed Touchstone round lands back here as ?mit_error= so it reads as
+       a sentence instead of stranding the browser on a JSON blob. Shown once,
+       then cleared so a reload does not re-accuse. */
+    const p = new URLSearchParams(window.location.search);
+    const me = p.get('mit_error');
+    if(me){ setErr(me); p.delete('mit_error');
+      window.history.replaceState({},'',window.location.pathname+(p.toString()?'?'+p.toString():'')); }
+    return ()=>{ dead=true; };
+  },[]);
+  async function goMit(){
+    if(busy) return;
+    setBusy(true); setErr(null); setMsg(null);
+    try{
+      const r = await fetch(SUPABASE_URL+'/functions/v1/mit-auth?action=start');
+      const d = await r.json();
+      if(!d || !d.url) throw new Error((d&&d.error)||'MIT sign-in did not answer.');
+      window.location.href = d.url;     // Touchstone + Duo, then back here signed in
+    }catch(e){ setErr(e.message||String(e)); setBusy(false); }
+  }
   async function go(){
     setErr(null); setMsg(null);
     /* Signing yourself up needs a code from the current round. Everything below
@@ -4966,6 +4996,26 @@ function Gate({sb}){
           <button className="btn" style={{width:'100%',marginTop:18}} onClick={go} disabled={busy}>
             {busy?<span><span className="spin"/> Working…</span>:mode==='up'?'Create account':mode==='in'?'Sign in':'Send reset link'}
           </button>
+          {mit && mode!=='reset' &&
+            <F>
+              <div className="row" style={{gap:10,margin:'14px 0 0',alignItems:'center'}}>
+                <div style={{flex:1,height:1,background:'var(--line)'}}/>
+                <span className="sub" style={{fontSize:11.5,letterSpacing:'.08em',textTransform:'uppercase'}}>or</span>
+                <div style={{flex:1,height:1,background:'var(--line)'}}/>
+              </div>
+              {/* Real Touchstone, via MIT's own OIDC service - Duo and all. The
+                  account arrives with a verified mit.edu address and no password
+                  anywhere, which is already this product's stance on passwords.
+                  Seats still count: MIT is a reserved invite channel, not a
+                  bypass. */}
+              <button className="btn" disabled={busy} onClick={goMit}
+                style={{width:'100%',marginTop:14,background:'#750014'}}>
+                Continue with MIT Touchstone
+              </button>
+              <div className="sub" style={{marginTop:8,fontSize:12,textAlign:'center'}}>
+                MIT students and alumni - sign in with your MIT account. No password, no code needed.
+              </div>
+            </F>}
           {/* Two doors, and the difference between them is the point. Signing
               yourself up needs a code from this round, so the plain "Create an
               account" button that used to sit here does not come back; /request/
