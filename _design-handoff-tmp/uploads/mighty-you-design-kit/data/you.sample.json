@@ -1,0 +1,61 @@
+{
+  "persona": {
+    "name": "Jayati Mehra",
+    "email": "jayati@meridianhealth.ai",
+    "headline": "Founder & CEO, Meridian Health AI | ex-Stripe, ex-Novartis | MIT Sloan",
+    "location": "Boston, Massachusetts, United States",
+    "plan": "trial",
+    "assistsLeftMonth": 3
+  },
+  "mirror": {
+    "counts": {
+      "roles": 6, "schools": 2, "skills": 34, "honours": 4, "publications": 2,
+      "connections": 1928, "writingSamples": 40, "answersGiven": 3
+    },
+    "capturedAt": "2026-03-12",
+    "positions": [
+      { "title": "Founder & CEO", "company": "Meridian Health AI", "from": "2025-07", "to": null },
+      { "title": "Product Lead, Healthcare", "company": "Stripe", "from": "2021-07", "to": "2024-06" },
+      { "title": "Senior Product Manager", "company": "Stripe", "from": "2021-07", "to": "2022-12" },
+      { "title": "Director, Digital Trials", "company": "Novartis", "from": "2019-01", "to": "2021-06" },
+      { "title": "Manager, Clinical Innovation", "company": "Novartis", "from": "2017-09", "to": "2018-12" },
+      { "title": "Consultant", "company": "Bain & Company", "from": "2014-07", "to": "2017-08" }
+    ],
+    "education": [
+      { "school": "MIT Sloan School of Management", "degree": "MBA", "from": "2024", "to": "2025" },
+      { "school": "BITS Pilani", "degree": "B.E. Computer Science", "from": "2010", "to": "2014" }
+    ],
+    "gaps": [
+      "which people have already said no, so it stops suggesting them",
+      "who you want to meet, named as roles - which is why the ranking stays broad",
+      "what success looks like in numbers, so Ask Mighty can answer 'am I on track'"
+    ],
+    "provenance": "Built from your archive and resume, not assumptions. Anything wrong here is wrong everywhere after it."
+  },
+  "goal": {
+    "goalTypes": ["raise_funding"],
+    "goal": "Raise a seed round for an AI-native clinical trials platform, from investors who understand enterprise health tech.",
+    "targetRoles": ["Partner", "Principal", "Angel"],
+    "targetCompanies": ["General Catalyst", "a16z Bio", "Elevation Capital"],
+    "targetLocations": ["Boston", "San Francisco"],
+    "currentRole": "Founder & CEO",
+    "currentCompany": "Meridian Health AI",
+    "schools": ["MIT Sloan", "BITS Pilani"],
+    "networkingStyle": ["Coffee chats", "Warm introductions"],
+    "successMetrics": ["40 investor conversations", "10 partner meetings", "1 signed term sheet"],
+    "strategyUpdatedAt": "2026-07-18",
+    "activity": { "added": 9, "reached": 1, "inConversation": 1, "met": 0 },
+    "activityCaption": "Activity, not progress. Only you can judge how close you are."
+  },
+  "account": {
+    "email": "jayati@meridianhealth.ai",
+    "export": { "label": "Export everything", "sub": "Your goal, people, timeline and commitments. One JSON file, yours anytime." },
+    "principles": [
+      { "title": "You always click Send", "body": "No message, connection request or reply is ever sent automatically. Mighty drafts; you decide and you send." },
+      { "title": "Capture is the product", "body": "Everything intelligent here depends on what you capture after a conversation. It takes a minute." },
+      { "title": "Explanations, not scores", "body": "Recommendations always say why. If Mighty cannot explain something, it should not be recommending it." },
+      { "title": "Your data is yours", "body": "Private to you, exportable in full, deletable in full. Any time." }
+    ],
+    "footer": "9 relationships · 14 timeline entries · 2 open commitments"
+  }
+}

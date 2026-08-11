@@ -1,0 +1,94 @@
+{
+  "computedAt": "2026-07-30T09:00:00Z",
+  "archiveDate": "2026-03-12",
+  "persona": { "name": "Jayati Mehra", "goalTypes": ["raise_funding"], "goal": "Raise a seed round for an AI-native clinical trials platform, from investors who understand enterprise health tech." },
+  "chapters": {
+    "frame": {
+      "firstConnectionOn": "2014-03-18",
+      "yearsSpan": 12,
+      "totalConnections": 1928,
+      "distinctCompanies": 640,
+      "distinctRoles": 212
+    },
+    "eras": {
+      "byEra": [
+        { "label": "Bain & Company", "kind": "position", "from": "2014-07", "to": "2017-08", "connections": 287 },
+        { "label": "Novartis", "kind": "position", "from": "2017-09", "to": "2021-06", "connections": 412 },
+        { "label": "Stripe", "kind": "position", "from": "2021-07", "to": "2024-06", "connections": 534 },
+        { "label": "MIT Sloan", "kind": "education", "from": "2024-08", "to": "2025-06", "connections": 312, "note": "fastest year" },
+        { "label": "Founder, Meridian Health AI", "kind": "position", "from": "2025-07", "to": null, "connections": 383 }
+      ],
+      "byYear": [
+        { "year": 2014, "count": 61 }, { "year": 2015, "count": 118 }, { "year": 2016, "count": 108 },
+        { "year": 2017, "count": 96 }, { "year": 2018, "count": 124 }, { "year": 2019, "count": 11 },
+        { "year": 2020, "count": 87 }, { "year": 2021, "count": 152 }, { "year": 2022, "count": 176 },
+        { "year": 2023, "count": 198 }, { "year": 2024, "count": 371 }, { "year": 2025, "count": 322 },
+        { "year": 2026, "count": 104 }
+      ],
+      "fastestYear": { "year": 2024, "count": 371 },
+      "quietestYear": { "year": 2019, "count": 11 }
+    },
+    "sleep": {
+      "neverMessaged": 1406,
+      "wentQuiet": 344,
+      "active": 178,
+      "medianSilenceYears": 4,
+      "joinCoverage": 0.78,
+      "joinMethod": "profile_url_with_name_fallback"
+    },
+    "showUp": {
+      "threads": 812,
+      "theyWroteFirstPct": 73,
+      "youWroteFirstThreads": 219,
+      "yourFirstMessageReplyRatePct": 64,
+      "yourMedianReplyHours": 6,
+      "theirMedianReplyHours": 48
+    },
+    "circle": {
+      "shareOfAllYourMessagesPct": 33,
+      "people": [
+        { "name": "Sarah Chen", "profileUrl": "https://www.linkedin.com/in/sarahchen-demo", "messages": 214, "years": 6, "firstAt": "2020-04-11", "lastAt": "2026-02-27" },
+        { "name": "James Whitfield", "profileUrl": "https://www.linkedin.com/in/jwhitfield-demo", "messages": 168, "years": 4, "firstAt": "2022-01-19", "lastAt": "2026-03-02" },
+        { "name": "Luiza Ferreira", "profileUrl": "https://www.linkedin.com/in/luizaferreira-demo", "messages": 121, "years": 5, "firstAt": "2021-05-03", "lastAt": "2025-12-14" },
+        { "name": "Sukrit Bansal", "profileUrl": "https://www.linkedin.com/in/sukritbansal-demo", "messages": 97, "years": 3, "firstAt": "2023-02-08", "lastAt": "2026-01-21" },
+        { "name": "Ashley Chen", "profileUrl": "https://www.linkedin.com/in/ashleychen-demo", "messages": 84, "years": 7, "firstAt": "2019-03-30", "lastAt": "2026-02-11" }
+      ]
+    },
+    "shape": {
+      "industryClusters": [
+        { "label": "Pharma & life sciences", "pct": 31 },
+        { "label": "Consulting", "pct": 18 },
+        { "label": "Early-stage tech", "pct": 11 },
+        { "label": "Everything else", "pct": 40 }
+      ],
+      "seniority": { "directorOrAboveRatio": "1 in 9", "directorOrAboveCount": 214 },
+      "formerColleagueCount": 87,
+      "method": "read from titles, not inferred"
+    },
+    "doors": {
+      "sent": 420,
+      "received": 611,
+      "acceptedAtLeastPct": 58,
+      "busiestYear": 2023
+    },
+    "turn": {
+      "goalType": "raise_funding",
+      "matchingTitleCount": 41,
+      "matchingTitleLabel": "investing titles",
+      "dormantAmongThem": 29,
+      "ranked": [
+        { "name": "Amrita Misra", "position": "Principal", "company": "Bain Capital Ventures", "reason": "Was at Bain while you were. Connected 2016, nothing since.", "profileUrl": "https://www.linkedin.com/in/amritamisra-demo" },
+        { "name": "Rajiv Srivatsa", "position": "Founding Partner", "company": "Antler India", "reason": "Matched on health, seed. Connected 2021, nothing since.", "profileUrl": "https://www.linkedin.com/in/rajivsrivatsa-demo" },
+        { "name": "Elena Jovanova", "position": "Partner", "company": "General Catalyst", "reason": "Was at Novartis while you were.", "profileUrl": "https://www.linkedin.com/in/elenajovanova-demo" },
+        { "name": "Mridul Arora", "position": "Partner", "company": "Elevation Capital", "reason": "Matched on enterprise, health. Connected 2019, nothing since.", "profileUrl": "https://www.linkedin.com/in/mridularora-demo" },
+        { "name": "Daohao Li", "position": "Angel investor, ex-CEO", "company": "Garde", "reason": "Overlapped at Stripe. In conversation with you once, 2023.", "profileUrl": "https://www.linkedin.com/in/daohaoli-demo" }
+      ]
+    }
+  },
+  "sinceLastVisit": { "added": 2, "reached": 1, "talked": 1, "lastVisitAt": "2026-07-22T14:00:00Z" },
+  "standingFindings": {
+    "replyRatePct": 64,
+    "yourShareOfExportMessagesPct": 70,
+    "goneQuietSaved": 1
+  }
+}

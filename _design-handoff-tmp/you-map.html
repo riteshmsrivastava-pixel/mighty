@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;600;700;800&display=swap">
+<script src="https://unpkg.com/d3@7.9.0/dist/d3.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/topojson-client@3.1.0/dist/topojson-client.min.js" integrity="sha384-Ukv1p/xTma6P4/2bY5KzWBw+ydSpXmhCMtyciIQVDJ1RmOxtCYNMF1uXT9T63H67" crossorigin="anonymous"></script>
+<style>html,body{margin:0;background:#FFFFFF;font-family:'Schibsted Grotesk',system-ui,sans-serif;overflow:hidden}#map{width:100%;height:100vh}</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+const cities=[
+ ["Boston",-71.06,42.36,412],["San Francisco",-122.42,37.77,388],["Bangalore",77.59,12.97,291],
+ ["New York",-74.0,40.71,246],["Basel",7.59,47.56,154],["London",-0.13,51.51,132],
+ ["Mumbai",72.88,19.08,118],["Singapore",103.85,1.35,87]
+];
+const W=940,H=430;
+const svg=d3.select('#map').append('svg').attr('viewBox',`0 0 ${W} ${H}`).attr('width','100%').attr('height','100%');
+fetch('https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json').then(r=>r.json()).then(topo=>{
+ const land=topojson.feature(topo,topo.objects.countries);
+ land.features=land.features.filter(f=>f.id!=='010');
+ const proj=d3.geoNaturalEarth1().fitSize([W,H-6],land);
+ const path=d3.geoPath(proj);
+ svg.append('g').selectAll('path').data(land.features).join('path')
+  .attr('d',path).attr('fill','#F1EFEA').attr('stroke','#E4E1DA').attr('stroke-width',.6);
+ const r=d3.scaleSqrt().domain([0,412]).range([0,26]);
+ const g=svg.append('g');
+ cities.forEach(([name,lon,lat,n])=>{
+  const [x,y]=proj([lon,lat]);
+  g.append('circle').attr('cx',x).attr('cy',y).attr('r',r(n)).attr('fill','#5B4FE9').attr('fill-opacity',.28).attr('stroke','#5B4FE9').attr('stroke-width',1.4);
+  g.append('circle').attr('cx',x).attr('cy',y).attr('r',2.6).attr('fill','#4A3FD1');
+  const above=['San Francisco','Basel','Singapore'].includes(name);
+  g.append('text').attr('x',x).attr('y',above?y-r(n)-7:y+r(n)+15).attr('text-anchor','middle')
+   .attr('font-size',12).attr('font-weight',700).attr('fill','#33313D').text(name);
+  g.append('text').attr('x',x).attr('y',above?y-r(n)-20:y+r(n)+29).attr('text-anchor','middle')
+   .attr('font-size',10.5).attr('fill','#8A8896').text(n);
+ });
+});
+</script>
+</body>
+</html>

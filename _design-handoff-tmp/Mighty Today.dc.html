@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap">
+<style>
+body{margin:0;background:#FBFAF8;font-family:'Schibsted Grotesk',system-ui,sans-serif;color:#1D1B26}
+a{color:#4A3FD1}a:hover{color:#5B4FE9}
+button{font-family:'Schibsted Grotesk',system-ui,sans-serif}
+:focus-visible{outline:2px solid #5B4FE9;outline-offset:2px}
+::selection{background:#EFEDFD}
+@keyframes aurora{0%{transform:translate(0,0) scale(1)}50%{transform:translate(40px,-30px) scale(1.15)}100%{transform:translate(0,0) scale(1)}}
+@keyframes riseIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</helmet>
+<div style="display:grid;grid-template-columns:232px 1fr;min-height:100vh;background:#FBFAF8" data-screen-label="Today">
+<aside style="background:#FFFFFF;border-right:1px solid #EFEDE7;display:flex;flex-direction:column;padding:24px 14px 20px">
+  <div style="display:flex;align-items:center;gap:10px;padding:0 10px 26px">
+    <span style="position:relative;width:26px;height:22px;display:inline-block"><span style="position:absolute;left:0;top:0;width:22px;height:22px;border-radius:99px;background:#4A3FD1"></span><span style="position:absolute;left:9px;top:0;width:22px;height:22px;border-radius:99px;background:#E87A56;mix-blend-mode:multiply"></span></span>
+    <span style="font-size:19px;font-weight:800;letter-spacing:-0.3px">Mighty</span>
+  </div>
+  <nav style="display:flex;flex-direction:column;gap:2px">
+    <a href="#" style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;background:#EFEDFD;border:1.5px solid #D9D4F9;color:#4A3FD1;font-weight:600;font-size:15px;text-decoration:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path></svg>Today</a>
+    <a href="#" style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#1D1B26;font-weight:500;font-size:15px;text-decoration:none" style-hover="background:#F4F2EE"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c.8-3.2 3.4-5 6.5-5s5.7 1.8 6.5 5"></path><path d="M16 5.2a3.5 3.5 0 0 1 0 5.6"></path><path d="M18.5 15.5c1.6.9 2.7 2.4 3 4.5"></path></svg><span style="flex:1">Relationships</span><span style="font-size:12.5px;font-weight:600;color:#8A8896;background:#F4F2EE;border-radius:99px;padding:2px 8px">9</span></a>
+    <div style="display:flex;flex-direction:column;gap:1px;padding:2px 0 4px 41px">
+      <a href="Mighty List.dc.html" style="padding:7px 10px;border-radius:9px;color:#5A5766;font-weight:500;font-size:14px;text-decoration:none" style-hover="background:#F4F2EE;color:#1D1B26">List</a>
+      <a href="Mighty Board.dc.html" style="padding:7px 10px;border-radius:9px;color:#5A5766;font-weight:500;font-size:14px;text-decoration:none" style-hover="background:#F4F2EE;color:#1D1B26">Board</a>
+      <a href="Mighty Timeline.dc.html" style="padding:7px 10px;border-radius:9px;color:#5A5766;font-weight:500;font-size:14px;text-decoration:none" style-hover="background:#F4F2EE;color:#1D1B26">Timeline</a>
+    </div>
+    <a href="Mighty Explore.dc.html" style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#1D1B26;font-weight:500;font-size:15px;text-decoration:none" style-hover="background:#F4F2EE"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m16 8-2.5 5.5L8 16l2.5-5.5L16 8z"></path></svg>Explore</a>
+    <a href="Mighty You.dc.html" style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#1D1B26;font-weight:500;font-size:15px;text-decoration:none" style-hover="background:#F4F2EE"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="4.5"></circle><circle cx="12" cy="12" r="1" fill="currentColor"></circle></svg>Me</a>
+  </nav>
+  <div style="margin-top:auto;display:flex;flex-direction:column;gap:16px">
+    <button style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:13px;border:none;background:linear-gradient(135deg,#5B4FE9,#4A3FD1);color:#fff;font-weight:600;font-size:14.5px;cursor:pointer;box-shadow:0 6px 18px rgba(91,79,233,.28)" style-hover="background:linear-gradient(135deg,#6A5FF2,#5B4FE9)"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2z"></path></svg>Ask Mighty</button>
+    <div style="display:flex;align-items:center;gap:10px;padding:0 6px">
+      <span style="width:32px;height:32px;border-radius:99px;background:#EFEDFD;color:#4A3FD1;font-weight:700;font-size:13px;display:grid;place-items:center">R</span>
+      <div style="min-width:0"><div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">rmohans@mit.edu</div><a href="Mighty Website.dc.html" style="font-size:11.5px;color:#8A8896;text-decoration:none">Sign out</a></div>
+    </div>
+  </div>
+</aside>
+<main style="position:relative;overflow:hidden;min-width:0">
+  <div style="position:absolute;top:-160px;left:22%;width:560px;height:560px;border-radius:99em;background:radial-gradient(circle,rgba(91,79,233,.14),transparent 65%);animation:aurora 14s ease-in-out infinite;pointer-events:none"></div>
+  <div style="position:absolute;top:-80px;right:8%;width:440px;height:440px;border-radius:99em;background:radial-gradient(circle,rgba(232,122,86,.12),transparent 65%);animation:aurora 18s ease-in-out infinite reverse;pointer-events:none"></div>
+  <div style="position:relative;max-width:780px;margin:0 auto;padding:52px 40px 56px">
+    <div style="text-align:left">
+      <h1 style="margin:0;font-size:34px;line-height:1.15;letter-spacing:-0.9px;font-weight:800">Good morning, Ritesh.<br><span style="color:#8A8896;font-weight:700">Mridul replied after 3 days. Momentum is back, don't let it stall.</span></h1>
+    </div>
+    <div style="margin-top:22px;background:linear-gradient(135deg,#FBEFE9 0%,#F7F1F4 60%,#EFEDFD 100%);border:1px solid #F0DCCE;border-radius:20px;padding:20px 24px;display:flex;align-items:center;gap:18px;cursor:pointer;box-shadow:0 12px 32px rgba(199,91,51,.10);transition:transform .18s ease,box-shadow .18s ease;animation:riseIn .55s cubic-bezier(.2,.7,.3,1) both" style-hover="transform:translateY(-3px);box-shadow:0 16px 40px rgba(199,91,51,.14)">
+      <span style="width:44px;height:44px;border-radius:99px;background:#FBEFE9;color:#C75B33;font-weight:700;font-size:15px;display:grid;place-items:center;flex:none;box-shadow:0 0 0 1px #F0DCCE">MA</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11.5px;font-weight:700;letter-spacing:1.3px;color:#C75B33;text-transform:uppercase">Start here</div>
+        <div style="margin-top:4px;font-size:22px;font-weight:800;letter-spacing:-0.4px">Reply to Mridul Arora</div>
+        <div style="margin-top:3px;font-size:14px;color:#8A8896">They replied 3 days ago. Waiting on you. 5 min</div>
+      </div>
+      <button style="padding:13px 26px;border-radius:99px;border:none;background:#5B4FE9;color:#fff;font-weight:600;font-size:15px;cursor:pointer;flex:none" style-hover="background:#4A3FD1">Reply now</button>
+    </div>
+    <div style="margin-top:14px;display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+      <span style="font-size:13px;font-weight:600;color:#8A8896">What do you need?</span>
+      <a href="Mighty Explore.dc.html" style="padding:10px 18px;border-radius:99px;border:1.5px solid #E0DDD5;background:#fff;font-weight:600;font-size:13.5px;color:#1D1B26;text-decoration:none" style-hover="border-color:#D9D4F9;background:#EFEDFD;color:#4A3FD1">Who should I meet?</a>
+      <button onClick="{{cAsk}}" style="padding:10px 18px;border-radius:99px;border:1.5px solid #E0DDD5;background:#fff;font-weight:600;font-size:13.5px;color:#1D1B26;cursor:pointer" style-hover="border-color:#D9D4F9;background:#EFEDFD;color:#4A3FD1">Help me reply</button>
+      <button onClick="{{cAsk}}" style="padding:10px 18px;border-radius:99px;border:1.5px solid #E0DDD5;background:#fff;font-weight:600;font-size:13.5px;color:#1D1B26;cursor:pointer" style-hover="border-color:#D9D4F9;background:#EFEDFD;color:#4A3FD1">Prepare me</button>
+    </div>
+
+    <sc-if value="{{cAsked}}" hint-placeholder-val="{{ false }}">
+      <div style="margin-top:18px;background:#FFFFFF;border:1.5px solid #D9D4F9;border-radius:20px;padding:24px 26px;box-shadow:0 6px 24px rgba(91,79,233,.08)">
+        <div style="display:flex;align-items:center;gap:9px;font-size:12px;font-weight:700;letter-spacing:1.2px;color:#4A3FD1;text-transform:uppercase"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2z"></path></svg>Mighty</div>
+        <p style="margin:12px 0 0;font-size:16px;line-height:1.65;color:#33313D">Start with <strong style="font-weight:600">Mridul</strong> — your draft to him is waiting for review and he's your warmest thread today. Then take 12 minutes to prepare for <strong style="font-weight:600">Daohao</strong> and <strong style="font-weight:600">Priyanka</strong> before you reach out; Daohao just made Partner at Foothill, so today beats next week.</p>
+        <div style="display:flex;gap:10px;margin-top:16px">
+          <button style="padding:10px 18px;border-radius:99px;border:none;background:#5B4FE9;color:#fff;font-weight:600;font-size:14px;cursor:pointer" style-hover="background:#4A3FD1">Review Mridul's draft</button>
+          <button onClick="{{cDismiss}}" style="padding:10px 18px;border-radius:99px;border:1.5px solid #E0DDD5;background:#fff;font-weight:600;font-size:14px;color:#1D1B26;cursor:pointer" style-hover="background:#F4F2EE">Dismiss</button>
+        </div>
+      </div>
+    </sc-if>
+    <div style="margin-top:30px;font-size:12.5px;font-weight:700;letter-spacing:1.4px;color:#8A8896;text-transform:uppercase">Then</div>
+    <div style="margin-top:4px">
+      <div style="display:flex;align-items:center;gap:14px;padding:16px 4px;border-bottom:1px solid #EFEDE7;cursor:pointer;animation:riseIn .55s cubic-bezier(.2,.7,.3,1) .08s both" style-hover="background:#F7F5F1">
+        <span style="flex:none;padding:4px 11px;border-radius:99px;background:#FBEFE9;color:#C75B33;font-size:10.5px;font-weight:700;letter-spacing:.7px;text-transform:uppercase">High impact</span>
+        <div style="flex:1;min-width:0"><span style="font-size:15.5px;font-weight:600;letter-spacing:-0.2px">Harshad's draft is written and waiting.</span><span style="font-size:15.5px;color:#8A8896"> One click sends it</span></div>
+        <span style="font-size:13px;color:#B4B1BC;flex:none">2 min</span>
+        <span style="color:#C9C6BF;flex:none"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;padding:16px 4px;border-bottom:1px solid #EFEDE7;cursor:pointer;animation:riseIn .55s cubic-bezier(.2,.7,.3,1) .16s both" style-hover="background:#F7F5F1">
+        <span style="flex:none;padding:4px 11px;border-radius:99px;background:#FBEFE9;color:#C75B33;font-size:10.5px;font-weight:700;letter-spacing:.7px;text-transform:uppercase">High impact</span>
+        <div style="flex:1;min-width:0"><span style="font-size:15.5px;font-weight:600;letter-spacing:-0.2px">Daohao just made Partner at Foothill.</span><span style="font-size:15.5px;color:#8A8896"> Congratulations notes get unusually high reply rates</span></div>
+        <span style="font-size:13px;color:#B4B1BC;flex:none">6 min</span>
+        <span style="color:#C9C6BF;flex:none"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;padding:16px 4px;border-bottom:1px solid #EFEDE7;cursor:pointer;animation:riseIn .55s cubic-bezier(.2,.7,.3,1) .24s both" style-hover="background:#F7F5F1">
+        <span style="flex:none;padding:4px 11px;border-radius:99px;background:#EFEDFD;color:#4A3FD1;font-size:10.5px;font-weight:700;letter-spacing:.7px;text-transform:uppercase">Good next</span>
+        <div style="flex:1;min-width:0"><span style="font-size:15.5px;font-weight:600;letter-spacing:-0.2px">Priyanka has known you since Wipro, 2013.</span><span style="font-size:15.5px;color:#8A8896"> A decade of warmth you never used</span></div>
+        <span style="font-size:13px;color:#B4B1BC;flex:none">6 min</span>
+        <span style="color:#C9C6BF;flex:none"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;padding:16px 4px;cursor:pointer;animation:riseIn .55s cubic-bezier(.2,.7,.3,1) .32s both" style-hover="background:#F7F5F1">
+        <span style="flex:none;padding:4px 11px;border-radius:99px;background:#EFEDFD;color:#4A3FD1;font-size:10.5px;font-weight:700;letter-spacing:.7px;text-transform:uppercase">Good next</span>
+        <div style="flex:1;min-width:0"><span style="font-size:15.5px;font-weight:600;letter-spacing:-0.2px">Three investor relationships are about to go quiet.</span><span style="font-size:15.5px;color:#8A8896"> Wake one before the four-year mark</span></div>
+        <span style="font-size:13px;color:#B4B1BC;flex:none">3 min</span>
+        <span style="color:#C9C6BF;flex:none"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></span>
+      </div>
+    </div>
+    <div style="margin-top:28px;padding:15px 18px;background:#FFFFFF;border:1px solid #ECEAE4;border-radius:14px">
+      <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:13px">
+        <a href="Mighty You.dc.html" style="font-weight:700;letter-spacing:1.2px;text-transform:uppercase;font-size:11.5px;text-decoration:none">Raise investment</a>
+        <span style="margin-left:auto;font-size:12.5px;font-weight:600;color:#C75B33">Need 3 investor meetings this week</span>
+      </div>
+      <div style="margin-top:9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px">
+        <a href="Mighty List.dc.html" style="color:#33313D;text-decoration:none;font-weight:600" style-hover="color:#4A3FD1">9 identified</a>
+        <span style="color:#E0DDD5">·</span><a href="Mighty Person.dc.html" style="color:#33313D;text-decoration:none;font-weight:600" style-hover="color:#4A3FD1">1 replied, waiting on you</a>
+        <span style="color:#E0DDD5">·</span><a href="Mighty Board.dc.html" style="color:#33313D;text-decoration:none;font-weight:600" style-hover="color:#4A3FD1">0 of 3 meetings</a>
+        <span style="margin-left:auto;display:inline-flex;gap:5px"><span style="width:10px;height:10px;border-radius:99px;border:1.5px solid #D9D4F9"></span><span style="width:10px;height:10px;border-radius:99px;border:1.5px solid #D9D4F9"></span><span style="width:10px;height:10px;border-radius:99px;border:1.5px solid #D9D4F9"></span></span>
+      </div>
+    </div>
+  </div>
+</main>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { cAsked: false };
+  renderVals() {
+    return {
+      cAsked: this.state.cAsked,
+      cAsk: () => this.setState({ cAsked: true }),
+      cDismiss: () => this.setState({ cAsked: false })
+    };
+  }
+}
+</script>
+</body>
+</html>

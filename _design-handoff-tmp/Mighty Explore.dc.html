@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap">
+<style>
+body{margin:0;background:#FBFAF8;font-family:'Schibsted Grotesk',system-ui,sans-serif;color:#1D1B26}
+a{color:#4A3FD1}a:hover{color:#5B4FE9}
+button,input{font-family:'Schibsted Grotesk',system-ui,sans-serif}
+:focus-visible{outline:2px solid #5B4FE9;outline-offset:2px}
+::selection{background:#EFEDFD}
+@keyframes aurora{0%{transform:translate(0,0) scale(1)}50%{transform:translate(40px,-30px) scale(1.15)}100%{transform:translate(0,0) scale(1)}}
+@keyframes riseIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</helmet>
+<div style="display:grid;grid-template-columns:232px 1fr;min-height:100vh;background:#FBFAF8" data-screen-label="Explore">
+<aside style="background:#FFFFFF;border-right:1px solid #EFEDE7;display:flex;flex-direction:column;padding:24px 14px 20px">
+  <div style="display:flex;align-items:center;gap:10px;padding:0 10px 26px">
+    <span style="position:relative;width:26px;height:22px;display:inline-block"><span style="position:absolute;left:0;top:0;width:22px;height:22px;border-radius:99px;background:#4A3FD1"></span><span style="position:absolute;left:9px;top:0;width:22px;height:22px;border-radius:99px;background:#E87A56;mix-blend-mode:multiply"></span></span>
+    <span style="font-size:19px;font-weight:800;letter-spacing:-0.3px">Mighty</span>
+  </div>
+  <nav style="display:flex;flex-direction:column;gap:2px">
+    <a href="Mighty Today.dc.html" style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#1D1B26;font-weight:500;font-size:15px;text-decoration:none" style-hover="background:#F4F2EE"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path></svg>Today</a>
+    <a href="Mighty List.dc.html" style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#1D1B26;font-weight:500;font-size:15px;text-decoration:none" style-hover="background:#F4F2EE"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c.8-3.2 3.4-5 6.5-5s5.7 1.8 6.5 5"></path><path d="M16 5.2a3.5 3.5 0 0 1 0 5.6"></path><path d="M18.5 15.5c1.6.9 2.7 2.4 3 4.5"></path></svg><span style="flex:1">Relationships</span><span style="font-size:12.5px;font-weight:600;color:#8A8896;background:#F4F2EE;border-radius:99px;padding:2px 8px">9</span></a>
+    <div style="display:flex;flex-direction:column;gap:1px;padding:2px 0 4px 41px">
+      <a href="Mighty List.dc.html" style="padding:7px 10px;border-radius:9px;color:#5A5766;font-weight:500;font-size:14px;text-decoration:none" style-hover="background:#F4F2EE;color:#1D1B26">List</a>
+      <a href="Mighty Board.dc.html" style="padding:7px 10px;border-radius:9px;color:#5A5766;font-weight:500;font-size:14px;text-decoration:none" style-hover="background:#F4F2EE;color:#1D1B26">Board</a>
+      <a href="Mighty Timeline.dc.html" style="padding:7px 10px;border-radius:9px;color:#5A5766;font-weight:500;font-size:14px;text-decoration:none" style-hover="background:#F4F2EE;color:#1D1B26">Timeline</a>
+    </div>
+    <a href="#" style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;background:#EFEDFD;border:1.5px solid #D9D4F9;color:#4A3FD1;font-weight:600;font-size:15px;text-decoration:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m16 8-2.5 5.5L8 16l2.5-5.5L16 8z"></path></svg>Explore</a>
+    <a href="Mighty You.dc.html" style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#1D1B26;font-weight:500;font-size:15px;text-decoration:none" style-hover="background:#F4F2EE"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="4.5"></circle><circle cx="12" cy="12" r="1" fill="currentColor"></circle></svg>Me</a>
+  </nav>
+  <div style="margin-top:auto;display:flex;flex-direction:column;gap:16px">
+    <button style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:13px;border:none;background:linear-gradient(135deg,#5B4FE9,#4A3FD1);color:#fff;font-weight:600;font-size:14.5px;cursor:pointer;box-shadow:0 6px 18px rgba(91,79,233,.28)" style-hover="background:linear-gradient(135deg,#6A5FF2,#5B4FE9)"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2z"></path></svg>Ask Mighty</button>
+    <div style="display:flex;align-items:center;gap:10px;padding:0 6px">
+      <span style="width:32px;height:32px;border-radius:99px;background:#EFEDFD;color:#4A3FD1;font-weight:700;font-size:13px;display:grid;place-items:center">R</span>
+      <div style="min-width:0"><div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">rmohans@mit.edu</div><a href="Mighty Website.dc.html" style="font-size:11.5px;color:#8A8896;text-decoration:none">Sign out</a></div>
+    </div>
+  </div>
+</aside>
+<main style="position:relative;overflow:hidden;min-width:0">
+  <div style="position:absolute;top:-160px;left:22%;width:560px;height:560px;border-radius:99em;background:radial-gradient(circle,rgba(91,79,233,.10),transparent 65%);animation:aurora 14s ease-in-out infinite;pointer-events:none"></div>
+  <div style="position:relative;max-width:1240px;margin:0 auto;padding:44px 40px 56px">
+    <div style="display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap">
+      <div style="flex:1;min-width:260px">
+        <div style="font-size:12.5px;font-weight:700;letter-spacing:1.4px;color:#4A3FD1;text-transform:uppercase">Toward · Raise investment</div>
+        <h1 style="margin:6px 0 0;font-size:36px;line-height:1.05;letter-spacing:-1px;font-weight:800">Who should I know?</h1>
+      </div>
+    </div>
+    <div style="margin-top:24px;background:#FFFFFF;border:1px solid #E7E4DC;border-radius:18px;box-shadow:0 8px 28px rgba(29,27,38,.06);padding:8px;display:flex;align-items:center;gap:10px">
+      <span style="color:#5B4FE9;flex:none;padding-left:12px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg></span>
+      <input value="{{q}}" onChange="{{typeQ}}" onKeyDown="{{keyQ}}" placeholder="Describe who you are looking for" style="flex:1;border:none;outline:none;background:transparent;font-size:16px;color:#1D1B26;padding:10px 0">
+      <button onClick="{{doSearch}}" style="padding:12px 24px;border-radius:99px;border:none;background:#5B4FE9;color:#fff;font-weight:600;font-size:14.5px;cursor:pointer;flex:none" style-hover="background:#4A3FD1">Search</button>
+    </div>
+    <sc-if value="{{searched}}" hint-placeholder-val="{{ true }}">
+    <div style="margin-top:16px;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+      <span style="font-size:14.5px;font-weight:700">10 people for "{{qDone}}"</span>
+      <span style="font-size:13px;color:#B4B1BC">Save now, decide later</span>
+    </div>
+    <div style="margin-top:16px;background:#FFFFFF;border:1.5px solid #D9D4F9;border-radius:18px;padding:20px 24px;box-shadow:0 8px 28px rgba(91,79,233,.07);animation:riseIn .5s cubic-bezier(.2,.7,.3,1) both">
+      <div style="display:flex;align-items:baseline;gap:12px">
+        <span style="font-size:11.5px;font-weight:700;letter-spacing:1.4px;color:#4A3FD1;text-transform:uppercase">Start with these three</span>
+        <span style="font-size:12.5px;color:#B4B1BC">Ranked for this goal, each with the why</span>
+      </div>
+      <div style="margin-top:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:22px;align-items:start">
+        <sc-for list="{{top3}}" as="p" hint-placeholder-count="3">
+          <div style="min-width:0;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:11px">
+              <span style="width:26px;height:26px;border-radius:99px;background:#1D1B26;color:#fff;font-weight:700;font-size:12.5px;display:grid;place-items:center;flex:none">{{p.rank}}</span>
+              <span style="width:36px;height:36px;border-radius:99px;background:{{p.chipBg}};color:{{p.chipFg}};font-weight:700;font-size:12.5px;display:grid;place-items:center;flex:none">{{p.initials}}</span>
+              <div style="min-width:0">
+                <div style="font-size:15px;font-weight:700;letter-spacing:-0.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{p.name}}</div>
+                <div style="font-size:12.5px;color:#8A8896;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{p.role}}</div>
+              </div>
+            </div>
+            <div style="font-size:13px;line-height:1.6;color:#33313D">{{p.why}}</div>
+            <div>
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;color:#8A8896;text-transform:uppercase">What convinced Mighty</div>
+              <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+                <sc-for list="{{p.ev}}" as="e" hint-placeholder-count="3"><span style="padding:4px 11px;border-radius:99px;background:#EFEDFD;font-size:11.5px;font-weight:600;color:#4A3FD1">{{e.label}}</span></sc-for>
+              </div>
+            </div>
+            <div style="display:flex;gap:7px;align-items:center">
+              <sc-if value="{{p.pending}}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{p.add}}" style="padding:8px 16px;border-radius:99px;border:none;background:#5B4FE9;color:#fff;font-weight:600;font-size:13px;cursor:pointer" style-hover="background:#4A3FD1">Save</button>
+                <button style="padding:8px 14px;border-radius:99px;border:1.5px solid #E0DDD5;background:#fff;font-weight:600;font-size:13px;color:#1D1B26;cursor:pointer" style-hover="border-color:#D9D4F9;background:#EFEDFD;color:#4A3FD1">Prepare</button>
+                <button onClick="{{p.skip}}" style="padding:8px 10px;border-radius:99px;border:none;background:transparent;font-weight:600;font-size:13px;color:#8A8896;cursor:pointer" style-hover="color:#1D1B26">Ignore</button>
+              </sc-if>
+              <sc-if value="{{p.added}}" hint-placeholder-val="{{ false }}">
+                <span style="display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:99px;background:#E6F4EC;color:#2E8B5F;font-weight:600;font-size:13px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>Saved</span>
+              </sc-if>
+              <sc-if value="{{p.skipped}}" hint-placeholder-val="{{ false }}">
+                <span style="padding:8px 14px;border-radius:99px;border:1.5px dashed #DDD9D1;color:#B4B1BC;font-weight:600;font-size:13px">Ignored</span>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+      <!-- IN NETWORK -->
+      <div style="background:#FFFFFF;border:1px solid #ECEAE4;border-radius:18px;padding:22px 24px;animation:riseIn .5s cubic-bezier(.2,.7,.3,1) both">
+        <div style="display:flex;align-items:baseline;gap:10px">
+          <span style="font-size:11.5px;font-weight:700;letter-spacing:1.4px;color:#4A3FD1;text-transform:uppercase">Already in your network</span>
+          <span style="font-size:12.5px;color:#B4B1BC">5 · you connected, then nothing</span>
+        </div>
+        <div style="margin-top:6px">
+          <sc-for list="{{inNet}}" as="p" hint-placeholder-count="5">
+            <div style="padding:18px 0;border-bottom:1px solid #F1EFE9;opacity:{{p.rowOpacity}}">
+              <div style="display:flex;align-items:flex-start;gap:13px">
+                <span style="width:38px;height:38px;border-radius:99px;background:{{p.chipBg}};color:{{p.chipFg}};font-weight:700;font-size:13px;display:grid;place-items:center;flex:none">{{p.initials}}</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:15.5px;font-weight:700;letter-spacing:-0.2px">{{p.name}}</div>
+                  <div style="margin-top:2px;font-size:13px;line-height:1.5;color:#8A8896">{{p.role}}</div>
+                  <div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap">
+                    <sc-for list="{{p.tags}}" as="t" hint-placeholder-count="2"><span style="padding:4px 11px;border-radius:99px;background:#EFEDFD;font-size:12px;font-weight:600;color:#4A3FD1">{{t.label}}</span></sc-for>
+                  </div>
+                </div>
+                <div style="display:flex;gap:7px;flex:none;align-items:center">
+                  <sc-if value="{{p.pending}}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{p.skip}}" style="padding:9px 12px;border-radius:99px;border:none;background:transparent;font-weight:600;font-size:13px;color:#8A8896;cursor:pointer" style-hover="color:#1D1B26">Ignore</button>
+                    <button style="padding:9px 15px;border-radius:99px;border:1.5px solid #E0DDD5;background:#fff;font-weight:600;font-size:13px;color:#1D1B26;cursor:pointer" style-hover="border-color:#D9D4F9;background:#EFEDFD;color:#4A3FD1">Prepare</button>
+                    <button onClick="{{p.add}}" style="padding:9px 18px;border-radius:99px;border:none;background:#5B4FE9;color:#fff;font-weight:600;font-size:13px;cursor:pointer" style-hover="background:#4A3FD1">Save</button>
+                  </sc-if>
+                  <sc-if value="{{p.added}}" hint-placeholder-val="{{ false }}">
+                    <span style="display:flex;align-items:center;gap:7px;padding:9px 15px;border-radius:99px;background:#E6F4EC;color:#2E8B5F;font-weight:600;font-size:13px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>Saved</span>
+                  </sc-if>
+                  <sc-if value="{{p.skipped}}" hint-placeholder-val="{{ false }}">
+                    <span style="padding:9px 15px;border-radius:99px;border:1.5px dashed #DDD9D1;color:#B4B1BC;font-weight:600;font-size:13px">Ignored</span>
+                  </sc-if>
+                </div>
+              </div>
+              <div style="margin-top:11px;margin-left:51px;background:linear-gradient(135deg,#EFEDFD 0%,#F7F1F4 55%,#FBEFE9 100%);border:1px solid #E4E0F7;border-radius:12px;padding:11px 14px">
+                <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;color:#4A3FD1;text-transform:uppercase">Why Mighty picked them</div>
+                <div style="margin-top:4px;font-size:12.5px;line-height:1.6;color:#33313D">{{p.insight}}</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <!-- NOT IN NETWORK -->
+      <div style="background:#FFFFFF;border:1px solid #ECEAE4;border-radius:18px;padding:22px 24px;animation:riseIn .5s cubic-bezier(.2,.7,.3,1) .08s both">
+        <div style="display:flex;align-items:baseline;gap:10px">
+          <span style="font-size:11.5px;font-weight:700;letter-spacing:1.4px;color:#C75B33;text-transform:uppercase">Not in your network yet</span>
+          <span style="font-size:12.5px;color:#B4B1BC">5 · open a profile once and Mighty can brief you</span>
+        </div>
+        <div style="margin-top:6px">
+          <sc-for list="{{outNet}}" as="p" hint-placeholder-count="5">
+            <div style="padding:18px 0;border-bottom:1px solid #F1EFE9;opacity:{{p.rowOpacity}}">
+              <div style="display:flex;align-items:flex-start;gap:13px">
+                <span style="width:38px;height:38px;border-radius:99px;background:{{p.chipBg}};color:{{p.chipFg}};font-weight:700;font-size:13px;display:grid;place-items:center;flex:none">{{p.initials}}</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:15.5px;font-weight:700;letter-spacing:-0.2px">{{p.name}}</div>
+                  <div style="margin-top:2px;font-size:13px;line-height:1.5;color:#8A8896">{{p.role}}</div>
+                  <div style="margin-top:4px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap"><span style="font-size:12px;color:#B4B1BC">{{p.meta}}</span><a href="#" style="font-size:12.5px;font-weight:600;text-decoration:none">View on LinkedIn</a></div>
+                </div>
+                <div style="display:flex;gap:7px;flex:none;align-items:center">
+                  <sc-if value="{{p.pending}}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{p.skip}}" style="padding:9px 12px;border-radius:99px;border:none;background:transparent;font-weight:600;font-size:13px;color:#8A8896;cursor:pointer" style-hover="color:#1D1B26">Ignore</button>
+                    <button style="padding:9px 15px;border-radius:99px;border:1.5px solid #E0DDD5;background:#fff;font-weight:600;font-size:13px;color:#1D1B26;cursor:pointer" style-hover="border-color:#D9D4F9;background:#EFEDFD;color:#4A3FD1">Prepare</button>
+                    <button onClick="{{p.add}}" style="padding:9px 18px;border-radius:99px;border:none;background:#5B4FE9;color:#fff;font-weight:600;font-size:13px;cursor:pointer" style-hover="background:#4A3FD1">Save</button>
+                  </sc-if>
+                  <sc-if value="{{p.added}}" hint-placeholder-val="{{ false }}">
+                    <span style="display:flex;align-items:center;gap:7px;padding:9px 15px;border-radius:99px;background:#E6F4EC;color:#2E8B5F;font-weight:600;font-size:13px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>Saved</span>
+                  </sc-if>
+                  <sc-if value="{{p.skipped}}" hint-placeholder-val="{{ false }}">
+                    <span style="padding:9px 15px;border-radius:99px;border:1.5px dashed #DDD9D1;color:#B4B1BC;font-weight:600;font-size:13px">Ignored</span>
+                  </sc-if>
+                </div>
+              </div>
+              <div style="margin-top:11px;margin-left:51px;background:#EFEDFD;border-radius:12px;padding:11px 14px">
+                <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;color:#4A3FD1;text-transform:uppercase">Why Mighty picked them</div>
+                <div style="margin-top:4px;font-size:12.5px;line-height:1.6;color:#33313D">{{p.insight}}</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+  </div>
+</main>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    q: 'people who can invest in my ai robotics automation startup in boston from mit',
+    qDone: 'people who can invest in my ai robotics automation startup in boston from mit',
+    searched: true, st: {}
+  };
+  renderVals() {
+    const S = this.state;
+    const tints = [['#EFEDFD','#4A3FD1'],['#FBEFE9','#C75B33'],['#E6F4EC','#2E8B5F'],['#FBF1E2','#B0641F'],['#F1EFEA','#5A5766']];
+    const initials = n => n.split(' ').filter(w => /^[A-Za-z]/.test(w)).map(w => w[0]).join('').slice(0,2).toUpperCase();
+    const wire = (list, prefix) => list.map((p, i) => {
+      const id = prefix + i, st = S.st[id] || 'pending';
+      const set = v => this.setState(s => ({ st: { ...s.st, [id]: v } }));
+      return { ...p, initials: initials(p.name), chipBg: tints[i % 5][0], chipFg: tints[i % 5][1],
+        pending: st === 'pending', added: st === 'added', skipped: st === 'skipped',
+        rowOpacity: st === 'skipped' ? 0.45 : 1,
+        add: () => set('added'), skip: () => set('skipped') };
+    });
+    const inNet = wire([
+      { name: 'Aayush Srivastava', role: 'Founder, Member of Technical Staff · Stealth AI Startup', tags: [{label:'Matched on ai, startup'},{label:'Connected 2015'}], insight: 'You added him in 2015 and have never had a conversation. He has endorsed you five times since. Someone who vouches for you unprompted is the warmest cold start on this list.' },
+      { name: 'Parvez Kadbal', role: 'Senior Principal Partner, Enterprise Sales (Digital BPS, CX Operations, Automation & AI) · 3i Infotech', tags: [{label:'Matched on ai, automation'},{label:'Connected 2016'}], insight: 'Nine years connected, birthday wishes only. He now sells automation into the enterprises you want as customers. One real conversation would move this from greeting to relationship.' },
+      { name: 'Ujwal Tickoo', role: 'Product Leader, Driving AI and Agentic Automation Products · Target', tags: [{label:'Matched on ai, automation'},{label:'Connected 2016'}], insight: 'He moved into agentic automation at Target after you connected. Your product is in his problem space now. It was not when you met, which is exactly why this is worth revisiting.' },
+      { name: 'Sunil Kumar R Prasad', role: 'Senior Solutions Manager, Automation and AI Center · Cisco', tags: [{label:'Matched on automation'},{label:'Connected 2017'}], insight: 'Runs an automation and AI center at Cisco. You have exchanged nothing since 2017, but a center head sees every vendor in your category. He knows the landscape you are entering.' },
+      { name: 'Sravan Puttagunta', role: 'Founder · Stealth AI Startup', tags: [{label:'Matched on ai, startup'},{label:'Connected 2018'}], insight: 'A second-time founder in stealth, same space as you. Founders at the same stage trade the introductions investors never volunteer. Quiet since 2018, easy to restart founder to founder.' }
+    ], 'in');
+    const outNet = wire([
+      { name: 'Aleef Mahmud', role: 'Award Winning AI Products', meta: '8.8K+ followers', insight: 'The headline only mentions building AI products with no reference to investing, funding, or capital, so there is no clear tie to raising investment. Skip unless you know something Mighty cannot see.' },
+      { name: 'Pawan Deshpande', role: 'Angel Investor · Product & Growth for AI', meta: 'San Francisco Bay Area · 9.8K+ followers', insight: 'Explicitly identifies as an angel investor with a background in product and growth for AI: a direct potential source of both capital and relevant expertise.' },
+      { name: 'Dr. AJ Perez', role: 'Deep Tech Leader & Investor · 3x MIT', meta: '13.8K+ followers', insight: 'A deep tech investor with three MIT affiliations. Your strongest shared ground on this list: the MIT connection gives you a warm opening line that is actually true.' },
+      { name: 'Katie Rae', role: 'CEO & Managing Partner · Engine Ventures', meta: 'Boston · 21K+ followers', insight: 'Runs a Boston fund built for tough tech out of MIT. Your sector, your city, your school in a single profile. The hardest person on this list to reach, and the best fit.' },
+      { name: 'Milo Werner', role: 'General Partner · Deep Tech Fund', meta: 'Boston · 6.2K+ followers', insight: 'A general partner writing deep tech cheques in Boston. No shared history with you yet, which is exactly what the two MIT names above can fix with one introduction.' }
+    ], 'out');
+    const top3 = wire([
+      { rank: '1', name: 'Katie Rae', role: 'CEO & Managing Partner · Engine Ventures', why: 'Your sector, your city, your school in one profile. She runs a Boston fund built for tough tech out of MIT. Hardest to reach, best fit on this list.', ev: [{ label: 'Boston' }, { label: 'Fund born at MIT' }, { label: 'Tough tech thesis' }] },
+      { rank: '2', name: 'Dr. AJ Perez', role: 'Deep Tech Leader & Investor · 3x MIT', why: 'A deep tech investor with three MIT affiliations. The warm opening line writes itself, because it is true.', ev: [{ label: '3x MIT' }, { label: 'Writes deep tech cheques' }, { label: 'Active this month' }] },
+      { rank: '3', name: 'Aayush Srivastava', role: 'Founder · Stealth AI Startup', why: 'Already in your network. He has endorsed you five times unprompted and you have never spoken. The warmest cold start here.', ev: [{ label: 'In your network' }, { label: '5 unprompted endorsements' }, { label: 'Same stage as you' }] }
+    ], 'top');
+    return {
+      q: S.q, qDone: S.qDone, searched: S.searched, inNet, outNet, top3,
+      typeQ: e => this.setState({ q: e.target.value }),
+      keyQ: e => { if (e.key === 'Enter') this.setState({ qDone: this.state.q, searched: true, st: {} }); },
+      doSearch: () => this.setState({ qDone: this.state.q, searched: true, st: {} })
+    };
+  }
+}
+</script>
+</body>
+</html>

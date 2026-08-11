@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap">
+<style>
+body{margin:0;background:#F0EEE9;font-family:'Schibsted Grotesk',system-ui,sans-serif;color:#1D1B26}
+a{color:#4A3FD1}a:hover{color:#5B4FE9}
+button{font-family:'Schibsted Grotesk',system-ui,sans-serif}
+:focus-visible{outline:2px solid #5B4FE9;outline-offset:2px}
+::selection{background:#EFEDFD}
+.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 6px}
+.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}
+.dv-tname{font:600 13px/1.2 system-ui,sans-serif;color:#1a1a1a}
+.dv-note{margin:0 0 20px;font:400 11.5px/1.5 system-ui,sans-serif;color:rgba(0,0,0,.5);max-width:760px}
+.dv-opts{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}
+.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 system-ui,sans-serif;color:rgba(0,0,0,.55)}
+.dv-card{max-width:100%;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden}
+.dv-opt:target .dv-oid{background:#5B4FE9;color:#fff}
+.dv-next{margin:22px 0 0;font:12px/1.5 system-ui,sans-serif;color:rgba(0,0,0,.5)}
+@keyframes aurora{0%{transform:translate(0,0) scale(1)}50%{transform:translate(40px,-30px) scale(1.15)}100%{transform:translate(0,0) scale(1)}}
+@keyframes glowpulse{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes riseIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</helmet>
+
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Today, reimagined — three directions</span></div>
+<p class="dv-note">Same design language as your screenshot (warm paper ground, indigo + coral, soft pills, friendly grotesque) — content freely reinvented around the idea that Mighty already did the work overnight. All three are clickable: send the draft in <a class="dv-oid" href="#1a">1a</a>, approve/skip in <a class="dv-oid" href="#1b">1b</a>, ask in <a class="dv-oid" href="#1c">1c</a>.</p>
+<div class="dv-opts">
+
+<!-- ═══════════════ 1a THE BRIEF ═══════════════ -->
+<div class="dv-opt" id="1a">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>The Brief — ambient narrative, one thing at a time</div>
+<div class="dv-card" style="width:1280px">
+<div style="display:grid;grid-template-columns:230px 1fr 312px;min-height:880px;background:#FAF9F7">
+  <!-- sidebar -->
+  <aside style="background:#FFFFFF;border-right:1px solid #EFEDE7;display:flex;flex-direction:column;padding:24px 16px 20px">
+    <div style="display:flex;align-items:center;gap:10px;padding:0 10px 26px">
+      <span style="position:relative;width:26px;height:22px;display:inline-block"><span style="position:absolute;left:0;top:0;width:22px;height:22px;border-radius:99px;background:#4A3FD1"></span><span style="position:absolute;left:9px;top:0;width:22px;height:22px;border-radius:99px;background:#E87A56;mix-blend-mode:multiply"></span></span>
+      <span style="font-size:19px;font-weight:800;letter-spacing:-0.3px">Mighty</span>
+    </div>
+    <nav style="display:flex;flex-direction:column;gap:3px">
+      <a href="#1a" style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;background:#EFEDFD;border:1.5px solid #D9D4F9;color:#4A3FD1;font-weight:600;font-size:15px;text-decoration:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path></svg>Today</a>
+      <a href="#1a" style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#1D1B26;font-weight:500;font-size:15px;text-decoration:none" style-hover="background:#F4F2EE"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c.8-3.2 3.4-5 6.5-5s5.7 1.8 6.5 5"></path><path d="M16 5.2a3.5 3.5 0 0 1 0 5.6"></path><path d="M18.5 15.5c1.6.9 2.7 2.4 3 4.5"></path></svg><span style="flex:1">Relationships</span><span style="font-size:12.5px;font-weight:600;color:#8A8896;background:#F4F2EE;border-radius:99px;padding:2px 8px">4</span></a>
+      <a href="#1a" style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#1D1B26;font-weight:500;font-size:15px;text-decoration:none" style-hover="background:#F4F2EE"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="4.5"></circle><circle cx="12" cy="12" r="1" fill="currentColor"></circle></svg>You</a>
+      <a href="#1a" style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#1D1B26;font-weight:500;font-size:15px;text-decoration:none" style-hover="background:#F4F2EE"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 3 6-7 3 3"></path><path d="M3 21h18"></path></svg>Patterns</a>
+    </nav>
+    <div style="margin-top:auto;display:flex;flex-direction:column;gap:16px">
+      <button style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:13px;border:none;background:linear-gradient(135deg,#5B4FE9,#4A3FD1);color:#fff;font-weight:600;font-size:14.5px;cursor:pointer;box-shadow:0 6px 18px rgba(91,79,233,.28)" style-hover="background:linear-gradient(135deg,#6A5FF2,#5B4FE9)"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2z"></path></svg>Ask Mighty</button>
+      <div style="display:flex;align-items:center;gap:10px;padding:0 6px">
+        <span style="width:32px;height:32px;border-radius:99px;background:#EFEDFD;color:#4A3FD1;font-weight:700;font-size:13px;display:grid;place-items:center">R</span>
+        <div style="min-width:0"><div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">rmohans@mit.edu</div><div style="font-size:11.5px;color:#8A8896">Sign out</div></div>
+      </div>
+    </div>
+  </aside>
+  <!-- main -->
+  <main style="padding:52px 56px 48px;min-width:0">
+    <div style="font-size:12.5px;font-weight:700;letter-spacing:1.4px;color:#8A8896;text-transform:uppercase">Tuesday, July 29 · toward <span style="color:#4A3FD1">Raise investment</span></div>
+    <h1 style="margin:14px 0 0;font-size:44px;line-height:1.05;letter-spacing:-1.2px;font-weight:800">Good morning, Ritesh.</h1>
+    <p style="margin:22px 0 0;max-width:620px;font-size:17.5px;line-height:1.65;color:#4B4956">Your first message to <span style="display:inline-flex;align-items:center;gap:6px;vertical-align:-4px;background:#EFEDFD;color:#4A3FD1;font-weight:600;border-radius:99px;padding:2px 9px 2px 3px"><span style="width:20px;height:20px;border-radius:99px;background:#FBEFE9;color:#C75B33;font-weight:700;font-size:9.5px;display:inline-grid;place-items:center;letter-spacing:0">MA</span>Mridul Arora</span> is <strong style="font-weight:600">drafted and waiting for your review</strong>. There's fresh context on <span style="display:inline-flex;align-items:center;gap:6px;vertical-align:-4px;background:#EFEDFD;color:#4A3FD1;font-weight:600;border-radius:99px;padding:2px 9px 2px 3px"><span style="width:20px;height:20px;border-radius:99px;background:#E4E1F9;color:#4A3FD1;font-weight:700;font-size:9.5px;display:inline-grid;place-items:center;letter-spacing:0">DL</span>Daohao Li</span> and <span style="display:inline-flex;align-items:center;gap:6px;vertical-align:-4px;background:#EFEDFD;color:#4A3FD1;font-weight:600;border-radius:99px;padding:2px 9px 2px 3px"><span style="width:20px;height:20px;border-radius:99px;background:#E2F0E8;color:#2E8B5F;font-weight:700;font-size:9.5px;display:inline-grid;place-items:center;letter-spacing:0">PP</span>Priyanka Paramita</span> — you and Priyanka overlapped at Wipro and have been connected since 2013 without a single conversation. 19 focused minutes today gets you closer to funding.</p>
+    <!-- focus card -->
+    <div style="margin-top:34px;background:#FFFFFF;border:1px solid #ECEAE4;border-radius:18px;box-shadow:0 2px 10px rgba(29,27,38,.05);overflow:hidden">
+      <sc-if value="{{aIdle}}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;align-items:center;gap:18px;padding:24px 26px">
+          <span style="width:10px;height:10px;border-radius:99px;background:#E3A23C;box-shadow:0 0 0 5px rgba(227,162,60,.15);animation:glowpulse 2.4s ease-in-out infinite"></span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:700;letter-spacing:1.2px;color:#8A8896;text-transform:uppercase">Start here · 4 min</div>
+            <div style="margin-top:5px;font-size:20px;font-weight:700;letter-spacing:-0.3px">Send your first message to Mridul Arora</div>
+            <div style="margin-top:4px;font-size:14.5px;color:#8A8896">The draft is written and waiting on you. One click from a conversation.</div>
+          </div>
+          <button onClick="{{aOpenDraft}}" style="padding:12px 22px;border-radius:99px;border:none;background:#5B4FE9;color:#fff;font-weight:600;font-size:15px;cursor:pointer" style-hover="background:#4A3FD1">Review draft</button>
+        </div>
+      </sc-if>
+      <sc-if value="{{aDraftOpen}}" hint-placeholder-val="{{ false }}">
+        <div style="padding:24px 26px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="width:34px;height:34px;border-radius:99px;background:#FBEFE9;color:#C75B33;font-weight:700;font-size:13.5px;display:grid;place-items:center">MA</span>
+            <div><div style="font-size:15px;font-weight:700">To Mridul Arora</div><div style="font-size:12.5px;color:#8A8896">Partner, Element Capital · met at SaaSBoomi '24</div></div>
+            <span style="margin-left:auto;font-size:12px;font-weight:700;letter-spacing:1px;color:#4A3FD1;background:#EFEDFD;border-radius:99px;padding:4px 11px">DRAFT · UNSENT</span>
+          </div>
+          <p style="margin:18px 0 0;padding:18px 20px;background:#FAF9F7;border:1px solid #EFEDE7;border-radius:13px;font-size:15.5px;line-height:1.65;color:#33313D">Hi Mridul — congrats on the Element fund close. I'm raising for Mighty, and your note on founder-led sales has stuck with me since SaaSBoomi. Could I get 20 minutes this week? I'll keep it sharp.</p>
+          <div style="display:flex;gap:10px;margin-top:18px">
+            <button onClick="{{aSend}}" style="display:flex;align-items:center;gap:8px;padding:11px 20px;border-radius:99px;border:none;background:#5B4FE9;color:#fff;font-weight:600;font-size:14.5px;cursor:pointer" style-hover="background:#4A3FD1"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"></path><path d="M22 2 15 22l-4-9-9-4 20-7z"></path></svg>Send now</button>
+            <button style="padding:11px 20px;border-radius:99px;border:1.5px solid #E0DDD5;background:#fff;font-weight:600;font-size:14.5px;color:#1D1B26;cursor:pointer" style-hover="background:#F4F2EE">Edit first</button>
+            <button onClick="{{aCloseDraft}}" style="margin-left:auto;padding:11px 14px;border-radius:99px;border:none;background:transparent;font-weight:500;font-size:14px;color:#8A8896;cursor:pointer" style-hover="color:#1D1B26">Later</button>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{aSent}}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:16px;padding:24px 26px">
+          <span style="width:34px;height:34px;border-radius:99px;background:#E6F4EC;color:#2E8B5F;display:grid;place-items:center"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+          <div style="flex:1"><div style="font-size:18px;font-weight:700;letter-spacing:-0.2px">Sent to Mridul Arora.</div><div style="margin-top:3px;font-size:14px;color:#8A8896">First conversation of the week started. Next: 6 minutes on Daohao Li.</div></div>
+          <span style="font-size:13px;font-weight:600;color:#2E8B5F">1 of 5 this week</span>
+        </div>
+      </sc-if>
+    </div>
+    <!-- then list -->
+    <div style="margin-top:36px;display:flex;align-items:baseline;gap:12px"><span style="font-size:12.5px;font-weight:700;letter-spacing:1.4px;color:#8A8896;text-transform:uppercase">Then</span><span style="font-size:13px;color:#B4B1BC">{{aRemainLabel}}</span></div>
+    <div style="margin-top:6px">
+      <sc-for list="{{aRows}}" as="r" hint-placeholder-count="3">
+        <div style="display:flex;align-items:center;gap:16px;padding:17px 4px;border-bottom:1px solid #EFEDE7">
+          <button onClick="{{r.toggle}}" aria-label="Mark done" style="width:24px;height:24px;border-radius:99px;border:1.8px solid #D6D3CC;background:#fff;cursor:pointer;display:grid;place-items:center;color:#fff;flex:none" style-hover="border-color:#5B4FE9">
+            <sc-if value="{{r.done}}" hint-placeholder-val="{{ false }}"><span style="width:14px;height:14px;border-radius:99px;background:#5B4FE9;display:grid;place-items:center"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span></sc-if>
+          </button>
+          <sc-if value="{{r.pending}}" hint-placeholder-val="{{ true }}">
+            <div style="flex:1;min-width:0"><div style="font-size:16.5px;font-weight:600;letter-spacing:-0.2px">{{r.title}}</div><div style="margin-top:2px;font-size:13.5px;color:#8A8896">{{r.meta}}</div></div>
+          </sc-if>
+          <sc-if value="{{r.done}}" hint-placeholder-val="{{ false }}">
+            <div style="flex:1;min-width:0;opacity:.45"><div style="font-size:16.5px;font-weight:600;text-decoration:line-through">{{r.title}}</div></div>
+          </sc-if>
+          <span style="font-size:13px;color:#B4B1BC;flex:none">{{r.mins}}</span>
+          <span style="color:#C9C6BF;flex:none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></span>
+        </div>
+      </sc-for>
+    </div>
+  </main>
+  <!-- rail -->
+  <aside style="padding:52px 32px 40px 8px;display:flex;flex-direction:column;gap:22px">
+    <div style="background:#FFFFFF;border:1px solid #ECEAE4;border-radius:18px;padding:22px 22px 20px">
+      <div style="font-size:12px;font-weight:700;letter-spacing:1.2px;color:#8A8896;text-transform:uppercase">Raise investment</div>
+      <div style="margin-top:14px;display:flex;align-items:baseline;gap:8px"><span style="font-size:34px;font-weight:800;letter-spacing:-1px">{{aConvoCount}}</span><span style="font-size:13.5px;color:#8A8896">of 5 conversations this week</span></div>
+      <div style="margin-top:12px;display:flex;gap:6px">
+        <sc-for list="{{aWeekDots}}" as="d" hint-placeholder-count="5"><span style="flex:1;height:8px;border-radius:99px;background:{{d.bg}}"></span></sc-for>
+      </div>
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid #F1EFE9;display:flex;flex-direction:column;gap:7px">
+        <div style="display:flex;justify-content:space-between;font-size:13.5px"><span style="color:#8A8896">Relationships added</span><span style="font-weight:700">4</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13.5px"><span style="color:#8A8896">Drafts waiting</span><span style="font-weight:700">{{aDraftsWaiting}}</span></div>
+      </div>
+    </div>
+    <div style="background:#FFFFFF;border:1px solid #ECEAE4;border-radius:18px;padding:22px">
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:1.2px;color:#8A8896;text-transform:uppercase"><svg width="13" height="13" viewBox="0 0 24 24" fill="#E3A23C"><path d="M13 2 4.5 13.5H11L9.5 22 19 10h-6.5L13 2z"></path></svg>Signals</div>
+      <div style="margin-top:14px;display:flex;flex-direction:column;gap:14px">
+        <div style="font-size:14px;line-height:1.5;color:#33313D"><strong style="font-weight:600">Daohao Li</strong> is now Partner at Foothill Ventures. Good timing to reach out.</div>
+        <div style="font-size:14px;line-height:1.5;color:#33313D;border-top:1px solid #F1EFE9;padding-top:14px"><strong style="font-weight:600">Anita Rao</strong> can introduce you to 3 seed investors in your list.</div>
+        <div style="font-size:14px;line-height:1.5;color:#33313D;border-top:1px solid #F1EFE9;padding-top:14px">Your replies land <strong style="font-weight:600">2× more often before 10am</strong>. It's 9:12.</div>
+      </div>
+    </div>
+  </aside>
+</div>
+</div>
+</div>
+
+<!-- ═══════════════ 1b THE CONSOLE ═══════════════ -->
+<div class="dv-opt" id="1b">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>The Console — Mighty did the prep, you approve</div>
+<div class="dv-card" style="width:1280px">
+<div style="display:grid;grid-template-columns:72px 1fr;min-height:880px;background:#FAF9F7">
+  <!-- icon rail -->
+  <aside style="background:#FFFFFF;border-right:1px solid #EFEDE7;display:flex;flex-direction:column;align-items:center;padding:22px 0 20px;gap:8px">
+    <span style="position:relative;width:24px;height:20px;display:inline-block;margin-bottom:16px"><span style="position:absolute;left:0;top:0;width:20px;height:20px;border-radius:99px;background:#4A3FD1"></span><span style="position:absolute;left:8px;top:0;width:20px;height:20px;border-radius:99px;background:#E87A56;mix-blend-mode:multiply"></span></span>
+    <button title="Today" style="width:44px;height:44px;border-radius:13px;border:1.5px solid #D9D4F9;background:#EFEDFD;color:#4A3FD1;cursor:pointer;display:grid;place-items:center"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path></svg></button>
+    <button title="Relationships" style="width:44px;height:44px;border-radius:13px;border:none;background:transparent;color:#8A8896;cursor:pointer;display:grid;place-items:center" style-hover="background:#F4F2EE;color:#1D1B26"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c.8-3.2 3.4-5 6.5-5s5.7 1.8 6.5 5"></path><path d="M16 5.2a3.5 3.5 0 0 1 0 5.6"></path><path d="M18.5 15.5c1.6.9 2.7 2.4 3 4.5"></path></svg></button>
+    <button title="Goal" style="width:44px;height:44px;border-radius:13px;border:none;background:transparent;color:#8A8896;cursor:pointer;display:grid;place-items:center" style-hover="background:#F4F2EE;color:#1D1B26"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="4.5"></circle></svg></button>
+    <button title="Ask Mighty" style="width:44px;height:44px;border-radius:13px;border:none;background:transparent;color:#8A8896;cursor:pointer;display:grid;place-items:center" style-hover="background:#F4F2EE;color:#1D1B26"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2z"></path></svg></button>
+    <span style="margin-top:auto;width:36px;height:36px;border-radius:99px;background:#EFEDFD;color:#4A3FD1;font-weight:700;font-size:14px;display:grid;place-items:center">R</span>
+  </aside>
+  <!-- main -->
+  <main style="max-width:900px;width:100%;margin:0 auto;padding:56px 48px;min-width:0">
+    <h1 style="margin:0;font-size:42px;line-height:1.08;letter-spacing:-1.2px;font-weight:800">What deserves your<br>attention, Ritesh?</h1>
+    <p style="margin:14px 0 0;font-size:16.5px;color:#8A8896">{{bSubline}}</p>
+    <div style="margin-top:32px;display:flex;flex-direction:column;gap:14px">
+      <sc-for list="{{bRows}}" as="c" hint-placeholder-count="4">
+        <sc-if value="{{c.todo}}" hint-placeholder-val="{{ true }}">
+          <div style="background:#FFFFFF;border:1px solid #ECEAE4;border-radius:17px;padding:22px 24px;display:flex;align-items:center;gap:20px;box-shadow:0 1px 6px rgba(29,27,38,.04)">
+            <div style="flex:1;min-width:0">
+              <span style="font-size:11.5px;font-weight:700;letter-spacing:1.1px;color:{{c.tagColor}};background:{{c.tagBg}};border-radius:99px;padding:4px 11px">{{c.tag}}</span>
+              <div style="margin-top:11px;font-size:19px;font-weight:700;letter-spacing:-0.3px">{{c.title}}</div>
+              <div style="margin-top:4px;font-size:14px;line-height:1.5;color:#8A8896">{{c.note}}</div>
+            </div>
+            <span style="font-size:13px;color:#B4B1BC;flex:none">{{c.mins}}</span>
+            <button onClick="{{c.approve}}" style="padding:11px 20px;border-radius:99px;border:none;background:#5B4FE9;color:#fff;font-weight:600;font-size:14px;cursor:pointer;flex:none" style-hover="background:#4A3FD1">{{c.cta}}</button>
+            <button onClick="{{c.skip}}" title="Skip today" style="width:36px;height:36px;border-radius:99px;border:none;background:transparent;color:#B4B1BC;cursor:pointer;display:grid;place-items:center;flex:none" style-hover="background:#F4F2EE;color:#1D1B26"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+          </div>
+        </sc-if>
+        <sc-if value="{{c.done}}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:12px;padding:13px 24px;background:#F3F7F4;border:1px solid #DFEBE3;border-radius:14px">
+            <span style="color:#2E8B5F"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+            <span style="flex:1;font-size:14.5px;font-weight:600;color:#2E8B5F">{{c.doneLabel}}</span>
+            <button onClick="{{c.undo}}" style="border:none;background:none;font-size:13px;color:#8A8896;cursor:pointer;text-decoration:underline">Undo</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{c.skipped}}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:12px;padding:13px 24px;border:1px dashed #DDD9D1;border-radius:14px">
+            <span style="flex:1;font-size:14.5px;color:#B4B1BC;text-decoration:line-through">{{c.title}}</span>
+            <span style="font-size:13px;color:#B4B1BC">Moved to tomorrow</span>
+            <button onClick="{{c.undo}}" style="border:none;background:none;font-size:13px;color:#8A8896;cursor:pointer;text-decoration:underline">Undo</button>
+          </div>
+        </sc-if>
+      </sc-for>
+    </div>
+    <!-- progress footer -->
+    <div style="margin-top:36px;display:flex;align-items:center;gap:18px">
+      <div style="flex:1;height:6px;border-radius:99px;background:#ECEAE4;overflow:hidden"><div style="height:6px;border-radius:99px;background:linear-gradient(90deg,#5B4FE9,#8A7FF5);width:{{bPctW}};transition:width .35s ease"></div></div>
+      <span style="font-size:13.5px;font-weight:600;color:#8A8896">{{bFooter}}</span>
+    </div>
+  </main>
+</div>
+</div>
+</div>
+
+<!-- ═══════════════ 1c AMBIENT ═══════════════ -->
+<div class="dv-opt" id="1c">
+<div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Ambient — conversation-first, almost no chrome</div>
+<div class="dv-card" style="width:1280px">
+<div style="position:relative;min-height:880px;background:#FBFAF8;overflow:hidden">
+  <div style="position:absolute;top:-160px;left:22%;width:560px;height:560px;border-radius:99em;background:radial-gradient(circle,rgba(91,79,233,.14),transparent 65%);animation:aurora 14s ease-in-out infinite;pointer-events:none"></div>
+  <div style="position:absolute;top:-80px;right:8%;width:440px;height:440px;border-radius:99em;background:radial-gradient(circle,rgba(232,122,86,.12),transparent 65%);animation:aurora 18s ease-in-out infinite reverse;pointer-events:none"></div>
+  <!-- top bar -->
+  <header style="position:relative;display:flex;align-items:center;gap:34px;padding:20px 44px;border-bottom:1px solid rgba(29,27,38,.06)">
+    <div style="display:flex;align-items:center;gap:9px">
+      <span style="position:relative;width:24px;height:20px;display:inline-block"><span style="position:absolute;left:0;top:0;width:20px;height:20px;border-radius:99px;background:#4A3FD1"></span><span style="position:absolute;left:8px;top:0;width:20px;height:20px;border-radius:99px;background:#E87A56;mix-blend-mode:multiply"></span></span>
+      <span style="font-size:17px;font-weight:800;letter-spacing:-0.3px">Mighty</span>
+    </div>
+    <nav style="display:flex;gap:6px">
+      <a href="#1c" style="padding:8px 15px;border-radius:99px;background:#EFEDFD;color:#4A3FD1;font-weight:600;font-size:14px;text-decoration:none">Today</a>
+      <a href="#1c" style="padding:8px 15px;border-radius:99px;color:#5A5766;font-weight:500;font-size:14px;text-decoration:none" style-hover="background:#F1EFEA;color:#1D1B26">Relationships</a>
+      <a href="#1c" style="padding:8px 15px;border-radius:99px;color:#5A5766;font-weight:500;font-size:14px;text-decoration:none" style-hover="background:#F1EFEA;color:#1D1B26">You</a>
+    </nav>
+    <span style="margin-left:auto;width:34px;height:34px;border-radius:99px;background:#EFEDFD;color:#4A3FD1;font-weight:700;font-size:13.5px;display:grid;place-items:center">R</span>
+  </header>
+  <!-- center -->
+  <div style="position:relative;max-width:780px;margin:0 auto;padding:84px 40px 64px">
+    <div style="text-align:left">
+      <div style="display:flex;flex-direction:column;gap:7px;align-items:flex-start">
+        <div style="font-size:12.5px;font-weight:700;letter-spacing:1.4px;color:#8A8896;text-transform:uppercase">Tuesday · 30 minutes planned</div>
+        <div style="font-size:12.5px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#4A3FD1;background:#EFEDFD;border-radius:99px;padding:4px 12px">Goal · Raise investment for my deep tech startup</div>
+      </div>
+      <h1 style="margin:16px 0 0;font-size:48px;line-height:1.05;letter-spacing:-1.5px;font-weight:800">Good morning, Ritesh.<br><span style="color:#8A8896;font-weight:700">4 actions, 30 minutes.<br>One step closer to funding.</span></h1>
+    </div>
+    <!-- composer -->
+    <div style="margin-top:40px;background:#FFFFFF;border:1px solid #E7E4DC;border-radius:22px;box-shadow:0 10px 34px rgba(29,27,38,.07);padding:10px 10px 14px">
+      <div style="display:flex;align-items:center;gap:12px;padding:8px 8px 8px 16px">
+        <span style="color:#5B4FE9;flex:none"><svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2z"></path></svg></span>
+        <input value="{{cText}}" onChange="{{cType}}" onKeyDown="{{cKey}}" placeholder="Ask Mighty anything — or press ⏎ to start your day" style="flex:1;border:none;outline:none;background:transparent;font-family:'Schibsted Grotesk',sans-serif;font-size:16.5px;color:#1D1B26;padding:8px 0">
+        <button onClick="{{cAsk}}" aria-label="Ask" style="width:42px;height:42px;border-radius:99px;border:none;background:#5B4FE9;color:#fff;cursor:pointer;display:grid;place-items:center;flex:none" style-hover="background:#4A3FD1"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"></path><path d="m5 12 7-7 7 7"></path></svg></button>
+      </div>
+      <div style="display:flex;gap:8px;padding:4px 12px 0;flex-wrap:wrap">
+        <sc-for list="{{cChips}}" as="ch" hint-placeholder-count="3">
+          <button onClick="{{ch.pick}}" style="padding:8px 15px;border-radius:99px;border:1px solid #E7E4DC;background:#FBFAF8;font-size:13.5px;font-weight:500;color:#5A5766;cursor:pointer" style-hover="border-color:#D9D4F9;background:#EFEDFD;color:#4A3FD1">{{ch.label}}</button>
+        </sc-for>
+      </div>
+    </div>
+    <sc-if value="{{cAsked}}" hint-placeholder-val="{{ false }}">
+      <div style="margin-top:18px;background:#FFFFFF;border:1.5px solid #D9D4F9;border-radius:20px;padding:24px 26px;box-shadow:0 6px 24px rgba(91,79,233,.08)">
+        <div style="display:flex;align-items:center;gap:9px;font-size:12px;font-weight:700;letter-spacing:1.2px;color:#4A3FD1;text-transform:uppercase"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2z"></path></svg>Mighty</div>
+        <p style="margin:12px 0 0;font-size:16px;line-height:1.65;color:#33313D">Start with <strong style="font-weight:600">Mridul</strong> — your draft to him is waiting for review and he's your warmest thread today. Then take 12 minutes to prepare for <strong style="font-weight:600">Daohao</strong> and <strong style="font-weight:600">Priyanka</strong> before you reach out; Daohao just made Partner at Foothill, so today beats next week.</p>
+        <div style="display:flex;gap:10px;margin-top:16px">
+          <button style="padding:10px 18px;border-radius:99px;border:none;background:#5B4FE9;color:#fff;font-weight:600;font-size:14px;cursor:pointer" style-hover="background:#4A3FD1">Review Mridul's draft</button>
+          <button onClick="{{cDismiss}}" style="padding:10px 18px;border-radius:99px;border:1.5px solid #E0DDD5;background:#fff;font-weight:600;font-size:14px;color:#1D1B26;cursor:pointer" style-hover="background:#F4F2EE">Dismiss</button>
+        </div>
+      </div>
+    </sc-if>
+    <!-- focus row -->
+    <div style="margin-top:44px;display:flex;align-items:baseline;justify-content:space-between"><span style="font-size:12.5px;font-weight:700;letter-spacing:1.4px;color:#8A8896;text-transform:uppercase">Today's four</span><span style="font-size:13px;color:#B4B1BC">4 added · 0 conversations started</span></div>
+    <div style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div style="background:rgba(255,255,255,.85);backdrop-filter:blur(6px);border:1px solid #ECEAE4;border-radius:16px;padding:18px 20px;display:flex;gap:14px;align-items:flex-start;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;animation:riseIn .55s cubic-bezier(.2,.7,.3,1) .05s both" style-hover="transform:translateY(-3px);border-color:#D9D4F9;box-shadow:0 10px 26px rgba(91,79,233,.10)">
+        <span style="width:9px;height:9px;border-radius:99px;background:#E3A23C;margin-top:6px;flex:none"></span>
+        <div style="flex:1"><div style="font-size:15.5px;font-weight:700;letter-spacing:-0.2px">Message Mridul Arora</div><div style="margin-top:3px;font-size:13px;color:#8A8896">Review & send · 4 min</div></div>
+        <span style="color:#C9C6BF"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></span>
+      </div>
+      <div style="background:rgba(255,255,255,.85);backdrop-filter:blur(6px);border:1px solid #ECEAE4;border-radius:16px;padding:18px 20px;display:flex;gap:14px;align-items:flex-start;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;animation:riseIn .55s cubic-bezier(.2,.7,.3,1) .14s both" style-hover="transform:translateY(-3px);border-color:#D9D4F9;box-shadow:0 10px 26px rgba(91,79,233,.10)">
+        <span style="width:9px;height:9px;border-radius:99px;background:#5B4FE9;margin-top:6px;flex:none"></span>
+        <div style="flex:1"><div style="font-size:15.5px;font-weight:700;letter-spacing:-0.2px">Prep for Daohao Li</div><div style="margin-top:3px;font-size:13px;color:#8A8896">New role at Foothill · 6 min</div></div>
+        <span style="color:#C9C6BF"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></span>
+      </div>
+      <div style="background:rgba(255,255,255,.85);backdrop-filter:blur(6px);border:1px solid #ECEAE4;border-radius:16px;padding:18px 20px;display:flex;gap:14px;align-items:flex-start;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;animation:riseIn .55s cubic-bezier(.2,.7,.3,1) .23s both" style-hover="transform:translateY(-3px);border-color:#D9D4F9;box-shadow:0 10px 26px rgba(91,79,233,.10)">
+        <span style="width:9px;height:9px;border-radius:99px;background:#5B4FE9;margin-top:6px;flex:none"></span>
+        <div style="flex:1"><div style="font-size:15.5px;font-weight:700;letter-spacing:-0.2px">Prep for Priyanka Paramita</div><div style="margin-top:3px;font-size:13px;color:#8A8896">Wipro overlap · 6 min</div></div>
+        <span style="color:#C9C6BF"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></span>
+      </div>
+      <div style="background:rgba(255,255,255,.85);backdrop-filter:blur(6px);border:1px solid #ECEAE4;border-radius:16px;padding:18px 20px;display:flex;gap:14px;align-items:flex-start;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;animation:riseIn .55s cubic-bezier(.2,.7,.3,1) .32s both" style-hover="transform:translateY(-3px);border-color:#D9D4F9;box-shadow:0 10px 26px rgba(91,79,233,.10)">
+        <span style="width:9px;height:9px;border-radius:99px;background:#B9B6C4;margin-top:6px;flex:none"></span>
+        <div style="flex:1"><div style="font-size:15.5px;font-weight:700;letter-spacing:-0.2px">Find one person worth knowing</div><div style="margin-top:3px;font-size:13px;color:#8A8896">Five good beat fifty saved · 3 min</div></div>
+        <span style="color:#C9C6BF"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></span>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "take <a class="dv-oid" href="#1a">1a</a> but with <a class="dv-oid" href="#1b">1b</a>'s approve/skip buttons" · "put <a class="dv-oid" href="#1c">1c</a>'s composer at the top of <a class="dv-oid" href="#1a">1a</a>" · "a darker, more sci-fi take"</p>
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { aOpen: false, aSent: false, aDone: {}, bState: {}, cText: '', cAsked: false };
+  renderVals() {
+    const S = this.state;
+    // 1a
+    const aTasks = [
+      { id: 'd', title: 'Understand Daohao Li before you reach out', meta: 'He just made Partner at Foothill Ventures — prep before you reach out', mins: '6 min' },
+      { id: 'p', title: 'Understand Priyanka Paramita before you reach out', meta: 'Overlapped at Wipro · connected since 2013, quiet since', mins: '6 min' },
+      { id: 'f', title: 'Find one person worth knowing', meta: 'Five good people beat fifty saved profiles', mins: '3 min' }
+    ];
+    const aRows = aTasks.map(t => ({
+      ...t, done: !!S.aDone[t.id], pending: !S.aDone[t.id],
+      toggle: () => this.setState(s => ({ aDone: { ...s.aDone, [t.id]: !s.aDone[t.id] } }))
+    }));
+    const aLeft = aRows.filter(r => r.pending);
+    const aMins = aLeft.reduce((n, r) => n + parseInt(r.mins), 0);
+    const convos = S.aSent ? 1 : 0;
+    // 1b
+    const bCards = [
+      { id: 'm', tag: 'DRAFT READY', tagColor: '#B0641F', tagBg: '#FBF1E2', title: 'Send your first message to Mridul Arora', note: 'A draft is waiting for your review — warm, short, asks for 20 minutes this week.', mins: '4 min', cta: 'Approve & send', doneLabel: 'Message sent to Mridul Arora' },
+      { id: 'd', tag: 'PREPARE', tagColor: '#4A3FD1', tagBg: '#EFEDFD', title: 'Understand Daohao Li before you reach out', note: 'He just made Partner at Foothill Ventures — prepare before you reach out.', mins: '6 min', cta: 'Prepare me', doneLabel: 'Prepared for Daohao Li' },
+      { id: 'p', tag: 'PREPARE', tagColor: '#4A3FD1', tagBg: '#EFEDFD', title: 'Understand Priyanka Paramita before you reach out', note: 'You overlapped at Wipro and connected in 2013 — quiet since.', mins: '6 min', cta: 'Prepare me', doneLabel: 'Prepared for Priyanka Paramita' },
+      { id: 'f', tag: 'DISCOVER', tagColor: '#5A5766', tagBg: '#F1EFEA', title: 'Meet one person worth knowing', note: 'Five good people beat fifty saved profiles.', mins: '3 min', cta: 'Find someone', doneLabel: 'Found one person worth knowing' }
+    ];
+    const bRows = bCards.map(c => {
+      const st = S.bState[c.id] || 'todo';
+      const set = v => this.setState(s => ({ bState: { ...s.bState, [c.id]: v } }));
+      return { ...c, todo: st === 'todo', done: st === 'done', skipped: st === 'skipped', approve: () => set('done'), skip: () => set('skipped'), undo: () => set('todo') };
+    });
+    const bDone = bRows.filter(r => r.done).length;
+    const bHandled = bRows.filter(r => !r.todo).length;
+    const bMinsLeft = bRows.filter(r => r.todo).reduce((n, r) => n + parseInt(r.mins), 0);
+    // 1c
+    const chips = ['Who should I talk to first?', "Draft my note to Mridul", 'Prep me for Daohao Li'];
+    return {
+      aIdle: !S.aOpen && !S.aSent, aDraftOpen: S.aOpen && !S.aSent, aSent: S.aSent,
+      aOpenDraft: () => this.setState({ aOpen: true }),
+      aCloseDraft: () => this.setState({ aOpen: false }),
+      aSend: () => this.setState({ aOpen: false, aSent: true }),
+      aRows,
+      aRemainLabel: aLeft.length ? aLeft.length + ' more · ' + aMins + ' min' : 'all done — see you tomorrow',
+      aConvoCount: convos,
+      aDraftsWaiting: S.aSent ? 0 : 1,
+      aWeekDots: [0, 1, 2, 3, 4].map(i => ({ bg: i < convos ? '#5B4FE9' : '#E8E5DE' })),
+      bRows,
+      bSubline: bHandled === 0 ? 'Four moves · 19 minutes. Pick one and go.' : (bMinsLeft === 0 ? 'That’s the day. 19 minutes well spent.' : bMinsLeft + ' minutes left. Keep going.'),
+      bPctW: Math.round(bHandled / bRows.length * 100) + '%',
+      bFooter: bDone + ' of 4 done · ' + bMinsLeft + ' min left',
+      cText: S.cText, cAsked: S.cAsked,
+      cType: e => this.setState({ cText: e.target.value }),
+      cKey: e => { if (e.key === 'Enter') this.setState({ cAsked: true }); },
+      cAsk: () => this.setState({ cAsked: true }),
+      cDismiss: () => this.setState({ cAsked: false, cText: '' }),
+      cChips: chips.map(label => ({ label, pick: () => this.setState({ cText: label, cAsked: true }) }))
+    };
+  }
+}
+</script>
+</body>
+</html>
