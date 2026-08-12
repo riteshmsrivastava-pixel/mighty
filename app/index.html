@@ -75,6 +75,7 @@
  --green:#4EDEA3; --green2:#4EDEA3; --green-soft:rgba(78,222,163,.12);
  --amber:#E0BE63; --amber-soft:rgba(224,190,99,.12); --amber-dot:#E0BE63;
  --red:#FFB4AB; --red-soft:rgba(255,180,171,.12);
+ --inp-bg:rgba(0,0,0,.25); --inp-border:rgba(255,255,255,.12);
  --f:'Hanken Grotesk',system-ui,-apple-system,sans-serif;
  --f-head:'Sora',var(--f); --f-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
  --r:8px; --rsm:6px; --pill:4px; --sh:0 4px 24px rgba(0,0,0,.35);
@@ -100,6 +101,7 @@
  --green:#2E8B5F; --green2:#2E8B5F; --green-soft:#E6F4EC;
  --amber:#B0641F; --amber-soft:#FBF1E2; --amber-dot:#E3A23C;
  --red:#C75B33; --red-soft:#FBEFE9;
+ --inp-bg:#FFFFFF; --inp-border:var(--line);
  --r:16px; --rsm:14px; --pill:999px; --sh:0 1px 3px rgba(29,27,38,.05);
   }
   *{box-sizing:border-box}
@@ -153,7 +155,7 @@
 
   /* "Intelligence Inputs": no filled background, a hairline that glows cyan
      on focus rather than a border that just changes colour. */
-  .inp{width:100%;padding:14px 16px;border-radius:var(--rsm);border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:var(--ink);font-size:15.5px}
+  .inp{width:100%;padding:14px 16px;border-radius:var(--rsm);border:1px solid var(--inp-border);background:var(--inp-bg);color:var(--ink);font-size:15.5px}
   .inp:focus{background:rgba(0,0,0,.35);border-color:var(--peach);box-shadow:0 0 0 3px rgba(76,215,246,.15)}
   .inp::placeholder{color:var(--mute)}
   textarea.inp{min-height:74px;resize:vertical;line-height:1.55;padding:13px 15px;border-radius:8px;font-size:15px}
