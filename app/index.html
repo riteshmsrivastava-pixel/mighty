@@ -411,8 +411,9 @@ function Avatar({name, size, src, hover}){
             ...(openAbove ? {bottom:Math.max(12,window.innerHeight-rect.top+8)} : {top:rect.bottom+8}),
             maxHeight:cardMax, overflowY:'auto',
             zIndex:200, width:280,
-            background:'#fff', border:'1px solid var(--line)', borderRadius:16,
-            boxShadow:'0 12px 32px rgba(26,25,23,.16)', padding:18}}>
+            background:'var(--card)', backdropFilter:'blur(24px)', WebkitBackdropFilter:'blur(24px)',
+            border:'1px solid rgba(255,255,255,.14)', borderRadius:'var(--r)',
+            boxShadow:'0 20px 44px rgba(0,0,0,.5)', padding:18}}>
           <div className="row" style={{gap:12}}>
             {src && !broken
               ? <img src={src} alt="" width={40} height={40} style={{width:40,height:40,borderRadius:'50%',objectFit:'cover',flex:'none'}}/>
@@ -1124,11 +1125,11 @@ function StrategyView({settings, people, onEdit}){
       <div style={{marginTop:22,display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
         {chipRows.map(([label,chips])=>(
           <div key={label} className="card" style={{padding:'18px 20px',
-            background:'linear-gradient(135deg,var(--brand-soft2) 0%,#F7F1F4 55%,#FBEFE9 100%)',border:'1px solid #E4E0F7'}}>
+            background:'linear-gradient(135deg,var(--brand-soft2) 0%,rgba(76,215,246,.06) 100%)',border:'1px solid var(--brand-line)'}}>
             <div className="eyebrow" style={{color:'var(--sub)'}}>{label}</div>
             <div style={{marginTop:11,display:'flex',gap:7,flexWrap:'wrap'}}>
               {chips.map(c=>(
-                <span key={c} style={{padding:'7px 13px',borderRadius:999,background:'#fff',
+                <span key={c} style={{padding:'7px 13px',borderRadius:'var(--pill)',background:'rgba(255,255,255,.06)',border:'1px solid var(--brand-line)',
                   fontSize:13,fontWeight:600,color:'var(--brand-ink)'}}>{c}</span>))}
             </div>
           </div>))}
@@ -1589,22 +1590,34 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
 
   return (
     <div className="fade">
-      <div style={{padding:'40px 48px 30px',
-        background:'linear-gradient(135deg,#EFEDFD 0%,#F7F1F4 55%,#FBEFE9 100%)'}}>
-        <div style={{maxWidth:1280}}>
+      {/* DESIGN.md "Light Leaks": a large, soft radial wash of the spectral
+         colours over the obsidian ground, not a filled panel of its own
+         colour - the same technique the built Prism prototype uses behind
+         every hero. Replaces the old solid lavender/peach gradient, which
+         read as an unstyled white card once the page around it went dark
+         (near-white text on a near-white background is how this looked
+         before this fix). */}
+      <div style={{padding:'40px 48px 30px',position:'relative',overflow:'hidden',
+        background:'var(--paper)'}}>
+        <div aria-hidden="true" style={{position:'absolute',top:-220,left:-80,width:640,height:460,
+          borderRadius:'50%',background:'radial-gradient(circle,rgba(160,120,255,.16),transparent 70%)',
+          filter:'blur(10px)',pointerEvents:'none'}}/>
+        <div aria-hidden="true" style={{position:'absolute',top:-160,right:-40,width:520,height:400,
+          borderRadius:'50%',background:'radial-gradient(circle,rgba(76,215,246,.10),transparent 70%)',
+          filter:'blur(10px)',pointerEvents:'none'}}/>
+        <div style={{maxWidth:1280,position:'relative'}}>
           <h1 className="h1" style={{fontSize:'clamp(28px,3.4vw,36px)'}}>{greetWord()}{name?', '+name.charAt(0).toUpperCase()+name.slice(1):''}.</h1>
           <div style={{marginTop:6,fontSize:'clamp(18px,2.3vw,24px)',fontWeight:700,letterSpacing:'-.02em',color:'var(--sub)',lineHeight:1.35}}>
             {heroLine(hero, people.length)}
           </div>
 
           {hero &&
-            <div className="card" style={{marginTop:26,padding:'20px 24px',display:'flex',alignItems:'center',gap:16,flexWrap:'wrap',
-              background:'linear-gradient(90deg,#FBEFE9 0%,#EFEDFD 100%)',border:'1px solid #E4E0F7'}}>
+            <div className="card" style={{marginTop:26,padding:'20px 24px',display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
               <Avatar name={hero.title.replace(/^(Reply to|Send your first message to|Write to|Follow up with|Capture your conversation with|Understand)\s*/,'').replace(/ before you reach out$/,'')}
                 size={40} src={people.find(p=>hero.go&&p.id===hero.go.id)&&people.find(p=>hero.go&&p.id===hero.go.id).avatar_url}/>
               <div style={{flex:'1 1 240px',minWidth:0}}>
-                <div className="eyebrow" style={{color:'#B8613F'}}>Start here</div>
-                <div style={{fontSize:19,fontWeight:800,letterSpacing:'-.015em',marginTop:2}}>{hero.title}</div>
+                <div className="eyebrow" style={{color:'var(--green)'}}>Start here</div>
+                <div style={{fontSize:19,fontWeight:800,letterSpacing:'-.015em',marginTop:2,fontFamily:'var(--f-head)'}}>{hero.title}</div>
                 <div className="sub" style={{fontSize:13.5,marginTop:2}}>{hero.sub} · {hero.min} min</div>
               </div>
               <button className="btn" style={{flex:'none'}} onClick={()=>go(hero.go)}>{HERO_VERB[hero.cta]||hero.cta}</button>
