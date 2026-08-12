@@ -942,8 +942,26 @@ function savedFromLabel(ctx){
     case 'ask_mighty':    return 'Surfaced by Ask Mighty';
     case 'decoded':       return 'Surfaced in your Patterns';
     case 'event_speaker': return from ? 'Found through the "'+from+'" room' : 'Found through a room';
+    case 'organiser_import': return from ? 'Imported for "'+from+'"' : 'Imported as an attendee';
     default:              return 'Saved from the extension';
   }
+}
+/* One search path for "here is a bare name, find the real LinkedIn profile it
+   belongs to" - Rooms and Organiser Hub both hit this, and both need the same
+   answer to the same failure modes (extension not installed, rate limited,
+   nothing found), so it lives once instead of twice. Mirrors Explore's own
+   run(): extension first (it reads the results page itself and comes back
+   richer), the people-search Edge Function as the fallback. Never throws -
+   the caller always gets a candidate list, even if it's empty. */
+async function findProfileCandidates(sb, kw){
+  try{
+    const bridged = await extBridge.search(kw);
+    if(bridged && bridged.ok) return {people:(bridged.people||[]).filter(p=>p && p.profileUrl)};
+    if(bridged && bridged.error==='blocked') return {people:[], blocked:true};
+    const {data, error} = await sb.functions.invoke('people-search', {body:{query:kw}});
+    if(!error && data && data.ok!==false) return {people:(data.people||[]).filter(p=>p && p.profileUrl)};
+    return {people:[]};
+  }catch(e){ return {people:[]}; }
 }
 async function evaluate(sb, people, st){
   /* Deterministic, not AI-inferred: does the user already know people at this
@@ -963,6 +981,35 @@ async function evaluate(sb, people, st){
   const out = await llmJSON(sb, 'profile_briefing',
     'You help a professional decide who is worth building a relationship with. For each candidate, judge relevance to THEIR stated goal and explain it in plain language. Never output a numeric score. Ground every claim only in the given headline text (and the bracketed fact when present) - if nothing supports a claim, do not make it. Be honest: never inflate a weak fit, and when nothing about someone matches the goal, say so outright rather than implying promise that is not there. Common ground must be real overlap: literal (same company, school, city) or domain-level (a genuinely comparable industry to the sender\'s own career history, e.g. both fintech, both pharma - reasoned from their actual background, not restated titles); "both in tech" alone is not common ground. Never use em dashes; write a spaced hyphen instead.',
     `The person doing the networking:\n${strategyBrief(st)}\n\nCandidates:\n${list}\n\nReturn JSON exactly like {"matches":[{"n":1,"verdict":"excellent"|"strong"|"potential"|"low","why":"one or two sentences, starts with the reason, no score","common":["short shared-ground phrase"]}]}. Use "excellent" only when they match the goal squarely, "strong" for a clear fit, "potential" when the connection is real but loose, and "low" when nothing about them lines up with the goal. Include every candidate by its number n. "common" may be empty.`,
+    1500);
+  const byN = {};
+  (out.matches||[]).forEach(m=>{ if(m && m.n) byN[Number(m.n)]=m; });
+  return people.map((p,i)=>{
+    const m = byN[i+1]||{};
+    const raw = String(m.verdict||'').toLowerCase();
+    const v = VERDICT_KEYS.indexOf(raw)>=0 ? raw : 'potential';
+    return {...p, verdict:v, why:clean(m.why), common:Array.isArray(m.common)?m.common.filter(Boolean).slice(0,4):[], warmIntro:overlaps[i]};
+  });
+}
+/* Same shape and the same honesty rules as evaluate() above, but scored
+   against an event's own stated purpose rather than the host's personal
+   strategyBrief() - "who matters at THIS event" is a different question
+   from "should I personally build a relationship with this person," even
+   when the host organizing it happens to also be raising money themselves.
+   Company overlap still means the host's own network, since that fact does
+   not change depending on which goal is active. */
+async function evaluateAttendees(sb, people, st, eventGoal, tags){
+  const companyIndex = st.knowledge && st.knowledge.decoded
+    && st.knowledge.decoded.chapters && st.knowledge.decoded.chapters.companyIndex;
+  const overlaps = people.map(p => p.company ? companyOverlap(companyIndex, p.company) : null);
+  const list = people.map((p,i)=>{
+    const ov = overlaps[i];
+    return `${i+1}. ${p.name} - ${p.title||'(no title given)'}${p.company?' - '+p.company:''}`
+      + (ov ? ` [the organiser already knows ${ov.count} ${ov.count===1?'person':'people'} there]` : '');
+  }).join('\n');
+  const out = await llmJSON(sb, 'profile_briefing',
+    'You help someone organising an event decide which attendees matter most to it. For each attendee, judge relevance to the EVENT\'S stated purpose, not to the organiser\'s own career. Never output a numeric score. Ground every claim only in the given title/company text (and the bracketed fact when present) - if nothing supports a claim, do not make it. Be honest: never inflate a weak fit, and when nothing about someone matches the purpose, say so outright rather than implying promise that is not there. Never use em dashes; write a spaced hyphen instead.',
+    `This event's purpose:\n${eventGoal}${tags && tags.length ? '\nFocus areas: '+tags.join(', ') : ''}\n\nAttendees:\n${list}\n\nReturn JSON exactly like {"matches":[{"n":1,"verdict":"excellent"|"strong"|"potential"|"low","why":"one or two sentences, starts with the reason, no score","common":["short shared-ground phrase"]}]}. Use "excellent" only when they match the event's purpose squarely, "strong" for a clear fit, "potential" when the fit is real but loose, and "low" when nothing about them lines up with it. Include every attendee by its number n. "common" may be empty.`,
     1500);
   const byN = {};
   (out.matches||[]).forEach(m=>{ if(m && m.n) byN[Number(m.n)]=m; });
@@ -3979,21 +4026,11 @@ function Rooms({sb, settings, onSave, onSaveSettings, onOpen}){
 
   async function findProfile(sp){
     setSearchingIds(s=>new Set(s).add(sp.id));
-    try{
-      const kw = [sp.name, sp.company||sp.title||''].filter(Boolean).join(' ');
-      let found = [];
-      const bridged = await extBridge.search(kw);
-      if(bridged && bridged.ok){
-        found = (bridged.people||[]).filter(p=>p && p.profileUrl);
-      } else if(bridged && bridged.error==='blocked'){
-        setNote('Search is rate limited right now. Try again in a few minutes, or paste their LinkedIn URL directly.');
-      } else {
-        const {data, error} = await sb.functions.invoke('people-search', {body:{query:kw}});
-        if(!error && data && data.ok!==false) found = (data.people||[]).filter(p=>p && p.profileUrl);
-      }
-      setCandidates(c=>({...c, [sp.id]: found.slice(0,3)}));
-    }catch(e){ setCandidates(c=>({...c, [sp.id]: []})); }
-    finally{ setSearchingIds(s=>{ const n=new Set(s); n.delete(sp.id); return n; }); }
+    const kw = [sp.name, sp.company||sp.title||''].filter(Boolean).join(' ');
+    const {people, blocked} = await findProfileCandidates(sb, kw);
+    if(blocked) setNote('Search is rate limited right now. Try again in a few minutes, or paste their LinkedIn URL directly.');
+    setCandidates(c=>({...c, [sp.id]: people.slice(0,3)}));
+    setSearchingIds(s=>{ const n=new Set(s); n.delete(sp.id); return n; });
   }
 
   function resolveProfile(room, sp, c){
@@ -4157,6 +4194,308 @@ function Rooms({sb, settings, onSave, onSaveSettings, onOpen}){
                             </div>
                           )}
                           {candidates[sp.id] && candidates[sp.id].length===0 && (
+                            <div className="sub" style={{fontSize:12.5,marginTop:6}}>
+                              No confident LinkedIn match for that name. Paste their profile URL above, or try the search again.
+                            </div>
+                          )}
+                        </div>}
+                    </div>))}
+                </div>
+              )}
+            </div>);
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ===================== Organiser Hub (hosted events) ===================== */
+/* For someone running the event, not attending it: import a CSV attendee
+   list, state what the EVENT is trying to accomplish (not the organiser's
+   own goal - see evaluateAttendees()), and rank the list against that. The
+   handoff mockup's numeric "92/100" match score and its fabricated
+   personalized opener ("Sarah, noticed your recent thesis on...") are both
+   dropped - a CSV row of name/title/company is not enough to honestly stand
+   behind either one, and evaluate()'s own system prompt already refuses a
+   numeric score for exactly this reason. "Network Density" is reframed the
+   same way: Mighty has no way to know whether two attendees know each other,
+   only whether the organiser already knows people at an attendee's company,
+   so that is what gets shown, named for what it actually is. Identity
+   resolution reuses findProfileCandidates() - the same search-then-paste-URL
+   flow Rooms uses - because a name is not an identity regardless of which
+   screen it showed up on. Single-organiser only for this pass: stored in
+   settings.knowledge like Rooms, not a dedicated shared table yet. */
+function OrganiserHub({sb, settings, onSave, onSaveSettings, onOpen}){
+  const [events, setEvents] = useState(()=>(settings.knowledge && settings.knowledge.organiserEvents) || []);
+  const persist = (next)=>{ setEvents(next); onSaveSettings({knowledge:{...(settings.knowledge||{}), organiserEvents:next}}); };
+
+  const [name, setName] = useState('');
+  const [goal, setGoal] = useState('');
+  const [tagsInput, setTagsInput] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [importErr, setImportErr] = useState(null);
+  const [note, setNote] = useState(null);
+  const fileRef = useRef(null);
+  const addRefs = useRef({});
+
+  const [searchingIds, setSearchingIds] = useState(()=>new Set());
+  const [savingIds, setSavingIds] = useState(()=>new Set());
+  const [candidates, setCandidates] = useState({});
+  const [manualUrl, setManualUrl] = useState({});
+  const [dismissed, setDismissed] = useState(()=>new Set());
+
+  const COLMAP = {
+    name: ['name','full name','fullname','attendee','attendee name','guest','guest name'],
+    first: ['first name','firstname','given name'],
+    last: ['last name','lastname','surname','family name'],
+    title: ['title','role','job title','position','headline'],
+    company: ['company','organization','organisation','employer','company name'],
+    profileUrl: ['linkedin','linkedin url','profile','profile url','linkedin profile','url'],
+  };
+  function mapAttendeeRow(row){
+    const keys = Object.keys(row);
+    const find = (aliases)=>{ const k = keys.find(k=>aliases.includes(k.trim().toLowerCase())); return k?clean(row[k]):''; };
+    let nm = find(COLMAP.name);
+    if(!nm) nm = [find(COLMAP.first), find(COLMAP.last)].filter(Boolean).join(' ');
+    return {name:nm, title:find(COLMAP.title)||null, company:find(COLMAP.company)||null, profileUrl:find(COLMAP.profileUrl)||null};
+  }
+  async function parseAttendeeFile(file){
+    const text = await file.text();
+    return csvObjects(text).map(mapAttendeeRow).filter(r=>r.name);
+  }
+
+  async function createEvent(){
+    const g = clean(goal);
+    const file = fileRef.current && fileRef.current.files && fileRef.current.files[0];
+    if(!g || !file || importing) return;
+    setImportErr(null); setImporting(true);
+    try{
+      if(!/\.csv$/i.test(file.name)){
+        setImportErr('Only CSV is supported for now - export the attendee list as CSV and try again.');
+        setImporting(false); return;
+      }
+      const mapped = await parseAttendeeFile(file);
+      if(!mapped.length){
+        setImportErr('Could not find a name column in that file. It needs a header row with a Name (or First name / Last name) column.');
+        setImporting(false); return;
+      }
+      const tags = tagsInput.split(',').map(t=>clean(t)).filter(Boolean).slice(0,8);
+      let scored = mapped.slice(0,300);
+      try{ scored = await evaluateAttendees(sb, scored, settings, g, tags); }
+      catch(e){ /* scoring is a bonus on top of the plain list, not a requirement for it */ }
+      const event = {
+        id: 'oe'+Math.random().toString(36).slice(2,9)+Date.now().toString(36),
+        name: clean(name) || g.slice(0,60), goal: g, tags,
+        addedAt: new Date().toISOString(),
+        attendees: scored.map(p=>({id:'at'+Math.random().toString(36).slice(2,9)+Date.now().toString(36), ...p, avatarUrl:null, savedRowId:null})),
+      };
+      persist([event, ...events]);
+      setName(''); setGoal(''); setTagsInput('');
+      if(fileRef.current) fileRef.current.value = '';
+      track('organiser_event_created', {attendees: event.attendees.length});
+    }catch(e){ setImportErr(e.message||'Could not read that file.'); }
+    setImporting(false);
+  }
+
+  async function addMoreAttendees(event, file){
+    if(!file || importing) return;
+    setImportErr(null); setImporting(true);
+    try{
+      if(!/\.csv$/i.test(file.name)){ setImportErr('Only CSV is supported for now.'); setImporting(false); return; }
+      const mapped = await parseAttendeeFile(file);
+      const existing = new Set(event.attendees.map(a=>a.name.toLowerCase()));
+      const fresh = mapped.filter(p=>!existing.has(p.name.toLowerCase()));
+      if(!fresh.length){
+        setImportErr("Nothing new in that file - every name already appears on this event.");
+        setImporting(false); return;
+      }
+      let scored = fresh.slice(0,300);
+      try{ scored = await evaluateAttendees(sb, scored, settings, event.goal, event.tags); }
+      catch(e){}
+      const added = scored.map(p=>({id:'at'+Math.random().toString(36).slice(2,9)+Date.now().toString(36), ...p, avatarUrl:null, savedRowId:null}));
+      persist(events.map(e=>e.id!==event.id?e:{...e, attendees:[...e.attendees, ...added]}));
+      track('organiser_event_attendees_added', {added: added.length});
+    }catch(e){ setImportErr(e.message||'Could not read that file.'); }
+    setImporting(false);
+  }
+
+  function removeEvent(event){ persist(events.filter(e=>e.id!==event.id)); }
+
+  async function findProfile(ev, at){
+    setSearchingIds(s=>new Set(s).add(at.id));
+    const kw = [at.name, at.company||at.title||''].filter(Boolean).join(' ');
+    const {people, blocked} = await findProfileCandidates(sb, kw);
+    if(blocked) setNote('Search is rate limited right now. Try again in a few minutes, or paste their LinkedIn URL directly.');
+    setCandidates(c=>({...c, [at.id]: people.slice(0,3)}));
+    setSearchingIds(s=>{ const n=new Set(s); n.delete(at.id); return n; });
+  }
+  function resolveProfile(ev, at, c){
+    persist(events.map(e=>e.id!==ev.id?e:{...e, attendees:e.attendees.map(x=>x.id===at.id?{...x, profileUrl:c.profileUrl, avatarUrl:c.avatarUrl||x.avatarUrl}:x)}));
+    setCandidates(cs=>{ const n={...cs}; delete n[at.id]; return n; });
+  }
+  function useManualUrl(ev, at){
+    const url = clean(manualUrl[at.id]||'');
+    if(!url) return;
+    persist(events.map(e=>e.id!==ev.id?e:{...e, attendees:e.attendees.map(x=>x.id===at.id?{...x, profileUrl:url}:x)}));
+    setManualUrl(m=>{ const n={...m}; delete n[at.id]; return n; });
+  }
+  async function saveAttendee(ev, at){
+    if(!at.profileUrl || savingIds.has(at.id)) return;
+    setSavingIds(s=>new Set(s).add(at.id));
+    try{
+      const row = await onSave({profileUrl:at.profileUrl, name:at.name, title:at.title, company:at.company,
+        avatarUrl:at.avatarUrl, why:at.why||'', common:at.common||[], verdict:at.verdict}, ev.name, 'organiser_import');
+      if(row) persist(events.map(e=>e.id!==ev.id?e:{...e, attendees:e.attendees.map(x=>x.id===at.id?{...x, savedRowId:row.id}:x)}));
+    } finally { setSavingIds(s=>{ const n=new Set(s); n.delete(at.id); return n; }); }
+  }
+
+  const RANK = {excellent:0, strong:1, potential:2, low:3};
+  return (
+    <div className="fade" style={{padding:'20px 22px 40px'}}>
+      <h2 className="h2">Organiser Hub</h2>
+      <div className="sub" style={{marginTop:6}}>
+        For events you're running, not attending. Import who's coming, say what the event is for, and see who matters most to it.
+      </div>
+
+      <div className="card" style={{marginTop:20,padding:'18px 20px'}}>
+        <div className="eyebrow">New event</div>
+        <div style={{display:'flex',flexDirection:'column',gap:10,marginTop:12}}>
+          <input className="inp" placeholder="Event name (optional)" value={name} onChange={e=>setName(e.target.value)}/>
+          <input className="inp" placeholder="What is this event trying to accomplish?" value={goal} onChange={e=>setGoal(e.target.value)}/>
+          <input className="inp" placeholder="Tags, comma separated (e.g. Fundraising, Tech, Networking)" value={tagsInput} onChange={e=>setTagsInput(e.target.value)}/>
+          <input ref={fileRef} type="file" accept=".csv" style={{display:'none'}}/>
+          <div onClick={()=>fileRef.current && fileRef.current.click()}
+            style={{border:'1.5px dashed var(--line)',borderRadius:16,padding:'20px 18px',cursor:'pointer',background:'var(--card2)',textAlign:'center'}}>
+            <div className="eyebrow">Drop the attendee CSV here, or click to browse</div>
+            <div className="meta" style={{marginTop:6}}>Needs a Name (or First name / Last name) column. Title, Company and a LinkedIn URL column are used when present.</div>
+          </div>
+          <button className="btn" style={{alignSelf:'flex-start'}} disabled={importing || !clean(goal)} onClick={createEvent}>
+            {importing ? <span><span className="spin"/> Reading</span> : 'Create event'}
+          </button>
+        </div>
+        {importErr && <div className="banner warn" style={{marginTop:14}}>{importErr}</div>}
+        {note && <div className="meta" style={{marginTop:12}}>{note}</div>}
+      </div>
+
+      {events.length===0 &&
+        <div className="banner warn" style={{marginTop:20}}>Nothing here yet. Create an event above to get started.</div>}
+
+      <div className="stack" style={{gap:18,marginTop:24}}>
+        {events.map(ev=>{
+          const visible = [...ev.attendees]
+            .filter(a=>!dismissed.has(a.id))
+            .sort((a,b)=>(RANK[a.verdict]??2)-(RANK[b.verdict]??2));
+          const withOverlap = ev.attendees.filter(a=>a.warmIntro && a.warmIntro.count>0).length;
+          const overlapPct = ev.attendees.length ? Math.round(100*withOverlap/ev.attendees.length) : 0;
+          if(!addRefs.current[ev.id]) addRefs.current[ev.id] = React.createRef();
+          return (
+            <div key={ev.id} className="card fade" style={{padding:'20px 22px'}}>
+              <div className="row" style={{justifyContent:'space-between',alignItems:'flex-start',gap:14,flexWrap:'wrap'}}>
+                <div style={{flex:'1 1 260px',minWidth:0}}>
+                  <div style={{fontSize:17,fontWeight:700,letterSpacing:'-.01em'}}>{ev.name}</div>
+                  <div className="sub" style={{fontSize:13.5,marginTop:4}}>{ev.goal}</div>
+                  {ev.tags.length>0 &&
+                    <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:8}}>
+                      {ev.tags.map((t,i)=><span key={i} className="tag">{t}</span>)}
+                    </div>}
+                </div>
+                <button className="btn q sm" onClick={()=>removeEvent(ev)}>Remove</button>
+              </div>
+
+              <div style={{marginTop:16,paddingTop:14,borderTop:'1px solid var(--line2)'}}>
+                <div className="row" style={{justifyContent:'space-between',alignItems:'baseline'}}>
+                  <span className="eyebrow">Company overlap</span>
+                  <span style={{fontFamily:'var(--f-mono)',fontSize:13,color:'var(--brand-ink)'}}>{overlapPct}%</span>
+                </div>
+                <div className="meta" style={{marginTop:4}}>
+                  You already know someone at {overlapPct}% of attendees' companies{ev.attendees.length?' ('+withOverlap+' of '+ev.attendees.length+')':''}.
+                </div>
+                <div style={{width:'100%',height:4,borderRadius:99,background:'var(--line2)',overflow:'hidden',marginTop:8}}>
+                  <div style={{width:overlapPct+'%',height:'100%',background:'var(--brand)'}}/>
+                </div>
+              </div>
+
+              <div className="row" style={{justifyContent:'space-between',alignItems:'baseline',marginTop:20}}>
+                <div className="h4">Ranked by fit to this event</div>
+                <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                  <input ref={addRefs.current[ev.id]} type="file" accept=".csv" style={{display:'none'}}
+                    onChange={e=>addMoreAttendees(ev, e.target.files && e.target.files[0])}/>
+                  <button className="btn q sm" disabled={importing} onClick={()=>addRefs.current[ev.id].current.click()}>Add more attendees</button>
+                </div>
+              </div>
+
+              {ev.attendees.length===0 ? (
+                <div className="meta" style={{marginTop:12}}>No attendees on this event yet.</div>
+              ) : (
+                <div className="stack" style={{gap:0,marginTop:8}}>
+                  {visible.map(at=>(
+                    <div key={at.id} style={{padding:'14px 0',borderTop:'1px solid var(--line2)'}}>
+                      <div className="row" style={{gap:13,alignItems:'flex-start',flexWrap:'wrap'}}>
+                        <Avatar name={at.name} size={34} src={at.avatarUrl}/>
+                        <div style={{flex:'1 1 200px',minWidth:0}}>
+                          <div style={{fontSize:15,fontWeight:700}}>{at.name}</div>
+                          <div className="sub" style={{fontSize:13.5,marginTop:1}}>
+                            {[at.title, at.company].filter(Boolean).join(' · ') || 'No title on the import'}
+                          </div>
+                        </div>
+                        <div style={{display:'flex',gap:8,flex:'none'}}>
+                          {at.savedRowId ? (
+                            <button className="btn g sm" onClick={()=>onOpen(at.savedRowId)}>Open</button>
+                          ) : at.profileUrl ? (
+                            <F>
+                              <button className="btn sm" disabled={savingIds.has(at.id)} onClick={()=>saveAttendee(ev, at)}>
+                                {savingIds.has(at.id) ? <span><span className="spin"/> Adding</span> : 'Add to pipeline'}
+                              </button>
+                              <button className="btn q" style={{fontSize:13}} onClick={()=>setDismissed(d=>new Set(d).add(at.id))}>Skip</button>
+                            </F>
+                          ) : (
+                            <button className="btn q" style={{fontSize:13}} onClick={()=>setDismissed(d=>new Set(d).add(at.id))}>Skip</button>
+                          )}
+                        </div>
+                      </div>
+
+                      {at.why &&
+                        <div className="why" style={{marginTop:12,padding:'12px 14px'}}>
+                          <div className="eyebrow b">Insight</div>
+                          <div style={{fontSize:14,lineHeight:1.55,color:'var(--body)',marginTop:5,textWrap:'pretty'}}>{at.why}</div>
+                        </div>}
+                      {(at.warmIntro || (at.common && at.common.length>0)) &&
+                        <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:10}}>
+                          {at.warmIntro &&
+                            <span className="tag" style={{background:'var(--brand-soft2)',borderColor:'var(--brand-line)',color:'var(--brand-ink)',fontWeight:700}}>
+                              You know {at.warmIntro.count} at {at.warmIntro.label}
+                            </span>}
+                          {at.common && at.common.map((c,i)=><span key={i} className="tag">{c}</span>)}
+                        </div>}
+
+                      {!at.profileUrl && !at.savedRowId &&
+                        <div style={{marginTop:10}}>
+                          <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+                            {(!candidates[at.id] || candidates[at.id].length===0) &&
+                              <button className="btn q sm" disabled={searchingIds.has(at.id)} onClick={()=>findProfile(ev, at)}>
+                                {searchingIds.has(at.id) ? <span><span className="spin"/> Searching</span> : 'Find their profile'}
+                              </button>}
+                            <input className="inp" style={{flex:'1 1 220px',minWidth:0,fontSize:13}} placeholder="or paste their LinkedIn URL"
+                              value={manualUrl[at.id]||''} onChange={e=>setManualUrl(m=>({...m,[at.id]:e.target.value}))}
+                              onKeyDown={e=>{ if(e.key==='Enter') useManualUrl(ev, at); }}/>
+                            <button className="btn sm" disabled={!clean(manualUrl[at.id]||'')} onClick={()=>useManualUrl(ev, at)}>Use</button>
+                          </div>
+                          {candidates[at.id] && candidates[at.id].length>0 && (
+                            <div className="stack" style={{gap:6,marginTop:8}}>
+                              <div className="meta">Which one is {at.name}?</div>
+                              {candidates[at.id].map(c=>(
+                                <div key={c.profileUrl} className="row" style={{gap:10,padding:'8px 10px',border:'1px solid var(--line2)',borderRadius:'var(--rsm)'}}>
+                                  <Avatar name={c.name} size={26} src={c.avatarUrl}/>
+                                  <div style={{flex:1,minWidth:0,fontSize:13}}>
+                                    <div style={{fontWeight:700}}>{c.name}</div>
+                                    <div className="sub" style={{fontSize:12}}>{[c.title,c.company].filter(Boolean).join(' · ')||'No headline'}</div>
+                                  </div>
+                                  <button className="btn g sm" onClick={()=>resolveProfile(ev, at, c)}>This one</button>
+                                </div>))}
+                              <button className="btn q sm" style={{alignSelf:'flex-start'}} onClick={()=>setCandidates(c=>({...c,[at.id]:null}))}>None of these</button>
+                            </div>
+                          )}
+                          {candidates[at.id] && candidates[at.id].length===0 && (
                             <div className="sub" style={{fontSize:12.5,marginTop:6}}>
                               No confident LinkedIn match for that name. Paste their profile URL above, or try the search again.
                             </div>
@@ -5616,6 +5955,8 @@ const NAV = [
      at the same level as everything else, not nested under one). */
   {key:'rooms', label:'Rooms', icon:
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>},
+  {key:'organiser', label:'Organiser Hub', icon:
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="4" cy="6" r="2"/><circle cx="20" cy="6" r="2"/><circle cx="12" cy="20" r="2"/><path d="M9.5 10.5L5.5 7M14.5 10.5L18.5 7M12 15v3"/></svg>},
 ];
 const QUESTION = {ask:'What should I do?', extension:'Save people while you browse.'};
 
@@ -8370,6 +8711,7 @@ function App(){
           onSave={savePerson} onOpen={openPerson} go={go} aiMeta={aiMeta}/>}
 
       {screen==='rooms' && <Rooms sb={sb} settings={settings} onSave={savePerson} onSaveSettings={saveSettings} onOpen={openPerson}/>}
+      {screen==='organiser' && <OrganiserHub sb={sb} settings={settings} onSave={savePerson} onSaveSettings={saveSettings} onOpen={openPerson}/>}
       {screen==='extension' && <Extension/>}
     </Shell>
 
