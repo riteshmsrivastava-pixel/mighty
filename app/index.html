@@ -3857,10 +3857,15 @@ function Ask({sb, people, events, tasks, settings, onOpen, onSave, initialQuesti
           </div>))}
       </div>
 
-      <div style={{position:'sticky',bottom:0,padding:'20px 0 4px',
-        background:'linear-gradient(180deg,rgba(251,250,248,0) 0%,#FBFAF8 26%)'}}>
+      {/* Mounted two places now - the original slide-out drawer (solid
+         --paper behind it) and, since the search unification, inline inside
+         a .card on the Explore screen (translucent glass behind it). A
+         gradient fading to one specific hex could only ever be right in one
+         of the two; a flat, moderately dark bar reads fine in both without
+         needing to know which one it is. */}
+      <div style={{position:'sticky',bottom:0,padding:'20px 0 4px',background:'var(--rail)'}}>
         <div style={{display:'flex',gap:10}}>
-          <input className="inp" style={{flex:1,minWidth:0,background:'#fff'}} value={q}
+          <input className="inp" style={{flex:1,minWidth:0}} value={q}
             placeholder="Who should I reconnect with?"
             onChange={e=>setQ(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') run(); }}/>
           <button className="btn" style={{flex:'none',padding:'0 24px',borderRadius:'var(--rsm)'}}
