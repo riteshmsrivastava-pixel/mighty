@@ -28,147 +28,109 @@
      ============================================================ -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap">
 <link rel="icon" href="../favicon.ico?v=2" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32.png?v=2">
 <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
 <style>
-  /* ============================================================
-     THE PRISM - Mighty's design system as of 11 Aug 2026.
-     Source: Claude Design handoff "Mighty Product Page Concepts", DESIGN.md
-     ("Ambient Intelligence" / Midnight High-Fidelity Glassmorphism) plus the
-     built Mighty Prism.dc.html prototype.
-
-     Every token below KEEPS ITS OLD NAME and takes a new value. That is
-     deliberate: every var(--x) reference across this 7,000+ line file - in
-     this stylesheet and in hundreds of inline React style objects - picks up
-     the new palette automatically, with no risk to any of the logic that
-     reads them. Only the values change; nothing that touches routing,
-     state, or data does.
-
-     One resolved conflict, stated rather than buried: DESIGN.md's own
-     tokens, and both "orphan" concept screens (Organiser Hub, Node Capacity
-     Management), all agree the page background is #131313. Only the single
-     built Prism.dc.html prototype's outer <style> uses a lighter #221F2E.
-     Going with the majority (#131313) as --paper, and reserving something
-     close to that outlier as the elevated rail/header tone below - it
-     wasn't wrong, it was a level up the elevation scale. ============= */
   :root{
- --paper:#131313; --rail:#1A1A1E; --card:rgba(255,255,255,.04); --card2:rgba(255,255,255,.03);
- --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.06); --line3:rgba(255,255,255,.08); --line4:rgba(255,255,255,.06);
- --ink:#E5E2E1; --ink2:#DAD7E0; --body:#CBC3D7; --sub:#958EA0; --mute:#6B6575; --mute2:#7A7488;
- --brand:#A078FF; --brand-h:#B48EFF; --brand-ink:#D0BCFF;
- --brand-soft:rgba(160,120,255,.12); --brand-soft2:rgba(160,120,255,.18); --brand-line:rgba(208,188,255,.35); --brand-nav:rgba(160,120,255,.15);
- --peach:#4CD7F6;
- --green:#4EDEA3; --green2:#4EDEA3; --green-soft:rgba(78,222,163,.12);
- --amber:#E0BE63; --amber-soft:rgba(224,190,99,.12); --amber-dot:#E0BE63;
- --red:#FFB4AB; --red-soft:rgba(255,180,171,.12);
- --f:'Hanken Grotesk',system-ui,-apple-system,sans-serif;
- --f-head:'Sora',var(--f); --f-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
- --r:8px; --rsm:6px; --pill:4px; --sh:0 4px 24px rgba(0,0,0,.35);
+ --paper:#FBFAF8; --rail:#FFFFFF; --card:#FFFFFF; --card2:#FBFAF8;
+ --line:#ECEAE4; --line2:#F1EFE9; --line3:#EFEDE7; --line4:#F1EFE9;
+ --ink:#1D1B26; --ink2:#2A2833; --body:#33313D; --sub:#8A8896; --mute:#B4B1BC; --mute2:#A39FA8;
+ --brand:#5B4FE9; --brand-h:#4A3FD1; --brand-ink:#4A3FD1;
+ --brand-soft:#F5F3FD; --brand-soft2:#EFEDFD; --brand-line:#E4E0F7; --brand-nav:#EFEDFD;
+ --peach:#E87A56;
+ --green:#2E8B5F; --green2:#2E8B5F; --green-soft:#E6F4EC;
+ --amber:#B0641F; --amber-soft:#FBF1E2; --amber-dot:#E3A23C;
+ --red:#C75B33; --red-soft:#FBEFE9;
+ --f:'Schibsted Grotesk',system-ui,-apple-system,sans-serif;
+ --r:16px; --rsm:14px; --pill:999px; --sh:0 1px 3px rgba(29,27,38,.05);
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;height:100%}
   body{background:var(--paper);color:var(--ink);font-family:var(--f);-webkit-font-smoothing:antialiased}
-  a{color:var(--brand-ink);text-decoration:none}
-  a:hover{color:var(--brand-h)}
+  a{color:var(--brand);text-decoration:none}
   button{font-family:inherit;border:0;background:none;cursor:pointer;color:inherit}
   input,textarea,select{font-family:inherit;color:inherit}
-  input:focus-visible,textarea:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid var(--brand-ink);outline-offset:2px}
-  ::selection{background:rgba(208,188,255,.28)}
+  input:focus-visible,textarea:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  ::selection{background:#E4DEFC}
   ::-webkit-scrollbar{width:11px;height:11px}
-  ::-webkit-scrollbar-thumb{background:#3A3842;border-radius:99px;border:3px solid var(--paper)}
+  ::-webkit-scrollbar-thumb{background:#E2DED7;border-radius:99px;border:3px solid var(--paper)}
   ::-webkit-scrollbar-track{background:transparent}
 
-  .h1{font-family:var(--f-head);font-size:32px;font-weight:700;letter-spacing:-.03em;text-wrap:pretty;margin:0}
-  .h2{font-family:var(--f-head);font-size:26px;font-weight:700;letter-spacing:-.03em;text-wrap:pretty;margin:0}
-  .h3{font-family:var(--f-head);font-size:19px;font-weight:600;letter-spacing:-.02em}
-  .h4{font-family:var(--f-head);font-size:16px;font-weight:600;letter-spacing:-.01em}
-  .eyebrow{font-family:var(--f-mono);font-size:10.5px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--sub)}
-  .eyebrow.b{color:var(--peach)}
+  .h1{font-size:32px;font-weight:700;letter-spacing:-.025em;text-wrap:pretty;margin:0}
+  .h2{font-size:26px;font-weight:700;letter-spacing:-.025em;text-wrap:pretty;margin:0}
+  .h3{font-size:19px;font-weight:700;letter-spacing:-.015em}
+  .h4{font-size:16px;font-weight:700;letter-spacing:-.01em}
+  .eyebrow{font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--mute)}
+  .eyebrow.b{color:var(--brand)}
   .sub{font-size:15px;color:var(--sub)}
-  .meta{font-family:var(--f-mono);font-size:12px;letter-spacing:.04em;color:var(--mute2)}
+  .meta{font-size:13px;color:var(--mute2)}
   .pad{padding:40px 48px 90px}
 
-  /* "Refractive Cards" (DESIGN.md Level 1): translucent white over the
-     obsidian ground, blurred so whatever sits behind still reads through it,
-     with a hairline border rather than a shadow doing the separating. */
-  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh)}
   .why{background:var(--brand-soft);border:1px solid var(--brand-line);border-radius:12px}
 
-  /* "Spectral Buttons": the primary action is the violet-to-cyan flow, and a
-     hover brightens the gradient rather than swapping to a flat darker fill -
-     the one rule DESIGN.md is explicit about ("increase luminance, don't
-     change the color"). rounded-md per spec: sharp small-radius rectangles,
-     not the pill shape the cream theme used. */
-  .btn{padding:11px 20px;border-radius:var(--pill);background:linear-gradient(90deg,var(--brand),var(--peach));color:#0B0620;font-size:14.5px;font-weight:700;transition:filter .15s;white-space:nowrap}
-  .btn:hover:not(:disabled){filter:brightness(1.15)}
+  .btn{padding:11px 20px;border-radius:var(--pill);background:var(--brand);color:#fff;font-size:14.5px;font-weight:700;transition:background .15s;white-space:nowrap}
+  .btn:hover:not(:disabled){background:var(--brand-h)}
   .btn:disabled{opacity:.42;cursor:not-allowed}
-  .btn.g{background:transparent;border:1px solid var(--line);color:var(--ink);font-weight:600}
-  .btn.g:hover:not(:disabled){border-color:var(--brand-line);color:var(--brand-ink);background:transparent}
+  .btn.g{background:#fff;border:1px solid #E2DDD6;color:var(--ink);font-weight:600}
+  .btn.g:hover:not(:disabled){border-color:var(--brand);color:var(--brand-ink);background:#fff}
   .btn.sm{padding:9px 17px;font-size:14px}
   .btn.xs{padding:7px 14px;font-size:13px}
   .btn.q{background:none;color:var(--sub);font-weight:600;padding:12px 8px}
   /* Restating the background is not redundant: .btn:hover above matches these
      too and would otherwise paint a brand-coloured pill behind what is meant to
      read as plain text. .btn.g:hover does the same thing for the same reason. */
-  .btn.q:hover:not(:disabled){color:var(--ink);background:rgba(255,255,255,.05)}
-  .btn.soft{background:rgba(255,255,255,.06);color:var(--body);font-weight:600}
-  .btn.soft:hover{background:rgba(255,255,255,.09)}
+  .btn.q:hover:not(:disabled){color:var(--ink);background:#F4F2EE}
+  .btn.soft{background:#F4F2EE;color:#5B554D;font-weight:600}
+  .btn.soft:hover{background:#EDEAE4}
 
-  /* "Intelligence Inputs": no filled background, a hairline that glows cyan
-     on focus rather than a border that just changes colour. */
-  .inp{width:100%;padding:14px 16px;border-radius:var(--rsm);border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:var(--ink);font-size:15.5px}
-  .inp:focus{background:rgba(0,0,0,.35);border-color:var(--peach);box-shadow:0 0 0 3px rgba(76,215,246,.15)}
-  .inp::placeholder{color:var(--mute)}
-  textarea.inp{min-height:74px;resize:vertical;line-height:1.55;padding:13px 15px;border-radius:8px;font-size:15px}
-  .lbl{font-family:var(--f-mono);font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin-bottom:8px}
+  .inp{width:100%;padding:14px 16px;border-radius:var(--rsm);border:1px solid #E4E0D9;background:var(--card2);font-size:15.5px}
+  .inp:focus{background:#fff}
+  .inp::placeholder{color:#B8B1A8}
+  textarea.inp{min-height:74px;resize:vertical;line-height:1.55;padding:13px 15px;border-radius:12px;font-size:15px}
+  .lbl{font-size:12.5px;font-weight:700;color:#6B655C;margin-bottom:6px}
 
-  /* "Monospace Chips": low-profile dark chips with mono text and a thin
-     border - used everywhere the old cream theme used a soft lavender pill. */
-  .chip{font-family:var(--f-mono);padding:7px 14px;border-radius:var(--pill);border:1px solid var(--line);background:rgba(255,255,255,.04);font-size:12.5px;letter-spacing:.03em;color:var(--body);font-weight:500;white-space:nowrap}
-  .chip:hover:not(:disabled){border-color:var(--brand-line);color:var(--brand-ink)}
-  .chip.on{background:var(--brand-soft2);border-color:var(--brand-line);color:var(--brand-ink);font-weight:700}
-  .tag{font-family:var(--f-mono);padding:5px 11px;border-radius:var(--pill);background:rgba(255,255,255,.04);border:1px solid var(--line);font-size:11px;letter-spacing:.03em;color:var(--body);font-weight:500;white-space:nowrap}
-  .tagx{display:inline-flex;align-items:center;gap:7px;padding:6px 8px 6px 13px;border-radius:var(--pill);background:var(--brand-soft2);color:var(--brand-ink);font-size:13px;font-weight:600}
-  .tagx button{color:var(--brand-ink);font-size:15px;line-height:1;padding:0 4px;opacity:.7}
-  .tagx button:hover{opacity:1}
-  .seg{display:flex;gap:3px;padding:3px;background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:8px;width:fit-content}
-  .seg button{padding:8px 16px;border-radius:5px;font-size:14px;font-weight:600;color:var(--sub);white-space:nowrap}
-  .seg button.on{background:rgba(255,255,255,.08);color:var(--ink);box-shadow:none}
+  .chip{padding:8px 15px;border-radius:var(--pill);border:1px solid var(--line);background:var(--card2);font-size:13.5px;color:#5B554D;font-weight:500;white-space:nowrap}
+  .chip:hover:not(:disabled){border-color:#C9BFF7;color:var(--brand-ink)}
+  .chip.on{background:var(--brand-soft2);border-color:#CFC4F9;color:var(--brand-ink);font-weight:700}
+  .tag{padding:6px 12px;border-radius:var(--pill);background:#F4F2EE;font-size:12.5px;color:#6B655C;font-weight:500;white-space:nowrap}
+  .tagx{display:inline-flex;align-items:center;gap:7px;padding:7px 8px 7px 14px;border-radius:var(--pill);background:var(--brand-soft2);color:var(--brand-ink);font-size:13.5px;font-weight:600}
+  .tagx button{color:#8C7BE8;font-size:15px;line-height:1;padding:0 4px}
+  .tagx button:hover{color:var(--brand-ink)}
+  .seg{display:flex;gap:3px;padding:3px;background:#F0EDE8;border-radius:12px;width:fit-content}
+  .seg button{padding:8px 16px;border-radius:9px;font-size:14px;font-weight:600;color:#6B655C;white-space:nowrap}
+  .seg button.on{background:#fff;color:var(--ink);box-shadow:var(--sh)}
 
-  .av{border-radius:50%;background:linear-gradient(135deg,var(--peach),var(--brand));color:#0B0620;display:flex;align-items:center;justify-content:center;font-weight:700;flex:none;font-family:var(--f-mono)}
-  .pill{display:inline-block;font-family:var(--f-mono);padding:4px 11px;border-radius:var(--pill);font-size:11px;font-weight:700;letter-spacing:.04em;white-space:nowrap}
-  /* Status LEDs (DESIGN.md "Glow States"): a coloured dot with a matching
-     bloom, not a flat circle - .dot's own box-shadow is set per-instance
-     from the same colour already passed in as background, everywhere it's
-     used, so no other rule needs to change for this. */
-  .dot{width:8px;height:8px;border-radius:50%;flex:none;box-shadow:0 0 8px currentColor}
+  .av{border-radius:50%;background:#E6E1FB;color:var(--brand-ink);display:flex;align-items:center;justify-content:center;font-weight:700;flex:none}
+  .pill{display:inline-block;padding:5px 12px;border-radius:var(--pill);font-size:12.5px;font-weight:700;white-space:nowrap}
+  .dot{width:8px;height:8px;border-radius:50%;flex:none}
   .row{display:flex;align-items:center;gap:16px}
   .stack{display:flex;flex-direction:column}
   .tabs{display:flex;gap:24px;border-bottom:1px solid var(--line);overflow-x:auto}
   .tabs button{padding:11px 0;font-size:14.5px;font-weight:600;color:var(--sub);border-bottom:2px solid transparent;white-space:nowrap}
-  .tabs button.on{color:var(--ink);border-bottom-color:var(--brand-ink);font-weight:700}
+  .tabs button.on{color:var(--ink);border-bottom-color:var(--brand);font-weight:700}
 
-  .spin{width:15px;height:15px;border:2px solid rgba(208,188,255,.25);border-top-color:var(--brand-ink);border-radius:50%;display:inline-block;animation:sp .7s linear infinite;vertical-align:-2px}
+  .spin{width:15px;height:15px;border:2px solid #DED8F7;border-top-color:var(--brand);border-radius:50%;display:inline-block;animation:sp .7s linear infinite;vertical-align:-2px}
   @keyframes sp{to{transform:rotate(360deg)}}
   .fade{animation:fi .22s ease both}
   @keyframes fi{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-  .banner{border-radius:8px;padding:13px 16px;font-size:14px;font-weight:500;line-height:1.5}
-  .banner.warn{background:var(--amber-soft);color:var(--amber);border:1px solid rgba(224,190,99,.3)}
-  .banner.err{background:var(--red-soft);color:var(--red);border:1px solid rgba(255,180,171,.3)}
-  .banner.ok{background:var(--green-soft);color:var(--green);border:1px solid rgba(78,222,163,.3)}
+  .banner{border-radius:12px;padding:13px 16px;font-size:14px;font-weight:500;line-height:1.5}
+  .banner.warn{background:var(--amber-soft);color:#6E5F3D;border:1px solid #F0E4C6}
+  .banner.err{background:var(--red-soft);color:#8E4238;border:1px solid #F6D9D4}
+  .banner.ok{background:var(--green-soft);color:var(--green);border:1px solid #CFE5D8}
   .hint{font-size:13px;color:var(--mute2);line-height:1.5}
   .lift:hover{background:var(--card2)}
   /* Today's cards carry a status-tinted background (see TONE_BG), which as an
      inline style outranks .lift:hover's plain background swap - this keeps a
      hover cue (a lift + soft shadow, neither set inline) instead of losing it. */
-  .todaycard{transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}
-  .todaycard:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.4);border-color:rgba(255,255,255,.14)}
-  .colcard{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:var(--rsm);padding:15px 16px;cursor:pointer;
+  .todaycard{transition:transform .15s ease,box-shadow .15s ease}
+  .todaycard:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(38,32,14,.06)}
+  .colcard{background:#fff;border:1px solid var(--line);border-radius:var(--rsm);padding:15px 16px;cursor:pointer;
     transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}
-  .colcard:hover{border-color:var(--brand-line);transform:translateY(-2px);box-shadow:0 8px 24px rgba(160,120,255,.14)}
-  .drop{outline:2px dashed var(--brand-line);outline-offset:-4px;border-radius:12px}
+  .colcard:hover{border-color:#D6CFF8;transform:translateY(-2px);box-shadow:0 8px 18px rgba(91,79,233,.10)}
+  .drop{outline:2px dashed #CFC4F9;outline-offset:-4px;border-radius:12px}
 
   @media (max-width:900px){
     .h1{font-size:26px} .h2{font-size:22px}
@@ -5084,13 +5046,7 @@ function Logo({small, dark}){
     <div style={{position:'relative',width:small?26:31,height:d,flex:'none'}}>
       <div style={{position:'absolute',left:0,top:0,width:d,height:d,borderRadius:'50%',background:'var(--brand)'}}/>
       <div style={{position:'absolute',left:small?8:10,top:0,width:d,height:d,borderRadius:'50%',
-        /* 'multiply' darkened the overlap toward the cream page behind it;
-           the Prism repaint puts this mark on a dark ground everywhere it
-           appears now, where the two circles need to lighten where they
-           cross instead - 'screen' is the blend mode for that. The `dark`
-           prop predates this and is left in place, just no longer needed to
-           opt in. */
-        background:'var(--peach)',mixBlendMode:'screen'}}/>
+        background:'var(--peach)',mixBlendMode:dark?'screen':'multiply'}}/>
     </div>
   );
 }
@@ -5101,16 +5057,10 @@ function Logo({small, dark}){
    used to hide four sub-tabs behind an in-page control now reads as a real
    map of the product rather than four flat rows next to a lot of empty
    space. */
-/* Renamed for the Prism direction (11 Aug 2026) - display labels only.
-   The `key` values below are unchanged on purpose: they are read by every
-   go({screen:...}) call and screen===... check across this file, and
-   renaming them would mean auditing every one of those call sites for a
-   cosmetic change that carries no functional difference. Today is still
-   'today' internally; it just reads "Pulse" everywhere a person sees it. */
 const NAV = [
-  {key:'today', label:'Pulse', icon:
+  {key:'today', label:'Today', icon:
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>},
-  {key:'relationships', label:'Constellation', badge:true, icon:
+  {key:'relationships', label:'Relationships', badge:true, icon:
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M16 20v-1.5a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4V20"/><circle cx="9" cy="7" r="3.2"/><path d="M22 20v-1.5a4 4 0 0 0-3-3.87"/><path d="M16 4.13a4 4 0 0 1 0 7.75"/></svg>,
     children:[
       {key:'list', label:'List', view:'list'},
@@ -5123,9 +5073,9 @@ const NAV = [
      rather than a fourth tab buried inside Relationships. It still renders
      through the same Relationships surface underneath (view:'explore'); only
      where its link lives in the rail changed. */
-  {key:'explore', label:'Ask', explore:true, icon:
+  {key:'explore', label:'Explore', explore:true, icon:
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="m14.8 9.2-1.9 4.7-4.7 1.9 1.9-4.7z"/></svg>},
-  {key:'you', label:'Mirror', icon:
+  {key:'you', label:'Me', icon:
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>,
     children:[
       {key:'profile', label:'Profile', tab:'profile'},
