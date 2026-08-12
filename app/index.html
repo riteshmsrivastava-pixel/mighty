@@ -273,6 +273,88 @@ const STAGE = {
   do_not_contact:  {label:'Closed out',     bg:'rgba(255,255,255,.06)', fg:'var(--mute)', dot:'var(--mute)'},
 };
 const stageOf = (r)=>STAGE[(r||{}).status] || STAGE.prospect;
+/* Node Capacity Management's honest version of "dormant": the handoff mockup
+   showed a fabricated "Vitality 12/100" score and invented reasons ("goal
+   alignment shifted"). Mighty has no such measurement - what it actually has
+   is a status and a real elapsed-time fact, so that is what this returns,
+   deliberately conservative about who even qualifies. Explicit do_not_contact
+   is the safest candidate (the user already ended it themselves); a prospect
+   never acted on, or a contact gone quiet a long time with no reply, are the
+   next safest. Anyone who ever replied, met or moved further is left out
+   entirely - a relationship that got that far is not this feature's call to
+   make even if it has since gone quiet, since going-cold nudges (Today) exist
+   for exactly that case and removal is a much bigger step than a nudge. */
+function capacityCandidates(people){
+  return people
+    .map(r=>{
+      let reason = null, since = null;
+      if(r.status==='do_not_contact'){ reason = 'Marked do not contact'; since = r.updated_at; }
+      else if(r.status==='prospect' && days(r.shortlisted_at)>=60){ reason = 'Saved, never reached out'; since = r.shortlisted_at; }
+      else if(r.status==='contacted' && days(r.contacted_at)>=30){ reason = 'Reached out, no reply since'; since = r.contacted_at; }
+      if(!reason) return null;
+      return {row:r, reason, sinceDays:days(since)||0, sinceLabel:ago(since)};
+    })
+    .filter(Boolean)
+    .sort((a,b)=>b.sinceDays-a.sinceDays);
+}
+/* Mounted once, globally (App renders it the same way it renders the Ask
+   drawer), because hitting the plan cap can happen from several different
+   screens - Explore, Rooms, Organiser Hub - and all of them should open the
+   same reviewer rather than each growing its own copy. */
+function CapacityReview({people, cap, onDelete, onClose}){
+  const candidates = useMemo(()=>capacityCandidates(people),[people]);
+  const [checked, setChecked] = useState(()=>new Set());
+  const [busy, setBusy] = useState(false);
+  const toggle = (id)=>setChecked(s=>{ const n=new Set(s); n.has(id)?n.delete(id):n.add(id); return n; });
+  async function removeSelected(){
+    if(!checked.size || busy) return;
+    const n = checked.size;
+    if(!window.confirm('Permanently remove '+n+' '+(n===1?'person':'people')
+      +' from Mighty? Their notes, drafts and timeline go with them. This cannot be undone.')) return;
+    setBusy(true);
+    try{ await onDelete(Array.from(checked)); onClose(); }
+    finally{ setBusy(false); }
+  }
+  return (
+    <div style={{position:'fixed',inset:0,zIndex:400,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+      <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(29,27,38,.5)'}}/>
+      <div className="card" style={{position:'relative',maxWidth:560,width:'100%',maxHeight:'85vh',overflowY:'auto',padding:'26px 28px'}}>
+        <div className="row" style={{justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+          <div>
+            <div className="h3">Free up space</div>
+            <div className="sub" style={{marginTop:4}}>You're at {people.length} of {cap} on your plan. Remove a few to make room for someone new.</div>
+          </div>
+          <button onClick={onClose} aria-label="Close" style={{background:'none',border:'none',cursor:'pointer',fontSize:20,lineHeight:1,color:'var(--sub)',padding:4,flex:'none'}}>&times;</button>
+        </div>
+
+        {candidates.length===0 ? (
+          <div className="banner warn" style={{marginTop:18}}>
+            Nothing obviously stale to clear - everyone left has either been reached out to recently, or has already replied, met or moved further. Remove someone by hand from the List view, or upgrade your plan.
+          </div>
+        ) : (
+          <div className="stack" style={{gap:0,marginTop:18,border:'1px solid var(--line2)',borderRadius:'var(--rsm)',overflow:'hidden'}}>
+            {candidates.map(c=>(
+              <label key={c.row.id} className="row" style={{gap:12,padding:'12px 14px',borderTop:'1px solid var(--line2)',cursor:'pointer'}}>
+                <input type="checkbox" checked={checked.has(c.row.id)} onChange={()=>toggle(c.row.id)}/>
+                <Avatar name={c.row.name} size={30} src={c.row.avatar_url}/>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:14,fontWeight:700}}>{c.row.name||'Unnamed'}</div>
+                  <div className="meta" style={{marginTop:1}}>{c.reason} · {c.sinceLabel}</div>
+                </div>
+              </label>))}
+          </div>
+        )}
+
+        <div className="row" style={{justifyContent:'flex-end',gap:10,marginTop:20}}>
+          <button className="btn q" onClick={onClose}>Cancel</button>
+          <button className="btn sm" style={{background:'var(--red)',color:'#450A05'}} disabled={!checked.size||busy} onClick={removeSelected}>
+            {busy ? <span><span className="spin"/> Removing</span> : ('Remove'+(checked.size?' '+checked.size:'')+' and free up space')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 /* Board columns follow the Bible's default pipeline; the late statuses share
    one "Growing" column so the board stays readable. */
 /* Four columns, not six - the handoff merges everything from a first reply
@@ -1996,7 +2078,7 @@ function ReasonChips({prompt, options, onPick, onDismiss}){
     </div>
   );
 }
-function Relationships({sb, settings, people, events, tasks, view, setView, plan, onSave, onOpen, onStage, onDelete, onUpdate, go}){
+function Relationships({sb, settings, people, events, tasks, view, setView, plan, onSave, onOpen, onStage, onDelete, onUpdate, go, onOpenCapacity}){
   const boardOK = canSee('board', people, events);
   const timeOK  = canSee('timeline', people, events);
   const [dragId,setDrag] = useState(null);
@@ -2673,9 +2755,10 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
                 if(e.key==='Enter' && sentence && !webBusy){ autoRun.current = sentence; run(sentence); }
               }}/>
             {atCap &&
-              <span className="banner warn" style={{flex:'none',padding:'11px 16px',fontSize:13}}>
-                At {cap}, the cap on your plan.
-              </span>}
+              <button className="banner warn" style={{flex:'none',padding:'11px 16px',fontSize:13,cursor:'pointer',border:'none',fontFamily:'inherit'}}
+                onClick={onOpenCapacity}>
+                At {cap}, the cap on your plan. Free up space &rarr;
+              </button>}
           </div>
 
           {searching && intent.type==='question' ? (
@@ -3958,7 +4041,7 @@ function Ask({sb, people, events, tasks, settings, onOpen, onSave, initialQuesti
    capture stay honest, clearly-labeled stubs - the first needs an events API
    key only Ritesh can get, the second needs vision input the AI gateway
    does not have yet. */
-function Rooms({sb, settings, onSave, onSaveSettings, onOpen}){
+function Rooms({sb, settings, onSave, onSaveSettings, onOpen, atCap, cap, onOpenCapacity}){
   const [rooms, setRooms] = useState(()=>(settings.knowledge && settings.knowledge.rooms) || []);
   const persist = (next)=>{ setRooms(next); onSaveSettings({knowledge:{...(settings.knowledge||{}), rooms:next}}); };
 
@@ -4047,7 +4130,7 @@ function Rooms({sb, settings, onSave, onSaveSettings, onOpen}){
   }
 
   async function saveSpeaker(room, sp){
-    if(!sp.profileUrl || savingIds.has(sp.id)) return;
+    if(!sp.profileUrl || savingIds.has(sp.id) || atCap) return;
     setSavingIds(s=>new Set(s).add(sp.id));
     try{
       const row = await onSave({profileUrl:sp.profileUrl, name:sp.name, title:sp.title, company:sp.company,
@@ -4137,9 +4220,11 @@ function Rooms({sb, settings, onSave, onSaveSettings, onOpen}){
                             <button className="btn g sm" onClick={()=>onOpen(sp.savedRowId)}>Open</button>
                           ) : sp.profileUrl ? (
                             <F>
-                              <button className="btn sm" disabled={savingIds.has(sp.id)} onClick={()=>saveSpeaker(room, sp)}>
-                                {savingIds.has(sp.id) ? <span><span className="spin"/> Adding</span> : 'Add to pipeline'}
-                              </button>
+                              {atCap
+                                ? <button className="btn sm" onClick={onOpenCapacity}>At {cap} · free up space</button>
+                                : <button className="btn sm" disabled={savingIds.has(sp.id)} onClick={()=>saveSpeaker(room, sp)}>
+                                    {savingIds.has(sp.id) ? <span><span className="spin"/> Adding</span> : 'Add to pipeline'}
+                                  </button>}
                               <button className="btn q" style={{fontSize:13}} onClick={()=>setDismissed(d=>new Set(d).add(sp.id))}>Skip</button>
                             </F>
                           ) : (
@@ -4225,7 +4310,7 @@ function Rooms({sb, settings, onSave, onSaveSettings, onOpen}){
    flow Rooms uses - because a name is not an identity regardless of which
    screen it showed up on. Single-organiser only for this pass: stored in
    settings.knowledge like Rooms, not a dedicated shared table yet. */
-function OrganiserHub({sb, settings, onSave, onSaveSettings, onOpen}){
+function OrganiserHub({sb, settings, onSave, onSaveSettings, onOpen, atCap, cap, onOpenCapacity}){
   const [events, setEvents] = useState(()=>(settings.knowledge && settings.knowledge.organiserEvents) || []);
   const persist = (next)=>{ setEvents(next); onSaveSettings({knowledge:{...(settings.knowledge||{}), organiserEvents:next}}); };
 
@@ -4340,7 +4425,7 @@ function OrganiserHub({sb, settings, onSave, onSaveSettings, onOpen}){
     setManualUrl(m=>{ const n={...m}; delete n[at.id]; return n; });
   }
   async function saveAttendee(ev, at){
-    if(!at.profileUrl || savingIds.has(at.id)) return;
+    if(!at.profileUrl || savingIds.has(at.id) || atCap) return;
     setSavingIds(s=>new Set(s).add(at.id));
     try{
       const row = await onSave({profileUrl:at.profileUrl, name:at.name, title:at.title, company:at.company,
@@ -4443,9 +4528,11 @@ function OrganiserHub({sb, settings, onSave, onSaveSettings, onOpen}){
                             <button className="btn g sm" onClick={()=>onOpen(at.savedRowId)}>Open</button>
                           ) : at.profileUrl ? (
                             <F>
-                              <button className="btn sm" disabled={savingIds.has(at.id)} onClick={()=>saveAttendee(ev, at)}>
-                                {savingIds.has(at.id) ? <span><span className="spin"/> Adding</span> : 'Add to pipeline'}
-                              </button>
+                              {atCap
+                                ? <button className="btn sm" onClick={onOpenCapacity}>At {cap} · free up space</button>
+                                : <button className="btn sm" disabled={savingIds.has(at.id)} onClick={()=>saveAttendee(ev, at)}>
+                                    {savingIds.has(at.id) ? <span><span className="spin"/> Adding</span> : 'Add to pipeline'}
+                                  </button>}
                               <button className="btn q" style={{fontSize:13}} onClick={()=>setDismissed(d=>new Set(d).add(at.id))}>Skip</button>
                             </F>
                           ) : (
@@ -8038,6 +8125,7 @@ function App(){
   const [youTab,setYouTab] = useState('profile');
   const [askDraft,setAskDraft] = useState(null);
   const [askOpen,setAskOpen] = useState(false);
+  const [capacityOpen,setCapacityOpen] = useState(false);
   const [editGoal,setEditGoal] = useState(false);
   /* null when not reimporting; otherwise the OB_STEPS index to open straight
      to, so "Update resume" does not first make someone click through
@@ -8665,6 +8753,9 @@ function App(){
     await signOut();
   };
 
+  const cap = PLAN_CAPS[(aiMeta&&aiMeta.plan)||'trial'] || 50;
+  const atCap = people.length >= cap;
+
   return (
     <F>
     <Shell screen={screen} relView={relView} youTab={youTab} boardOK={canSee('board',people,events)}
@@ -8685,7 +8776,8 @@ function App(){
           a dead end. */}
       {screen==='today' && people.length===0 &&
         <Relationships sb={sb} settings={settings} people={people} events={events} tasks={tasks} view={relView} setView={setRelView}
-          plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} onDelete={deletePeople} onUpdate={updateRow} go={go}/>}
+          plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} onDelete={deletePeople} onUpdate={updateRow} go={go}
+          onOpenCapacity={()=>setCapacityOpen(true)}/>}
       {screen==='today' && people.length>0 &&
         <Today people={people} events={events} tasks={tasks} settings={settings} email={auth.user.email}
           go={go} onToggleTask={toggleTask} doneToday={doneToday} onSaveSettings={saveSettings} plan={aiMeta&&aiMeta.plan}
@@ -8693,7 +8785,8 @@ function App(){
 
       {screen==='relationships' &&
         <Relationships sb={sb} settings={settings} people={people} events={events} tasks={tasks} view={relView} setView={setRelView}
-          plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} onDelete={deletePeople} onUpdate={updateRow} go={go}/>}
+          plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} onDelete={deletePeople} onUpdate={updateRow} go={go}
+          onOpenCapacity={()=>setCapacityOpen(true)}/>}
 
       {screen==='profile' && person &&
         <Profile sb={sb} row={person} events={events} tasks={tasks} settings={settings} people={people}
@@ -8701,7 +8794,8 @@ function App(){
           onEvent={logEvent} onTask={addTask} tab={tab} setTab={setTab} go={go}/>}
       {screen==='profile' && !person &&
         <Relationships sb={sb} settings={settings} people={people} events={events} tasks={tasks} view={relView} setView={setRelView}
-          plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} onDelete={deletePeople} onUpdate={updateRow} go={go}/>}
+          plan={aiMeta&&aiMeta.plan} onSave={savePerson} onOpen={openPerson} onStage={changeStage} onDelete={deletePeople} onUpdate={updateRow} go={go}
+          onOpenCapacity={()=>setCapacityOpen(true)}/>}
 
       {screen==='you' &&
         <You sb={sb} email={auth.user.email} settings={settings} people={people} events={events} tasks={tasks} appEvents={appEvents}
@@ -8710,8 +8804,10 @@ function App(){
           onRebuildDecoded={rebuildDecoded}
           onSave={savePerson} onOpen={openPerson} go={go} aiMeta={aiMeta}/>}
 
-      {screen==='rooms' && <Rooms sb={sb} settings={settings} onSave={savePerson} onSaveSettings={saveSettings} onOpen={openPerson}/>}
-      {screen==='organiser' && <OrganiserHub sb={sb} settings={settings} onSave={savePerson} onSaveSettings={saveSettings} onOpen={openPerson}/>}
+      {screen==='rooms' && <Rooms sb={sb} settings={settings} onSave={savePerson} onSaveSettings={saveSettings} onOpen={openPerson}
+        atCap={atCap} cap={cap} onOpenCapacity={()=>setCapacityOpen(true)}/>}
+      {screen==='organiser' && <OrganiserHub sb={sb} settings={settings} onSave={savePerson} onSaveSettings={saveSettings} onOpen={openPerson}
+        atCap={atCap} cap={cap} onOpenCapacity={()=>setCapacityOpen(true)}/>}
       {screen==='extension' && <Extension/>}
     </Shell>
 
@@ -8738,6 +8834,9 @@ function App(){
           onSave={savePerson} initialQuestion={askDraft} onConsumed={()=>setAskDraft(null)}/>
       </div>
     </div>
+
+    {capacityOpen &&
+      <CapacityReview people={people} cap={cap} onDelete={deletePeople} onClose={()=>setCapacityOpen(false)}/>}
     </F>
   );
 }
