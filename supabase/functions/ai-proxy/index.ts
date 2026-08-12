@@ -75,6 +75,10 @@ const FEATURES: Record<string, FeatureDef> = {
   followup_timing:     { model: MODELS.sonnet, tier: "low",    cache: false },
   // Tier 3 - rare, heavy, Opus.
   deep_network_report: { model: MODELS.opus,   tier: "high",   cache: true  },
+  // Rooms: turn a fetched conference page's raw text into a speaker list.
+  // Haiku and cached - the same page parsed twice (two people on a team
+  // both pasting the same conference link) should not be billed twice.
+  event_extract:       { model: MODELS.haiku,  tier: "medium", cache: true  },
 };
 const DEFAULT_FEATURE = "draft_message";
 

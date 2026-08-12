@@ -2174,7 +2174,7 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
             ? <button className="btn g sm" onClick={()=>onOpen(saved.id)}>Open</button>
             : <F>
                 <button className="btn sm" disabled={atCap || savingUrls.has(c.profile_url)}
-                  onClick={async()=>{ startSaving(c.profile_url); try{ await onSave(connToPerson(c), 'own_network'); }finally{ stopSaving(c.profile_url); } }}>
+                  onClick={async()=>{ startSaving(c.profile_url); try{ await onSave(connToPerson(c), null, 'own_network'); }finally{ stopSaving(c.profile_url); } }}>
                   {savingUrls.has(c.profile_url) ? <span><span className="spin"/> Adding</span> : 'Add'}
                 </button>
                 <button className="btn q" style={{fontSize:13}}
@@ -2688,13 +2688,13 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
                               <button className="btn g sm" disabled={savingUrls.has(c.profile_url)}
                                 onClick={async()=>{
                                   startSaving(c.profile_url);
-                                  try{ const row = await onSave(connToPerson(c), 'own_network'); if(row) onOpen(row.id); }
+                                  try{ const row = await onSave(connToPerson(c), null, 'own_network'); if(row) onOpen(row.id); }
                                   finally{ stopSaving(c.profile_url); }
                                 }}>Prepare</button>
                               <button className="btn sm" disabled={savingUrls.has(c.profile_url)}
                                 onClick={async()=>{
                                   startSaving(c.profile_url);
-                                  try{ await onSave(connToPerson(c), 'own_network'); }
+                                  try{ await onSave(connToPerson(c), null, 'own_network'); }
                                   finally{ stopSaving(c.profile_url); }
                                 }}>
                                 {savingUrls.has(c.profile_url) ? <span><span className="spin"/> Saving</span> : 'Save'}
@@ -3847,7 +3847,7 @@ function Ask({sb, people, events, tasks, settings, onOpen, onSave, initialQuesti
                           <div className="sub" style={{fontSize:13}}>{p.note}</div>
                         </div>
                         <button className="btn g sm" style={{flex:'none'}} disabled={savingUrls.has(p.row.profileUrl)}
-                          onClick={async()=>{ startSaving(p.row.profileUrl); try{ await onSave(p.row,'ask_mighty'); }finally{ stopSaving(p.row.profileUrl); } }}>
+                          onClick={async()=>{ startSaving(p.row.profileUrl); try{ await onSave(p.row, null, 'ask_mighty'); }finally{ stopSaving(p.row.profileUrl); } }}>
                           {savingUrls.has(p.row.profileUrl) ? 'Saving…' : 'Save'}
                         </button>
                       </div>
@@ -3874,6 +3874,279 @@ function Ask({sb, people, events, tasks, settings, onOpen, onSave, initialQuesti
         <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:12}}>
           {PROMPTS.map(p=><button key={p} className="chip" onClick={()=>run(p)} disabled={busy}>{p}</button>)}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ===================== Rooms (event intelligence) ===================== */
+/* A room is one event: a URL the user pasted, reduced to text server-side
+   (event-fetch) and read once by the model (event_extract) for whichever
+   real names, titles and companies are actually printed on the page - never
+   a guess at who "probably" spoke there. Each name found is scored by the
+   same evaluate() Explore uses (goal-fit reasoning plus the real
+   company-overlap index, not a second, invented one), because a person is a
+   person regardless of which of Mighty's doors they walked in through -
+   Explore's search box, Gmail, a LinkedIn export, the extension, or here.
+   A bare name is not an identity: before anyone here can be saved to the
+   pipeline, a profileUrl has to be pinned down, either by confirming one of
+   a short list of LinkedIn search candidates (there may be three Tom
+   Huddlestons; showing the candidates and asking beats guessing) or by
+   pasting a known URL by hand. Nearby-event discovery and photo/badge
+   capture stay honest, clearly-labeled stubs - the first needs an events API
+   key only Ritesh can get, the second needs vision input the AI gateway
+   does not have yet. */
+function Rooms({sb, settings, onSave, onSaveSettings, onOpen}){
+  const [rooms, setRooms] = useState(()=>(settings.knowledge && settings.knowledge.rooms) || []);
+  const persist = (next)=>{ setRooms(next); onSaveSettings({knowledge:{...(settings.knowledge||{}), rooms:next}}); };
+
+  const [urlInput, setUrlInput] = useState('');
+  const [parsing, setParsing] = useState(false);
+  const [parseErr, setParseErr] = useState(null);
+  const [note, setNote] = useState(null);
+
+  const [searchingIds, setSearchingIds] = useState(()=>new Set());
+  const [savingIds, setSavingIds] = useState(()=>new Set());
+  const [candidates, setCandidates] = useState({});
+  const [manualUrl, setManualUrl] = useState({});
+  const [dismissed, setDismissed] = useState(()=>new Set());
+
+  async function addRoom(){
+    const url = clean(urlInput);
+    if(!url || parsing) return;
+    setParseErr(null); setNote(null); setParsing(true);
+    try{
+      const {data, error} = await sb.functions.invoke('event-fetch', {body:{url}});
+      if(error) throw error;
+      if(!data || data.ok===false){
+        setParseErr((data && data.message) || 'Could not read that page.');
+        setParsing(false); return;
+      }
+      let out = {};
+      try{
+        out = await llmJSON(sb, 'event_extract',
+          "You extract facts about a conference, meetup or event from a web page's plain text. Only use what is literally printed on the page - never invent a name, title, company, date or place that is not there. If the page does not actually look like an event (no agenda, no speaker or attendee list, no date), say so honestly instead of guessing. Never use em dashes; write a spaced hyphen instead.",
+          `Page title: ${data.title||'(untitled)'}\n\nPage text:\n${data.text}\n\nReturn JSON exactly like {"looksLikeEvent":true|false,"eventName":"","when":"","where":"","people":[{"name":"","title":"","company":"","context":"short phrase from the page, e.g. keynote speaker"}]}. Only include a person whose full name is explicitly printed on the page. Leave eventName/when/where as empty strings when the page does not state them. Cap people at 40.`,
+          1800);
+      }catch(e){
+        setParseErr('Mighty could read the page but could not make sense of it: '+(e.message||'unknown error'));
+        setParsing(false); return;
+      }
+      const rawPeople = Array.isArray(out.people) ? out.people.filter(p=>p && clean(p.name)).slice(0,40) : [];
+      let scored = rawPeople.map(p=>({name:clean(p.name), title:clean(p.title)||null, company:clean(p.company)||null, context:clean(p.context)||''}));
+      if(scored.length){
+        try{ scored = await evaluate(sb, scored, settings); }
+        catch(e){ /* scoring is a bonus on top of the plain list, not a requirement for it */ }
+      } else if(out.looksLikeEvent===false){
+        setNote("That page didn't look like an event to Mighty - no agenda, speaker list or date. Saved as a room anyway; you can add people by hand once you know who's going.");
+      } else {
+        setNote("Mighty didn't find any named people on that page. Saved as a room - add people by hand once you know who's going.");
+      }
+      const room = {
+        id: 'rm'+Math.random().toString(36).slice(2,9)+Date.now().toString(36),
+        url, title: clean(out.eventName) || data.title || url,
+        when: clean(out.when), where: clean(out.where),
+        addedAt: new Date().toISOString(), status: 'planning',
+        people: scored.map(p=>({
+          id: 'sp'+Math.random().toString(36).slice(2,9)+Date.now().toString(36),
+          ...p, profileUrl:null, avatarUrl:null, savedRowId:null,
+        })),
+      };
+      persist([room, ...rooms]);
+      setUrlInput('');
+      track('room_added', {people: room.people.length});
+    }catch(e){ setParseErr(e.message||'Could not read that page.'); }
+    setParsing(false);
+  }
+
+  function setStatus(room, status){ persist(rooms.map(r=>r.id===room.id?{...r,status}:r)); }
+  function removeRoom(room){ persist(rooms.filter(r=>r.id!==room.id)); }
+
+  async function findProfile(sp){
+    setSearchingIds(s=>new Set(s).add(sp.id));
+    try{
+      const kw = [sp.name, sp.company||sp.title||''].filter(Boolean).join(' ');
+      let found = [];
+      const bridged = await extBridge.search(kw);
+      if(bridged && bridged.ok){
+        found = (bridged.people||[]).filter(p=>p && p.profileUrl);
+      } else if(bridged && bridged.error==='blocked'){
+        setNote('Search is rate limited right now. Try again in a few minutes, or paste their LinkedIn URL directly.');
+      } else {
+        const {data, error} = await sb.functions.invoke('people-search', {body:{query:kw}});
+        if(!error && data && data.ok!==false) found = (data.people||[]).filter(p=>p && p.profileUrl);
+      }
+      setCandidates(c=>({...c, [sp.id]: found.slice(0,3)}));
+    }catch(e){ setCandidates(c=>({...c, [sp.id]: []})); }
+    finally{ setSearchingIds(s=>{ const n=new Set(s); n.delete(sp.id); return n; }); }
+  }
+
+  function resolveProfile(room, sp, c){
+    persist(rooms.map(r=> r.id!==room.id ? r :
+      {...r, people:r.people.map(x=>x.id===sp.id?{...x, profileUrl:c.profileUrl, avatarUrl:c.avatarUrl||x.avatarUrl}:x)}));
+    setCandidates(cs=>{ const n={...cs}; delete n[sp.id]; return n; });
+  }
+  function useManualUrl(room, sp){
+    const url = clean(manualUrl[sp.id]||'');
+    if(!url) return;
+    persist(rooms.map(r=> r.id!==room.id ? r :
+      {...r, people:r.people.map(x=>x.id===sp.id?{...x, profileUrl:url}:x)}));
+    setManualUrl(m=>{ const n={...m}; delete n[sp.id]; return n; });
+  }
+
+  async function saveSpeaker(room, sp){
+    if(!sp.profileUrl || savingIds.has(sp.id)) return;
+    setSavingIds(s=>new Set(s).add(sp.id));
+    try{
+      const row = await onSave({profileUrl:sp.profileUrl, name:sp.name, title:sp.title, company:sp.company,
+        avatarUrl:sp.avatarUrl, why:sp.why||sp.context||'', common:sp.common||[], verdict:sp.verdict},
+        room.title, 'event_speaker');
+      if(row){
+        persist(rooms.map(r=> r.id!==room.id ? r :
+          {...r, people:r.people.map(x=>x.id===sp.id?{...x, savedRowId:row.id}:x)}));
+      }
+    } finally { setSavingIds(s=>{ const n=new Set(s); n.delete(sp.id); return n; }); }
+  }
+
+  const RANK = {excellent:0, strong:1, potential:2, low:3};
+  return (
+    <div className="fade" style={{padding:'20px 22px 40px'}}>
+      <h2 className="h2">Rooms</h2>
+      <div className="sub" style={{marginTop:6}}>
+        Paste a link to a conference, meetup or event page. Mighty reads who's on it and scores them against your goal, same as Explore.
+      </div>
+
+      <div className="card" style={{marginTop:20,padding:'18px 20px'}}>
+        <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+          <input className="inp" style={{flex:'1 1 320px',minWidth:0}} value={urlInput}
+            placeholder="Paste an event page URL"
+            onChange={e=>setUrlInput(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') addRoom(); }}/>
+          <button className="btn" style={{flex:'none'}} disabled={parsing || !clean(urlInput)} onClick={addRoom}>
+            {parsing ? <span><span className="spin"/> Reading</span> : 'Add'}
+          </button>
+          <button className="btn q" style={{flex:'none'}} disabled title="Coming soon - reading a badge or flyer photo needs vision input Mighty doesn't have yet">
+            Add from a photo
+          </button>
+        </div>
+        {parseErr && <div className="banner warn" style={{marginTop:14}}>{parseErr}</div>}
+        {note && <div className="meta" style={{marginTop:12}}>{note}</div>}
+      </div>
+
+      <div className="card" style={{marginTop:16,padding:'16px 20px',background:'var(--rail)'}}>
+        <div className="eyebrow">Suggested near you</div>
+        <div className="sub" style={{marginTop:6,fontSize:13.5}}>
+          Mighty doesn't have a live feed of nearby events yet - that needs an events API (Luma, Eventbrite or Meetup) wired in. Once it is, matches for your goal, in your city or country, will show up here on their own.
+        </div>
+      </div>
+
+      {rooms.length===0 &&
+        <div className="banner warn" style={{marginTop:20}}>Nothing here yet. Paste a link above to get started.</div>}
+
+      <div className="stack" style={{gap:18,marginTop:24}}>
+        {rooms.map(room=>{
+          const visiblePeople = [...room.people]
+            .filter(p=>!dismissed.has(p.id))
+            .sort((a,b)=>(RANK[a.verdict]??2)-(RANK[b.verdict]??2));
+          return (
+            <div key={room.id} className="card fade" style={{padding:'20px 22px'}}>
+              <div className="row" style={{justifyContent:'space-between',alignItems:'flex-start',gap:14,flexWrap:'wrap'}}>
+                <div style={{flex:'1 1 260px',minWidth:0}}>
+                  <div style={{fontSize:17,fontWeight:700,letterSpacing:'-.01em'}}>{room.title}</div>
+                  <div className="meta" style={{marginTop:4}}>
+                    {[room.when, room.where].filter(Boolean).join(' · ') || 'No date or place on the page'}
+                  </div>
+                  <a href={room.url} target="_blank" rel="noopener noreferrer" style={{fontSize:13,fontWeight:600,marginTop:4,display:'inline-block'}}>
+                    View the page
+                  </a>
+                </div>
+                <div style={{display:'flex',gap:8,flex:'none',alignItems:'center',flexWrap:'wrap'}}>
+                  <button className={'chip'+(room.status==='attended'?' on':'')} onClick={()=>setStatus(room,'attended')}>Attended</button>
+                  <button className={'chip'+(room.status==='planning'?' on':'')} onClick={()=>setStatus(room,'planning')}>Planning to go</button>
+                  <button className="btn q sm" onClick={()=>removeRoom(room)}>Remove</button>
+                </div>
+              </div>
+
+              {room.people.length===0 ? (
+                <div className="meta" style={{marginTop:16}}>No names extracted from this page yet.</div>
+              ) : (
+                <div className="stack" style={{gap:0,marginTop:16}}>
+                  {visiblePeople.map(sp=>(
+                    <div key={sp.id} style={{padding:'14px 0',borderTop:'1px solid var(--line2)'}}>
+                      <div className="row" style={{gap:13,alignItems:'flex-start',flexWrap:'wrap'}}>
+                        <Avatar name={sp.name} size={34} src={sp.avatarUrl}/>
+                        <div style={{flex:'1 1 200px',minWidth:0}}>
+                          <div style={{fontSize:15,fontWeight:700}}>{sp.name}</div>
+                          <div className="sub" style={{fontSize:13.5,marginTop:1}}>
+                            {[sp.title, sp.company].filter(Boolean).join(' · ') || sp.context || 'No title on the page'}
+                          </div>
+                        </div>
+                        <div style={{display:'flex',gap:8,flex:'none'}}>
+                          {sp.savedRowId ? (
+                            <button className="btn g sm" onClick={()=>onOpen(sp.savedRowId)}>Open</button>
+                          ) : sp.profileUrl ? (
+                            <F>
+                              <button className="btn sm" disabled={savingIds.has(sp.id)} onClick={()=>saveSpeaker(room, sp)}>
+                                {savingIds.has(sp.id) ? <span><span className="spin"/> Adding</span> : 'Add to pipeline'}
+                              </button>
+                              <button className="btn q" style={{fontSize:13}} onClick={()=>setDismissed(d=>new Set(d).add(sp.id))}>Skip</button>
+                            </F>
+                          ) : (
+                            <button className="btn q" style={{fontSize:13}} onClick={()=>setDismissed(d=>new Set(d).add(sp.id))}>Skip</button>
+                          )}
+                        </div>
+                      </div>
+
+                      {sp.why &&
+                        <div className="why" style={{marginTop:12,padding:'12px 14px'}}>
+                          <div className="eyebrow b">Insight</div>
+                          <div style={{fontSize:14,lineHeight:1.55,color:'var(--body)',marginTop:5,textWrap:'pretty'}}>{sp.why}</div>
+                        </div>}
+                      {(sp.warmIntro || (sp.common && sp.common.length>0)) &&
+                        <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:10}}>
+                          {sp.warmIntro &&
+                            <span className="tag" style={{background:'var(--brand-soft2)',borderColor:'var(--brand-line)',color:'var(--brand-ink)',fontWeight:700}}>
+                              You know {sp.warmIntro.count} at {sp.warmIntro.label}
+                            </span>}
+                          {sp.common && sp.common.map((c,i)=><span key={i} className="tag">{c}</span>)}
+                        </div>}
+
+                      {!sp.profileUrl && !sp.savedRowId &&
+                        <div style={{marginTop:10}}>
+                          {!candidates[sp.id] ? (
+                            <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+                              <button className="btn q sm" disabled={searchingIds.has(sp.id)} onClick={()=>findProfile(sp)}>
+                                {searchingIds.has(sp.id) ? <span><span className="spin"/> Searching</span> : 'Find their profile'}
+                              </button>
+                              <input className="inp" style={{flex:'1 1 220px',minWidth:0,fontSize:13}} placeholder="or paste their LinkedIn URL"
+                                value={manualUrl[sp.id]||''} onChange={e=>setManualUrl(m=>({...m,[sp.id]:e.target.value}))}
+                                onKeyDown={e=>{ if(e.key==='Enter') useManualUrl(room, sp); }}/>
+                              <button className="btn sm" disabled={!clean(manualUrl[sp.id]||'')} onClick={()=>useManualUrl(room, sp)}>Use</button>
+                            </div>
+                          ) : candidates[sp.id].length>0 ? (
+                            <div className="stack" style={{gap:6}}>
+                              <div className="meta">Which one is {sp.name}?</div>
+                              {candidates[sp.id].map(c=>(
+                                <div key={c.profileUrl} className="row" style={{gap:10,padding:'8px 10px',border:'1px solid var(--line2)',borderRadius:'var(--rsm)'}}>
+                                  <Avatar name={c.name} size={26} src={c.avatarUrl}/>
+                                  <div style={{flex:1,minWidth:0,fontSize:13}}>
+                                    <div style={{fontWeight:700}}>{c.name}</div>
+                                    <div className="sub" style={{fontSize:12}}>{[c.title,c.company].filter(Boolean).join(' · ')||'No headline'}</div>
+                                  </div>
+                                  <button className="btn g sm" onClick={()=>resolveProfile(room, sp, c)}>This one</button>
+                                </div>))}
+                              <button className="btn q sm" style={{alignSelf:'flex-start'}} onClick={()=>setCandidates(c=>({...c,[sp.id]:null}))}>None of these</button>
+                            </div>
+                          ) : (
+                            <div className="sub" style={{fontSize:12.5}}>
+                              No confident LinkedIn match for that name. Paste their profile URL above if you have it.
+                            </div>
+                          )}
+                        </div>}
+                    </div>))}
+                </div>
+              )}
+            </div>);
+        })}
       </div>
     </div>
   );
@@ -4588,7 +4861,7 @@ function PeopleCircles({top, savedMap, onOpen, onSave}){
             {!savedRow && p.profileUrl &&
               <button className="btn q" style={{fontSize:11,padding:0,marginTop:2}} disabled={savingUrls.has(p.profileUrl)}
                 onClick={async(e)=>{ e.stopPropagation(); setSavingUrls(s=>new Set(s).add(p.profileUrl));
-                  try{ await onSave({profileUrl:p.profileUrl, name:p.name, why:'One of the people you talk with most'}, 'decoded'); }
+                  try{ await onSave({profileUrl:p.profileUrl, name:p.name, why:'One of the people you talk with most'}, null, 'decoded'); }
                   finally{ setSavingUrls(s=>{ const n=new Set(s); n.delete(p.profileUrl); return n; }); } }}>
                 {savingUrls.has(p.profileUrl) ? 'Saving…' : 'Save'}
               </button>}
@@ -5317,6 +5590,12 @@ const NAV = [
       {key:'goal', label:'Goal', tab:'goal'},
       {key:'settings', label:'Account', tab:'settings'},
     ]},
+  /* Rooms is not tied to any one person the way Bridge is - a real, standalone
+     destination the way the Prism bundle's own nav treats it (pulse /
+     constellation / mirror / bridge / ask / event / identity - "event" sits
+     at the same level as everything else, not nested under one). */
+  {key:'rooms', label:'Rooms', icon:
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>},
 ];
 const QUESTION = {ask:'What should I do?', extension:'Save people while you browse.'};
 
@@ -7698,9 +7977,10 @@ function App(){
     await saveSettings({knowledge:{...liveKb, decoded: buildDecoded(arch)}});
   }
 
-  async function savePerson(p, query){
+  async function savePerson(p, query, source){
     if(!sb || auth.status!=='in') return;
-    const ctx = {source:'search', savedFrom:query||'', whySaved:p.why||'', common:p.common||[]};
+    const src = source || 'search';
+    const ctx = {source:src, savedFrom:query||'', whySaved:p.why||'', common:p.common||[]};
     if(p.verdict) ctx.verdictLabel = (VERDICT[p.verdict]||VERDICT.potential).label;
     ['location','education','experience','followers','connections','snippet'].forEach(k=>{ if(p[k]) ctx[k]=p[k]; });
     try{
@@ -7708,7 +7988,7 @@ function App(){
         name:p.name||null, title:p.title||null, company:p.company||null, context:ctx,
         avatar_url:p.avatarUrl||null,
         updated_at:new Date().toISOString()}, {onConflict:'user_id,profile_url'}).select().single();
-      track('person_saved', {source:'search', verdict:p.verdict||'none', facts:[p.location,p.education,p.followers].filter(Boolean).length});
+      track('person_saved', {source:src, verdict:p.verdict||'none', facts:[p.location,p.education,p.followers].filter(Boolean).length});
       await refreshPeople(auth.user);
       /* Explore's own photo fill-in (see run() and the mine effect above)
          usually already has a photo in hand by the time someone clicks Add,
@@ -8069,6 +8349,7 @@ function App(){
           onRebuildDecoded={rebuildDecoded}
           onSave={savePerson} onOpen={openPerson} go={go} aiMeta={aiMeta}/>}
 
+      {screen==='rooms' && <Rooms sb={sb} settings={settings} onSave={savePerson} onSaveSettings={saveSettings} onOpen={openPerson}/>}
       {screen==='extension' && <Extension/>}
     </Shell>
 
