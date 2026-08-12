@@ -4,6 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mighty · Intentional, intelligent networking</title>
+<script>
+/* Runs before any CSS paints, so a saved light preference never flashes dark
+   first. App's own useState reads the same key on mount and stays in sync -
+   this is only for the one frame before React exists. */
+(function(){
+  try{
+    var t = localStorage.getItem('mighty-theme');
+    if(t==='light') document.documentElement.dataset.theme = 'light';
+  }catch(e){}
+})();
+</script>
 <!-- ============================================================
      Mighty v2 - the relationship operating system.
      Governed by docs/PRODUCT-BIBLE-v2.md. Visual spec: the Claude Design
@@ -54,6 +65,7 @@
      close to that outlier as the elevated rail/header tone below - it
      wasn't wrong, it was a level up the elevation scale. ============= */
   :root{
+ color-scheme:dark;
  --paper:#131313; --rail:#1A1A1E; --card:rgba(255,255,255,.04); --card2:rgba(255,255,255,.03);
  --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.06); --line3:rgba(255,255,255,.08); --line4:rgba(255,255,255,.06);
  --ink:#E5E2E1; --ink2:#DAD7E0; --body:#CBC3D7; --sub:#958EA0; --mute:#6B6575; --mute2:#7A7488;
@@ -66,6 +78,29 @@
  --f:'Hanken Grotesk',system-ui,-apple-system,sans-serif;
  --f-head:'Sora',var(--f); --f-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
  --r:8px; --rsm:6px; --pill:4px; --sh:0 4px 24px rgba(0,0,0,.35);
+  }
+  /* Light is the pre-Prism design exactly as it was, recovered from the commit
+     before the Phase 1 token swap (8750508~1) rather than redesigned - every
+     value here is what :root used to hold. Same token names as the dark block
+     above by construction, so every var(--x) reference in the file repaints
+     with zero logic change, same as the original Prism swap did in reverse.
+     Typeface is deliberately NOT reverted to Schibsted Grotesk: that font's
+     stylesheet link was removed when Prism landed, and a theme toggle
+     changing colors AND swapping in a fourth font family is a bigger, more
+     jarring switch than "light or dark" should be - Sora/Hanken/JetBrains
+     stay the type system for both. */
+  :root[data-theme="light"]{
+ color-scheme:light;
+ --paper:#FBFAF8; --rail:#FFFFFF; --card:#FFFFFF; --card2:#FBFAF8;
+ --line:#ECEAE4; --line2:#F1EFE9; --line3:#EFEDE7; --line4:#F1EFE9;
+ --ink:#1D1B26; --ink2:#2A2833; --body:#33313D; --sub:#8A8896; --mute:#B4B1BC; --mute2:#A39FA8;
+ --brand:#5B4FE9; --brand-h:#4A3FD1; --brand-ink:#4A3FD1;
+ --brand-soft:#F5F3FD; --brand-soft2:#EFEDFD; --brand-line:#E4E0F7; --brand-nav:#EFEDFD;
+ --peach:#E87A56;
+ --green:#2E8B5F; --green2:#2E8B5F; --green-soft:#E6F4EC;
+ --amber:#B0641F; --amber-soft:#FBF1E2; --amber-dot:#E3A23C;
+ --red:#C75B33; --red-soft:#FBEFE9;
+ --r:16px; --rsm:14px; --pill:999px; --sh:0 1px 3px rgba(29,27,38,.05);
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;height:100%}
@@ -5090,6 +5125,22 @@ function Settings({email, settings, people, events, tasks, onSignOut, onDeleteAc
         </div>
       </div>
 
+      <div className="eyebrow b" style={{margin:'34px 0 12px'}}>Appearance</div>
+      <div className="card" style={{padding:'20px 24px'}}>
+        <div className="row" style={{justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
+          <div>
+            <div className="h4">Theme</div>
+            <div className="sub" style={{fontSize:13.5,marginTop:2}}>
+              {theme==='light' ? 'Light, the original design.' : 'Dark, the current default.'}
+            </div>
+          </div>
+          <div className="row" style={{gap:8}}>
+            <button className={'chip'+(theme==='dark'?' on':'')} onClick={()=>onSetTheme('dark')}>Dark</button>
+            <button className={'chip'+(theme==='light'?' on':'')} onClick={()=>onSetTheme('light')}>Light</button>
+          </div>
+        </div>
+      </div>
+
       <div className="eyebrow b" style={{margin:'34px 0 12px'}}>Your data</div>
       <div className="card" style={{padding:'22px 26px'}}>
         <div className="sub" style={{fontSize:14,lineHeight:1.55}}>
@@ -5789,7 +5840,7 @@ const YOU_TABS = [['profile','Profile'],['goal','Goal'],['settings','Account']];
    is what it has noticed. Goal is what the user told it. Account is the
    mechanics. Nothing here is time-sensitive the way Today is - a user comes
    here to update themselves, not to be told what to do next. */
-function You({sb, email, settings, people, events, tasks, appEvents, tab, setTab, editGoal, setEditGoal, busySave, onSaveSettings, onSignOut, onDeleteAccount, onReimport, onRebuildDecoded, onSave, onOpen, go, aiMeta}){
+function You({sb, email, settings, people, events, tasks, appEvents, tab, setTab, editGoal, setEditGoal, busySave, onSaveSettings, onSignOut, onDeleteAccount, onReimport, onRebuildDecoded, onSave, onOpen, go, aiMeta, theme, onSetTheme}){
   // Profile has no maxWidth cap - the old 1180px ceiling left a dead margin
   // on wide monitors. Goal/Settings stay capped at 1000: single-column forms
   // don't get more readable by stretching edge to edge.
@@ -8126,6 +8177,17 @@ function App(){
   const [askDraft,setAskDraft] = useState(null);
   const [askOpen,setAskOpen] = useState(false);
   const [capacityOpen,setCapacityOpen] = useState(false);
+  /* A device preference, not account data - deliberately localStorage rather
+     than settings.knowledge, so it applies before the first Supabase round
+     trip (no dark-then-flash-light-then-dark on load) and can differ across
+     a person's own devices, the same as every other app's theme choice does. */
+  const [theme,setTheme] = useState(()=>{
+    try{ return localStorage.getItem('mighty-theme') || 'dark'; }catch(e){ return 'dark'; }
+  });
+  useEffect(()=>{
+    document.documentElement.dataset.theme = theme;
+    try{ localStorage.setItem('mighty-theme', theme); }catch(e){}
+  },[theme]);
   const [editGoal,setEditGoal] = useState(false);
   /* null when not reimporting; otherwise the OB_STEPS index to open straight
      to, so "Update resume" does not first make someone click through
@@ -8802,7 +8864,7 @@ function App(){
           tab={youTab} setTab={setYouTab} editGoal={editGoal} setEditGoal={setEditGoal} busySave={busySave}
           onSaveSettings={saveSettings} onSignOut={signOut} onDeleteAccount={deleteAccount} onReimport={(step)=>setReimport(step==null?OB.linkedin:step)}
           onRebuildDecoded={rebuildDecoded}
-          onSave={savePerson} onOpen={openPerson} go={go} aiMeta={aiMeta}/>}
+          onSave={savePerson} onOpen={openPerson} go={go} aiMeta={aiMeta} theme={theme} onSetTheme={setTheme}/>}
 
       {screen==='rooms' && <Rooms sb={sb} settings={settings} onSave={savePerson} onSaveSettings={saveSettings} onOpen={openPerson}
         atCap={atCap} cap={cap} onOpenCapacity={()=>setCapacityOpen(true)}/>}
