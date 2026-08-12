@@ -82,6 +82,13 @@ const FEATURES: Record<string, FeatureDef> = {
 };
 const DEFAULT_FEATURE = "draft_message";
 
+// Bounds on a single call, independent of the cap/budget checks below. Those
+// caps assume each call costs roughly what its tier implies; without this, one
+// request with an inflated maxTokens or a giant pasted prompt could cost far
+// more than its weight accounts for, before any cap even sees it.
+const MAX_TOKENS_CAP = 4096;
+const MAX_PROMPT_CHARS = 60000;
+
 // Assist "weight" per tier - what the client shows as "Uses N Assists" and what
 // counts against the monthly cap. free is 0 and is genuinely free: it is bounded
 // by a daily call guard further down, never by the assist balance.
@@ -133,7 +140,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   let body: any = {};
   try { body = await req.json(); } catch (_e) { /* no body */ }
-  const { system, user: userPrompt, maxTokens } = body;
+  const { system, user: userPrompt } = body;
   // An exchange is one outbound conversation with one person: the brief, the
   // draft, and every take of that draft. It is charged once. Shape is
   // 'ex:<log_id>:<n>', carrying no name and no profile URL.
@@ -144,6 +151,13 @@ Deno.serve(async (req) => {
   if (!system || !userPrompt) {
     return json({ ok: false, error: "bad_request", message: "system and user are required." }, 400);
   }
+  if (String(system).length > MAX_PROMPT_CHARS || String(userPrompt).length > MAX_PROMPT_CHARS) {
+    return json({ ok: false, error: "bad_request", message: "That request is too long." }, 400);
+  }
+  // Clamp rather than trust: taken straight from the request body, and this is
+  // also the number the reservation below prices the call at, so a caller
+  // cannot under-reserve by lying about maxTokens either.
+  const maxTokens = Math.min(Math.max(Number(body.maxTokens) || 900, 1), MAX_TOKENS_CAP);
 
   // ---- auth: identify the caller from their own Supabase session ----
   const authHeader = req.headers.get("Authorization") || "";
@@ -243,6 +257,19 @@ Deno.serve(async (req) => {
     model = MODELS.haiku; // G8: the routing decision lives here, not in the app
   }
 
+  // ---- reserve: count this call against every cap above BEFORE the slow
+  // external call, not after. Without this, a burst of concurrent requests all
+  // read the same pre-burst ai_precheck numbers above and all pass - the write
+  // that was supposed to stop the second one only happens seconds later, once
+  // Anthropic answers. Priced at the capped maxTokens, the same number the
+  // actual call is about to be held to, so this cannot under-reserve. ----
+  const estInTok = Math.ceil((String(system).length + String(userPrompt).length) / 3);
+  const { data: reserveId, error: reserveErr } = await admin.rpc("ai_reserve_call", {
+    p_user_id: user.id, p_feature: feature, p_model: model, p_tier: def.tier,
+    p_assists: weight, p_est_cost: estCost(model, estInTok, maxTokens), p_exchange_key: exchangeKey,
+  });
+  if (reserveErr) return json({ ok: false, error: "usage_error", message: reserveErr.message }, 500);
+
   // ---- run it ----
   const t0 = Date.now();
   let data: any;
@@ -250,11 +277,16 @@ Deno.serve(async (req) => {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "content-type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model, max_tokens: maxTokens || 900, system, messages: [{ role: "user", content: userPrompt }] }),
+      body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: [{ role: "user", content: userPrompt }] }),
     });
-    if (!res.ok) { const t = await res.text(); return json({ ok: false, error: "anthropic_error", message: t.slice(0, 300) }, 502); }
+    if (!res.ok) {
+      const t = await res.text();
+      await admin.rpc("ai_release_call", { p_id: reserveId });
+      return json({ ok: false, error: "anthropic_error", message: t.slice(0, 300) }, 502);
+    }
     data = await res.json();
   } catch (e) {
+    await admin.rpc("ai_release_call", { p_id: reserveId });
     return json({ ok: false, error: "proxy_error", message: String((e as Error)?.message || e) }, 500);
   }
   const latency = Date.now() - t0;
@@ -263,12 +295,8 @@ Deno.serve(async (req) => {
   const outTok = data.usage?.output_tokens || 0;
   const cost   = estCost(model, inTok, outTok);
 
-  // ---- log + cache ----
-  await admin.rpc("ai_record_call", {
-    p_user_id: user.id, p_feature: feature, p_model: model, p_tier: def.tier,
-    p_in: inTok, p_out: outTok, p_cost: cost, p_cache_hit: false, p_latency: latency,
-    p_assists: weight, p_exchange_key: exchangeKey,
-  });
+  // ---- confirm the reservation with the real numbers, + cache ----
+  await admin.rpc("ai_confirm_call", { p_id: reserveId, p_in: inTok, p_out: outTok, p_cost: cost, p_latency: latency });
   if (cacheKey && text) {
     await admin.from("ai_cache").upsert({ cache_key: cacheKey, feature, model, response: text }, { onConflict: "cache_key" });
   }

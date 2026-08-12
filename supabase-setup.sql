@@ -1164,6 +1164,133 @@ $$;
 revoke all on function public.invite_code_valid(text) from public;
 grant execute on function public.invite_code_valid(text) to anon, authenticated;
 
+-- 15. Close the ai-proxy race: a burst of concurrent requests (a double-clicked
+-- regenerate, a retry-on-timeout bug, or a scripted call with a valid JWT) used
+-- to all call ai_precheck, all read the same pre-burst sums, and all pass the
+-- same cap - because the only write, ai_record_call, happens after Anthropic
+-- answers, seconds later. A lock cannot close this: it would have to span the
+-- Anthropic round-trip, holding a connection open for the length of an external
+-- HTTP call, which is worse than the race it fixes. So the reservation is a row
+-- instead, inserted before the call and confirmed or released after - the same
+-- "check and write are one statement" idea claim_invite_seat already uses,
+-- adapted to a gateway that cannot do both halves in one transaction because a
+-- slow external call sits in between.
+--
+-- ai_precheck's sums already have no cache_hit/pending filter, so a reserved
+-- row counts against day_assists/month_assists/day_calls/user_month_cost/
+-- company_day_cost the instant it is inserted - every cap the gateway already
+-- checks tightens for free, with no change to ai_precheck or to the gateway's
+-- own guard comparisons.
+alter table public.ai_call_log add column if not exists pending boolean not null default false;
+
+create or replace function public.ai_reserve_call(
+  p_user_id uuid, p_feature text, p_model text, p_tier text,
+  p_assists int, p_est_cost numeric, p_exchange_key text default null)
+returns bigint
+language sql
+security definer
+as $$
+  insert into public.ai_call_log
+    (user_id, feature, model, tier, input_tokens, output_tokens, est_cost_usd,
+     cache_hit, latency_ms, assists, exchange_key, pending)
+  values
+    (p_user_id, p_feature, p_model, p_tier, 0, 0, p_est_cost,
+     false, 0, coalesce(p_assists,0), p_exchange_key, true)
+  returning id;
+$$;
+
+-- Confirm with the real numbers once Anthropic has actually answered. Feature,
+-- model, tier, assists and exchange_key were already correct at reserve time
+-- and do not change here.
+create or replace function public.ai_confirm_call(
+  p_id bigint, p_in int, p_out int, p_cost numeric, p_latency int)
+returns void
+language sql
+security definer
+as $$
+  update public.ai_call_log
+     set input_tokens = p_in, output_tokens = p_out, est_cost_usd = p_cost,
+         latency_ms = p_latency, pending = false
+   where id = p_id;
+$$;
+
+-- Release a reservation the call never got to keep - Anthropic erroring, a
+-- timeout, a network failure. Without this every failed call would still count
+-- against the caps it was checked against, which is what ai_record_call already
+-- did before this change (it was simply never invoked on the failure paths, so
+-- failed calls silently cost nothing AND reserved nothing - this restores the
+-- second half now that reserving exists).
+create or replace function public.ai_release_call(p_id bigint)
+returns void
+language sql
+security definer
+as $$
+  delete from public.ai_call_log where id = p_id and pending = true;
+$$;
+
+revoke execute on function public.ai_reserve_call(uuid, text, text, text, int, numeric, text) from public, anon, authenticated;
+revoke execute on function public.ai_confirm_call(bigint, int, int, numeric, int) from public, anon, authenticated;
+revoke execute on function public.ai_release_call(bigint) from public, anon, authenticated;
+grant execute on function public.ai_reserve_call(uuid, text, text, text, int, numeric, text) to service_role;
+grant execute on function public.ai_confirm_call(bigint, int, int, numeric, int) to service_role;
+grant execute on function public.ai_release_call(bigint) to service_role;
+
+-- Known residual gap, accepted rather than missed: if the edge function's
+-- process is killed outright between reserving and either confirming or
+-- releasing (not a caught error - an actual platform-level kill, which request
+-- timeouts and network failures above are not), the reservation row is
+-- orphaned: pending stays true forever. Effect is small and bounded, not
+-- unbounded - one call's worth of assists/cost, and ai_precheck's day/month
+-- date filters age it out of every cap within one day or month on their own.
+-- The one permanent effect is ai_exchange_paid, which has no date filter, so an
+-- orphaned row permanently marks that one exchange as already paid - a
+-- user-favorable bug (a free retry that looks like an already-spent assist),
+-- not an overcharge. A sweep to expire old pending rows would close this
+-- fully; not built now because the failure mode it guards against is rare and
+-- the exposure per occurrence is one call, not a growing one.
+
+-- 16. people-search had no budget backstop at all, unlike every other external
+-- API call in this codebase - Google's Custom Search free tier is 100
+-- searches/day for the whole project, not per user, and nothing tracked
+-- that shared ceiling. Simpler than ai_call_log's reserve/confirm pair above:
+-- a search costs one fixed unit of quota regardless of outcome, so this needs
+-- only a flat atomic counter, one global row instead of one per user.
+create table if not exists public.people_search_usage (
+  day   date primary key,
+  count int  not null default 0
+);
+alter table public.people_search_usage enable row level security;
+-- No policies at all, on purpose: nothing needs to read this from the client,
+-- and only the service-role edge function ever touches it.
+
+-- Claims one unit of today's search budget. Check and write are one
+-- statement - same reason claim_invite_seat does it that way - so concurrent
+-- callers serialise on this row instead of racing to read the same
+-- pre-burst count. Returns false once the cap is hit; RETURNING INTO a
+-- variable comes back null when the UPDATE's WHERE skips the row (the cap
+-- was already reached), so coalesce is what turns "no row" into "false"
+-- rather than an unhandled null.
+create or replace function public.claim_people_search(p_daily_cap int)
+returns boolean
+language plpgsql
+security definer
+as $$
+declare
+  v_ok boolean;
+begin
+  insert into public.people_search_usage (day, count)
+  values ((now() at time zone 'utc')::date, 1)
+  on conflict (day) do update
+    set count = public.people_search_usage.count + 1
+  where public.people_search_usage.count < p_daily_cap
+  returning true into v_ok;
+  return coalesce(v_ok, false);
+end;
+$$;
+
+revoke execute on function public.claim_people_search(int) from public, anon, authenticated;
+grant execute on function public.claim_people_search(int) to service_role;
+
 -- ============================================================
 -- Also in the dashboard (not SQL):
 -- • Authentication → Providers → Email: ENABLED, "Confirm email" ON

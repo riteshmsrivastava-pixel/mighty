@@ -24,6 +24,15 @@ const SUPABASE_URL      = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const CSE_KEY           = Deno.env.get("GOOGLE_CSE_KEY") || "";
 const CSE_CX            = Deno.env.get("GOOGLE_CSE_CX")  || "";
+// Google's free tier is 100 searches/day for the whole project, not per user -
+// unlike ai-proxy, nothing here tracked that shared ceiling at all, so a wave
+// of new users trying Discover in the same week could exhaust it before noon
+// and start either erroring for everyone or spending with no ceiling Mighty
+// controls, depending on whether billing happens to be on. Capped a little
+// under the hard 100 so this fails with a clear message before Google's own
+// error does; raise via secret once billing is confirmed on and a higher
+// ceiling is wanted.
+const DAILY_CAP = Number(Deno.env.get("PEOPLE_SEARCH_DAILY_CAP")) || 90;
 
 // Browsers preflight every POST carrying Authorization/content-type; without
 // these headers the OPTIONS request fails and the caller sees "Failed to fetch".
@@ -73,6 +82,18 @@ Deno.serve(async (req) => {
 
   if (!CSE_KEY || !CSE_CX) {
     return json({ ok: false, error: "not_configured", message: "Web search isn't set up yet (GOOGLE_CSE_KEY / GOOGLE_CSE_CX)." });
+  }
+
+  // Claim one unit of today's shared quota before spending it. Insert-or-
+  // increment-with-cap is one statement, so concurrent callers serialise on
+  // this row instead of racing to read the same pre-burst count - the same
+  // shape claim_invite_seat already uses for exactly this reason.
+  const admin = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const { data: claimed, error: claimErr } = await admin.rpc("claim_people_search", { p_daily_cap: DAILY_CAP });
+  if (claimErr) return json({ ok: false, error: "usage_error", message: claimErr.message }, 500);
+  if (!claimed) {
+    return json({ ok: false, error: "rate_limited", scope: "daily_quota",
+      message: "Web search has hit its shared daily limit. This resets tomorrow - saved profiles and your own network still work." });
   }
 
   const q = `site:linkedin.com/in ${query}`;
