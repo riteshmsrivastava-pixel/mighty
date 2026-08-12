@@ -2907,6 +2907,24 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
   const companyIndex = settings.knowledge && settings.knowledge.decoded
     && settings.knowledge.decoded.chapters && settings.knowledge.decoded.chapters.companyIndex;
   const warmIntro = row.company ? companyOverlap(companyIndex, row.company) : null;
+  /* Bridge re-ranks the same overlap by real tie strength - see
+     bridgeIntroducers() for why this stops at one hop rather than drawing
+     the multi-hop path graph the Prism concept shows. */
+  const bridge = row.company ? bridgeIntroducers(companyIndex, row.company, settings.knowledge||{}) : {overlap:null, candidates:[]};
+  const CONNECTORS = [
+    {key:'linkedin', label:'LinkedIn', on: !!(settings.knowledge && settings.knowledge.connectionCount),
+      detail: (settings.knowledge && settings.knowledge.connectionCount)
+        ? settings.knowledge.connectionCount.toLocaleString()+' connections, career history'
+        : 'Not imported yet'},
+    {key:'mail', label:'Email', on: !!(settings.knowledge && settings.knowledge.mail && settings.knowledge.mail.messagesRead),
+      detail: (settings.knowledge && settings.knowledge.mail && settings.knowledge.mail.messagesRead)
+        ? (settings.knowledge.mail.twoWayCount||0).toLocaleString()+' real contacts, who you actually talk to'
+        : 'Not imported yet'},
+    /* Written this session, not yet deployed - see the tech plan tab. Shown
+       here rather than hidden so "what Bridge could see" stays honest about
+       what is coming, not just what is live. */
+    {key:'google', label:'Google', on:false, detail:'Contacts and calendar - connector built, awaiting setup'},
+  ];
   /* An exchange is one outbound conversation: the brief, the draft, and every
      take of that draft. It costs one assist. When they reply, answering them is
      a new exchange and a new assist, because it is new work. The counter lives
@@ -3206,7 +3224,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
      context tags) moved into Prepare, next to the brief that already reads
      them; memories and open commitments moved into Notes, next to the rest
      of what you've captured about this person. */
-  const TABS = [['brief','Prepare'],['draft','Draft'],['notes','Notes'],['timeline','History']];
+  const TABS = [['brief','Prepare'],['draft','Draft'],['bridge','Bridge'],['notes','Notes'],['timeline','History']];
   /* Only asked once a message has actually gone out, and only until they answer. */
   const askedReplied = row.status==='contacted';
 
@@ -3452,6 +3470,86 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                   never clicks Connect.
                 </div>
               </F>}
+          </div>
+        </div>}
+
+      {tab==='bridge' &&
+        <div className="stack fade" style={{gap:16,marginTop:24}}>
+          {!row.company &&
+            <Empty title="No employer on file."
+              body="Bridge works from where someone works. Open their profile once with the extension running so Mighty has an employer to check your own network against."/>}
+
+          {row.company && !bridge.overlap &&
+            <div className="card" style={{padding:'22px 24px'}}>
+              <div className="eyebrow">No one in your network, yet</div>
+              <div style={{fontSize:15,lineHeight:1.6,color:'var(--body)',marginTop:8,textWrap:'pretty'}}>
+                Nobody in your saved LinkedIn history works at {row.company}. That does not mean no path exists -
+                only that Mighty cannot see one from what it has read.
+              </div>
+            </div>}
+
+          {row.company && bridge.overlap &&
+            <div className="card" style={{padding:'24px 26px',position:'relative',overflow:'hidden'}}>
+              <div aria-hidden="true" style={{position:'absolute',top:-140,right:-60,width:360,height:280,
+                borderRadius:'50%',background:'radial-gradient(circle,rgba(78,222,163,.14),transparent 70%)',
+                filter:'blur(10px)',pointerEvents:'none'}}/>
+              <div style={{position:'relative'}}>
+                <div className="eyebrow" style={{color:'var(--green)'}}>Who can introduce you</div>
+                <div style={{fontSize:20,fontWeight:800,letterSpacing:'-.015em',marginTop:8}}>
+                  {bridge.overlap.count} {bridge.overlap.count===1?'person':'people'} you already know at {row.company}
+                </div>
+                <div className="stack" style={{gap:0,marginTop:18}}>
+                  {bridge.candidates.map((c,i)=>(
+                    <div key={c.profileUrl||c.name+i} className="row" style={{gap:14,padding:'14px 0',
+                      borderTop:i===0?'none':'1px solid var(--line2)',alignItems:'center'}}>
+                      <Avatar name={c.name} size={36}/>
+                      <div style={{flex:'1 1 200px',minWidth:0}}>
+                        <div style={{fontSize:15,fontWeight:700}}>{c.name||'Unnamed'}</div>
+                        <div className="sub" style={{fontSize:13,marginTop:1}}>{c.title||'No title on the export'}</div>
+                      </div>
+                      {c.tie ? (
+                        <div style={{flex:'none',textAlign:'right'}}>
+                          <div style={{fontSize:13,fontWeight:700,color:'var(--green)'}}>
+                            {c.tie.via==='linkedin' ? c.tie.count+' message'+(c.tie.count===1?'':'s') : c.tie.count+' email'+(c.tie.count===1?'':'s')}
+                          </div>
+                          <div className="meta">last {ago(c.tie.lastAt)}</div>
+                        </div>
+                      ) : (
+                        <div className="meta" style={{flex:'none'}}>No message history on file</div>
+                      )}
+                      {c.profileUrl &&
+                        <a className="btn g sm" style={{flex:'none'}} href={c.profileUrl} target="_blank" rel="noopener noreferrer">
+                          Ask them
+                        </a>}
+                    </div>))}
+                </div>
+                <div className="hint" style={{marginTop:16}}>
+                  {bridge.candidates[0] && bridge.candidates[0].tie
+                    ? (bridge.candidates[0].name||'They')+' has the most history with you - the warmest place to start.'
+                    : 'None of these show message history with you, so the tie may be weaker than the company match suggests. Worth a quick gut check before asking.'}
+                </div>
+              </div>
+            </div>}
+
+          <div className="card" style={{padding:'22px 24px'}}>
+            <div className="eyebrow">What Bridge can see</div>
+            <div className="stack" style={{gap:0,marginTop:14}}>
+              {CONNECTORS.map((c,i)=>(
+                <div key={c.key} className="row" style={{gap:14,padding:'12px 0',
+                  borderTop:i===0?'none':'1px solid var(--line2)',alignItems:'center'}}>
+                  <span className="dot" style={{background:c.on?'var(--green)':'var(--mute)',color:c.on?'var(--green)':'var(--mute)'}}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:14.5,fontWeight:700}}>{c.label}</div>
+                    <div className="sub" style={{fontSize:13,marginTop:1}}>{c.detail}</div>
+                  </div>
+                  <span className="pill" style={{background:c.on?'var(--green-soft)':'var(--card2)',color:c.on?'var(--green)':'var(--mute)'}}>
+                    {c.on?'Connected':'Not connected'}
+                  </span>
+                </div>))}
+            </div>
+            <div className="hint" style={{marginTop:14}}>
+              More sources mean more of your network Bridge can actually check, not a better guess from the same data.
+            </div>
           </div>
         </div>}
 
@@ -5840,6 +5938,53 @@ function companyOverlap(companyIndex, companyName){
   const k = clean(companyName).toLowerCase();
   if(!k || !companyIndex) return null;
   return companyIndex.find(e=>e.label.toLowerCase()===k) || null;
+}
+/* Bridge's "who can introduce you" - the same companyOverlap sample the
+   Prepare tab has always shown as one sentence ("worth asking one of them"),
+   ranked by real evidence of a relationship rather than left in the order
+   the archive happened to list them.
+
+   This is deliberately NOT the multi-hop pathfinding graph the Prism concept
+   draws (a scored route through two named intermediaries to the target).
+   Mighty only ever has the user's own one-hop connections - never the
+   target's - so "Priyanka knows Dana, who is one step from Amrita" is not a
+   fact this data can produce; it would be a confident-looking invention,
+   exactly the kind of thing this codebase's other AI surfaces are written
+   not to do (never invent shared history; label web findings unverified;
+   "neither" over a guessed identity match). What real signal exists - who
+   the user already knows at the target's company, and how well they
+   actually know that person - is what gets shown, ranked, and it says so
+   plainly when there is nothing.
+
+   Tie strength is real evidence only, checked in order and stopping at the
+   first that matches: LinkedIn DM history (exact profile URL, from the
+   archive's own messages.counterparts), then mail (exact full name only -
+   mail carries no profile URL to match on, same limitation
+   mailConnectionOverlap already has). No messages or mail on file reads as
+   "no evidence of a relationship", not zero - the user may know them fine
+   in person; Mighty just cannot see it. */
+function bridgeIntroducers(companyIndex, companyName, kb){
+  const overlap = companyOverlap(companyIndex, companyName);
+  if(!overlap) return {overlap:null, candidates:[]};
+  const counterparts = (kb.messages && kb.messages.counterparts) || [];
+  const byUrl = {};
+  counterparts.forEach(c=>{ if(c.profileUrl) byUrl[c.profileUrl.replace(/\/+$/,'').toLowerCase()] = c; });
+  const mailByName = {};
+  ((kb.mail && kb.mail.correspondents) || []).forEach(c=>{
+    const k = clean(c.name).toLowerCase();
+    if(k && k.indexOf(' ')>0 && !mailByName[k]) mailByName[k] = c;
+  });
+  const candidates = overlap.sample.map(s=>{
+    const viaLinkedIn = s.profileUrl ? byUrl[s.profileUrl.replace(/\/+$/,'').toLowerCase()] : null;
+    const viaMail = !viaLinkedIn ? mailByName[clean(s.name).toLowerCase()] : null;
+    const tie = viaLinkedIn
+      ? {via:'linkedin', count:viaLinkedIn.msgCount, lastAt:viaLinkedIn.lastAt}
+      : viaMail && (viaMail.sent>0 || viaMail.received>0)
+      ? {via:'mail', count:viaMail.sent+viaMail.received, lastAt:viaMail.lastAt}
+      : null;
+    return {...s, tie};
+  }).sort((a,b)=> (b.tie?b.tie.count:-1) - (a.tie?a.tie.count:-1));
+  return {overlap, candidates};
 }
 function buildDecoded(archive){
   if(!archive || !(archive.connections||[]).length) return null;
