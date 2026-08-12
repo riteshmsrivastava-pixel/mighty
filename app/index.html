@@ -4945,7 +4945,7 @@ function Extension(){
 
 const PLAN_LABEL = {trial:'Free trial', starter:'Starter', plus:'Plus', pro:'Pro',
   explorer:'Explorer', builder:'Builder', leader:'Leader'};
-function Settings({email, settings, people, events, tasks, onSignOut, onDeleteAccount, go, onSaveSettings, busySave, plan}){
+function Settings({email, settings, people, events, tasks, onSignOut, onDeleteAccount, go, onSaveSettings, busySave, plan, theme, onSetTheme}){
   const [copied,setCopied] = useState(false);
   function exportAll(){
     const blob = new Blob([JSON.stringify({exportedAt:new Date().toISOString(), strategy:settings,
@@ -5870,7 +5870,7 @@ function You({sb, email, settings, people, events, tasks, appEvents, tab, setTab
         {tab==='settings' &&
           <Settings email={email} settings={settings} people={people} events={events} tasks={tasks}
             onSignOut={onSignOut} onDeleteAccount={onDeleteAccount} go={go} onSaveSettings={onSaveSettings} busySave={busySave}
-            plan={aiMeta&&aiMeta.plan}/>}
+            plan={aiMeta&&aiMeta.plan} theme={theme} onSetTheme={onSetTheme}/>}
       </div>
     </div>
   );
