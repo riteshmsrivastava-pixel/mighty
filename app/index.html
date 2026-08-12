@@ -930,6 +930,21 @@ const VERDICT = {
   low:      {label:'Outside your goal',   dot:'#B4B1BC'},
 };
 const VERDICT_KEYS = ['excellent','strong','potential','low'];
+/* Every place a person can enter the pipeline (savePerson's `source` argument)
+   needs an honest, source-specific line here - otherwise a fix to how saves
+   are tagged still shows up on Profile as the same generic "Found by
+   searching" text regardless of which of those places it actually came from. */
+function savedFromLabel(ctx){
+  const from = ctx.savedFrom;
+  switch(ctx.source){
+    case 'search':        return from ? 'Found by searching "'+from+'"' : 'Found through search';
+    case 'own_network':   return 'Found in your LinkedIn network';
+    case 'ask_mighty':    return 'Surfaced by Ask Mighty';
+    case 'decoded':       return 'Surfaced in your Patterns';
+    case 'event_speaker': return from ? 'Found through the "'+from+'" room' : 'Found through a room';
+    default:              return 'Saved from the extension';
+  }
+}
 async function evaluate(sb, people, st){
   /* Deterministic, not AI-inferred: does the user already know people at this
      candidate's company (decodedCompanyIndex, computed once at archive
@@ -3366,7 +3381,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
         </div>}
       <div className="sub" style={{marginTop:14,fontSize:13.5,lineHeight:1.5}}>
         {ctx.whySaved && <>{ctx.whySaved}{' · '}</>}
-        {ctx.savedFrom ? 'Found by searching "'+ctx.savedFrom+'"' : (ctx.source==='search'?'Found through search':'Saved from the extension')}
+        {savedFromLabel(ctx)}
         {' · saved '}{dateShort(row.shortlisted_at)||'recently'}
       </div>
 
@@ -4112,18 +4127,22 @@ function Rooms({sb, settings, onSave, onSaveSettings, onOpen}){
 
                       {!sp.profileUrl && !sp.savedRowId &&
                         <div style={{marginTop:10}}>
-                          {!candidates[sp.id] ? (
-                            <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+                          {/* The paste-URL fallback stays mounted regardless of search state -
+                             it used to live only inside the pre-search branch, so a search that
+                             came back with zero matches also silently took the escape hatch with
+                             it, even though the text right below still told the user to use it. */}
+                          <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+                            {(!candidates[sp.id] || candidates[sp.id].length===0) &&
                               <button className="btn q sm" disabled={searchingIds.has(sp.id)} onClick={()=>findProfile(sp)}>
                                 {searchingIds.has(sp.id) ? <span><span className="spin"/> Searching</span> : 'Find their profile'}
-                              </button>
-                              <input className="inp" style={{flex:'1 1 220px',minWidth:0,fontSize:13}} placeholder="or paste their LinkedIn URL"
-                                value={manualUrl[sp.id]||''} onChange={e=>setManualUrl(m=>({...m,[sp.id]:e.target.value}))}
-                                onKeyDown={e=>{ if(e.key==='Enter') useManualUrl(room, sp); }}/>
-                              <button className="btn sm" disabled={!clean(manualUrl[sp.id]||'')} onClick={()=>useManualUrl(room, sp)}>Use</button>
-                            </div>
-                          ) : candidates[sp.id].length>0 ? (
-                            <div className="stack" style={{gap:6}}>
+                              </button>}
+                            <input className="inp" style={{flex:'1 1 220px',minWidth:0,fontSize:13}} placeholder="or paste their LinkedIn URL"
+                              value={manualUrl[sp.id]||''} onChange={e=>setManualUrl(m=>({...m,[sp.id]:e.target.value}))}
+                              onKeyDown={e=>{ if(e.key==='Enter') useManualUrl(room, sp); }}/>
+                            <button className="btn sm" disabled={!clean(manualUrl[sp.id]||'')} onClick={()=>useManualUrl(room, sp)}>Use</button>
+                          </div>
+                          {candidates[sp.id] && candidates[sp.id].length>0 && (
+                            <div className="stack" style={{gap:6,marginTop:8}}>
                               <div className="meta">Which one is {sp.name}?</div>
                               {candidates[sp.id].map(c=>(
                                 <div key={c.profileUrl} className="row" style={{gap:10,padding:'8px 10px',border:'1px solid var(--line2)',borderRadius:'var(--rsm)'}}>
@@ -4136,9 +4155,10 @@ function Rooms({sb, settings, onSave, onSaveSettings, onOpen}){
                                 </div>))}
                               <button className="btn q sm" style={{alignSelf:'flex-start'}} onClick={()=>setCandidates(c=>({...c,[sp.id]:null}))}>None of these</button>
                             </div>
-                          ) : (
-                            <div className="sub" style={{fontSize:12.5}}>
-                              No confident LinkedIn match for that name. Paste their profile URL above if you have it.
+                          )}
+                          {candidates[sp.id] && candidates[sp.id].length===0 && (
+                            <div className="sub" style={{fontSize:12.5,marginTop:6}}>
+                              No confident LinkedIn match for that name. Paste their profile URL above, or try the search again.
                             </div>
                           )}
                         </div>}
