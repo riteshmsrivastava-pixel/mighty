@@ -876,6 +876,33 @@ function selfProfileUrl(kb){
   const m = String(k.resumeText||'').match(/https?:\/\/(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9\-_%]+/i);
   return m ? m[0].replace(/\/+$/,'') : null;
 }
+/* One box for everything Explore/Ask can answer, instead of a person
+   deciding themselves whether they want the search screen or the question
+   drawer - a distinction the product has never actually needed a user to
+   make. Cheap, local, no AI call, because classifying which of two already-
+   built engines should answer a query should not cost an Assist or a round
+   trip before either one even starts working.
+
+   Deliberately conservative: the two real engines underneath (Explore's
+   local-plus-LinkedIn search, and Ask's digest-based Q&A) are both good at
+   what they do and were not rewritten to build this - this only decides
+   which one a given sentence goes to. A wrong guess between those two costs
+   nothing; both read the same network, they just answer differently. The
+   one bucket worth splitting off first is a question about your OWN
+   activity ("who have I forgotten") - Explore's search would silently
+   return nothing for that, since it's not describing a person to find. */
+function classifyAsk(text){
+  const s = clean(text).toLowerCase();
+  if(!s) return {type:'search'};
+  if(/\b(event|conference|summit|meetup|meet-?up|workshop|webinar|near me|this week|this month|happening)\b/.test(s))
+    return {type:'event'};
+  /* A question about the user's own pipeline, not a description of someone
+     to find - "who should I follow up with" has no company/role/location to
+     search on, it is asking Mighty to look at what is already saved. */
+  if(/^(who|what|which|how)\b/.test(s) && /\b(i|i've|ive|my|me)\b/.test(s)) return {type:'question'};
+  if(s.endsWith('?') && /\b(i|my|me)\b/.test(s)) return {type:'question'};
+  return {type:'search'};
+}
 function localKeywords(sentence, st){
   const stop = /\b(find|show|me|people|person|who|that|which|are|is|a|an|the|and|or|of|in|at|to|for|with|from|working|works|based|i|want|meet|looking|like|some)\b/gi;
   let s = clean(sentence).replace(stop,' ').replace(/\s+/g,' ').trim();
@@ -1925,6 +1952,11 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
   const [suggBusy,setSB]   = useState(true);
   const [mine,setMine]     = useState(null);
   const [mineBusy,setMB]   = useState(false);
+  /* One box, three destinations - see classifyAsk(). Settled on the same
+     380ms debounce the local-network match already waits on below, so
+     typing "who" while working toward "who should I follow up with" does
+     not flash into question-mode and back on every keystroke. */
+  const [intent,setIntent] = useState({type:'search'});
   /* A Set, not a single value - saving is a shared state across every row
      on screen (worth-adding + web search results can both be visible at
      once), and one scalar meant starting a second save cleared the first
@@ -1993,9 +2025,15 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
      keystroke does not round-trip. */
   useEffect(()=>{
     const sentence = clean(q);
-    if(sentence.length<2){ setMine(null); return; }
+    if(sentence.length<2){ setMine(null); setIntent({type:'search'}); return; }
     let dead = false; setMB(true);
     const t = setTimeout(async()=>{
+      const cl = classifyAsk(sentence);
+      if(!dead) setIntent({...cl, text:sentence});
+      /* A question or an event query is not a person to look up - Ask has its
+         own network read, and event search has no local-match story yet, so
+         neither one needs (or should trigger) this lookup. */
+      if(cl.type!=='search'){ if(!dead){ setMine(null); setMB(false); } return; }
       try{
         const qt = queryTerms(sentence);
         const rows = await matchConnections(sb, qt, [], 8);
@@ -2035,6 +2073,9 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
   useEffect(()=>{
     const sentence = clean(q);
     if(sentence.length<3) return;
+    /* A question or an event query never reaches LinkedIn - see classifyAsk.
+       Ask has its own network read; event search has nothing to search yet. */
+    if(classifyAsk(sentence).type!=='search') return;
     const t = setTimeout(()=>{
       if(autoRun.current===sentence) return;
       if(phase==='searching' || phase==='thinking') return;
@@ -2558,7 +2599,7 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
         <div className="fade" style={{marginTop:22}}>
           <div className="row" style={{gap:12,alignItems:'stretch',flexWrap:'wrap'}}>
             <input className="inp" style={{flex:'1 1 320px',minWidth:0,fontSize:15.5}} value={q}
-              placeholder="Search who you know, or describe someone new"
+              placeholder="Search who you know, ask a question, or describe someone new"
               onChange={e=>setQ(e.target.value)}
               onKeyDown={e=>{
                 /* Enter means "I'm done, search now" - it should not wait out
@@ -2575,7 +2616,25 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
               </span>}
           </div>
 
-          {searching ? (
+          {searching && intent.type==='question' ? (
+            /* One box, and a question about your own pipeline goes to the
+               exact same engine the "Ask Mighty" drawer already uses - not a
+               reimplementation, the same component, just reached without
+               ever having to know a drawer was the other way in. */
+            <div className="card fade" style={{marginTop:20,minHeight:320}}>
+              <Ask sb={sb} people={people} events={events} tasks={tasks} settings={settings}
+                onOpen={onOpen} onSave={onSave} initialQuestion={intent.text} onConsumed={()=>{}}/>
+            </div>
+          ) : searching && intent.type==='event' ? (
+            <div className="card fade" style={{marginTop:20,padding:'28px 30px'}}>
+              <div className="eyebrow b">Events</div>
+              <div className="h4" style={{marginTop:10}}>Event search is not built yet.</div>
+              <div className="sub" style={{marginTop:8,lineHeight:1.6,maxWidth:'56ch'}}>
+                Finding rooms worth being in - and who in them matters to your goal - is coming. For now this
+                box searches the people you already know and the wider LinkedIn network.
+              </div>
+            </div>
+          ) : searching ? (
             <div className="fade" style={{marginTop:20}}>
               {filtered.length>0 &&
                 <div className="card" style={{overflow:'hidden',marginBottom:16}}>
