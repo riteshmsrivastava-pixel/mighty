@@ -1154,9 +1154,9 @@ function StrategyForm({settings, onSave, busy, onCancel, firstRun, go}){
             const on = goalTypes.includes(g.id);
             return (
               <button key={g.id} onClick={()=>toggleGoal(g.id)} style={{textAlign:'left',padding:'14px 16px',borderRadius:12,
-                border:'1px solid '+(on?'#CFC4F9':'var(--line)'), background:on?'var(--brand-soft2)':'var(--card2)'}}>
+                border:'1px solid '+(on?'var(--brand-line)':'var(--line)'), background:on?'var(--brand-soft2)':'var(--card2)'}}>
                 <div style={{fontSize:15.5,fontWeight:700,letterSpacing:'-.01em',color:on?'var(--brand-ink)':'var(--ink)'}}>{g.label}</div>
-                <div style={{fontSize:13.5,color:on?'#6F5FD6':'var(--sub)',marginTop:2}}>{g.hint}</div>
+                <div style={{fontSize:13.5,color:on?'var(--brand-ink)':'var(--sub)',marginTop:2}}>{g.hint}</div>
               </button>);
           })}
         </div>
@@ -1651,7 +1651,7 @@ function GoalStrip({people, events, settings}){
         </div>
       </div>
       <div style={{textAlign:'right'}}>
-        <div style={{fontSize:14,fontWeight:700,color:'#C75B33'}}>Need {target} meetings this week</div>
+        <div style={{fontSize:14,fontWeight:700,color:'var(--red)'}}>Need {target} meetings this week</div>
         <div className="row" style={{gap:6,marginTop:8,justifyContent:'flex-end'}}>
           {Array.from({length:target}).map((_,i)=>(
             <span key={i} style={{width:13,height:13,borderRadius:999,boxSizing:'border-box',
@@ -1880,8 +1880,8 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
           <div className="card" style={{marginTop:14,overflow:'hidden'}}>
             {doneToday.map(t=>(
               <div key={'d'+t.id} className="row" style={{gap:16,padding:'15px 26px',borderBottom:'1px solid var(--line2)',background:'var(--card2)'}}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2E8B5F" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{flex:'none'}}><path d="m4 12.5 5 5L20 6.5"/></svg>
-                <div style={{flex:1,minWidth:0,fontSize:15,fontWeight:600,color:'#8E887F'}}>{t.label}</div>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{flex:'none'}}><path d="m4 12.5 5 5L20 6.5"/></svg>
+                <div style={{flex:1,minWidth:0,fontSize:15,fontWeight:600,color:'var(--sub)'}}>{t.label}</div>
                 <div className="meta">Completed {ago(t.completed_at)||'today'}</div>
                 <button className="btn q" style={{fontSize:13,padding:0}} onClick={()=>onToggleTask(t,false)}>Undo</button>
               </div>))}
@@ -3043,7 +3043,7 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
                   <div>
                     {g.items.map((item,i)=>{
                       const entry = feedEntry(item);
-                      const dot = ({reply:'var(--green)', stage_change:'var(--brand)', note:'#E3A23C',
+                      const dot = ({reply:'var(--green)', stage_change:'var(--brand)', note:'var(--amber)',
                         saved:'var(--mute)', first_message:'var(--brand)'})[item.kind] || 'var(--mute)';
                       /* Rows used to sit inside one bordered, shadowed card per day -
                          tidy, but it boxed in what is meant to read as a single
@@ -5097,13 +5097,13 @@ function Settings({email, settings, people, events, tasks, onSignOut, onDeleteAc
         </div>
         <div className="row" style={{gap:10,marginTop:16,flexWrap:'wrap'}}>
           <button className="btn g sm" onClick={exportAll}>{copied?'Downloaded':'Export everything'}</button>
-          <button className="btn g sm" style={{color:'#C75B33',borderColor:'#F0D5C9'}} onClick={()=>setDeleting(true)}>
+          <button className="btn g sm" style={{color:'var(--red)',borderColor:'var(--red)'}} onClick={()=>setDeleting(true)}>
             Delete account
           </button>
         </div>
         {deleting &&
           <div style={{marginTop:18,paddingTop:18,borderTop:'1px solid var(--line4)'}}>
-            <div className="h4" style={{color:'#C75B33'}}>This permanently deletes everything.</div>
+            <div className="h4" style={{color:'var(--red)'}}>This permanently deletes everything.</div>
             <div className="sub" style={{fontSize:13.5,marginTop:6,lineHeight:1.55,maxWidth:520}}>
               {people.length} relationships, {events.length} timeline entries, your imported archive and
               resume, your goal, all of it - gone, not recoverable. You will be signed out. Type DELETE to
@@ -5112,7 +5112,7 @@ function Settings({email, settings, people, events, tasks, onSignOut, onDeleteAc
             <input className="inp" style={{marginTop:12,maxWidth:220}} value={confirmText}
               onChange={e=>setConfirmText(e.target.value)} placeholder="DELETE"/>
             <div className="row" style={{gap:10,marginTop:12}}>
-              <button className="btn" style={{background:'#C75B33'}} disabled={confirmText!=='DELETE'||busyDelete}
+              <button className="btn" style={{background:'var(--red)',color:'#450A05'}} disabled={confirmText!=='DELETE'||busyDelete}
                 onClick={async()=>{ setBusyDelete(true); await onDeleteAccount(); }}>
                 {busyDelete ? <span><span className="spin"/> Deleting</span> : 'Permanently delete'}
               </button>
@@ -5345,7 +5345,7 @@ function CardCompared({yoy}){
       <div className="stack" style={{gap:12}}>
         {lines.map((l,i)=>(
           <div key={i} className="row" style={{gap:10,alignItems:'flex-start'}}>
-            <span style={{color: l.up?'#2E8B57':'#C75B33',fontWeight:800,flex:'none',fontSize:13}}>{l.up?'▲':'▼'}</span>
+            <span style={{color: l.up?'var(--green)':'var(--red)',fontWeight:800,flex:'none',fontSize:13}}>{l.up?'▲':'▼'}</span>
             <span style={{fontSize:13.5,lineHeight:1.5}}>{l.text}</span>
           </div>))}
       </div>
@@ -5608,7 +5608,7 @@ function CardThisWeek({people, events, tasks, sinceVisit}){
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:'10px 28px',marginTop:14}}>
         {items.map((it,i)=>(
           <div key={i} className="row" style={{gap:10,alignItems:'flex-start'}}>
-            <span style={{color: it.up?'#2E8B57':'#C75B33',fontWeight:800,flex:'none',fontSize:13}}>{it.up?'▲':'▼'}</span>
+            <span style={{color: it.up?'var(--green)':'var(--red)',fontWeight:800,flex:'none',fontSize:13}}>{it.up?'▲':'▼'}</span>
             <span style={{fontSize:13.5,lineHeight:1.5}}>{it.text}</span>
           </div>))}
       </div>
@@ -5738,7 +5738,7 @@ function Patterns({sb, settings, people, events, tasks, appEvents, onSaveSetting
               ? 'Mighty already has your archive, but this reading was never built from it - rebuilding reads the same file back from storage, without losing anything else already saved.'
               : 'Import your LinkedIn export in Mirror, and Mighty reads back the shape of everything you have built - told honestly, once.'}
           </div>
-          {rebuildErr && <div className="sub" style={{marginTop:8,color:'#C75B33'}}>{rebuildErr}</div>}
+          {rebuildErr && <div className="sub" style={{marginTop:8,color:'var(--red)'}}>{rebuildErr}</div>}
           <button className="btn sm" style={{marginTop:16}} disabled={rebuilding} onClick={hasArchive ? doRebuild : ()=>onEdit(OB.linkedin)}>
             {rebuilding ? <span><span className="spin"/> Rebuilding…</span> : (hasArchive ? 'Rebuild from my archive' : 'Import my history')}
           </button>
@@ -5951,7 +5951,7 @@ function Gate({sb}){
                   Seats still count: MIT is a reserved invite channel, not a
                   bypass. */}
               <button className="btn" disabled={busy} onClick={goMit}
-                style={{width:'100%',marginTop:14,background:'#750014'}}>
+                style={{width:'100%',marginTop:14,background:'#750014',color:'#fff'}}>
                 Continue with MIT Touchstone
               </button>
               <div className="sub" style={{marginTop:8,fontSize:12,textAlign:'center'}}>
@@ -6068,7 +6068,7 @@ function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, em
   const navBtn = (on, sub, gap)=>({display:'flex',alignItems:'center',gap:sub?10:11,
     padding:sub?'8px 12px 8px 20px':'10px 12px', marginTop:gap?10:0,
     borderRadius:10,width:'100%',textAlign:'left',fontSize:sub?13.5:14.5,fontWeight:sub?600:600,
-    background:on?'var(--brand-nav)':'transparent', color:on?'var(--brand-ink)':(sub?'#8A8477':'#6B655C')});
+    background:on?'var(--brand-nav)':'transparent', color:on?'var(--brand-ink)':(sub?'var(--sub)':'var(--mute)')});
   /* Locked still navigates - it lands on the pipeline with the reason why
      printed inline, rather than doing nothing. A click that produces no
      visible change reads as broken, not as "not yet". */
