@@ -252,17 +252,25 @@ function goalFunnel(people){
   };
 }
 
-/* outreach_log.status is the ONE stage field. 'prospect' IS Saved. */
+/* outreach_log.status is the ONE stage field. 'prospect' IS Saved.
+   bg/fg are supplied as a pair for a filled, opaque pill, so a light-cream
+   bg with dark-ink fg was never actually unreadable the way Today's hero or
+   the Goal chips were - both colours travelled together. What it was is
+   wrong for Prism: a bright opaque pill sitting on an obsidian glass card
+   reads as a mistake, not a colour choice. These are translucent-on-dark
+   "Monospace Chip" pairs instead, one per semantic family (neutral / brand
+   / waiting-amber / active-green), matching how every other status pill in
+   the app has been restyled. */
 const STAGE = {
-  prospect:        {label:'Saved',              bg:'#F1EFEA', fg:'#5A5766', dot:'#C9C6BF'},
-  ready_to_contact:{label:'Ready to reach out', bg:'#EFEDFD', fg:'#4A3FD1', dot:'#5B4FE9'},
-  contacted:       {label:'Reached out', bg:'#FBF1E2', fg:'#B0641F', dot:'#E3A23C'},
-  replied:         {label:'In conversation',bg:'#E6F4EC', fg:'#2E8B5F', dot:'#2E8B5F'},
-  coffee_chat:     {label:'Met',                bg:'#E6F4EC', fg:'#2E8B5F', dot:'#2E8B5F'},
-  referral:        {label:'Opportunity in motion',bg:'#E6F4EC', fg:'#2E8B5F', dot:'#2E8B5F'},
-  interview:       {label:'Opportunity in motion',bg:'#E6F4EC', fg:'#2E8B5F', dot:'#2E8B5F'},
-  offer:           {label:'Growing',              bg:'#E6F4EC', fg:'#2E8B5F', dot:'#2E8B5F'},
-  do_not_contact:  {label:'Closed out',     bg:'#F1EFEA', fg:'#8A8896', dot:'#DDD9D1'},
+  prospect:        {label:'Saved',              bg:'rgba(255,255,255,.06)', fg:'var(--sub)', dot:'var(--mute)'},
+  ready_to_contact:{label:'Ready to reach out', bg:'var(--brand-soft2)', fg:'var(--brand-ink)', dot:'var(--brand)'},
+  contacted:       {label:'Reached out', bg:'var(--amber-soft)', fg:'var(--amber)', dot:'var(--amber)'},
+  replied:         {label:'In conversation',bg:'var(--green-soft)', fg:'var(--green)', dot:'var(--green)'},
+  coffee_chat:     {label:'Met',                bg:'var(--green-soft)', fg:'var(--green)', dot:'var(--green)'},
+  referral:        {label:'Opportunity in motion',bg:'var(--green-soft)', fg:'var(--green)', dot:'var(--green)'},
+  interview:       {label:'Opportunity in motion',bg:'var(--green-soft)', fg:'var(--green)', dot:'var(--green)'},
+  offer:           {label:'Growing',              bg:'var(--green-soft)', fg:'var(--green)', dot:'var(--green)'},
+  do_not_contact:  {label:'Closed out',     bg:'rgba(255,255,255,.06)', fg:'var(--mute)', dot:'var(--mute)'},
 };
 const stageOf = (r)=>STAGE[(r||{}).status] || STAGE.prospect;
 /* Board columns follow the Bible's default pipeline; the late statuses share
@@ -1067,8 +1075,7 @@ function GoalFunnel({people, settings}){
   const f = goalFunnel(people);
   const stages = [['Saved',f.saved], ['Reached out',f.reachedOut], ['In conversation',f.talking], ['Advanced',f.advanced]];
   return (
-    <div className="card" style={{padding:'20px 24px',
-      background:'linear-gradient(135deg,var(--brand-soft2) 0%,#F7F1F4 55%,#FBEFE9 100%)',border:'1px solid #E4E0F7'}}>
+    <div className="card" style={{padding:'20px 24px'}}>
       <div className="row" style={{gap:10,flexWrap:'wrap',alignItems:'baseline'}}>
         <span className="eyebrow b">Goal progress</span>
         <span className="meta">{f.saved} {goalNoun(settings)} in play toward {goalShort(settings)}</span>
@@ -1304,8 +1311,7 @@ function KnowledgeBase({settings, onEdit, go}){
 
       {has && <F>
         {((kb.positions||[]).length>0 || (kb.education||[]).length>0) &&
-          <div className="card" style={{marginTop:16,padding:'20px 24px 18px',
-            background:'linear-gradient(135deg,var(--brand-soft2) 0%,#F7F1F4 55%,#FBEFE9 100%)',border:'1px solid #E4E0F7'}}>
+          <div className="card" style={{marginTop:16,padding:'20px 24px 18px'}}>
             <KbTimeline positions={kb.positions} education={kb.education}/>
           </div>}
 
@@ -1486,11 +1492,16 @@ function GoalStrip({people, events, settings}){
   );
 }
 
-const TONE = {red:'#C75B33', amber:'#E3A23C', green:'#2E8B5F', purple:'#5B4FE9', grey:'#C9C6BF'};
-/* A flat white card with only a small colored dot reads as one undifferentiated
+/* Both maps route through the same tokens the rest of the app repainted for
+   Prism in one pass, rather than a second independent set of hex that could
+   drift from it - a literal '#C75B33' here would have been exactly the kind
+   of hardcoded escape that went invisible-on-dark everywhere else it showed
+   up before this file got audited for it. */
+const TONE = {red:'var(--red)', amber:'var(--amber)', green:'var(--green)', purple:'var(--brand-ink)', grey:'var(--mute)'};
+/* A flat card with only a small colored dot reads as one undifferentiated
    list - the dot is easy to miss entirely at a glance. A soft wash of the same
    tone across the whole card makes urgency visible before you've read a word. */
-const TONE_BG = {red:'#FBEFE9', amber:'#FDF3E4', green:'#EDF6EF', purple:'var(--brand-soft)', grey:'var(--card2)'};
+const TONE_BG = {red:'var(--red-soft)', amber:'var(--amber-soft)', green:'var(--green-soft)', purple:'var(--brand-soft)', grey:'var(--card2)'};
 
 /* Does r need a reply from the user right now? Same test buildPlan uses for
    its 'reply-' item: the last thing that happened was them, not us. */
@@ -1673,8 +1684,8 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
                 <div key={t.id} onClick={()=>go(t.go)} className="row lift" style={{gap:14,padding:'15px 22px',
                   borderBottom:'1px solid var(--line2)',cursor:'pointer',alignItems:'center'}}>
                   <span style={{flex:'none',fontSize:10.5,fontWeight:800,letterSpacing:'.04em',padding:'4px 9px',borderRadius:999,
-                    background: isHighImpact(t)?'#FBEFE9':'var(--brand-nav)',
-                    color: isHighImpact(t)?'#C75B33':'var(--brand-ink)'}}>{isHighImpact(t)?'HIGH IMPACT':'GOOD NEXT'}</span>
+                    background: isHighImpact(t)?'var(--red-soft)':'var(--brand-nav)',
+                    color: isHighImpact(t)?'var(--red)':'var(--brand-ink)'}}>{isHighImpact(t)?'HIGH IMPACT':'GOOD NEXT'}</span>
                   <div style={{flex:1,minWidth:0,fontSize:14.5,lineHeight:1.4}}>
                     <span style={{fontWeight:700}}>{t.title}.</span> <span className="sub">{t.sub}</span>
                   </div>
@@ -2144,7 +2155,7 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
       <div onClick={()=>onOpen(r.id)} className="lift"
         style={{display:'flex',alignItems:'center',gap:16,padding:'15px 24px',
           borderBottom:'1px solid var(--line2)',cursor:'pointer',
-          background: checked ? 'var(--brand-soft)' : (hot ? '#FBEFE9' : 'none')}}>
+          background: checked ? 'var(--brand-soft)' : (hot ? 'var(--red-soft)' : 'none')}}>
         <input type="checkbox" checked={checked} onClick={e=>e.stopPropagation()}
           onChange={()=>toggleSelect(r.id)} style={{flex:'none',width:16,height:16,cursor:'pointer'}}/>
         <Avatar name={r.name} size={34} src={r.avatar_url} hover={r}/>
@@ -2442,7 +2453,7 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
             <div className="row" style={{gap:10,alignItems:'center'}}>
               <span style={{fontSize:13.5,fontWeight:600,color:'var(--brand-ink)'}}>{selected.size} selected</span>
               <button className="btn q" style={{fontSize:13}} onClick={()=>setSelected(new Set())}>Clear</button>
-              <button className="btn sm" style={{background:'#C75B33'}}
+              <button className="btn sm" style={{background:'var(--red)',color:'#450A05'}}
                 onClick={async()=>{
                   const n = selected.size;
                   if(!window.confirm('Permanently remove '+n+' '+(n===1?'person':'people')
@@ -2455,8 +2466,7 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
       {topPick &&
         <div style={{marginBottom:22}}>
           <div className="eyebrow b" style={{marginBottom:8}}>Top recommendation</div>
-          <div className="card" style={{padding:'20px 24px',display:'flex',alignItems:'center',gap:16,flexWrap:'wrap',
-            background:'linear-gradient(90deg,#FBEFE9 0%,#EFEDFD 100%)',border:'1px solid #E4E0F7',cursor:'pointer'}}
+          <div className="card" style={{padding:'20px 24px',display:'flex',alignItems:'center',gap:16,flexWrap:'wrap',cursor:'pointer'}}
             onClick={()=>go(topPick.go)}>
             <Avatar name={topPick.title.replace(/^(Reply to|Send your first message to|Write to|Follow up with|Capture your conversation with|Understand)\s*/,'').replace(/ before you reach out$/,'')}
               size={38} src={people.find(p=>p.id===topPickId)&&people.find(p=>p.id===topPickId).avatar_url}/>
