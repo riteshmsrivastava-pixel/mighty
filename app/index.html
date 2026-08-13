@@ -195,6 +195,11 @@
   .banner.warn{background:var(--amber-soft);color:var(--amber);border:1px solid rgba(224,190,99,.3)}
   .banner.err{background:var(--red-soft);color:var(--red);border:1px solid rgba(255,180,171,.3)}
   .banner.ok{background:var(--green-soft);color:var(--green);border:1px solid rgba(78,222,163,.3)}
+  /* Neutral: nothing is wrong, there is just nothing here yet. warn/err/ok
+     were the only three banner tones, which meant every plain empty state
+     had to borrow the amber "something needs attention" color whether or
+     not anything actually did. */
+  .banner.info{background:var(--card2);color:var(--sub);border:1px solid var(--line)}
   .hint{font-size:13px;color:var(--mute2);line-height:1.5}
   .lift:hover{background:var(--card2)}
   /* Today's cards carry a status-tinted background (see TONE_BG), which as an
@@ -442,6 +447,13 @@ const canSee = (k,p,e)=>{ try{ return !!UNLOCKS[k].test(p,e); }catch(err){ retur
 const clean = (s)=>String(s==null?'':s).trim();
 const initials = (n)=>clean(n).split(/\s+/).filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase() || '?';
 const firstName = (n)=>clean(n).split(/\s+/)[0] || '';
+/* LinkedIn names sometimes carry self-appended credentials after a comma
+   ("Stephanie Okubor, PGC-AI/ML, PGC-DSBA") - real, and kept verbatim in
+   stored data and on the profile page, but in a compact list row a run of
+   credential codes reads as a much longer, heavier name than the person next
+   to it. Display-only: drops nothing from r.name itself, just what a
+   space-constrained row shows. */
+const listName = (n)=>clean(n).split(',')[0].trim() || clean(n);
 const DAY = 86400000;
 const days = (iso)=> iso ? Math.floor((Date.now()-new Date(iso).getTime())/DAY) : null;
 const ago = (iso)=>{ const d=days(iso); if(d==null) return ''; return d<=0?'today':d===1?'yesterday':d<30?d+' days ago':d<365?Math.round(d/30)+' months ago':Math.round(d/365)+'y ago'; };
@@ -1684,7 +1696,7 @@ function GoalStrip({people, events, settings}){
         <div className="eyebrow b">Toward</div>
         <div style={{fontSize:15.5,fontWeight:800,marginTop:3,lineHeight:1.3,letterSpacing:'-.01em'}}>{goalLine(settings)}</div>
         <div className="sub" style={{fontSize:13.5,marginTop:6}}>
-          {f.saved} identified · {waiting} replied, waiting on you · {metCapped} of {target} meetings
+          {f.saved} identified · {waiting} replied, waiting on you
         </div>
       </div>
       <div style={{textAlign:'right'}}>
@@ -1835,15 +1847,14 @@ function Today({people, events, tasks, settings, email, go, onToggleTask, doneTo
               <Avatar name={hero.title.replace(/^(Reply to|Send your first message to|Write to|Follow up with|Capture your conversation with|Understand)\s*/,'').replace(/ before you reach out$/,'')}
                 size={40} src={people.find(p=>hero.go&&p.id===hero.go.id)&&people.find(p=>hero.go&&p.id===hero.go.id).avatar_url}/>
               <div style={{flex:'1 1 240px',minWidth:0}}>
-                <div className="eyebrow" style={{color:'var(--green)'}}>Start here</div>
-                <div style={{fontSize:19,fontWeight:800,letterSpacing:'-.015em',marginTop:2,fontFamily:'var(--f-head)'}}>{hero.title}</div>
+                <div style={{fontSize:19,fontWeight:800,letterSpacing:'-.015em',fontFamily:'var(--f-head)'}}>{hero.title}</div>
                 <div className="sub" style={{fontSize:13.5,marginTop:2}}>{hero.sub} · {hero.min} min</div>
               </div>
               <button className="btn" style={{flex:'none'}} onClick={()=>go(hero.go)}>{HERO_VERB[hero.cta]||hero.cta}</button>
             </div>}
 
           {askPrompts.length>0 &&
-            <div className="row" style={{gap:10,flexWrap:'wrap',alignItems:'center',marginTop:20}}>
+            <div className="card" style={{marginTop:14,padding:'14px 18px',display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
               <span className="sub" style={{fontSize:13.5,fontWeight:600}}>What do you need?</span>
               {askPrompts.map(s=>(
                 <button key={s} className="chip" onClick={()=>go({screen:'ask', ask:s})}>{s}</button>))}
@@ -2383,7 +2394,7 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
         <Avatar name={r.name} size={34} src={r.avatar_url} hover={r}/>
         <div style={{flex:'1 1 220px',minWidth:0}}>
           <div className="row" style={{gap:7}}>
-            <div style={{fontSize:15.5,fontWeight:700,letterSpacing:'-.01em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.name||'Unnamed'}</div>
+            <div style={{fontSize:15.5,fontWeight:700,letterSpacing:'-.01em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{listName(r.name)||'Unnamed'}</div>
             <ConnectedBadge r={r} size="sm"/>
           </div>
           <div style={{fontSize:13,color:'var(--mute)',marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.title||(r.context||{}).whySaved||'Saved profile'}</div>
@@ -2391,8 +2402,13 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
         <div className="meta" style={{flex:'none'}}>{ago(r.updated_at||r.shortlisted_at)}</div>
         <span style={{fontSize:12.5,fontWeight:700,flex:'none',borderRadius:999,whiteSpace:'nowrap',
           padding: statusOnly ? '5px 12px' : '6px 13px',
-          color: statusOnly ? 'var(--mute)' : '#fff',
-          background: statusOnly ? 'var(--line2)' : (hot?'#C75B33':'var(--brand)')}}>{label}</span>
+          /* Only a row that actually needs a reply from you gets the loud
+             solid fill - that's the one true urgency signal in this list.
+             Everything else was getting the same solid violet regardless of
+             position, so thirty-six equally loud rows drowned out the one
+             red one they were supposed to set off. */
+          color: statusOnly ? 'var(--mute)' : (hot ? '#fff' : 'var(--brand-ink)'),
+          background: statusOnly ? 'var(--line2)' : (hot ? '#C75B33' : 'var(--brand-soft2)')}}>{label}</span>
       </div>);
   }
 
@@ -3559,77 +3575,126 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
       {tab==='brief' &&
         <div className="stack fade" style={{gap:16,marginTop:24}}>
           {!br.careerSummary && !profileRead &&
-            <div className="card" style={{padding:'26px 26px 24px'}}>
-              <div className="h4">Open their profile once first.</div>
-              <div className="sub" style={{marginTop:8,lineHeight:1.55,maxWidth:'58ch'}}>
-                All Mighty has is a name{row.company ? ' and an employer' : ''}. A brief from that would sound
-                confident and be hollow. Open their profile once with the extension running and Mighty reads
-                what is actually there: location, education, skills, and whether they just changed roles.
-              </div>
-              <div className="row" style={{gap:10,marginTop:18,flexWrap:'wrap'}}>
-                <a className="btn sm" href={row.profile_url} target="_blank" rel="noopener noreferrer">
-                  Open their profile
-                </a>
-                <button className="btn g sm" onClick={()=>go({screen:'extension'})}>Extension setup</button>
-              </div>
-              <div className="hint" style={{marginTop:14}}>
-                It reads the page you are looking at. Mighty never opens LinkedIn for you.
+            <div className="card" style={{padding:'26px 26px 24px',position:'relative',overflow:'hidden'}}>
+              <div aria-hidden="true" style={{position:'absolute',top:-140,left:-70,width:380,height:300,
+                borderRadius:'50%',background:'radial-gradient(circle,rgba(160,120,255,.14),transparent 70%)',
+                filter:'blur(10px)',pointerEvents:'none'}}/>
+              <div style={{position:'relative'}}>
+                <div className="h4">Open their profile once first.</div>
+                <div className="sub" style={{marginTop:8,lineHeight:1.55,maxWidth:'58ch'}}>
+                  All Mighty has is a name{row.company ? ' and an employer' : ''}. A brief from that would sound
+                  confident and be hollow. Open their profile once with the extension running and Mighty reads
+                  what is actually there: location, education, skills, and whether they just changed roles.
+                </div>
+                <div className="row" style={{gap:10,marginTop:18,flexWrap:'wrap'}}>
+                  <a className="btn" href={row.profile_url} target="_blank" rel="noopener noreferrer">
+                    Open their profile
+                  </a>
+                  <button className="btn g" onClick={()=>go({screen:'extension'})}>Extension setup</button>
+                </div>
+                <div className="hint" style={{marginTop:14}}>
+                  It reads the page you are looking at. Mighty never opens LinkedIn for you.
+                </div>
               </div>
             </div>}
 
           {!br.careerSummary && profileRead &&
-            <F>
-              <Empty title="No brief yet."
-                body="Why they matter to your goal, what you have in common, and how to open. Built only from their profile and your strategy, never invented."
-                cta={busy==='brief'?'Preparing…':'Prepare me'} onCta={makeBrief} disabled={!!busy && busy!=='brief'}/>
+            <div className="card" style={{padding:'28px 30px',position:'relative',overflow:'hidden'}}>
+              <div aria-hidden="true" style={{position:'absolute',top:-140,left:-70,width:380,height:300,
+                borderRadius:'50%',background:'radial-gradient(circle,rgba(160,120,255,.14),transparent 70%)',
+                filter:'blur(10px)',pointerEvents:'none'}}/>
+              <div style={{position:'relative',display:'flex',alignItems:'center',gap:12}}>
+                <span style={{color:'var(--brand-ink)'}}>&#10022;</span>
+                <span style={{fontFamily:'var(--f-head)',fontSize:22,fontWeight:700,letterSpacing:'-.02em'}}>Brief</span>
+              </div>
+              <div className="sub" style={{position:'relative',marginTop:14,lineHeight:1.55,maxWidth:'58ch'}}>
+                Why they matter to your goal, what you have in common, and how to open. Built only from their
+                profile and your strategy, never invented.
+              </div>
+              <button className="btn" style={{position:'relative',marginTop:18}} onClick={makeBrief} disabled={!!busy && busy!=='brief'}>
+                {busy==='brief'?<span><span className="spin"/> Preparing</span>:'Prepare me'}
+              </button>
               {/* Free on purpose. A brief is how you decide someone is NOT worth
                   your time, and charging for that charges people to say no. */}
-              <div className="hint" style={{textAlign:'center'}}>
+              <div className="hint" style={{position:'relative',marginTop:12}}>
                 Free. Deciding someone is not worth your time should cost nothing.
               </div>
-            </F>}
-          {br.whyMatters &&
-            <div className="why" style={{padding:'22px 24px'}}>
-              <div className="eyebrow b">Why this person matters to you</div>
-              <div style={{fontSize:16,lineHeight:1.6,color:'var(--ink2)',marginTop:8,fontWeight:500,textWrap:'pretty'}}>{br.whyMatters}</div>
             </div>}
+
+          {/* One panel, one story - Why matters/Professional overview/Conversation
+             starters/Don't lead with/Shared context used to be five separate cards
+             with no shared frame, the one thing this tab most needed to stop doing.
+             Matches Draft's glow-card language (Mighty Prism.dc.html's own Brief
+             card does the same: one card, sub-labelled sections, not a stack). */}
           {br.careerSummary &&
-            <div className="card" style={{padding:'22px 24px'}}>
-              <div className="eyebrow">Professional overview</div>
-              <div style={{fontSize:15,lineHeight:1.6,color:'var(--body)',marginTop:8,textWrap:'pretty'}}>{br.careerSummary}</div>
-            </div>}
-          {br.conversationStarters && br.conversationStarters.length>0 &&
-            <div className="card" style={{padding:'22px 24px'}}>
-              <div className="eyebrow">Conversation starters</div>
-              <div className="stack" style={{gap:10,marginTop:12}}>
-                {br.conversationStarters.map((s,i)=>(
-                  <div key={i} className="row" style={{gap:10,alignItems:'flex-start'}}>
-                    <span className="dot" style={{background:'var(--brand)',marginTop:7}}/>
-                    <span style={{fontSize:15,color:'var(--body)',lineHeight:1.5}}>{s}</span>
-                  </div>))}
+            <div className="card" style={{padding:'28px 30px',position:'relative',overflow:'hidden'}}>
+              <div aria-hidden="true" style={{position:'absolute',top:-140,left:-70,width:380,height:300,
+                borderRadius:'50%',background:'radial-gradient(circle,rgba(160,120,255,.14),transparent 70%)',
+                filter:'blur(10px)',pointerEvents:'none'}}/>
+              <div style={{position:'relative',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+                <span style={{color:'var(--brand-ink)'}}>&#10022;</span>
+                <span style={{fontFamily:'var(--f-head)',fontSize:22,fontWeight:700,letterSpacing:'-.02em'}}>Brief</span>
+              </div>
+
+              {br.whyMatters &&
+                <div style={{position:'relative',fontSize:17,lineHeight:1.6,color:'var(--ink2)',marginTop:18,fontWeight:500,textWrap:'pretty'}}>
+                  {br.whyMatters}
+                </div>}
+
+              {br.careerSummary &&
+                <F>
+                  <div className="eyebrow" style={{position:'relative',marginTop:22}}>Professional overview</div>
+                  <div style={{position:'relative',fontSize:15,lineHeight:1.6,color:'var(--body)',marginTop:8,textWrap:'pretty'}}>{br.careerSummary}</div>
+                </F>}
+
+              {((br.shared&&br.shared.length) || (ctx.common&&ctx.common.length)) &&
+                <F>
+                  <div className="eyebrow" style={{position:'relative',marginTop:22}}>Shared ground</div>
+                  <div className="stack" style={{position:'relative',gap:10,marginTop:10}}>
+                    {((br.shared&&br.shared.length?br.shared:ctx.common)||[]).map((s,i)=>(
+                      <div key={i} className="row" style={{gap:10,alignItems:'flex-start'}}>
+                        <span className="dot" style={{background:'var(--brand-ink)',marginTop:7}}/>
+                        <span style={{fontSize:15,color:'var(--body)',lineHeight:1.5}}>{s}</span>
+                      </div>))}
+                  </div>
+                </F>}
+
+              {br.conversationStarters && br.conversationStarters.length>0 &&
+                <F>
+                  <div className="eyebrow" style={{position:'relative',marginTop:22}}>Conversation starters</div>
+                  <div className="stack" style={{position:'relative',gap:10,marginTop:10}}>
+                    {br.conversationStarters.map((s,i)=>(
+                      <div key={i} className="row" style={{gap:10,alignItems:'flex-start'}}>
+                        <span className="dot" style={{background:'var(--brand)',marginTop:7}}/>
+                        <span style={{fontSize:15,color:'var(--body)',lineHeight:1.5}}>{s}</span>
+                      </div>))}
+                  </div>
+                </F>}
+
+              {br.avoid &&
+                <F>
+                  <div className="eyebrow" style={{position:'relative',marginTop:22}}>Don't lead with</div>
+                  <div style={{position:'relative',fontSize:15,lineHeight:1.6,color:'var(--body)',marginTop:8}}>{br.avoid}</div>
+                </F>}
+
+              <div className="row" style={{position:'relative',gap:10,marginTop:26,flexWrap:'wrap'}}>
+                <button className="btn" onClick={()=>setTab('draft')}>Draft a message</button>
+                <button className="btn g" onClick={makeBrief} disabled={busy==='brief'}>
+                  {busy==='brief'?<span><span className="spin"/> Refreshing</span>:'Rebuild brief'}
+                </button>
               </div>
             </div>}
-          {br.avoid &&
-            <div className="card" style={{padding:'22px 24px'}}>
-              <div className="eyebrow">Don't lead with</div>
-              <div style={{fontSize:15,lineHeight:1.6,color:'var(--body)',marginTop:8}}>{br.avoid}</div>
-            </div>}
+
           {warmIntro &&
-            <div className="card" style={{padding:'22px 24px',borderColor:'var(--brand-line)'}}>
-              <div className="eyebrow">Warm intro</div>
+            <div className="card" style={{padding:'22px 24px',background:'var(--brand-soft)',borderColor:'var(--brand-line)'}}>
+              <div className="eyebrow b">Warm intro</div>
               <div style={{fontSize:15,lineHeight:1.6,color:'var(--body)',marginTop:8}}>
                 You already know {warmIntro.count} {warmIntro.count===1?'person':'people'} at {warmIntro.label}
                 {warmIntro.sample.length ? ': '+warmIntro.sample.map(s=>s.name).filter(Boolean).join(', ') : ''}.
                 Worth asking one of them for an intro before cold-messaging.
               </div>
             </div>}
-          {((br.shared&&br.shared.length) || (ctx.common&&ctx.common.length)) &&
-            <div className="card" style={{padding:'22px 24px'}}>
-              <div className="eyebrow">Shared context</div>
-              <div style={{fontSize:15,lineHeight:1.6,color:'var(--body)',marginTop:8}}>
-                {((br.shared&&br.shared.length?br.shared:ctx.common)||[]).join(' · ')}
-              </div>
-            </div>}
+
           {[['Company',row.company],['Location',ctx.location],['Education',ctx.education],['Headline',row.title]]
             .filter(x=>x[1]).length>0 &&
             <div className="card" style={{padding:'22px 24px'}}>
@@ -3643,13 +3708,6 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                     <div style={{fontSize:14.5,fontWeight:600,color:'var(--ink2)',textWrap:'pretty'}}>{v}</div>
                   </div>))}
               </div>
-            </div>}
-          {br.careerSummary &&
-            <div className="row" style={{gap:10,flexWrap:'wrap'}}>
-              <button className="btn sm" onClick={()=>setTab('draft')}>Draft a message</button>
-              <button className="btn g sm" onClick={makeBrief} disabled={busy==='brief'}>
-                {busy==='brief'?<span><span className="spin"/> Refreshing</span>:'Rebuild brief'}
-              </button>
             </div>}
         </div>}
 
@@ -4215,7 +4273,7 @@ function Rooms({sb, settings, onSave, onSaveSettings, onOpen, atCap, cap, onOpen
             {parsing ? <span><span className="spin"/> Reading</span> : 'Add'}
           </button>
           <button className="btn q" style={{flex:'none'}} disabled title="Coming soon - reading a badge or flyer photo needs vision input Mighty doesn't have yet">
-            Add from a photo
+            Add from a photo &middot; soon
           </button>
         </div>
         {parseErr && <div className="banner warn" style={{marginTop:14}}>{parseErr}</div>}
@@ -4225,12 +4283,12 @@ function Rooms({sb, settings, onSave, onSaveSettings, onOpen, atCap, cap, onOpen
       <div className="card" style={{marginTop:16,padding:'16px 20px',background:'var(--rail)'}}>
         <div className="eyebrow">Suggested near you</div>
         <div className="sub" style={{marginTop:6,fontSize:13.5}}>
-          Mighty doesn't have a live feed of nearby events yet - that needs an events API (Luma, Eventbrite or Meetup) wired in. Once it is, matches for your goal, in your city or country, will show up here on their own.
+          Nearby event matches aren't live yet. Once they are, matches for your goal, in your city or country, will show up here on their own.
         </div>
       </div>
 
       {rooms.length===0 &&
-        <div className="banner warn" style={{marginTop:20}}>Nothing here yet. Paste a link above to get started.</div>}
+        <div className="banner info" style={{marginTop:20}}>Nothing here yet. Paste a link above to get started.</div>}
 
       <div className="stack" style={{gap:18,marginTop:24}}>
         {rooms.map(room=>{

@@ -114,7 +114,7 @@ function profileHeadline(name) {
   if (!nameH) return '';
   let card = nameH;
   for (let i = 0; i < 8 && card.parentElement; i++) { card = card.parentElement; if (card.querySelector('img[src*="profile-displayphoto"]')) break; }
-  const bad = /^·|^\d|1st|2nd|3rd|Contact info|mutual|connection|follower|^Message$|^More$|^Follow$|Skip to|MIghTy|match ·|first time/i;
+  const bad = /^·|^\d|1st|2nd|3rd|Contact info|mutual|connection|follower|^Message$|^More$|^Follow$|Skip to|MIghTy|match ·|first time|video player|is loading|^loading/i;
   const leaves = [...card.querySelectorAll('div,span,p')].filter(el => el.children.length === 0);
   for (const el of leaves) {
     const t = el.textContent.trim();
