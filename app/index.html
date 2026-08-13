@@ -3661,10 +3661,26 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                 {a.label}{drafts[a.id] && <span style={{marginLeft:6,opacity:.6}}>&middot;</span>}
               </button>))}
           </div>
-          <div className="card" style={{marginTop:16,padding:'22px 24px'}}>
-            <div className="eyebrow b">Draft · {(APPROACHES.find(a=>a.id===approach)||{}).label}</div>
+          {/* Same "Light Leaks" treatment Pulse's hero and Bridge's overlap card
+             already use - a soft radial wash in the corner of an otherwise
+             standard .card, rather than a one-off bespoke panel style. */}
+          <div className="card" style={{marginTop:16,padding:'28px 30px',position:'relative',overflow:'hidden'}}>
+            <div aria-hidden="true" style={{position:'absolute',top:-140,right:-70,width:380,height:300,
+              borderRadius:'50%',background:'radial-gradient(circle,rgba(76,215,246,.14),transparent 70%)',
+              filter:'blur(10px)',pointerEvents:'none'}}/>
+            <div style={{position:'relative',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+              <span style={{color:'var(--brand-ink)'}}>&#10022;</span>
+              <span style={{fontFamily:'var(--f-head)',fontSize:22,fontWeight:700,letterSpacing:'-.02em'}}>Drafting</span>
+              {/* Grounded in the same exchange counter markReplied and makeDrafts
+                 already key off - a reply is what starts a new exchange, so
+                 exchangeNo>1 only ever means "they wrote back since the last one." */}
+              <span className="meta" style={{marginLeft:'auto'}}>
+                Context: {exchangeNo>1 ? 'their reply' : 'first outreach'} · 1 Assist
+              </span>
+            </div>
+
             {Object.keys(drafts).length===0 &&
-              <div className="stack" style={{gap:14,marginTop:14}}>
+              <div className="stack" style={{position:'relative',gap:14,marginTop:20}}>
                 <div className="sub" style={{fontSize:14.5,lineHeight:1.55,textWrap:'pretty'}}>
                   Mighty writes all five approaches at once, from your strategy, this person's profile, and anything
                   you've captured. Then you pick one, edit it, and send it.
@@ -3681,7 +3697,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                 </div>
               </div>}
             {Object.keys(drafts).length>0 && !drafts[approach] &&
-              <div className="stack" style={{gap:14,marginTop:14}}>
+              <div className="stack" style={{position:'relative',gap:14,marginTop:20}}>
                 <div className="sub" style={{fontSize:14.5}}>This angle has not been generated yet.</div>
                 <button className="btn g sm" style={{alignSelf:'flex-start'}} onClick={regenerateOne}
                   disabled={(!!busy && busy!=='draft')||takesLeft<=0}>
@@ -3690,25 +3706,27 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
               </div>}
             {drafts[approach] &&
               <F>
-                <textarea className="inp" style={{marginTop:14,minHeight:180,fontSize:15.5,lineHeight:1.65}}
+                {/* .inp's border/color stay theme-correct as-is; only the
+                   background is overridden here, to var(--paper) - the same
+                   token as the page ground in both themes, so the box reads as
+                   recessed into the surface rather than another plain field. */}
+                <textarea className="inp" style={{position:'relative',marginTop:20,minHeight:240,fontSize:16,
+                  lineHeight:1.75,padding:'26px 28px',background:'var(--paper)'}}
                   value={drafts[approach].message}
                   onChange={e=>{ const v=e.target.value; setDrafts(d=>({...d, [approach]: {...d[approach], message:v}})); }}/>
-                <div className="row" style={{gap:10,marginTop:16,flexWrap:'wrap'}}>
-                  <button className="btn sm" onClick={copyAndOpen}>Copy &amp; open LinkedIn</button>
-                  <button className="btn g sm" disabled={!!busy}
-                    onClick={()=>{ setBusy('save'); onUpdate(row,{ai_draft:drafts[approach].message}).then(()=>flash('Saved')).finally(()=>setBusy(null)); }}>Save draft</button>
-                  <button className="btn g sm" onClick={regenerateOne}
+                <div className="row" style={{position:'relative',gap:12,marginTop:16,flexWrap:'wrap',alignItems:'center'}}>
+                  <button className="btn" onClick={copyAndOpen}>Copy &amp; open LinkedIn</button>
+                  <button className="btn g" onClick={regenerateOne}
                     disabled={(!!busy && busy!=='draft')||takesLeft<=0}>
-                    {busy==='draft'?<span><span className="spin"/> Rewriting</span>
-                      : takesLeft<=0 ? 'No takes left' : 'Rewrite this one'}
+                    {busy==='draft'?<span><span className="spin"/> Writing</span>
+                      : takesLeft<=0 ? 'No takes left' : 'Another take · '+takesLeft+' left'}
                   </button>
-                  <span className="meta">
-                    {takes>0 ? 'Take '+takes+' of '+TAKE_LIMIT+' · same Assist' : ''}
-                  </span>
+                  <button className="btn q" disabled={!!busy}
+                    onClick={()=>{ setBusy('save'); onUpdate(row,{ai_draft:drafts[approach].message}).then(()=>flash('Saved')).finally(()=>setBusy(null)); }}>Save draft</button>
                 </div>
-                <div className="hint" style={{marginTop:12}}>
-                  Copies the message and opens their profile. You send it. Mighty never sends anything, and
-                  never clicks Connect.
+                <div className="hint" style={{position:'relative',marginTop:12}}>
+                  Fully editable · never sent for you. Copies the message and opens their profile - Mighty never
+                  sends anything, and never clicks Connect.
                 </div>
               </F>}
           </div>
