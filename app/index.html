@@ -6326,6 +6326,12 @@ function parseCsv(text){
   if(field || row.length){ row.push(field); rows.push(row); }
   return rows.filter(r => r.some(v => (v || '').trim()));
 }
+/* Postgres text/jsonb rejects raw C0 control bytes outright ("unsupported Unicode
+   escape sequence", tab/newline excepted) - LinkedIn's export can carry them in
+   free-text fields (Summary, position Description) same as a pasted PDF resume
+   can. Shared by every CSV field below and by the resume reader, so the whole
+   class closes in one place instead of per-field. */
+const stripControl = (s)=> String(s||'').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
 /* LinkedIn puts a notes block above the header in some files, so find the header
    by looking for the row that actually contains the columns we need. */
 function csvObjects(text, mustHave){
@@ -6337,7 +6343,7 @@ function csvObjects(text, mustHave){
   }
   const hdr = rows[h].map(x => x.trim());
   return rows.slice(h+1).map(r => {
-    const o = {}; hdr.forEach((k, i) => o[k] = (r[i] || '').trim()); return o;
+    const o = {}; hdr.forEach((k, i) => o[k] = stripControl((r[i] || '').trim())); return o;
   });
 }
 /* LinkedIn's export writes message dates as "2020-04-11 14:22:07 UTC" -
@@ -7589,14 +7595,12 @@ async function readResumePdf(file){
     out += tc.items.map(x => x.str).join(' ') + '\n';
   }
   /* Postgres text/jsonb columns reject   outright ("unsupported Unicode
-     escape sequence") - some PDFs' internal text encoding embeds a null
-     byte here and there, invisible in the UI but fatal to the save. This
-     was the actual cause behind resume uploads that looked successful
-     (no thrown error - Supabase returns {error}, it does not throw) and
-     then were never actually on the server. Stripping C0 control
-     characters generally (tab and newline excepted, both meaningful here)
-     closes the whole class, not just the one byte that got caught. */
-  return out.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+     escape sequence") - a PDF's internal text encoding can embed a null byte
+     just like that, invisible in the UI but fatal to the save (see
+     stripControl above - this was the actual cause behind resume uploads
+     that looked successful, no thrown error, and then were never actually
+     on the server). */
+  return stripControl(out).replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 const OB_STEPS = ['Privacy','LinkedIn','Email','Resume','Goal','Questions'];
@@ -7896,7 +7900,7 @@ function Onboarding({sb, user, settings, onSave, onDone, startStep}){
         selfResearch: kbExisting.selfResearch || null,
         synthesis: kbExisting.synthesis || null,
       };
-      await onSave({
+      const saved = await onSave({
         goalType: goalTypes[0] || 'networking',
         goalTypes,
         goal: clean(goal),
@@ -7908,6 +7912,13 @@ function Onboarding({sb, user, settings, onSave, onDone, startStep}){
         knowledge: kb,
         strategyUpdatedAt: new Date().toISOString(),
       });
+      /* onSave (saveSettings) resolves normally even when Postgres rejected
+         the write - it returns false rather than throwing. Without this
+         check, finish() sailed on to onDone() regardless, moving a
+         brand-new user into the main app with an archive/resume that only
+         ever existed in this tab's memory - the exact "LinkedIn import
+         isn't working" report this was chasing. */
+      if(saved===false) throw new Error("That didn't save - check your connection and try Continue again.");
       track('kb_onboarding_done', {had_archive:!!arch, had_resume:!!resume,
         answered:kb.answers.length, connections:kb.connectionCount});
       onDone();
@@ -8038,8 +8049,17 @@ function Onboarding({sb, user, settings, onSave, onDone, startStep}){
                 &#10003; {arch.connections.length.toLocaleString()} connections, {arch.positions.length} roles read.
               </div>}
             {prog && <div className="meta" style={{marginTop:16}}><span className="spin"/> {prog}</div>}
-            <div className="meta" style={{marginTop:18}}>Read on this machine. The archive never leaves it.</div>
-            <Actions label={busy==='arch' ? 'Reading…' : 'Continue'} onNext={next} disabled={busy==='arch'}/>
+            {/* LinkedIn emails this archive rather than downloading it instantly - often in two
+                parts, connections first - so there is nothing to drop here yet for most people.
+                Without this line the empty dropzone reads as broken instead of as "not arrived yet". */}
+            {!arch &&
+              <div className="meta" style={{marginTop:18}}>
+                LinkedIn emails this to you rather than downloading it right away - often within
+                minutes, sometimes up to a day for larger networks. No need to wait here: continue
+                now and drop the file in later from Mirror.
+              </div>}
+            <div className="meta" style={{marginTop:8}}>Read on this machine. The archive never leaves it.</div>
+            <Actions label={busy==='arch' ? 'Reading…' : (arch ? 'Continue' : "Continue - I'll add this later")} onNext={next} disabled={busy==='arch'}/>
           </div>}
 
         {/* ---------- 2. email ---------- */}
@@ -8501,7 +8521,7 @@ function App(){
   /* Merge-write so keys this app doesn't know (templates, sheets, voiceSamples)
      survive - app/v1.html owns those and both apps share the row. */
   async function saveSettings(patch){
-    if(!sb || auth.status!=='in') return;
+    if(!sb || auth.status!=='in') return false;
     setBusySave(true);
     /* The actual read-modify-write, queued onto saveChainRef so two calls
        can never race each other to Supabase - each one waits for the
@@ -8520,10 +8540,13 @@ function App(){
         /* upsert() resolves normally even when Postgres rejects the write
            (e.g. 22P05 on a stray null byte) - it never throws, it just
            returns {error}. Missing this check is what let resume saves
-           fail silently for so long: the UI moved on as if it had worked. */
-        if(res.error) setErr('Saving failed: '+(res.error.message || 'the server rejected this save') + '. Please try again.');
+           fail silently for so long: the UI moved on as if it had worked.
+           Callers that care (onboarding's finish()) check the return value
+           instead of assuming the resolved promise means it landed;
+           fire-and-forget callers elsewhere just ignore it, as before. */
+        if(res.error){ setErr('Saving failed: '+(res.error.message || 'the server rejected this save') + '. Please try again.'); return false; }
       }
-      catch(e){ setErr('Saved on this device, but syncing failed: '+(e.message||'unknown error')); }
+      catch(e){ setErr('Saved on this device, but syncing failed: '+(e.message||'unknown error')); return false; }
       /* Counts only: which goal, how many targets named, whether this was the
          first time. Never the goal text itself, which is free prose. */
       track(firstRun?'strategy_first_saved':'strategy_updated', {
@@ -8532,11 +8555,13 @@ function App(){
         companies: (next.settings.targetCompanies||[]).length,
         schools: (next.settings.schools||[]).length,
       });
+      return true;
     };
     const chained = saveChainRef.current.then(run, run);
     saveChainRef.current = chained;
-    await chained;
+    const ok = await chained;
     setBusySave(false);
+    return ok;
   }
 
   /* "Rebuild from my archive" on an account whose archive predates
