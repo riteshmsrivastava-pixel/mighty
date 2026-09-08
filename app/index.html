@@ -1480,8 +1480,8 @@ function KnowledgeBase({settings, onEdit, go}){
      whether onboarding has ever been completed at all. */
   const hasIntent = !!settings.goalType || !!(settings.goalTypes||[]).length;
   const hasGoal    = hasIntent || !!clean(settings.goal||'');
-  const completion = Math.round(([hasArchive,hasMail,hasResume,hasGoal].filter(Boolean).length/4)*100);
-  /* The four real inputs, each on its own schedule - a LinkedIn export from
+  const completion = Math.round(([hasArchive,hasResume,hasGoal].filter(Boolean).length/3)*100);
+  /* The three real inputs, each on its own schedule - a LinkedIn export from
      a week ago and a resume from six months ago are not equally fresh, so
      they get their own dates instead of one "read 4 days ago" covering
      both. "Correct this" used to be the only door back in, and it opened
@@ -1491,11 +1491,6 @@ function KnowledgeBase({settings, onEdit, go}){
     {label:'LinkedIn export', done:hasArchive,
       status: hasArchive ? 'Read '+ago(kb.capturedAt) : 'Not added yet',
       cta: hasArchive?'Update':'Add', onClick:()=>onEdit(OB.linkedin)},
-    {label:'Email history', done:hasMail,
-      status: hasMail
-        ? (kb.mail.twoWayCount||0).toLocaleString() + ' real contacts, read ' + ago(kb.mail.capturedAt)
-        : 'Not added yet',
-      cta: hasMail?'Update':'Add', onClick:()=>onEdit(OB.email)},
     {label:'Resume', done:hasResume,
       status: hasResume ? 'Read '+ago(kb.resumeUpdatedAt||kb.capturedAt) : 'Not added yet',
       cta: hasResume?'Update':'Add', onClick:()=>onEdit(OB.resume)},
@@ -7603,11 +7598,11 @@ async function readResumePdf(file){
   return stripControl(out).replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 }
 
-const OB_STEPS = ['Privacy','LinkedIn','Email','Resume','Goal','Questions'];
+const OB_STEPS = ['Privacy','LinkedIn','Resume','Goal','Questions'];
 /* Named, because every "jump straight to the step that needs fixing" caller
    outside this component used to pass a bare number, and inserting Email in
    the middle silently repointed all of them at the wrong screen. */
-const OB = {privacy:0, linkedin:1, email:2, resume:3, goal:4, questions:5};
+const OB = {privacy:0, linkedin:1, resume:2, goal:3, questions:4};
 
 /* How complete is this profile, and what would move it.
    Five equal slices. Creating the account is one of them, which is why someone
@@ -8064,91 +8059,7 @@ function Onboarding({sb, user, settings, onSave, onDone, startStep}){
             <Actions label={busy==='arch' ? 'Reading…' : (arch ? 'Continue' : "Continue - I'll add this later")} onNext={next} disabled={busy==='arch'}/>
           </div>}
 
-        {/* ---------- 2. email ---------- */}
-        {step===OB.email &&
-          <div style={{marginTop:14}}>
-            <H>Add your email.</H>
-            <Sub>LinkedIn says who you are connected to. Your email says who you actually talk to,
-              how fast they answer, and how you sound when you write to someone who matters.</Sub>
-
-            <div style={{marginTop:28,maxWidth:520}}>
-              <div className="lbl">The address this mailbox belongs to</div>
-              <input className="inp" style={{borderRadius:16}} value={mailAddrs} type="text"
-                autoCapitalize="off" spellCheck="false" placeholder="you@gmail.com, you@work.com"
-                onChange={e=>setMailAddrs(e.target.value)}/>
-              <div className="meta" style={{marginTop:8}}>Add any alias you also send from, separated by commas.</div>
-            </div>
-
-            <input ref={mailRef} type="file" accept=".mbox,.zip" style={{display:'none'}}
-              onChange={e=>onMail(e.target.files && e.target.files[0])}/>
-            <div onClick={()=>{ if(!busy && mailRef.current) mailRef.current.click(); }}
-              style={{marginTop:24,border:'1.5px dashed var(--line)',borderRadius:22,padding:'40px 36px',
-                cursor:busy?'default':'pointer',maxWidth:640,background:'var(--card2)',opacity:busy?.6:1}}>
-              <div className="eyebrow">Drop the .mbox here</div>
-              <div style={{fontSize:16.5,lineHeight:1.55,color:'var(--ink2)',marginTop:12}}>
-                In Google Takeout, deselect everything, select Mail, and export. Unzip what Google
-                sends and drop the .mbox file from inside Takeout/Mail/.
-              </div>
-              <a href="https://takeout.google.com/settings/takeout/custom/gmail" target="_blank"
-                rel="noopener noreferrer" onClick={e=>e.stopPropagation()}
-                style={{display:'inline-block',marginTop:16,fontSize:12.5,letterSpacing:'.1em',
-                  textTransform:'uppercase',fontWeight:700}}>Open Google Takeout</a>
-            </div>
-
-            {prog && <div className="meta" style={{marginTop:16}}><span className="spin"/> {prog}</div>}
-
-            {mail && !prog &&
-              <div style={{marginTop:20,border:'1px solid var(--line)',borderRadius:22,
-                padding:'24px 26px',maxWidth:640,background:'var(--card2)'}}>
-                <div className="row" style={{gap:9,color:'var(--green)',fontWeight:700,fontSize:14.5}}>
-                  &#10003; {mail.messagesRead.toLocaleString()} messages read.
-                </div>
-                <div className="stack" style={{gap:0,marginTop:14}}>
-                  {[
-                    ['People you have a real two-way exchange with', mail.twoWayCount.toLocaleString()],
-                    ['Of those, LinkedIn connections you actually email',
-                      mail.overlap && mail.overlap.twoWay ? mail.overlap.twoWay.toLocaleString() : null],
-                    ['Messages you wrote, now teaching Mighty your voice', mail.sent.toLocaleString()],
-                    ['Companies you have live email into', String((mail.domains||[]).length)],
-                    ['Your reply time, at the median',
-                      (()=>{ const ms = mail.showUp && mail.showUp.myMedianReplyMs;
-                        if(ms==null) return null;
-                        const h = ms/3600000;
-                        return h<1 ? Math.max(1,Math.round(ms/60000))+' min' : h<48 ? Math.round(h)+' hours' : Math.round(h/24)+' days'; })()],
-                    ['Reply rate when you write first',
-                      mail.showUp && mail.showUp.iWroteFirstReplyPct!=null ? mail.showUp.iWroteFirstReplyPct+'%' : null],
-                  ].filter(r=>r[1]).map((r,i)=>(
-                    <div key={i} className="row" style={{justifyContent:'space-between',gap:16,
-                      padding:'11px 0',borderTop:i?'1px solid var(--line2)':'none'}}>
-                      <div style={{fontSize:15,color:'var(--ink2)'}}>{r[0]}</div>
-                      <div style={{fontSize:15,fontWeight:700,flex:'none'}}>{r[1]}</div>
-                    </div>
-                  ))}
-                </div>
-                {mail.truncated &&
-                  <div className="meta" style={{marginTop:14}}>
-                    Stopped at {MBOX_MAX_MESSAGES.toLocaleString()} messages, which is plenty for
-                    everything above. Nothing later in the file was read.
-                  </div>}
-                {mail.labelCoverage < 50 &&
-                  <div className="meta" style={{marginTop:14}}>
-                    No Gmail labels in that file, so which messages are yours was decided by the
-                    address above rather than read from the export.
-                  </div>}
-              </div>}
-
-            <div className="meta" style={{marginTop:18,maxWidth:'56ch',lineHeight:1.55}}>
-              Read on this machine, and unlike your LinkedIn archive the mailbox itself is never
-              uploaded anywhere. Mighty keeps the tallies above, 40 samples of your own writing,
-              and who you exchanged mail with. It never decodes a message somebody sent to you -
-              those are their words, and only the fact and date of the exchange is worth anything here.
-            </div>
-
-            <Actions label={busy==='mail' ? 'Reading…' : (mail ? 'Continue' : 'Do it later')}
-              onNext={next} disabled={busy==='mail'}/>
-          </div>}
-
-        {/* ---------- 3. resume ---------- */}
+        {/* ---------- 2. resume ---------- */}
         {step===OB.resume &&
           <div style={{marginTop:14}}>
             <H>Complete your profile.</H>
