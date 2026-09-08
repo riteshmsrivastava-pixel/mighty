@@ -7697,7 +7697,9 @@ function Onboarding({sb, user, settings, onSave, onDone, startStep}){
       const empty = !d.connections.length && !d.positions.length && !d.education.length &&
         !d.skills.length && !d.identity.headline && !clean(d.identity.summary||'');
       if(empty) throw new Error("That did not look like a LinkedIn export - none of the expected files were inside. "
-        + "It should be the .zip LinkedIn emailed you, unzipped folder renamed back to .zip if needed.");
+        + "LinkedIn offers a small Basic download that leaves out connections entirely - make sure you requested "
+        + "the archive that includes connections instead, and that this is the .zip it emailed you (unzipped "
+        + "folder renamed back to .zip if needed).");
       setArch(d);
       const p0 = d.positions[0] || {};
       setIdent({ headline: d.identity.headline, location: d.identity.location,
@@ -8518,6 +8520,21 @@ function App(){
   const settings = (blob && blob.settings) || {};
   const hasIntent = !!settings.goalType;
 
+  /* saveSettings' own error path only ever puts text on screen once,
+     transiently - the exact failure had nowhere it could be looked up
+     afterward, which is what turned one onboarding-save bug into two weeks
+     of "it's still happening" with nothing to go on but guesses. Reuses the
+     imports table rather than a new one; best-effort, fire and forget - a
+     failure to log a failure must never become the thing that surfaces. */
+  async function logSaveError(err, patch){
+    try{
+      await sb.from('imports').insert({user_id:auth.user.id, kind:'save_error', storage_path:null,
+        file_name:null, file_bytes:null,
+        derived:{message:String((err&&err.message)||err||'unknown').slice(0,500),
+                 code:(err&&err.code)||null, patch_keys:Object.keys(patch||{})}});
+    }catch(e){}
+  }
+
   /* Merge-write so keys this app doesn't know (templates, sheets, voiceSamples)
      survive - app/v1.html owns those and both apps share the row. */
   async function saveSettings(patch){
@@ -8544,9 +8561,17 @@ function App(){
            Callers that care (onboarding's finish()) check the return value
            instead of assuming the resolved promise means it landed;
            fire-and-forget callers elsewhere just ignore it, as before. */
-        if(res.error){ setErr('Saving failed: '+(res.error.message || 'the server rejected this save') + '. Please try again.'); return false; }
+        if(res.error){
+          setErr('Saving failed: '+(res.error.message || 'the server rejected this save') + '. Please try again.');
+          logSaveError(res.error, patch);
+          return false;
+        }
       }
-      catch(e){ setErr('Saved on this device, but syncing failed: '+(e.message||'unknown error')); return false; }
+      catch(e){
+        setErr('Saved on this device, but syncing failed: '+(e.message||'unknown error'));
+        logSaveError(e, patch);
+        return false;
+      }
       /* Counts only: which goal, how many targets named, whether this was the
          first time. Never the goal text itself, which is free prose. */
       track(firstRun?'strategy_first_saved':'strategy_updated', {

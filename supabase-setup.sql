@@ -569,13 +569,21 @@ create policy "arch delete own" on storage.objects for delete to authenticated
 create table if not exists public.imports (
   id           bigint generated always as identity primary key,
   user_id      uuid not null default auth.uid() references auth.users(id) on delete cascade,
-  kind         text not null check (kind in ('linkedin_archive','resume','manual')),
+  kind         text not null check (kind in ('linkedin_archive','resume','manual','gmail_mbox','google_api','save_error')),
   storage_path text,
   file_name    text,
   file_bytes   bigint,
   derived      jsonb not null default '{}'::jsonb,
   created_at   timestamptz not null default now()
 );
+-- Widen for an install that already ran the table above with the narrower
+-- three-value check - onMail's own kind:'gmail_mbox' violated it silently
+-- (wrapped in an empty catch), so every Gmail import has been failing to log
+-- itself since that feature shipped. save_error is saveSettings' own new
+-- failure-diagnostic row, google_api is the still-unshipped Google connector.
+alter table public.imports drop constraint if exists imports_kind_check;
+alter table public.imports add constraint imports_kind_check
+  check (kind in ('linkedin_archive','resume','manual','gmail_mbox','google_api','save_error'));
 create index if not exists imports_user_time_idx on public.imports (user_id, created_at desc);
 alter table public.imports enable row level security;
 drop policy if exists "im select own" on public.imports;
