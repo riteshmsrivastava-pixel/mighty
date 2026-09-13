@@ -67,11 +67,26 @@ function companyFromTitle(title) {
 function profileName() {
   const t = (document.title || '').split(/\s[|·]\s/)[0].trim();
   if (t && !/^\(\d+\)/.test(t) && t.toLowerCase() !== 'linkedin') return t;
-  const h = [...document.querySelectorAll('h1,h2')].find(x => {
+  // Title was unusable (markerless/atypical layout) - the first plausible
+  // h1/h2 on the page is a guess, not a read. og:title is a structurally
+  // independent signal (LinkedIn ships it for link-preview cards, not for
+  // page rendering), so if it agrees with a heading that's real confirmation
+  // rather than "first thing that looked right." Same two-signal spirit as
+  // isSelfByUrl/isSelfByName above. Falls straight back to today's behavior
+  // when og:title is missing or disagrees - never a regression, just weaker
+  // confirmation on the cases that were already a guess.
+  const og = (document.querySelector('meta[property="og:title"]') || {}).content || '';
+  const ogName = og.split(/\s[|·]\s/)[0].trim();
+  const candidates = [...document.querySelectorAll('h1,h2')].filter(x => {
     const s = x.textContent.trim();
     return s.length > 1 && s.length < 60;
   });
-  return h ? h.textContent.trim() : '';
+  if (ogName) {
+    const match = candidates.find(x => x.textContent.trim() === ogName);
+    if (match) return match.textContent.trim();
+    if (!candidates.length) return ogName;
+  }
+  return candidates[0] ? candidates[0].textContent.trim() : '';
 }
 function profilePhotoUrl() {
   const imgs = [...document.querySelectorAll('img[src*="profile-displayphoto"], img[src*="profile-framedphoto"]')];
@@ -123,14 +138,41 @@ function profileHeadline(name) {
   return '';
 }
 
+// Set once chrome.runtime.sendMessage proves the extension context is dead
+// (reloaded/updated while this content script is still injected in an open
+// tab). scan() checks this and stops re-dispatching into a dead context -
+// the setInterval/history patches below can't be reliably un-installed, so
+// making every dispatch a no-op is the safe stand-in for real teardown.
+let extensionContextDead = false;
 function send(type, extra) {
-  return new Promise(resolve => chrome.runtime.sendMessage({ type, ...extra }, resolve));
+  return new Promise(resolve => {
+    try {
+      chrome.runtime.sendMessage({ type, ...extra }, (res) => {
+        if (chrome.runtime.lastError) { extensionContextDead = true; resolve({ ok: false, error: 'extension_reloaded' }); return; }
+        resolve(res);
+      });
+    } catch (e) { extensionContextDead = true; resolve({ ok: false, error: 'extension_reloaded' }); }
+  });
 }
 async function fetchLogCached() { return send('fetchLog', {}); }
 
 function normProfileUrl(href) {
   try { const u = new URL(href, location.href); return (u.origin + u.pathname).replace(/\/$/, ''); }
   catch (e) { return href; }
+}
+
+// LinkedIn swaps profiles via client-side routing, not a reload - async work
+// (fetchLogCached, profilePhotoDataUrl) started on one profile can still be
+// pending when the student clicks to a different one. navGen increments on
+// every real navigation (see scan()); anything that awaits mid-flight
+// re-checks it before touching the DOM or sending, and silently discards
+// itself if the page has moved on rather than tagging stale data with the
+// new profile's URL.
+let navGen = 0;
+function navStale(gen, profileUrl) {
+  if (gen !== navGen) return true;
+  if (profileUrl !== undefined && normProfileUrl(location.href) !== profileUrl) return true;
+  return false;
 }
 
 /* ---------- 1. score badges on search-results pages ----------
@@ -725,8 +767,10 @@ function renderNearby(el, r, selfUrl) {
 async function renderProfileSidebar() {
   if (!PROFILE_PAGE_RE.test(location.pathname)) { if (sidebarEl) { sidebarEl.remove(); sidebarEl = null; } return; }
   const profileUrl = normProfileUrl(location.href);
+  const gen = navGen; // this render belongs to whichever navigation is current right now
   if (skippedThisSession.has(profileUrl)) { if (sidebarEl) { sidebarEl.remove(); sidebarEl = null; } return; }
   const r = await fetchLogCached();
+  if (navStale(gen, profileUrl)) return; // student already moved to a different profile
   if (!r || !r.ok) return;
 
   // This is the account holder's own profile, not someone to evaluate - a
@@ -749,7 +793,7 @@ async function renderProfileSidebar() {
     if (!r.hasSelfAvatar && !selfPhotoSentThisSession) {
       selfPhotoSentThisSession = true;
       const avatarData = await profilePhotoDataUrl();
-      if (avatarData) send('pushInbox', { kind: 'self_photo', payload: { profileUrl, avatarUrl: avatarData } });
+      if (avatarData && !navStale(gen, profileUrl)) send('pushInbox', { kind: 'self_photo', payload: { profileUrl, avatarUrl: avatarData } });
     }
     return;
   }
@@ -797,7 +841,13 @@ async function renderProfileSidebar() {
     save.onclick = async () => {
       save.textContent = 'Saving…'; save.disabled = true;
       const avatarData = await profilePhotoDataUrl();
+      // Student clicked Save, then navigated away before the photo finished
+      // encoding - the panel they were looking at is gone either way, so
+      // there's nothing left to update; just drop it rather than saving
+      // under whatever profile happens to be live now.
+      if (navStale(gen, profileUrl)) return;
       const res = await send('saveProfile', { payload: { profileUrl, name: liveName, title: liveHeadline, company: liveCompany, avatarUrl: avatarData || livePhoto, location: liveLocation } });
+      if (navStale(gen, profileUrl)) return;
       if (res && res.ok) {
         // Now that a row exists, hand over the page text the app discarded a
         // moment ago - that's what the AI brief is written from.
@@ -841,7 +891,9 @@ async function renderProfileSidebar() {
       let avatarToSave = row.avatar_url;
       if (avatarStale) { const d = await profilePhotoDataUrl(); if (d) { patch.avatar_url = d; avatarToSave = d; } }
       if (!Object.keys(patch).length) return;
+      if (navStale(gen, profileUrl)) return; // moved to a different profile mid-backfill
       await send('saveProfile', { payload: { profileUrl, name: row.name || liveName, title: row.title || liveHeadline, company: row.company || liveCompany, avatarUrl: avatarToSave, location: ((row.context||{}).location) || liveLocation } });
+      if (navStale(gen, profileUrl)) return;
       Object.assign(row, patch); // keep the warm cache row consistent
     })();
   }
@@ -1177,9 +1229,12 @@ const IS_LINKEDIN = /(^|\.)linkedin\.com$/i.test(location.hostname);
 const IS_GOOGLE = /(^|\.)google\./i.test(location.hostname);
 let lastUrl = '';
 function scan() {
+  if (extensionContextDead) return; // extension was reloaded; nothing left to dispatch to
   if (location.href === lastUrl) return;
   lastUrl = location.href;
+  const gen = ++navGen; // this is the navigation this dispatch belongs to
   setTimeout(() => {
+    if (navStale(gen)) return; // a later navigation already superseded this one
     try {
       if (IS_LINKEDIN) {
         decorateSearchCards(); wireComposeFill(); captureProfileContext(); renderProfileSidebar(); wireSendObserver();
