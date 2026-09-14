@@ -58,17 +58,33 @@
   }
 
   // Google's markup rotates, so anchor on the only durable things: links that
-  // point at /in/ profiles, and the <h3> heading inside the same result block.
-  function parseProfiles(html) {
+  // point at /in/ profiles (still handled, in case a locale or a future
+  // rollback ever sends one directly again), and now - the normal case -
+  // links that point at Google's own /goto?url=<token> redirector, which
+  // carries no readable URL at all. Cards behind a redirector come back
+  // with url:null here; the caller resolves those via background.js's
+  // resolveGotoUrls before anything is usable. The <h3> heading inside the
+  // same result block is what everything else (name, headline, snippet) is
+  // still anchored on either way - that part of Google's markup hasn't moved.
+  function parseCards(html) {
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    const seen = new Set(), out = [];
-    for (const a of doc.querySelectorAll('a[href*="linkedin.com/in/"]')) {
+    const seenHref = new Set(), out = [];
+    for (const a of doc.querySelectorAll('a[href*="linkedin.com/in/"], a[href^="/goto?url="]')) {
       let href = a.getAttribute('href') || '';
       if (/^\/url\?/.test(href)) { const m = href.match(/[?&]q=([^&]+)/); if (m) href = decodeURIComponent(m[1]); }
-      if (!/linkedin\.com\/in\//.test(href)) continue;
-      let url;
-      try { const u = new URL(href); url = (u.origin + u.pathname).replace(/\/$/, ''); } catch (e) { continue; }
-      if (seen.has(url)) continue;
+      let url = null;
+      if (/linkedin\.com\/in\//.test(href)) {
+        // Deliberately no base-URL argument here: these hrefs are always
+        // absolute, and this function also declares its own local `location`
+        // further down (the parsed person's location text) - passing
+        // window.location as a base would shadow into that name and throw a
+        // temporal-dead-zone ReferenceError on every single candidate.
+        try { const u = new URL(href); url = (u.origin + u.pathname).replace(/\/$/, ''); } catch (e) { continue; }
+      } else if (!/^\/goto\?url=/.test(href)) {
+        continue;
+      }
+      if (seenHref.has(href)) continue;
+      seenHref.add(href);
 
       let card = a;
       for (let i = 0; i < 6 && card.parentElement; i++) { card = card.parentElement; if (card.querySelector('h3')) break; }
@@ -140,9 +156,8 @@
       const education = grab(/Education:\s*([^·]+)/i);
       const experience= grab(/Experience:\s*([^·]+)/i);
 
-      seen.add(url);
       out.push({
-        profileUrl: url, name, title: headline,
+        href, profileUrl: url, name, title: headline,
         // Title-derived first ("Senior Product Manager at Hi Marley" gives
         // exactly "Hi Marley"), then the snippet's fourth segment, then the
         // Experience label if Google happens to still be sending one.
@@ -151,6 +166,28 @@
         snippet: snip.slice(0, 300),
       });
       if (out.length >= 12) break;
+    }
+    return out;
+  }
+
+  // Cards whose profileUrl is still null came back behind a /goto redirector
+  // and need the background worker to resolve it (see resolveGotoUrls in
+  // background.js for why that step can't happen here, in the page). Cards
+  // that already had a direct URL skip the round trip entirely.
+  async function resolveCards(cards) {
+    const need = cards.filter(c => !c.profileUrl).map(c => c.href);
+    let resolved = {};
+    if (need.length) {
+      const r = await send('resolveGotoUrls', { hrefs: need });
+      resolved = (r && r.resolved) || {};
+    }
+    const seen = new Set(), out = [];
+    for (const c of cards) {
+      const url = c.profileUrl || resolved[c.href];
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
+      const { href, profileUrl, ...rest } = c;
+      out.push({ profileUrl: url, ...rest });
     }
     return out;
   }
@@ -165,7 +202,8 @@
     if (d.kind === 'search') {
       const r = await send('fetchSearchHtml', { query: String(d.query || '') });
       if (!r || !r.ok) { reply(d.id, { ok: false, error: (r && r.error) || 'search_failed' }); return; }
-      const people = parseProfiles(r.html);
+      const cards = parseCards(r.html);
+      const people = await resolveCards(cards);
       if (!people.length && looksBlocked(r.html)) { reply(d.id, { ok: false, error: 'blocked' }); return; }
       reply(d.id, { ok: true, people });
       return;

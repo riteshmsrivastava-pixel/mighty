@@ -1087,7 +1087,14 @@ function savedFromLabel(ctx){
 async function findProfileCandidates(sb, kw){
   try{
     const bridged = await extBridge.search(kw);
-    if(bridged && bridged.ok) return {people:(bridged.people||[]).filter(p=>p && p.profileUrl)};
+    /* ok:true with zero people is not "nothing matched" - Google now hides
+       every profile link behind an opaque /goto?url=<token> redirector that
+       the extension's page-scrape parser cannot resolve, so a real search
+       comes back empty with no error either. Falling through to the API
+       path below (unaffected - it uses Google's official Custom Search API,
+       not scraped HTML) is what actually finds a real zero-result search
+       apart from this failure mode; either way it costs nothing extra. */
+    if(bridged && bridged.ok && (bridged.people||[]).length) return {people:(bridged.people||[]).filter(p=>p && p.profileUrl)};
     if(bridged && bridged.error==='blocked') return {people:[], blocked:true};
     const {data, error} = await sb.functions.invoke('people-search', {body:{query:kw}});
     if(!error && data && data.ok!==false) return {people:(data.people||[]).filter(p=>p && p.profileUrl)};
@@ -2283,10 +2290,17 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
       /* Ask the extension first. It reads the results page itself, so it comes
          back with location, education, experience and follower counts - the API
          path returns a title and a link and nothing else. Fall back to the edge
-         function only when the extension is not installed. */
+         function when the extension is not installed, or - just as often now -
+         when it IS installed but found nothing: Google hides every profile link
+         behind an opaque /goto?url=<token> redirector these days, which the
+         extension's HTML scrape cannot resolve into a real URL, so a genuine
+         search comes back ok:true with zero people and no error at all. That
+         is indistinguishable from "nothing matched" unless it is also retried
+         against the API path below, which reads Google's official Custom
+         Search API instead of scraped HTML and is unaffected. */
       let found = [], via = 'ext';
       const bridged = await extBridge.search(kw);
-      if(bridged && bridged.ok){
+      if(bridged && bridged.ok && (bridged.people||[]).length){
         found = (bridged.people||[]).filter(p=>p && p.profileUrl);
       } else if(bridged && bridged.error==='blocked'){
         track('search_blocked', {});

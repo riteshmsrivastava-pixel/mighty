@@ -285,6 +285,34 @@ async function fetchSearchHtml(query) {
   } catch (e) { return { ok: false, error: String((e && e.message) || e) }; }
 }
 
+// Google stopped putting the real destination in a search result's href at
+// all - every result now points at /goto?url=<opaque signed token>, which a
+// page's own script cannot decode (confirmed by hand: a plain fetch() to it
+// from google.com's own page context is refused by Google's page CSP).
+// Following it as a real HTTP request is the only way to learn where it
+// actually goes - and unlike a content script's fetch, this background
+// worker's fetch is not executing "as" a page under that CSP at all, so the
+// same request that a webpage cannot make, this can. bridge.js resolves one
+// batch of hrefs (from a single search) through this, sequentially with a
+// gap between each - these are real hits against Google, not a static page
+// fetch, and firing a dozen at once looks exactly like the automated
+// traffic this whole redirector exists to slow down.
+async function resolveGotoUrl(href) {
+  try {
+    const res = await fetch('https://www.google.com' + href, { credentials: 'include', redirect: 'follow' });
+    const finalUrl = res.url || '';
+    return /linkedin\.com\/in\//i.test(finalUrl) ? finalUrl.replace(/[?#].*$/, '').replace(/\/$/, '') : null;
+  } catch (e) { return null; }
+}
+async function resolveGotoUrls(hrefs) {
+  const out = {};
+  for (const href of (hrefs || []).slice(0, 12)) {
+    out[href] = await resolveGotoUrl(href);
+    await new Promise(r => setTimeout(r, 250));
+  }
+  return { ok: true, resolved: out };
+}
+
 // Same fetch, no site:linkedin.com/in restriction - a plain web search for
 // the self-research knowledge-base refresh (name + a known employer/school,
 // to disambiguate from anyone else sharing the name). Results are raw,
@@ -369,6 +397,7 @@ function fetchProfilePhoto(profileUrl) {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg && msg.type === 'encodeAvatar') { encodeAvatar(msg.url).then(sendResponse); return true; }
   if (msg && msg.type === 'fetchSearchHtml') { fetchSearchHtml(msg.query).then(sendResponse); return true; }
+  if (msg && msg.type === 'resolveGotoUrls') { resolveGotoUrls(msg.hrefs).then(sendResponse); return true; }
   if (msg && msg.type === 'fetchWebSearchHtml') { fetchWebSearchHtml(msg.query).then(sendResponse); return true; }
   if (msg && msg.type === 'fetchProfilePhoto') { fetchProfilePhoto(msg.profileUrl).then(sendResponse); return true; }
   if (msg && msg.type === 'pushInbox') { pushInboxWithRetry(msg.kind, msg.payload).then(sendResponse); return true; }
