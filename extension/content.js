@@ -66,7 +66,12 @@ function companyFromTitle(title) {
    against the live profile DOM; if this breaks, re-inspect and fix HERE. */
 function profileName() {
   const t = (document.title || '').split(/\s[|·]\s/)[0].trim();
-  if (t && !/^\(\d+\)/.test(t) && t.toLowerCase() !== 'linkedin') return t;
+  // "(3) Anand Daniel" (unread-count prefix ahead of a real name) was
+  // already guarded below - this catches the other shape: document.title
+  // reading as just the bare count itself, no name at all ("0
+  // notifications"), seen live when the notifications panel is open/focused
+  // and LinkedIn swaps the tab title to describe it instead of the profile.
+  if (t && !/^\(\d+\)/.test(t) && !/^\d+\s+notifications?$/i.test(t) && t.toLowerCase() !== 'linkedin') return t;
   // Title was unusable (markerless/atypical layout) - the first plausible
   // h1/h2 on the page is a guess, not a read. og:title is a structurally
   // independent signal (LinkedIn ships it for link-preview cards, not for

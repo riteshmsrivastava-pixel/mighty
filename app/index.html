@@ -2526,34 +2526,52 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
     setEventErr(null); setEventRes([]); setEventQ(sentence); setEventPhase('searching');
     try{
       const home = (settings.targetLocations||[])[0] || settings.homeLocation;
-      let query = /\bnear me\b/i.test(sentence) && home ? sentence.replace(/\bnear me\b/i, home) : sentence;
+      const base = /\bnear me\b/i.test(sentence) && home ? sentence.replace(/\bnear me\b/i, home) : sentence;
       /* A bare "events" or "events near me" carries no topic at all, so
          Google falls back to its own generic sense of "event" - ticketed
          sports and entertainment, not anything relevant to what this
          account is actually networking toward (confirmed live: "events
          near me" alone surfaced Ticketmaster and WWE-adjacent wrestling
-         tickets). Only append the goal qualifier when the sentence is
-         still just the bare trigger words classifyAsk matched on - a
-         sentence that already names a real topic ("AI conference in
-         Boston") is specific enough on its own, and diluting it with
-         unrelated goal terms would only hurt. */
+         tickets). Only append a goal qualifier when the sentence is still
+         just the bare trigger words classifyAsk matched on - a sentence
+         that already names a real topic ("AI conference in Boston") is
+         specific enough on its own, and diluting it with goal terms would
+         only hurt. */
       const BARE = /^(events?|conferences?|meetups?|meet-?ups?|workshops?|webinars?|near me|this week|this month|happening)$/i;
-      const meaningful = query.split(/\s+/).filter(w=>w && !BARE.test(w.replace(/[.,!?]+$/,'')));
+      const meaningful = base.split(/\s+/).filter(w=>w && !BARE.test(w.replace(/[.,!?]+$/,'')));
+      const goalQuery = (types, roles)=>{
+        const label = (types||[]).map(t=>GOAL_LABEL[t]).filter(Boolean).join(' ');
+        const qualifier = [label, (roles||[])[0]||''].filter(Boolean).join(' ');
+        return qualifier ? base+' '+qualifier : null;
+      };
+      /* One search per goal, not one search stuffed with every goal's terms
+         at once - confirmed live that a single primary-only qualifier
+         starved out a real secondary goal entirely ("events near me" for an
+         account with Find a new job + Raise investment came back HR/hiring
+         events only, nothing about funding). Each goal gets its own query
+         and its own slice of the results; running them in parallel keeps
+         this no slower than the single-query version was. */
+      let queries = [base];
       if(meaningful.length<=2){
-        const goalLabel = goalTypeList(settings).map(t=>GOAL_LABEL[t]).filter(Boolean).join(' ');
-        const topRole = (settings.targetRoles||[])[0] || '';
-        const qualifier = [goalLabel, topRole].filter(Boolean).join(' ');
-        if(qualifier) query = query + ' ' + qualifier;
+        const extras = secondaryGoals(settings);
+        const qs = [goalQuery(goalTypeList(settings), settings.targetRoles), ...extras.map(g=>goalQuery(g.types, g.targetRoles))].filter(Boolean);
+        if(qs.length) queries = qs;
       }
-      const r = await extBridge.eventSearch(query);
-      if(!r || !r.ok){
+      const batches = await Promise.all(queries.slice(0,3).map(q=>extBridge.eventSearch(q)));
+      if(batches.every(b=>!b || !b.ok)){
+        const r = batches[0];
         if(r && r.error==='blocked') setEventErr('Search is rate limited right now. Try again in a few minutes.');
         else if(r && r.error==='no_extension') setEventErr('Event search needs the Mighty extension installed - it reads the results page the same way LinkedIn search does.');
         else setEventErr('Could not search for events right now.');
         setEventPhase('idle'); return;
       }
-      setEventRes(r.results||[]);
-      track('event_search_run', {results:(r.results||[]).length});
+      const lists = batches.filter(b=>b && b.ok).map(b=>b.results||[]);
+      const seen = new Set(), merged = [];
+      for(let i=0; merged.length<12 && lists.some(l=>i<l.length); i++){
+        for(const l of lists){ const item=l[i]; if(item && !seen.has(item.url)){ seen.add(item.url); merged.push(item); } }
+      }
+      setEventRes(merged);
+      track('event_search_run', {results:merged.length, queries:queries.length});
     }catch(e){ setEventErr(e.message||'Could not search for events right now.'); }
     setEventPhase('idle');
   }
