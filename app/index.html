@@ -280,6 +280,18 @@ const GOAL_NOUN = {job_search:'contacts', raise_funding:'investors', sales:'pros
   mentors:'mentors', networking:'people'};
 const goalNoun = (st)=> GOAL_NOUN[goalTypeList(st)[0]] || 'people';
 
+/* Everything above this line (goalTypeList, goalLine, StrategyForm/View, Today's
+   GoalStrip, the app-gating hasIntent check, and every Patterns card) is about
+   the ONE primary goal and stays exactly as it was - none of that changes
+   shape, and none of it needs to know secondary goals exist. Secondary goals
+   are a strictly additive list, same storage idiom Rooms and Organiser Hub
+   already use (settings.knowledge.<key>, read-modify-write through
+   onSaveSettings), so a user with zero of them sees literally the same app.
+   Each one only widens what strategyBrief() tells the AI - "also relevant to
+   this person" - which is the actual value: better search ranking and better
+   drafts when someone fits more than one of your goals at once. */
+const secondaryGoals = (st)=> ((st && st.knowledge && st.knowledge.goals) || []);
+
 /* The funnel a goal actually moves through, in real counts only - never a
    fabricated "68% there," which nothing here can honestly know. Do-not-contact
    is excluded throughout: someone you closed out is not still in play toward
@@ -844,12 +856,25 @@ function strategyBrief(st){
   const kb = st.knowledge || {};
   const positions = (kb.positions||[]).slice(0,4).map(p=>[p.title,p.company].filter(Boolean).join(' at ')).filter(Boolean);
   const education = (kb.education||[]).slice(0,3).map(e=>[e.degree,e.school].filter(Boolean).join(', ')).filter(Boolean);
+  const extraGoals = secondaryGoals(st);
+  /* One block per secondary goal, same shape as the primary goal's own lines
+     just below - a candidate can fit either one, and the model should be able
+     to say which. Numbered starting at 2 so "Goal" (unnumbered, primary) reads
+     as first without saying so. */
+  const extraGoalLines = extraGoals.map((g,i)=>[
+    'Goal ' + (i+2) + ': ' + ((g.types||[]).map(t=>GOAL_LABEL[t]).filter(Boolean).join(' and ') || 'Untitled goal'),
+    clean(g.goal||'') ? '  In their words: ' + g.goal : '',
+    (g.targetRoles||[]).length ? '  Wants to meet: ' + g.targetRoles.join(', ') : '',
+    (g.targetCompanies||[]).length ? '  Target organizations: ' + g.targetCompanies.join(', ') : '',
+    (g.targetLocations||[]).length ? '  Places that matter: ' + g.targetLocations.join(', ') : '',
+  ].filter(Boolean).join('\n')).join('\n');
   return [
-    'Goal: ' + (goalTypeList(st).map(t=>GOAL_LABEL[t]).filter(Boolean).join(' and ') || 'building a professional network'),
+    'Goal' + (extraGoals.length ? ' 1' : '') + ': ' + (goalTypeList(st).map(t=>GOAL_LABEL[t]).filter(Boolean).join(' and ') || 'building a professional network'),
     st.goal ? 'In their words: ' + st.goal : '',
     (st.targetRoles||[]).length ? 'Wants to meet: ' + st.targetRoles.join(', ') : '',
     (st.targetCompanies||[]).length ? 'Target organizations: ' + st.targetCompanies.join(', ') : '',
     (st.targetLocations||[]).length ? 'Places that matter: ' + st.targetLocations.join(', ') : '',
+    extraGoalLines,
     (st.currentRole||st.currentCompany) ? 'Currently: ' + [st.currentRole, st.currentCompany].filter(Boolean).join(' at ') : '',
     (kb.identity&&kb.identity.headline) ? 'LinkedIn headline: ' + kb.identity.headline : '',
     positions.length ? 'Career history: ' + positions.join('; ') : '',
@@ -1117,7 +1142,7 @@ async function evaluate(sb, people, st){
       + (ov ? ` [you already know ${ov.count} ${ov.count===1?'person':'people'} there]` : '');
   }).join('\n');
   const out = await llmJSON(sb, 'profile_briefing',
-    'You help a professional decide who is worth building a relationship with. For each candidate, judge relevance to THEIR stated goal and explain it in plain language. Never output a numeric score. Ground every claim only in the given headline text (and the bracketed fact when present) - if nothing supports a claim, do not make it. Be honest: never inflate a weak fit, and when nothing about someone matches the goal, say so outright rather than implying promise that is not there. Common ground must be real overlap: literal (same company, school, city) or domain-level (a genuinely comparable industry to the sender\'s own career history, e.g. both fintech, both pharma - reasoned from their actual background, not restated titles); "both in tech" alone is not common ground. Never use em dashes; write a spaced hyphen instead.',
+    'You help a professional decide who is worth building a relationship with. For each candidate, judge relevance to THEIR stated goal(s) - the brief may list more than one; a candidate fitting any one of them is relevant, and if useful, say which - and explain it in plain language. Never output a numeric score. Ground every claim only in the given headline text (and the bracketed fact when present) - if nothing supports a claim, do not make it. Be honest: never inflate a weak fit, and when nothing about someone matches the goal, say so outright rather than implying promise that is not there. Common ground must be real overlap: literal (same company, school, city) or domain-level (a genuinely comparable industry to the sender\'s own career history, e.g. both fintech, both pharma - reasoned from their actual background, not restated titles); "both in tech" alone is not common ground. Never use em dashes; write a spaced hyphen instead.',
     `The person doing the networking:\n${strategyBrief(st)}\n\nCandidates:\n${list}\n\nReturn JSON exactly like {"matches":[{"n":1,"verdict":"excellent"|"strong"|"potential"|"low","why":"one or two sentences, starts with the reason, no score","common":["short shared-ground phrase"]}]}. Use "excellent" only when they match the goal squarely, "strong" for a clear fit, "potential" when the connection is real but loose, and "low" when nothing about them lines up with the goal. Include every candidate by its number n. "common" may be empty.`,
     1500);
   const byN = {};
@@ -1372,6 +1397,129 @@ function StrategyView({settings, people, onEdit}){
       <div className="hint" style={{marginTop:26,maxWidth:560}}>
         {st.strategyUpdatedAt ? 'Last updated ' + ago(st.strategyUpdatedAt) + '. ' : ''}
         A goal is never finished. Update it when you change jobs, cities or ambitions, and every recommendation follows.
+      </div>
+    </div>
+  );
+}
+
+/* A second (or third) goal, tracked independently of the primary one above -
+   its own type(s), its own free-text elaboration, its own target roles and
+   companies. Lives at settings.knowledge.goals, same list-in-knowledge idiom
+   Rooms and Organiser Hub already use: local state mirrors the array, every
+   edit computes the whole next array and persists it in one onSaveSettings
+   call. Deliberately does not duplicate the primary goal's "more" section
+   (schools, networking style, success metrics) - those describe the person,
+   not the goal, and stay a single shared, account-level answer in the
+   primary goal's own form. */
+function SecondaryGoals({settings, onSaveSettings}){
+  const [goals, setGoals] = useState(()=>secondaryGoals(settings));
+  const persist = (next)=>{ setGoals(next); onSaveSettings({knowledge:{...(settings.knowledge||{}), goals:next}}); };
+
+  const [editingId, setEditingId] = useState(null);
+  const editing = editingId===null ? null : goals.find(g=>g.id===editingId);
+
+  function addGoal(){
+    const g = {id:'g'+Date.now(), types:[], goal:'', targetRoles:[], targetCompanies:[], targetLocations:[]};
+    persist(goals.concat(g));
+    setEditingId(g.id);
+  }
+  function removeGoal(id){
+    persist(goals.filter(g=>g.id!==id));
+    if(editingId===id) setEditingId(null);
+  }
+  function saveGoal(id, patch){
+    persist(goals.map(g=>g.id===id ? {...g, ...patch, updatedAt:new Date().toISOString()} : g));
+    setEditingId(null);
+  }
+
+  return (
+    <div style={{marginTop:36,maxWidth:780}}>
+      <div className="row" style={{justifyContent:'space-between',alignItems:'baseline',flexWrap:'wrap',gap:10}}>
+        <div>
+          <div className="eyebrow b">Also tracking</div>
+          <div className="sub" style={{marginTop:4,fontSize:13.5}}>
+            A separate goal Mighty weighs alongside your main one - someone can be worth adding for either.
+          </div>
+        </div>
+        {!editing && <button className="btn g sm" onClick={addGoal}>+ Add a goal</button>}
+      </div>
+
+      <div className="stack" style={{gap:12,marginTop:16}}>
+        {goals.map(g=>
+          editing && editing.id===g.id
+            ? <SecondaryGoalForm key={g.id} goal={g} onSave={p=>saveGoal(g.id,p)} onCancel={()=>setEditingId(null)}/>
+            : <SecondaryGoalCard key={g.id} goal={g} onEdit={()=>setEditingId(g.id)} onRemove={()=>removeGoal(g.id)}/>)}
+        {!editing && goals.length===0 &&
+          <div className="hint">No second goal yet - most people only need one. Add one if you are genuinely working two tracks at once, like raising and hiring.</div>}
+      </div>
+    </div>
+  );
+}
+function SecondaryGoalCard({goal, onEdit, onRemove}){
+  const label = (goal.types||[]).map(t=>GOAL_LABEL[t]).filter(Boolean).join(' and ') || 'Untitled goal';
+  return (
+    <div className="card" style={{padding:'18px 20px'}}>
+      <div className="row" style={{justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+        <div>
+          <div style={{fontSize:15,fontWeight:700}}>{clean(goal.goal) || label}</div>
+          {clean(goal.goal) && <div className="sub" style={{fontSize:13,marginTop:3}}>{label}</div>}
+        </div>
+        <div className="row" style={{gap:8,flex:'none'}}>
+          <button className="btn q sm" onClick={onEdit}>Edit</button>
+          <button className="btn q sm" onClick={onRemove}>Remove</button>
+        </div>
+      </div>
+      {((goal.targetRoles||[]).length || (goal.targetCompanies||[]).length) &&
+        <div style={{marginTop:10,display:'flex',gap:7,flexWrap:'wrap'}}>
+          {(goal.targetRoles||[]).concat(goal.targetCompanies||[]).slice(0,8).map((c,i)=>(
+            <span key={i} style={{padding:'5px 11px',borderRadius:'var(--pill)',background:'var(--card2)',border:'1px solid var(--line)',fontSize:12.5}}>{c}</span>))}
+        </div>}
+    </div>
+  );
+}
+function SecondaryGoalForm({goal, onSave, onCancel}){
+  const [types,setTypes] = useState(goal.types||[]);
+  const toggle = id=>setTypes(t=>t.includes(id)?t.filter(x=>x!==id):t.concat(id));
+  const [text,setText] = useState(goal.goal||'');
+  const [roles,setRoles] = useState(goal.targetRoles||[]);
+  const [cos,setCos] = useState(goal.targetCompanies||[]);
+  const [locs,setLocs] = useState(goal.targetLocations||[]);
+  const ready = types.length>0 || clean(text);
+  return (
+    <div className="card fade" style={{padding:'20px 22px'}}>
+      <div className="lbl">Why this one?</div>
+      <div className="stack" style={{gap:6,marginTop:10}}>
+        {GOALS.map(g=>{
+          const on = types.includes(g.id);
+          return (
+            <button key={g.id} onClick={()=>toggle(g.id)} style={{textAlign:'left',padding:'10px 13px',borderRadius:10,
+              border:'1px solid '+(on?'var(--brand-line)':'var(--line)'), background:on?'var(--brand-soft2)':'var(--card2)'}}>
+              <span style={{fontSize:14,fontWeight:600,color:on?'var(--brand-ink)':'var(--ink)'}}>{g.label}</span>
+            </button>);
+        })}
+      </div>
+      <div style={{marginTop:14}}>
+        <div className="lbl">In your own words (optional)</div>
+        <input className="inp" value={text} onChange={e=>setText(e.target.value)} placeholder="Hire a founding engineer by Q2"/>
+      </div>
+      <div style={{marginTop:14}}>
+        <div className="lbl">Who</div>
+        <ChipInput value={roles} onChange={setRoles} placeholder="Founding Engineer, Technical co-founder…"/>
+      </div>
+      <div style={{marginTop:14}}>
+        <div className="lbl">Where they work</div>
+        <ChipInput value={cos} onChange={setCos} placeholder="Companies, schools, funds…"/>
+      </div>
+      <div style={{marginTop:14}}>
+        <div className="lbl">Places</div>
+        <ChipInput value={locs} onChange={setLocs} placeholder="Boston, remote…"/>
+      </div>
+      <div className="row" style={{marginTop:18,gap:10}}>
+        <button className="btn sm" disabled={!ready}
+          onClick={()=>onSave({types, goal:clean(text), targetRoles:roles, targetCompanies:cos, targetLocations:locs})}>
+          Save
+        </button>
+        <button className="btn g sm" onClick={onCancel}>Cancel</button>
       </div>
     </div>
   );
@@ -5949,7 +6097,10 @@ function You({sb, email, settings, people, events, tasks, appEvents, tab, setTab
             </div>
           </div>}
         {tab==='goal' && !editGoal &&
-          <StrategyView settings={settings} people={people} onEdit={()=>setEditGoal(true)}/>}
+          <F>
+            <StrategyView settings={settings} people={people} onEdit={()=>setEditGoal(true)}/>
+            <SecondaryGoals settings={settings} onSaveSettings={onSaveSettings}/>
+          </F>}
         {tab==='goal' && editGoal &&
           <StrategyForm settings={settings} busy={busySave} go={go}
             onSave={async(p)=>{ await onSaveSettings(p); setEditGoal(false); }}
