@@ -4393,6 +4393,12 @@ function Rooms({sb, settings, onSave, onSaveSettings, onOpen, atCap, cap, onOpen
   const [candidates, setCandidates] = useState({});
   const [manualUrl, setManualUrl] = useState({});
   const [dismissed, setDismissed] = useState(()=>new Set());
+  /* Rooms is a list, not a single form, from the moment there is more than
+     one - so it needs the same two-level shape every other list-of-things
+     screen in this app already has (a compact row, and a place that opens
+     into the full detail): a card here, not the entire attendee list of
+     every room stacked on the page at once. */
+  const [openRoomId, setOpenRoomId] = useState(null);
 
   async function addRoom(){
     const url = clean(urlInput);
@@ -4428,7 +4434,7 @@ function Rooms({sb, settings, onSave, onSaveSettings, onOpen, atCap, cap, onOpen
       const room = {
         id: 'rm'+Math.random().toString(36).slice(2,9)+Date.now().toString(36),
         url, title: clean(out.eventName) || data.title || url,
-        when: clean(out.when), where: clean(out.where),
+        when: clean(out.when), where: clean(out.where), image: clean(data.image||''),
         addedAt: new Date().toISOString(), status: 'planning',
         people: scored.map(p=>({
           id: 'sp'+Math.random().toString(36).slice(2,9)+Date.now().toString(36),
@@ -4437,6 +4443,7 @@ function Rooms({sb, settings, onSave, onSaveSettings, onOpen, atCap, cap, onOpen
       };
       persist([room, ...rooms]);
       setUrlInput('');
+      setOpenRoomId(room.id);
       track('room_added', {people: room.people.length});
     }catch(e){ setParseErr(e.message||'Could not read that page.'); }
     setParsing(false);
@@ -4515,14 +4522,50 @@ function Rooms({sb, settings, onSave, onSaveSettings, onOpen, atCap, cap, onOpen
       {rooms.length===0 &&
         <div className="banner info" style={{marginTop:20}}>Nothing here yet. Paste a link above to get started.</div>}
 
-      <div className="stack" style={{gap:18,marginTop:24}}>
+      <div className="stack" style={{gap:rooms.length && !rooms.some(r=>r.id===openRoomId) ? 12 : 18,marginTop:24}}>
         {rooms.map(room=>{
+          const isOpen = openRoomId===room.id;
+          if(!isOpen){
+            /* Collapsed row: a bucket, not the whole event. Everything about
+               who's on it lives one tap away, in the detail branch below -
+               this just needs enough to recognize and pick the right one when
+               several rooms are on file at once. */
+            return (
+              <div key={room.id} className="card fade lift" style={{padding:0,overflow:'hidden',cursor:'pointer',display:'flex'}}
+                onClick={()=>setOpenRoomId(room.id)}>
+                <div style={{width:84,height:84,flex:'none',background:'var(--card2)',
+                  backgroundImage: room.image?`url("${room.image}")`:'none',backgroundSize:'cover',backgroundPosition:'center',
+                  display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  {!room.image &&
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--mute)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>}
+                </div>
+                <div style={{flex:1,minWidth:0,padding:'14px 18px'}}>
+                  <div className="row" style={{justifyContent:'space-between',gap:10,alignItems:'flex-start'}}>
+                    <div style={{fontSize:15.5,fontWeight:700,letterSpacing:'-.01em',minWidth:0}}>{room.title}</div>
+                    <span className={'chip'+(room.status==='attended'?' on':'')} style={{flex:'none',fontSize:11.5,padding:'4px 10px'}}>
+                      {room.status==='attended'?'Attended':'Planning to go'}
+                    </span>
+                  </div>
+                  <div className="meta" style={{marginTop:3}}>
+                    {[room.when, room.where].filter(Boolean).join(' · ') || 'No date or place on the page'}
+                  </div>
+                  <div className="sub" style={{fontSize:12.5,marginTop:6}}>
+                    {room.people.length} {room.people.length===1?'person':'people'} found
+                  </div>
+                </div>
+              </div>);
+          }
           const visiblePeople = [...room.people]
             .filter(p=>!dismissed.has(p.id))
             .sort((a,b)=>(RANK[a.verdict]??2)-(RANK[b.verdict]??2));
           return (
             <div key={room.id} className="card fade" style={{padding:'20px 22px'}}>
+              <button className="btn q sm" style={{marginBottom:14}} onClick={()=>setOpenRoomId(null)}>&larr; Back to rooms</button>
               <div className="row" style={{justifyContent:'space-between',alignItems:'flex-start',gap:14,flexWrap:'wrap'}}>
+                {room.image &&
+                  <img src={room.image} alt="" style={{width:64,height:64,borderRadius:10,objectFit:'cover',flex:'none'}}
+                    onError={e=>{ e.target.style.display='none'; }}/>}
                 <div style={{flex:'1 1 260px',minWidth:0}}>
                   <div style={{fontSize:17,fontWeight:700,letterSpacing:'-.01em'}}>{room.title}</div>
                   <div className="meta" style={{marginTop:4}}>
@@ -4535,7 +4578,7 @@ function Rooms({sb, settings, onSave, onSaveSettings, onOpen, atCap, cap, onOpen
                 <div style={{display:'flex',gap:8,flex:'none',alignItems:'center',flexWrap:'wrap'}}>
                   <button className={'chip'+(room.status==='attended'?' on':'')} onClick={()=>setStatus(room,'attended')}>Attended</button>
                   <button className={'chip'+(room.status==='planning'?' on':'')} onClick={()=>setStatus(room,'planning')}>Planning to go</button>
-                  <button className="btn q sm" onClick={()=>removeRoom(room)}>Remove</button>
+                  <button className="btn q sm" onClick={()=>{ removeRoom(room); setOpenRoomId(null); }}>Remove</button>
                 </div>
               </div>
 

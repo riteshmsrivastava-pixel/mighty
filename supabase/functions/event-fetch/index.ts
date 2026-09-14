@@ -123,5 +123,20 @@ Deno.serve(async (req) => {
   if (text.length < 200)
     return json({ ok: false, error: "empty", message: "That page didn't have enough readable text - it may need a login, or be built entirely in JavaScript." });
 
-  return json({ ok: true, title: titleMatch ? titleMatch[1].trim().slice(0, 200) : "", text, url: target.toString() });
+  // og:image is the one piece of an event page that IS reliably present even
+  // when the rest of the page is a client-rendered shell (see stripHtml's own
+  // notes above on Luma-style SPAs) - every platform in this category sets it
+  // for their own link-preview cards, which is meta-tag content, not the
+  // page's hydrated body, so a plain fetch sees it fine. Attribute order in
+  // the tag varies by site (content before property, or after), so both are
+  // matched. Not validated as reachable/an actual image - the <img> tag that
+  // renders it in the room card degrades to nothing on a broken URL either way.
+  const ogImageMatch =
+    html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
+    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+
+  return json({
+    ok: true, title: titleMatch ? titleMatch[1].trim().slice(0, 200) : "", text,
+    image: ogImageMatch ? ogImageMatch[1] : "", url: target.toString(),
+  });
 });
