@@ -1102,6 +1102,26 @@ function savedFromLabel(ctx){
     default:              return 'Saved from the extension';
   }
 }
+/* Google ranks "site:linkedin.com/in <name>" against everything the words
+   might mean, not just the name - a weak or uncommon name can pull in someone
+   sharing no part of it at all (measured live: searching "Alex Brussell"
+   surfaced "Larry J. Erwin", tied to the result only by both mentioning
+   "OpenAI" elsewhere in the query). findProfileCandidates has no way to know
+   that on its own - it only sees the composed query string, name and
+   employer both folded in together. This runs after, back in the caller that
+   still has the bare target name, and drops anything sharing no real token
+   with it. Loose on purpose: "Alex" matching "Alexander", or a middle name
+   moving the surname around, both stay - genuine near-misses are exactly
+   what "Which one is X?" exists to let a human resolve. Only the ones with
+   nothing in common get cut before they ever reach that list. */
+function nameTokens(s){
+  return String(s||'').toLowerCase().replace(/[^a-z\s]/g,' ').split(/\s+/).filter(t=>t.length>=3);
+}
+function namesLikelyMatch(target, candidate){
+  const t = nameTokens(target), c = nameTokens(candidate);
+  if(!t.length || !c.length) return false;
+  return t.some(tt => c.some(cc => tt===cc || tt.startsWith(cc) || cc.startsWith(tt)));
+}
 /* One search path for "here is a bare name, find the real LinkedIn profile it
    belongs to" - Rooms and Organiser Hub both hit this, and both need the same
    answer to the same failure modes (extension not installed, rate limited,
@@ -4430,7 +4450,7 @@ function Rooms({sb, settings, onSave, onSaveSettings, onOpen, atCap, cap, onOpen
     const kw = [sp.name, sp.company||sp.title||''].filter(Boolean).join(' ');
     const {people, blocked} = await findProfileCandidates(sb, kw);
     if(blocked) setNote('Search is rate limited right now. Try again in a few minutes, or paste their LinkedIn URL directly.');
-    setCandidates(c=>({...c, [sp.id]: people.slice(0,3)}));
+    setCandidates(c=>({...c, [sp.id]: people.filter(p=>namesLikelyMatch(sp.name, p.name)).slice(0,3)}));
     setSearchingIds(s=>{ const n=new Set(s); n.delete(sp.id); return n; });
   }
 
@@ -4551,7 +4571,12 @@ function Rooms({sb, settings, onSave, onSaveSettings, onOpen, atCap, cap, onOpen
                         </div>
                       </div>
 
-                      {sp.why &&
+                      {/* With no title/company on the page for this person, evaluate() has
+                          nothing to actually reason about - what comes back is always some
+                          form of "no information to assess," which is not an insight, just a
+                          restatement of a gap the person can already see for themselves (no
+                          title shown above). Showing it added noise without adding anything. */}
+                      {sp.why && (sp.title || sp.company) &&
                         <div className="why" style={{marginTop:12,padding:'12px 14px'}}>
                           <div className="eyebrow b">Insight</div>
                           <div style={{fontSize:14,lineHeight:1.55,color:'var(--body)',marginTop:5,textWrap:'pretty'}}>{sp.why}</div>
@@ -4729,7 +4754,7 @@ function OrganiserHub({sb, settings, onSave, onSaveSettings, onOpen, atCap, cap,
     const kw = [at.name, at.company||at.title||''].filter(Boolean).join(' ');
     const {people, blocked} = await findProfileCandidates(sb, kw);
     if(blocked) setNote('Search is rate limited right now. Try again in a few minutes, or paste their LinkedIn URL directly.');
-    setCandidates(c=>({...c, [at.id]: people.slice(0,3)}));
+    setCandidates(c=>({...c, [at.id]: people.filter(p=>namesLikelyMatch(at.name, p.name)).slice(0,3)}));
     setSearchingIds(s=>{ const n=new Set(s); n.delete(at.id); return n; });
   }
   function resolveProfile(ev, at, c){
