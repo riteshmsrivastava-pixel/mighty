@@ -246,7 +246,17 @@
       seen.add(url);
       let host = '';
       try { host = new URL(url).hostname.replace(/^www\./, ''); } catch (e) { continue; }
-      out.push({ url, title: c.title, snippet: c.snippet, host });
+      // Google renders a site-name-glued-to-its-own-URL chip directly before
+      // the real description, sometimes twice in a row (an accessible/visual
+      // duplicate pair - both present in innerText, only one actually
+      // visible). Only knowable as noise once the real host is known, which
+      // is why this happens here and not in parseWebResults above: strip any
+      // leading run of "<a short name><https://this-host><optional
+      // breadcrumb>" before whatever text is left, real or not, is shown.
+      const hostEsc = host.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const chip = new RegExp('^(?:.{0,40}?https?:\\/\\/(?:www\\.)?' + hostEsc + '[^\\s]*\\s*(?:[›»]\\s*[^\\s]+\\s*)*)+', 'i');
+      const snippet = (c.snippet || '').replace(chip, '').trim();
+      out.push({ url, title: c.title, snippet, host });
     }
     return out;
   }

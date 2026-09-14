@@ -2526,7 +2526,25 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
     setEventErr(null); setEventRes([]); setEventQ(sentence); setEventPhase('searching');
     try{
       const home = (settings.targetLocations||[])[0] || settings.homeLocation;
-      const query = /\bnear me\b/i.test(sentence) && home ? sentence.replace(/\bnear me\b/i, home) : sentence;
+      let query = /\bnear me\b/i.test(sentence) && home ? sentence.replace(/\bnear me\b/i, home) : sentence;
+      /* A bare "events" or "events near me" carries no topic at all, so
+         Google falls back to its own generic sense of "event" - ticketed
+         sports and entertainment, not anything relevant to what this
+         account is actually networking toward (confirmed live: "events
+         near me" alone surfaced Ticketmaster and WWE-adjacent wrestling
+         tickets). Only append the goal qualifier when the sentence is
+         still just the bare trigger words classifyAsk matched on - a
+         sentence that already names a real topic ("AI conference in
+         Boston") is specific enough on its own, and diluting it with
+         unrelated goal terms would only hurt. */
+      const BARE = /^(events?|conferences?|meetups?|meet-?ups?|workshops?|webinars?|near me|this week|this month|happening)$/i;
+      const meaningful = query.split(/\s+/).filter(w=>w && !BARE.test(w.replace(/[.,!?]+$/,'')));
+      if(meaningful.length<=2){
+        const goalLabel = goalTypeList(settings).map(t=>GOAL_LABEL[t]).filter(Boolean).join(' ');
+        const topRole = (settings.targetRoles||[])[0] || '';
+        const qualifier = [goalLabel, topRole].filter(Boolean).join(' ');
+        if(qualifier) query = query + ' ' + qualifier;
+      }
       const r = await extBridge.eventSearch(query);
       if(!r || !r.ok){
         if(r && r.error==='blocked') setEventErr('Search is rate limited right now. Try again in a few minutes.');
