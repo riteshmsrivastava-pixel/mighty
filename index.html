@@ -49,6 +49,31 @@ h2{font-size:clamp(2.4rem,4.15vw,3.8rem);font-weight:500;letter-spacing:-.055em;
 @media(max-width:700px){.audience-band{display:block;padding-block:25px 32px}.audience-band>p{max-width:none;margin-bottom:16px}.audience-band ul{justify-content:flex-start;gap:7px}.audience-band li{font-size:.8125rem;padding:6px 10px}}
 
 </style>
+
+<style id="mirror-panel">
+/* Mirror section: a stacked context panel instead of a second orbit graphic,
+   so the first two folds stop reading as the same picture. The elements and
+   the .dimmed/.highlighted hooks the context buttons drive are unchanged. */
+.world-map,.world-map.reveal{height:auto;min-height:0;width:auto;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:22px 22px 18px;background:#1C1822;border:1px solid #3B3247;border-radius:18px;box-shadow:0 30px 80px -40px #000}
+.world-map::before{content:"MIRROR · YOUR CONTEXT";grid-column:1/-1;order:0;font-size:.6875rem;letter-spacing:.14em;color:#B4A4FF;font-weight:600}
+.map-lines{display:none}
+.map-self{position:static;order:1;grid-column:1/-1;width:auto;height:auto;border-radius:0;flex-direction:row;justify-content:flex-start;align-items:baseline;gap:12px;background:transparent;border:0;border-bottom:1px solid #3B3247;box-shadow:none;padding:2px 0 16px;color:#F5F1FB}
+.map-self>span{font-size:1.75rem;letter-spacing:-.03em;font-weight:600}
+.map-self small{font-size:.8125rem;color:#B3ADBF;max-width:none;text-align:left}
+.map-node,.node-a,.node-b,.node-c,.node-d{position:static;order:2;left:auto;right:auto;top:auto;bottom:auto;max-width:none;transform:none;display:grid;grid-template-columns:auto 1fr;column-gap:14px;row-gap:2px;align-items:center;padding:14px 16px;border:1px solid #3B3247;border-radius:12px;background:#221D2B}
+.map-node .node-glyph,.map-node .avatar-stack{grid-row:1/3;padding:0}
+.map-node .node-glyph{width:38px;height:38px;display:grid;place-items:center;border-radius:10px;background:#2E2639;font-size:1.05rem}
+.map-node b{font-size:.9375rem}
+.map-node small{font-size:.75rem}
+.map-node.highlighted{transform:none;border-color:#B4A4FF;background:#2A2440}
+.map-node.dimmed{transform:none;opacity:.4}
+.map-goal{position:static;order:3;grid-column:1/-1;transform:none;flex-direction:row;align-items:center;gap:14px;padding:16px 18px;background:#2A2440;border-color:#6A5AB8;box-shadow:none;margin-top:4px}
+.map-goal>span{order:2;font-size:.6875rem;color:#B4A4FF;letter-spacing:.12em}
+.map-goal strong{order:1;font-size:1.0625rem;font-weight:600;color:#F5F1FB}
+.map-goal i{position:static;order:3;margin-left:auto;font-size:1.1rem}
+.map-caption{position:static;order:4;grid-column:1/-1;bottom:auto;justify-content:flex-start;padding-top:6px;font-size:.75rem}
+@media (max-width:640px){.world-map,.world-map.reveal{grid-template-columns:1fr;padding:18px 16px 14px}.map-goal{flex-wrap:wrap}}
+</style>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
