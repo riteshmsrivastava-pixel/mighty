@@ -576,8 +576,9 @@ function lastInteractionLabel(row, rowEvents) {
    Local, instant, and never invented: every line traces back to something the
    student told Mighty (goal, target companies, roles, schools, places) matched
    against what is actually on this page. Same three-rung ladder as the web app. */
-function fitFromStrategy(p, r) {
+function fitFromStrategy(p, r, goalOverride) {
   const prof = r.profile || {};
+  const go = goalOverride || {};
   const sec = p.sections || {};
   const hay = `${p.title || ''} ${p.company || ''} ${p.text || ''}`.toLowerCase();
   // Matching the right section beats matching the whole page: a school name in
@@ -591,7 +592,10 @@ function fitFromStrategy(p, r) {
   const find = (list) => findIn(list, hay);
 
   const co = String(p.company || '').trim();
-  const targets = r.targetCompanies || [];
+  // goalOverride carries a secondary goal's own target list; undefined when
+  // scoring the primary goal (the only case that ran before this existed),
+  // so an account with a single goal takes the exact same path as always.
+  const targets = go.targetCompanies || r.targetCompanies || [];
   const hit = co && targets.find(c => mightySameCompany(c, co));
   if (hit) {
     // Working at a company you named is the strongest signal there is: on its
@@ -607,23 +611,63 @@ function fitFromStrategy(p, r) {
     });
     if (inPage) { score += 30; push(`${inPage} appears on their profile`); }
   }
-  const role = find(prof.targetRoles);
+  const role = find(go.targetRoles || prof.targetRoles);
   if (role) { score += 25; push(`A role you are targeting: ${role}`); }
+  // Schools and skills describe the student, not any one goal - shared across
+  // every goal the same way the web app's "more" section is account-level.
   const school = findIn(prof.schools, eduHay);
   if (school) { score += 20; push(`Shared school: ${school}`); }
   const skill = findIn(prof.skills, skillHay);
   if (skill) { score += 10; push(`Shared ground: ${skill}`); }
-  const kws = mightyGoalKeywords(r.goal || '');
+  const kws = mightyGoalKeywords((go.goal != null ? go.goal : r.goal) || '');
   const hits = kws.filter(k => hay.includes(k));
   // Short tokens are acronyms ("ai", "vc", "pm") - lowercase reads like a typo.
   const pretty = (k) => (k.length <= 3 ? k.toUpperCase() : k);
   if (hits.length) { score += Math.min(25, 10 * hits.length); push(`Matches your goal: ${hits.slice(0, 3).map(pretty).join(', ')}`); }
   const industry = find(prof.industries);
   if (industry) { score += 10; push(`Industry you care about: ${industry}`); }
-  const place = find(prof.targetLocations);
+  const place = find(go.targetLocations || prof.targetLocations);
   if (place) { score += 10; push(`Where you are building: ${place}`); }
 
   return { score, why, label: mightyMatchLabel(score) };
+}
+// Same GOALS vocabulary as GOAL_LABEL in app/index.html (kept in sync by
+// hand - this file has no import from that one).
+const GOAL_TYPE_LABEL = {
+  job_search: 'Find a new job', raise_funding: 'Raise investment', sales: 'Find customers',
+  mentors: 'Find mentors & advisors', networking: 'Build my network',
+};
+function goalTypeLabel(types) {
+  return (types || []).map(t => GOAL_TYPE_LABEL[t]).filter(Boolean).join(' and ');
+}
+/* Scores a person against every goal the student has (primary plus any
+   secondary ones from the Goal tab's "Also tracking" list) and returns the
+   best match. An account with only one goal - still the overwhelming
+   majority - takes the exact same single fitFromStrategy() call as before,
+   with no goalLabel on the result at all, so the panel renders identically
+   to how it always has. goalLabel only appears once there is a real second
+   goal to distinguish from the first, so it can be shown to say which one
+   this person actually matched. */
+function bestFitFromGoals(p, r) {
+  const secondary = r.secondaryGoals || [];
+  if (!secondary.length) return fitFromStrategy(p, r);
+  const candidates = [
+    { fit: fitFromStrategy(p, r), label: goalTypeLabel(r.goalTypes) || 'Primary goal' },
+    ...secondary.map(g => ({
+      fit: fitFromStrategy(p, r, { goal: g.goal, targetCompanies: g.targetCompanies, targetRoles: g.targetRoles, targetLocations: g.targetLocations }),
+      label: goalTypeLabel(g.types) || 'Untitled goal',
+    })),
+  ];
+  candidates.sort((a, b) => b.fit.score - a.fit.score);
+  const best = candidates[0];
+  return { ...best.fit, goalLabel: best.label };
+}
+// Empty string when there is only one goal (fit.goalLabel is never set in
+// that case) - so this is inert, not just small, for every account that
+// hasn't added a second goal.
+function fitGoalChip(fit) {
+  if (!fit.goalLabel) return '';
+  return `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:${TINT};color:${ACCENT_DEEP};">${esc(fit.goalLabel)}</span>`;
 }
 // What to do about it, in one sentence, honest about a weak fit.
 function fitRecommendation(fit, r) {
@@ -717,7 +761,7 @@ function nearbyPeople(r, selfUrl) {
   const out = [];
   for (const c of nearbyCandidates()) {
     if (c.profileUrl === selfUrl || already.has(c.profileUrl)) continue;
-    const fit = fitFromStrategy({ name: c.name, title: c.title, company: c.company, text: c.title }, r);
+    const fit = bestFitFromGoals({ name: c.name, title: c.title, company: c.company, text: c.title }, r);
     if (fit.score < 35) continue; // Strong or Excellent only
     out.push({ ...c, fit });
   }
@@ -813,16 +857,17 @@ async function renderProfileSidebar() {
     const person = { name: liveName, title: liveHeadline, company: liveCompany,
       text: [sec.about, sec.experience, sec.education, sec.skills].filter(Boolean).join('\n') || profileMainText(),
       sections: sec };
-    const fit = fitFromStrategy(person, r);
+    const fit = bestFitFromGoals(person, r);
     const shared = sharedGround(r, liveCompany, sec, mutualText(), liveLocation);
     const kw = kbKeywordMatches(r.profile || {}, liveCompany, sec);
 
     el.innerHTML = mightyBrandHead('')
       + panelPerson(livePhoto, liveName, personSub(liveHeadline, liveCompany))
       + panelSection('Relationship fit',
-          `<div style="display:flex;align-items:center;gap:9px;margin-top:7px;">
+          `<div style="display:flex;align-items:center;gap:9px;margin-top:7px;flex-wrap:wrap;">
              <span style="width:8px;height:8px;border-radius:50%;flex:none;background:${FIT_DOT[fit.label] || MUTE};"></span>
              <span style="font-size:17px;font-weight:700;letter-spacing:-.015em;">${esc(fit.label)}</span>
+             ${fitGoalChip(fit)}
            </div>`, true)
       + (kw.length ? panelSection('From your knowledge base', panelChips(kw)) : '')
       + (shared.length ? panelSection('What you share', panelLines(shared)) : '')
@@ -902,7 +947,7 @@ async function renderProfileSidebar() {
   const person = { name, title: headline, company,
     text: [sec.about, sec.experience, sec.education, sec.skills].filter(Boolean).join('\n') || profileMainText(),
     sections: sec };
-  const fit = fitFromStrategy(person, r);
+  const fit = bestFitFromGoals(person, r);
   const savedMutRaw = (row.context || {}).mutualConnectionsRaw || mutualText();
   const savedLocation = (row.context || {}).location || liveLocation;
   const shared = sharedGround(r, company, sec, savedMutRaw, savedLocation);
@@ -912,9 +957,10 @@ async function renderProfileSidebar() {
     mightyBrandHead(`<span style="font-size:11.5px;font-weight:700;color:#2E8B5F;background:#E6F4EC;padding:4px 11px;border-radius:999px;">Saved</span>`)
     + panelPerson(photo, name, personSub(headline, company))
     + panelSection('Relationship fit',
-        `<div style="display:flex;align-items:center;gap:9px;margin-top:7px;">
+        `<div style="display:flex;align-items:center;gap:9px;margin-top:7px;flex-wrap:wrap;">
            <span style="width:8px;height:8px;border-radius:50%;flex:none;background:${FIT_DOT[fit.label] || MUTE};"></span>
            <span style="font-size:17px;font-weight:700;letter-spacing:-.015em;">${esc(fit.label)}</span>
+           ${fitGoalChip(fit)}
          </div>
          <div style="font-size:13px;color:${SUB};margin-top:4px;">${esc(rel.label)} · ${esc(rel.sub)}</div>`, true)
     + (kw.length ? panelSection('From your knowledge base', panelChips(kw)) : '')

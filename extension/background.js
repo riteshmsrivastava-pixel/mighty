@@ -96,10 +96,16 @@ async function fetchLog(force) {
     const log = await logRes.json(); const events = await eventsRes.json();
     // The sidebar answers "why this person?" locally, so it needs the same goal
     // signals the web app scores with - not just target companies.
-    let targetCompanies = [], goal = '', profile = {}, selfProfileUrl = '', hasSelfAvatar = false, selfName = '';
+    let targetCompanies = [], goal = '', goalTypes = [], secondaryGoals = [], profile = {}, selfProfileUrl = '', hasSelfAvatar = false, selfName = '';
     try {
       const ud = await userDataRes.json(); const st = ud?.[0]?.data?.settings || {};
       targetCompanies = st.targetCompanies || []; goal = st.goal || '';
+      goalTypes = (st.goalTypes && st.goalTypes.length) ? st.goalTypes : (st.goalType ? [st.goalType] : []);
+      // A second (or third) independently-tracked goal, same list the web
+      // app's Goal tab now manages - see secondaryGoals() in app/index.html.
+      // Only ever adds a second candidate to score against here; an account
+      // with none of these behaves exactly as it always has.
+      secondaryGoals = (st.knowledge && st.knowledge.goals) || [];
       const kbForProfile = st.knowledge || {};
       profile = {
         targetRoles: st.targetRoles || [], schools: st.schools || [], industries: st.industries || [],
@@ -139,8 +145,8 @@ async function fetchLog(force) {
       // whose URL doesn't resolve the same way still gets caught by name.
       selfName = [identity.firstName, identity.lastName].filter(Boolean).join(' ').trim() || (st.preferredName || '');
     } catch (e) {}
-    logCache = { at: Date.now(), log, events, targetCompanies, goal, profile, selfProfileUrl, hasSelfAvatar, selfName };
-    return { ok: true, log, events, targetCompanies, goal, profile, selfProfileUrl, hasSelfAvatar, selfName };
+    logCache = { at: Date.now(), log, events, targetCompanies, goal, goalTypes, secondaryGoals, profile, selfProfileUrl, hasSelfAvatar, selfName };
+    return { ok: true, log, events, targetCompanies, goal, goalTypes, secondaryGoals, profile, selfProfileUrl, hasSelfAvatar, selfName };
   } catch (e) { return { ok: false, error: String(e && e.message || e) }; }
 }
 
