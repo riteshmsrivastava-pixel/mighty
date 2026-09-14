@@ -178,7 +178,7 @@
     const need = cards.filter(c => !c.profileUrl).map(c => c.href);
     let resolved = {};
     if (need.length) {
-      const r = await send('resolveGotoUrls', { hrefs: need });
+      const r = await send('resolveGotoUrls', { hrefs: need, requireLinkedinProfile: true });
       resolved = (r && r.resolved) || {};
     }
     const seen = new Set(), out = [];
@@ -188,6 +188,65 @@
       seen.add(url);
       const { href, profileUrl, ...rest } = c;
       out.push({ profileUrl: url, ...rest });
+    }
+    return out;
+  }
+
+  // Generic organic results, not LinkedIn-restricted - same goto-redirector
+  // markup as parseCards above, same card-boundary heuristic (climb from the
+  // anchor to the nearest ancestor holding an <h3>), but no linkedin.com/in
+  // filter at all, since the destination here is a conference or meetup page
+  // on any domain. Kept deliberately separate from parseCards rather than
+  // generalizing that one - the two are shaped by genuinely different
+  // things (a person's headline/company/location vs. a page's own title and
+  // surrounding snippet), and forcing one function to do both would leave
+  // neither case reading clearly.
+  function parseWebResults(html) {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const seenHref = new Set(), out = [];
+    for (const a of doc.querySelectorAll('a[href^="/goto?url="], a[href^="http"]')) {
+      let href = a.getAttribute('href') || '';
+      if (/^\/url\?/.test(href)) { const m = href.match(/[?&]q=([^&]+)/); if (m) href = decodeURIComponent(m[1]); }
+      let url = null;
+      if (/^https?:\/\//.test(href) && !/(^|\.)google\.com/i.test(href)) {
+        url = href;
+      } else if (!/^\/goto\?url=/.test(href)) {
+        continue;
+      }
+      if (seenHref.has(href)) continue;
+      seenHref.add(href);
+
+      let card = a;
+      for (let i = 0; i < 6 && card.parentElement; i++) { card = card.parentElement; if (card.querySelector('h3')) break; }
+      const h3 = card.querySelector('h3');
+      const title = ((h3 && h3.textContent) || '').trim();
+      if (!title) continue;
+
+      let blk = card;
+      for (let i = 0; i < 4 && blk.parentElement; i++) { blk = blk.parentElement; if ((blk.innerText || '').length > 140) break; }
+      let snip = (blk.innerText || '').replace(/\s+/g, ' ').trim();
+      snip = snip.split(title).slice(1).join(' ').trim();
+
+      out.push({ href, url, title: title.slice(0, 140), snippet: snip.slice(0, 220) });
+      if (out.length >= 10) break;
+    }
+    return out;
+  }
+  async function resolveWebResults(cards) {
+    const need = cards.filter(c => !c.url).map(c => c.href);
+    let resolved = {};
+    if (need.length) {
+      const r = await send('resolveGotoUrls', { hrefs: need });
+      resolved = (r && r.resolved) || {};
+    }
+    const seen = new Set(), out = [];
+    for (const c of cards) {
+      const url = c.url || resolved[c.href];
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
+      let host = '';
+      try { host = new URL(url).hostname.replace(/^www\./, ''); } catch (e) { continue; }
+      out.push({ url, title: c.title, snippet: c.snippet, host });
     }
     return out;
   }
@@ -206,6 +265,22 @@
       const people = await resolveCards(cards);
       if (!people.length && looksBlocked(r.html)) { reply(d.id, { ok: false, error: 'blocked' }); return; }
       reply(d.id, { ok: true, people });
+      return;
+    }
+
+    // A plain Google search (not restricted to any one site), for events
+    // worth going to rather than people worth meeting - the app's own Ask
+    // box routes here for a sentence that reads as event-shaped ("meetup",
+    // "conference", "near me"). Same fetch as webSearch below, but parsed
+    // into results (title/url/snippet) instead of one blob of body text,
+    // since these need to be individually clickable and addable as a Room.
+    if (d.kind === 'eventSearch') {
+      const r = await send('fetchWebSearchHtml', { query: String(d.query || '') });
+      if (!r || !r.ok) { reply(d.id, { ok: false, error: (r && r.error) || 'search_failed' }); return; }
+      const cards = parseWebResults(r.html);
+      const results = await resolveWebResults(cards);
+      if (!results.length && looksBlocked(r.html)) { reply(d.id, { ok: false, error: 'blocked' }); return; }
+      reply(d.id, { ok: true, results });
       return;
     }
 

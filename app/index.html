@@ -773,6 +773,7 @@ const extBridge = (()=>{
     search: (query)=>call('search',{query}),
     photo: (profileUrl)=>call('photo',{profileUrl}, 30000),
     webSearch: (query)=>call('webSearch',{query}, 20000),
+    eventSearch: (query)=>call('eventSearch',{query}, 25000),
   };
 })();
 
@@ -2383,6 +2384,13 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
   const [webErr,setWebErr] = useState(null);
   const [notice,setNote]   = useState(null);
   const [skipped,setSkip]  = useState({});
+  /* Events reuses the same "phase" shape as the LinkedIn search above -
+     idle/searching/done - but its own state, since it is a genuinely
+     different result type (a web link, not a person) with its own render. */
+  const [eventPhase,setEventPhase] = useState('idle');
+  const [eventResults,setEventRes] = useState([]);
+  const [eventErr,setEventErr]     = useState(null);
+  const [eventQ,setEventQ]         = useState('');
   /* {profileUrl, kind:'save'|'skip', rowId} of whichever row is currently
      showing its optional reason chips - one at a time is plenty, and it
      collapses to null (no prompt shown) the moment a choice is made or
@@ -2494,6 +2502,43 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
     }, 900);
     return ()=>clearTimeout(t);
   },[q]);
+
+  /* Mirrors the LinkedIn autoRun above exactly - same 900ms settle, same
+     "don't refire on the identical sentence" guard - for the other kind of
+     thing this one box can mean: not a person, a place worth being in. */
+  const autoRunEvent = useRef('');
+  useEffect(()=>{
+    const sentence = clean(q);
+    if(sentence.length<3) return;
+    if(classifyAsk(sentence).type!=='event') return;
+    const t = setTimeout(()=>{
+      if(autoRunEvent.current===sentence) return;
+      if(eventPhase==='searching') return;
+      autoRunEvent.current = sentence;
+      runEvents(sentence);
+    }, 900);
+    return ()=>clearTimeout(t);
+  },[q]);
+
+  async function runEvents(text){
+    const sentence = clean(text);
+    if(!sentence || eventPhase==='searching') return;
+    setEventErr(null); setEventRes([]); setEventQ(sentence); setEventPhase('searching');
+    try{
+      const home = (settings.targetLocations||[])[0] || settings.homeLocation;
+      const query = /\bnear me\b/i.test(sentence) && home ? sentence.replace(/\bnear me\b/i, home) : sentence;
+      const r = await extBridge.eventSearch(query);
+      if(!r || !r.ok){
+        if(r && r.error==='blocked') setEventErr('Search is rate limited right now. Try again in a few minutes.');
+        else if(r && r.error==='no_extension') setEventErr('Event search needs the Mighty extension installed - it reads the results page the same way LinkedIn search does.');
+        else setEventErr('Could not search for events right now.');
+        setEventPhase('idle'); return;
+      }
+      setEventRes(r.results||[]);
+      track('event_search_run', {results:(r.results||[]).length});
+    }catch(e){ setEventErr(e.message||'Could not search for events right now.'); }
+    setEventPhase('idle');
+  }
 
   async function run(text){
     const sentence = clean(text!=null?text:webQ);
@@ -3049,13 +3094,40 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
                 onOpen={onOpen} onSave={onSave} initialQuestion={intent.text} onConsumed={()=>{}}/>
             </div>
           ) : searching && intent.type==='event' ? (
-            <div className="card fade" style={{marginTop:20,padding:'28px 30px'}}>
-              <div className="eyebrow b">Events</div>
-              <div className="h4" style={{marginTop:10}}>Event search is not built yet.</div>
-              <div className="sub" style={{marginTop:8,lineHeight:1.6,maxWidth:'56ch'}}>
-                Finding rooms worth being in - and who in them matters to your goal - is coming. For now this
-                box searches the people you already know and the wider LinkedIn network.
-              </div>
+            <div className="fade" style={{marginTop:20}}>
+              {eventPhase==='searching' &&
+                <div className="card" style={{padding:'22px 24px'}}><span className="spin"/> Searching for events…</div>}
+              {eventErr &&
+                <div className="banner warn" style={{marginTop:eventPhase==='searching'?12:0}}>{eventErr}</div>}
+              {eventPhase!=='searching' && !eventErr && eventResults.length===0 &&
+                <div className="card" style={{padding:'22px 24px'}}>
+                  <div className="eyebrow b">Events</div>
+                  <div className="sub" style={{marginTop:8,lineHeight:1.6}}>
+                    Nothing found for that. A topic and a place works best - "AI meetups in Boston" beats "events near me".
+                  </div>
+                </div>}
+              {eventResults.length>0 &&
+                <div className="stack" style={{gap:10}}>
+                  {eventResults.map((r,i)=>(
+                    <div key={i} className="card" style={{padding:'16px 18px',display:'flex',gap:14,alignItems:'flex-start',flexWrap:'wrap'}}>
+                      {/* Google's own favicon service, keyed off the resolved
+                         page's hostname - no extra fetch of our own, and it
+                         degrades to nothing (not a broken-image icon) rather
+                         than fail loudly for a site it doesn't have one for. */}
+                      <img src={`https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(r.host)}`} alt=""
+                        style={{width:32,height:32,borderRadius:8,flex:'none',marginTop:2}}
+                        onError={e=>{ e.target.style.visibility='hidden'; }}/>
+                      <div style={{flex:'1 1 240px',minWidth:0}}>
+                        <div style={{fontSize:15,fontWeight:700}}>{r.title}</div>
+                        <div className="meta" style={{marginTop:2}}>{r.host}</div>
+                        {r.snippet && <div className="sub" style={{fontSize:13.5,marginTop:6,lineHeight:1.5}}>{r.snippet}</div>}
+                      </div>
+                      <div style={{display:'flex',flexDirection:'column',gap:8,flex:'none'}}>
+                        <a className="btn q sm" style={{textAlign:'center'}} href={r.url} target="_blank" rel="noopener noreferrer">Open</a>
+                        <button className="btn sm" onClick={()=>go({screen:'rooms', prefillUrl:r.url})}>Add as room</button>
+                      </div>
+                    </div>))}
+                </div>}
             </div>
           ) : searching ? (
             <div className="fade" style={{marginTop:20}}>
@@ -4379,11 +4451,20 @@ function Ask({sb, people, events, tasks, settings, onOpen, onSave, initialQuesti
    capture stay honest, clearly-labeled stubs - the first needs an events API
    key only Ritesh can get, the second needs vision input the AI gateway
    does not have yet. */
-function Rooms({sb, settings, onSave, onSaveSettings, onOpen, atCap, cap, onOpenCapacity}){
+function Rooms({sb, settings, onSave, onSaveSettings, onOpen, atCap, cap, onOpenCapacity, prefillUrl, onPrefillConsumed}){
   const [rooms, setRooms] = useState(()=>(settings.knowledge && settings.knowledge.rooms) || []);
   const persist = (next)=>{ setRooms(next); onSaveSettings({knowledge:{...(settings.knowledge||{}), rooms:next}}); };
 
   const [urlInput, setUrlInput] = useState('');
+  /* "Add as room" from an Events search result lands here with the link
+     already typed in, not already submitted - the parsed result (name,
+     attendees) is exactly what "Add" itself is for showing; auto-submitting
+     would spend that first look on faith instead. Consumed once so
+     navigating back to Rooms later, or Explore again, does not keep
+     replaying the same URL into the box. */
+  useEffect(()=>{
+    if(prefillUrl){ setUrlInput(prefillUrl); if(onPrefillConsumed) onPrefillConsumed(); }
+  },[prefillUrl]);
   const [parsing, setParsing] = useState(false);
   const [parseErr, setParseErr] = useState(null);
   const [note, setNote] = useState(null);
@@ -8488,6 +8569,7 @@ function App(){
      outreach_inbox rather than guessing - see the comment in ingest() itself. */
   const [pendingActivity,setPendingActivity] = useState([]);
   const [screen,setScreen] = useState('today');
+  const [roomsPrefillUrl,setRoomsPrefillUrl] = useState('');
   const [personId,setPersonId] = useState(null);
   const [tab,setTab] = useState('brief');
   const [relView,setRelView] = useState('list');
@@ -9099,6 +9181,13 @@ function App(){
       setYouTab(t);
     }
     if(target.screen==='relationships' && target.view){ setRelView(target.view); }
+    /* "Add as room" from an Events search result - carries the URL across
+       the screen change rather than trying to add the room from inside
+       Explore, which has no settings-save wiring of its own. Rooms reads
+       this once (see its own prefillUrl effect) and it is on the student to
+       press Add - never auto-submitted, since they have not seen the parsed
+       result yet. */
+    if(target.screen==='rooms' && target.prefillUrl) setRoomsPrefillUrl(target.prefillUrl);
     if(target.screen!=='profile') setPersonId(null);
     setScreen(target.screen);
     window.scrollTo({top:0});
@@ -9213,7 +9302,8 @@ function App(){
           onSave={savePerson} onOpen={openPerson} go={go} aiMeta={aiMeta} theme={theme} onSetTheme={setTheme}/>}
 
       {screen==='rooms' && <Rooms sb={sb} settings={settings} onSave={savePerson} onSaveSettings={saveSettings} onOpen={openPerson}
-        atCap={atCap} cap={cap} onOpenCapacity={()=>setCapacityOpen(true)}/>}
+        atCap={atCap} cap={cap} onOpenCapacity={()=>setCapacityOpen(true)}
+        prefillUrl={roomsPrefillUrl} onPrefillConsumed={()=>setRoomsPrefillUrl('')}/>}
       {screen==='organiser' && <OrganiserHub sb={sb} settings={settings} onSave={savePerson} onSaveSettings={saveSettings} onOpen={openPerson}
         atCap={atCap} cap={cap} onOpenCapacity={()=>setCapacityOpen(true)}/>}
       {screen==='extension' && <Extension/>}

@@ -303,17 +303,24 @@ async function fetchSearchHtml(query) {
 // gap between each - these are real hits against Google, not a static page
 // fetch, and firing a dozen at once looks exactly like the automated
 // traffic this whole redirector exists to slow down.
-async function resolveGotoUrl(href) {
+async function resolveGotoUrl(href, requireLinkedinProfile) {
   try {
     const res = await fetch('https://www.google.com' + href, { credentials: 'include', redirect: 'follow' });
     const finalUrl = res.url || '';
-    return /linkedin\.com\/in\//i.test(finalUrl) ? finalUrl.replace(/[?#].*$/, '').replace(/\/$/, '') : null;
+    if (!finalUrl) return null;
+    // The LinkedIn search path only ever wants a real profile URL back - any
+    // other destination there (an ad redirect, a Google-internal page) is
+    // worse than nothing. Event search has no such single expected shape
+    // (a lu.ma link is exactly as valid a destination as an eventbrite.com
+    // one), so that check is opt-in, not the default.
+    if (requireLinkedinProfile) return /linkedin\.com\/in\//i.test(finalUrl) ? finalUrl.replace(/[?#].*$/, '').replace(/\/$/, '') : null;
+    return finalUrl;
   } catch (e) { return null; }
 }
-async function resolveGotoUrls(hrefs) {
+async function resolveGotoUrls(hrefs, requireLinkedinProfile) {
   const out = {};
   for (const href of (hrefs || []).slice(0, 12)) {
-    out[href] = await resolveGotoUrl(href);
+    out[href] = await resolveGotoUrl(href, requireLinkedinProfile);
     await new Promise(r => setTimeout(r, 250));
   }
   return { ok: true, resolved: out };
@@ -403,7 +410,7 @@ function fetchProfilePhoto(profileUrl) {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg && msg.type === 'encodeAvatar') { encodeAvatar(msg.url).then(sendResponse); return true; }
   if (msg && msg.type === 'fetchSearchHtml') { fetchSearchHtml(msg.query).then(sendResponse); return true; }
-  if (msg && msg.type === 'resolveGotoUrls') { resolveGotoUrls(msg.hrefs).then(sendResponse); return true; }
+  if (msg && msg.type === 'resolveGotoUrls') { resolveGotoUrls(msg.hrefs, !!msg.requireLinkedinProfile).then(sendResponse); return true; }
   if (msg && msg.type === 'fetchWebSearchHtml') { fetchWebSearchHtml(msg.query).then(sendResponse); return true; }
   if (msg && msg.type === 'fetchProfilePhoto') { fetchProfilePhoto(msg.profileUrl).then(sendResponse); return true; }
   if (msg && msg.type === 'pushInbox') { pushInboxWithRetry(msg.kind, msg.payload).then(sendResponse); return true; }
