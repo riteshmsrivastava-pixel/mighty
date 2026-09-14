@@ -1620,6 +1620,52 @@ function KbTimeline({positions, education}){
   );
 }
 
+/* skills/honors/publications/languages and the resume's raw text are all
+   read and used (they feed every AI prompt via strategyBrief) but none of
+   it was ever actually shown to the user - only counted, in the "WHAT IT
+   HOLDS" stat circles on Profile. That left no way to see, at a glance,
+   whether what got pulled from a LinkedIn export or a resume was even
+   right. This is that view: exactly what is on file, nothing summarized
+   or reinterpreted. */
+function KbChipRow({label, items}){
+  if(!items || !items.length) return null;
+  return (
+    <div style={{marginTop:16}}>
+      <div className="eyebrow" style={{color:'var(--sub)'}}>{label}</div>
+      <div style={{marginTop:9,display:'flex',gap:7,flexWrap:'wrap'}}>
+        {items.map((c,i)=>(
+          <span key={i} style={{padding:'6px 12px',borderRadius:'var(--pill)',background:'var(--card2)',border:'1px solid var(--line)',fontSize:12.5}}>{c}</span>))}
+      </div>
+    </div>
+  );
+}
+function KbDetails({kb}){
+  const [showResume, setShowResume] = useState(false);
+  const resumeText = clean(kb.resumeText||'');
+  const hasAny = (kb.skills||[]).length || (kb.honors||[]).length || (kb.publications||[]).length || (kb.languages||[]).length || resumeText;
+  if(!hasAny) return null;
+  return (
+    <div className="card" style={{marginTop:16,padding:'20px 24px'}}>
+      <div className="eyebrow b">What Mighty pulled from your archive and resume</div>
+      <div className="sub" style={{marginTop:4,fontSize:13}}>Exactly what's on file - if anything here is wrong, correct the source above rather than this view.</div>
+      <KbChipRow label="Skills" items={kb.skills}/>
+      <KbChipRow label="Honours" items={kb.honors}/>
+      <KbChipRow label="Publications" items={kb.publications}/>
+      <KbChipRow label="Languages" items={kb.languages}/>
+      {resumeText &&
+        <div style={{marginTop:16}}>
+          <div className="row" style={{justifyContent:'space-between',alignItems:'baseline',gap:10}}>
+            <div className="eyebrow" style={{color:'var(--sub)'}}>Resume text</div>
+            <button className="btn q sm" onClick={()=>setShowResume(s=>!s)}>{showResume ? 'Show less' : 'Show full text'}</button>
+          </div>
+          <div className="sub" style={{marginTop:9,fontSize:13.5,lineHeight:1.6,whiteSpace:'pre-wrap'}}>
+            {showResume ? resumeText : resumeText.slice(0,320) + (resumeText.length>320 ? '…' : '')}
+          </div>
+        </div>}
+    </div>
+  );
+}
+
 function KnowledgeBase({settings, onEdit, go}){
   const kb = settings.knowledge || {};
   const has = !!(kb.positions||[]).length || !!(kb.education||[]).length || !!kb.resumeText;
@@ -1684,6 +1730,8 @@ function KnowledgeBase({settings, onEdit, go}){
           <div className="card" style={{marginTop:16,padding:'20px 24px 18px'}}>
             <KbTimeline positions={kb.positions} education={kb.education}/>
           </div>}
+
+        <KbDetails kb={kb}/>
 
         {msg && msg.identified===false && msg.received>0 &&
           <div className="hint" style={{marginTop:14}}>
