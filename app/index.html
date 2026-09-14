@@ -3599,7 +3599,39 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
     ctx.certificationsText && ('Certifications: '+clean(ctx.certificationsText).slice(0,200)),
     ctx.languagesText && ('Languages: '+clean(ctx.languagesText).slice(0,120)),
     (Array.isArray(ctx.timingSignals)&&ctx.timingSignals.length) && ('Timing: '+ctx.timingSignals.join('; ')),
+    /* Unverified by construction - a name search can surface someone else
+       entirely who shares it - so it is labeled that way both here (in the
+       brief prompt) and again wherever it is shown on screen, same
+       discipline settings.knowledge.selfResearch already follows. */
+    ctx.research && clean(ctx.research.text) &&
+      ('Unverified web mentions (color only, may be about someone else with the same name - never state as settled fact): '+clean(ctx.research.text).slice(0,900)),
   ].filter(Boolean).join('\n');
+
+  /* Same idiom as the account-level selfResearch effect at the App level -
+     one plain web search through the extension, raw text kept as-is, never
+     asserted as fact. That effect already runs this automatically once a
+     person's status moves past "prospect" (see its own comment for why);
+     this is the same action available on demand - for a saved-but-not-yet-
+     contacted person worth researching sooner, or to refresh a stale
+     result before writing to someone. */
+  const [researching,setResearching] = useState(false);
+  async function runResearch(){
+    if(researching) return;
+    const query = clean([row.name, row.company||row.title||''].filter(Boolean).join(' '));
+    if(!query) return;
+    setResearching(true);
+    try{
+      const r = await extBridge.webSearch(query);
+      if(r && r.ok && clean(r.text)){
+        const research = {query, text:clean(r.text).slice(0,1200), lastRunAt:new Date().toISOString()};
+        await onUpdate(row, {context:{...ctx, research}});
+        flash('Research updated');
+      } else {
+        setErr('Nothing usable came back for that search.');
+      }
+    }catch(e){ setErr(e.message||'Could not research them right now.'); }
+    setResearching(false);
+  }
 
   async function makeBrief(){
     if(busy) return;
@@ -4042,6 +4074,40 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                   </div>))}
               </div>
             </div>}
+
+          {/* Runs automatically once someone is actually contacted (see the
+             App-level background effect); available here on demand too, for
+             a saved-but-not-yet-contacted person worth researching sooner,
+             or to refresh a stale result. Explicitly unverified - a name
+             search can surface someone else entirely - same discipline as
+             the account's own selfResearch, and folded into makeBrief()'s
+             prompt with the identical label so a generated brief never
+             treats it as settled fact either. */}
+          <div className="card" style={{padding:'22px 24px'}}>
+            <div className="row" style={{justifyContent:'space-between',alignItems:'baseline',gap:12,flexWrap:'wrap'}}>
+              <div className="eyebrow">Deep research</div>
+              <button className="btn q sm" disabled={researching} onClick={runResearch}>
+                {researching ? <span><span className="spin"/> Searching</span> : (ctx.research ? 'Refresh' : 'Run deep research')}
+              </button>
+            </div>
+            {ctx.research && clean(ctx.research.text) ? (
+              <F>
+                <div className="hint" style={{marginTop:10}}>
+                  Unverified - found on the open web for "{ctx.research.query}", may be about someone else with the same name. Read it as color, not fact.
+                </div>
+                <div style={{fontSize:14,lineHeight:1.6,color:'var(--body)',marginTop:10,whiteSpace:'pre-wrap'}}>
+                  {clean(ctx.research.text).slice(0,600)}
+                </div>
+                <div className="meta" style={{marginTop:10}}>Searched {ago(ctx.research.lastRunAt)}</div>
+              </F>
+            ) : (
+              <div className="sub" style={{marginTop:10,lineHeight:1.55}}>
+                A plain web search on their name{row.company?' and employer':''} - press releases, talks, other
+                public mentions a LinkedIn profile alone would not carry. Runs on its own once you actually reach
+                out to someone; press the button for anyone else.
+              </div>
+            )}
+          </div>
         </div>}
 
       {tab==='draft' &&
@@ -9162,6 +9228,44 @@ function App(){
     }, 500);
     return ()=>{ dead=true; clearInterval(poll); };
   },[auth.status, sb, auth.user]);
+
+  /* Deep research on people actually moving, not everyone ever saved - a
+     name still sitting at "prospect" hasn't earned the spend, but once a
+     real conversation has started (contacted or further), understanding
+     them well enough to keep it going is worth a background search. Exact
+     same idiom as the self-research effect just above: extension web
+     search, one person at a time (never a burst of paid AI calls fired
+     silently), folded into that person's own context.research and labeled
+     unverified for the same reason selfResearch is - a name search can
+     just as easily surface someone else. Also reachable by hand from their
+     Profile tab (see Profile's own runResearch), for a saved-but-not-yet-
+     contacted person the user wants researched sooner, or to refresh a
+     stale result. */
+  useEffect(()=>{
+    if(auth.status!=='in' || !sb || !auth.user) return;
+    const MOVING = ['contacted','replied','coffee_chat','referral','interview','offer'];
+    const candidate = people.find(p => MOVING.indexOf(p.status)>=0 && !(p.context && p.context.research));
+    if(!candidate) return;
+    let dead=false;
+    let tries=0;
+    const poll = setInterval(()=>{
+      tries++;
+      if(dead){ clearInterval(poll); return; }
+      if(!extBridge.isReady()){ if(tries>=10) clearInterval(poll); return; }
+      clearInterval(poll);
+      (async()=>{
+        const query = clean([candidate.name, candidate.company||candidate.title||''].filter(Boolean).join(' '));
+        if(dead || !query) return;
+        try{
+          const r = await extBridge.webSearch(query);
+          if(dead || !r || !r.ok || !clean(r.text)) return;
+          const research = {query, text:clean(r.text).slice(0,1200), lastRunAt:new Date().toISOString()};
+          await updateRow(candidate, {context:{...(candidate.context||{}), research}});
+        }catch(e){}
+      })();
+    }, 500);
+    return ()=>{ dead=true; clearInterval(poll); };
+  },[auth.status, sb, auth.user, people]);
 
   /* The extracted layer on top of the raw archive/resume - keywords, career
      themes, concrete differentiators - that strategyBrief() folds into every
