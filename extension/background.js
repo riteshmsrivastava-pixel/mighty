@@ -382,6 +382,23 @@ function extractPhotoUrl(rawHtml) {
   // which on at least one profile pulled the logged-in user's OWN photo onto
   // someone else's saved row - wrong data is worse than no data, so that
   // fallback is gone. No og:image means no photo, and initials stay.
+  //
+  // UPDATE (measured live, 14 Sep 2026): og:image is gone from real profile
+  // pages entirely now - confirmed on multiple accounts, a fully authenticated
+  // fetch, correct <title>, no auth wall, 1MB+ of real HTML. So is the old
+  // VectorImage JSON shape this used to fall back to (zero occurrences of
+  // "vectorImage" anywhere in the page). So is the subject's own
+  // publicIdentifier as plain text, and every other plausible key name tried
+  // (profilePicture, displayPictureUrl, displayImageReference, profileImage,
+  // rootUrl, artifacts, dashEntityUrn - all absent). The profile's own
+  // top-card data is not in the server-rendered HTML at all anymore - it is
+  // fetched client-side, after the page's own JS runs, the same shift this
+  // session already found on Google's search results and on Luma's event
+  // pages. There is no redirect-follow trick here the way there was for
+  // Google's /goto links - the data genuinely is not in what this fetch
+  // gets back. Fixing this for real needs either LinkedIn's own API or
+  // actual browser rendering, neither of which this background-fetch
+  // architecture can do - a real follow-up, not a regex change.
   const og = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
     || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
   return (og && og[1] && /^https?:\/\//.test(og[1])) ? og[1].replace(/&amp;/g, '&') : null;
