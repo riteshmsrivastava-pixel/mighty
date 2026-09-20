@@ -27,6 +27,8 @@
 html,body{margin:0;padding:0;min-height:100%}
 body{background:var(--paper);color:var(--ink);font-family:var(--f);-webkit-font-smoothing:antialiased}
 button{font-family:inherit;border:0;background:none;cursor:pointer;color:inherit}
+a{color:inherit;text-decoration:none}
+.btn{display:inline-block}
 input,textarea{font-family:inherit;color:inherit}
 input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--brand-ink);outline-offset:2px}
 
@@ -656,8 +658,10 @@ function PreviewFloor({event, checkinInfo}){
   const [incoming,setIncoming] = useState([{id:'r1', reason:'Saw you\'re looking for co-founders - I just left a Series A to build something new.', created_at:new Date().toISOString()}]);
   const [matches,setMatches] = useState([]);
   const [openMatch,setOpenMatch] = useState(null);
+  const [saved,setSaved] = useState([]);
+  const [done,setDone] = useState(false);
   const [toast,setToast] = useState(null);
-  const flash = (m)=>{ setToast(m); setTimeout(()=>setToast(null), 2200); };
+  const flash = (m)=>{ setToast(m); setTimeout(()=>setToast(null), 2600); };
 
   const respond = (id, decision)=>{
     setIncoming(prev=> prev.filter(r=>r.id!==id));
@@ -667,7 +671,17 @@ function PreviewFloor({event, checkinInfo}){
     }
   };
 
+  if(done){
+    return <div className="stack fade" style={{textAlign:'center',paddingTop:40}}>
+      <div className="h1">You met {matches.length} {matches.length===1?'person':'people'}.</div>
+      <p className="sub">{saved.length} saved to Mighty. This is the moment a first-time attendee's account actually gets created - nothing before this point ever required signing up.</p>
+      <a className="btn" href="../app/" style={{marginTop:8}}>Open Mighty</a>
+      <button className="btn q" onClick={()=>setDone(false)} style={{alignSelf:'center'}}>Keep going</button>
+    </div>;
+  }
+
   if(openMatch){
+    const isSaved = saved.includes(openMatch.id);
     return <div className="stack fade">
       <button className="btn q" onClick={()=>setOpenMatch(null)} style={{alignSelf:'flex-start'}}>← Back</button>
       <div className="card stack">
@@ -679,7 +693,9 @@ function PreviewFloor({event, checkinInfo}){
           <div className="sub" style={{color:'var(--brand-ink)'}}>{openMatch.revealed.linkedin_url}</div>
           <div className="sub">{openMatch.revealed.phone}</div>
         </div>
-        <button className="btn sm" onClick={()=>flash('Saved (preview - not real)')}>Save to Mighty</button>
+        {!isSaved
+          ? <button className="btn sm" onClick={()=>{ setSaved(p=>[...p,openMatch.id]); flash('Saved'); }}>Save to Mighty</button>
+          : <div className="pill" style={{background:'var(--green-soft)',color:'var(--green)',width:'fit-content'}}>Saved</div>}
       </div>
       <div className="card stack" style={{padding:14}}>
         <div className="lbl">Find each other</div>
@@ -714,6 +730,7 @@ function PreviewFloor({event, checkinInfo}){
             onRequest={()=>{ setRequested(p=>[...p,row.id]); flash('Sent'); }}/>
         ))}
       </div>
+      <button className="btn q" onClick={()=>setDone(true)} style={{alignSelf:'center'}}>I'm done for now</button>
     </div>
   );
 }
