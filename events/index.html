@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mighty Events</title>
+<meta name="description" content="Meet the right people at this event. Initials only until you both say yes.">
+<meta name="robots" content="noindex">
+<style>
+@font-face{font-family:Schibsted;src:url("../assets/schibsted.woff2") format("woff2");font-weight:400 800;font-display:swap}
+:root{
+ color-scheme:dark;
+ --paper:#121017; --rail:#1C1822; --card:rgba(255,255,255,.04); --card2:rgba(255,255,255,.03);
+ --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.06);
+ --ink:#F5F1FB; --ink2:#EDE7F8; --body:#C9C2DA; --sub:#B3ADBF; --mute:#8A849C;
+ --brand:#B4A4FF; --brand-h:#C9BDFF; --brand-ink:#B4A4FF;
+ --brand-soft:rgba(180,164,255,.12); --brand-soft2:rgba(180,164,255,.18); --brand-line:rgba(180,164,255,.35); --brand-nav:rgba(180,164,255,.15);
+ --peach:#E87A56;
+ --green:#4EDEA3; --green-soft:rgba(78,222,163,.12);
+ --amber:#E0BE63; --amber-soft:rgba(224,190,99,.12);
+ --red:#FFB4AB; --red-soft:rgba(255,180,171,.12);
+ --inp-bg:rgba(0,0,0,.25); --inp-border:rgba(255,255,255,.12);
+ --f:Schibsted,Arial,sans-serif; --f-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+ --r:8px; --rsm:6px; --pill:999px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;min-height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--f);-webkit-font-smoothing:antialiased}
+button{font-family:inherit;border:0;background:none;cursor:pointer;color:inherit}
+input,textarea{font-family:inherit;color:inherit}
+input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--brand-ink);outline-offset:2px}
+
+.h1{font-size:clamp(24px,6vw,32px);font-weight:700;letter-spacing:-.03em;margin:0}
+.h2{font-size:20px;font-weight:700;letter-spacing:-.02em;margin:0}
+.h3{font-size:16px;font-weight:600;letter-spacing:-.01em;margin:0}
+.eyebrow{font-family:var(--f-mono);font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--sub)}
+.sub{font-size:14.5px;color:var(--sub);line-height:1.5}
+.meta{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.03em;color:var(--mute)}
+
+.wrap{max-width:640px;margin:0 auto;padding:24px 18px 100px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.stack{display:flex;flex-direction:column;gap:12px}
+.row{display:flex;align-items:center}
+
+.btn{padding:13px 22px;border-radius:var(--pill);background:linear-gradient(90deg,var(--brand),var(--peach));color:#0B0620;font-size:15px;font-weight:700;transition:filter .15s;white-space:nowrap;width:100%;text-align:center}
+.btn:hover:not(:disabled){filter:brightness(1.15)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.g{background:transparent;border:1px solid var(--line);color:var(--ink);font-weight:600}
+.btn.g:hover:not(:disabled){border-color:var(--brand-line);color:var(--brand-ink)}
+.btn.sm{padding:9px 16px;font-size:13.5px;width:auto}
+.btn.q{background:none;color:var(--sub);font-weight:600;padding:10px 6px;width:auto}
+.btn.q:hover:not(:disabled){color:var(--ink)}
+.btn.danger{background:var(--red-soft);color:var(--red);font-weight:700}
+
+.inp{width:100%;padding:13px 15px;border-radius:var(--rsm);border:1px solid var(--inp-border);background:var(--inp-bg);color:var(--ink);font-size:16px}
+.inp:focus{border-color:var(--brand-line)}
+.inp::placeholder{color:var(--mute)}
+textarea.inp{min-height:64px;resize:vertical;line-height:1.5}
+.lbl{font-family:var(--f-mono);font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--sub);margin-bottom:7px;display:block}
+
+.chip{font-family:var(--f-mono);padding:8px 14px;border-radius:var(--pill);border:1px solid var(--line);background:rgba(255,255,255,.04);font-size:13px;color:var(--body);font-weight:500}
+.chip.on{background:var(--brand-soft2);border-color:var(--brand-line);color:var(--brand-ink);font-weight:700}
+.chipgrid{display:flex;flex-wrap:wrap;gap:8px}
+
+.av{border-radius:50%;background:linear-gradient(135deg,var(--peach),var(--brand));color:#0B0620;display:flex;align-items:center;justify-content:center;font-weight:700;flex:none;font-family:var(--f-mono)}
+.dot{width:7px;height:7px;border-radius:50%;flex:none;box-shadow:0 0 8px currentColor}
+.pill{display:inline-block;font-family:var(--f-mono);padding:4px 10px;border-radius:var(--pill);font-size:10.5px;font-weight:700;letter-spacing:.03em;white-space:nowrap}
+.toggle{position:relative;width:46px;height:26px;border-radius:99px;background:var(--line);flex:none;transition:background .2s}
+.toggle.on{background:var(--green)}
+.toggle i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s}
+.toggle.on i{transform:translateX(20px)}
+
+.fade{animation:fade .35s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.spin{display:inline-block;width:13px;height:13px;border-radius:50%;border:2px solid rgba(255,255,255,.25);border-top-color:#0B0620;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.4/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const {useState, useEffect, useMemo, useRef, useCallback} = React;
+
+const SUPABASE_URL = 'https://hplyyywdftnvjajyncvj.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_e_oCwuz3Qlko5N3Xl8ZwxA_zQijz_u8';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const SHARE_LABELS = {linkedin:'LinkedIn', phone:'Phone', email:'Email'};
+const initialsOf = (name)=>{
+  const parts = (name||'').trim().split(/\s+/).filter(Boolean);
+  if(!parts.length) return '?';
+  return (parts[0][0] + (parts.length>1 ? parts[parts.length-1][0] : '')).toUpperCase();
+};
+const clean = (s)=> (s||'').trim();
+const qs = new URLSearchParams(location.search);
+
+function Avatar({label, size=42, revealed}){
+  return <div className="av" style={{width:size,height:size,fontSize:size*0.36,
+    background: revealed ? 'linear-gradient(135deg,var(--peach),var(--brand))' : 'rgba(255,255,255,.08)',
+    color: revealed ? '#0B0620' : 'var(--sub)', border: revealed?'none':'1px solid var(--line)'}}>
+    {label}
+  </div>;
+}
+
+/* Every visible identity fact before a match exists is drawn from
+   event_checkins alone - that table has no name/contact columns at all
+   (see supabase-setup.sql's Mighty Events section), so there is no code
+   path here that could leak one by accident. */
+function DirectoryCard({row, onRequest, busy, alreadyRequested}){
+  return (
+    <div className="card fade" style={{display:'flex',gap:13,alignItems:'center'}}>
+      <Avatar label={row.initials} />
+      <div style={{flex:1,minWidth:0}}>
+        {row.looking_for && row.looking_for.length>0 &&
+          <div className="sub" style={{fontSize:13.5,fontWeight:600,color:'var(--ink)'}}>
+            Looking for {row.looking_for.join(', ')}
+          </div>}
+        {row.offering && row.offering.length>0 &&
+          <div className="meta" style={{marginTop:2}}>Here as {row.offering.join(', ')}</div>}
+        <div className="meta" style={{marginTop:2}}>{row.minutes_available} min free</div>
+      </div>
+      <button className="btn sm" disabled={busy || alreadyRequested} onClick={onRequest} style={{flex:'none'}}>
+        {busy ? <span className="spin"/> : alreadyRequested ? 'Requested' : 'Say hi'}
+      </button>
+    </div>
+  );
+}
+
+function TagPicker({label, options, value, onChange}){
+  return (
+    <div>
+      <div className="lbl">{label}</div>
+      <div className="chipgrid">
+        {options.map(o=>(
+          <button key={o} type="button" className={'chip'+(value.includes(o)?' on':'')}
+            onClick={()=>onChange(value.includes(o) ? value.filter(x=>x!==o) : [...value, o])}>
+            {o}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CheckIn({event, onDone, isPreview}){
+  const [name,setName] = useState(''); const [contextLine,setContextLine] = useState('');
+  const [lookingFor,setLookingFor] = useState([]); const [offering,setOffering] = useState([]);
+  const [minutes,setMinutes] = useState(15);
+  const [linkedin,setLinkedin] = useState(''); const [phone,setPhone] = useState(''); const [email,setEmail] = useState('');
+  const [busy,setBusy] = useState(false); const [err,setErr] = useState(null);
+
+  const submit = async ()=>{
+    if(!clean(name)) return setErr('Your name helps a match know who they are meeting.');
+    if(!clean(email)) return setErr('An email is how Mighty keeps what you save here - it is never shown to anyone unless you choose to share it.');
+    setBusy(true); setErr(null);
+    if(isPreview){ setTimeout(()=>{ setBusy(false); onDone({name:clean(name), contextLine:clean(contextLine)}); }, 350); return; }
+    try{
+      const {error} = await sb.rpc('event_check_in', {
+        p_event_id: event.id, p_initials: initialsOf(name), p_looking_for: lookingFor,
+        p_offering: offering, p_minutes: minutes, p_full_name: clean(name),
+        p_context_line: clean(contextLine) || null, p_linkedin: clean(linkedin) || null,
+        p_phone: clean(phone) || null, p_email: clean(email) || null,
+      });
+      if(error) throw error;
+      onDone();
+    }catch(e){ setErr(e.message || String(e)); }
+    setBusy(false);
+  };
+
+  return (
+    <div className="stack fade">
+      <div>
+        <div className="eyebrow">{event.name}</div>
+        <h1 className="h1" style={{marginTop:6}}>You'll show up as initials only.</h1>
+        <p className="sub" style={{marginTop:8}}>
+          Nobody sees your name until you both say yes to meeting. Takes about thirty seconds.
+        </p>
+      </div>
+      <div className="card stack">
+        <div>
+          <div className="lbl">Your name</div>
+          <input className="inp" value={name} onChange={e=>setName(e.target.value)} placeholder="Jamie Rivera" autoFocus/>
+        </div>
+        <div>
+          <div className="lbl">One line about you</div>
+          <input className="inp" value={contextLine} onChange={e=>setContextLine(e.target.value)} placeholder="Second-year MBA, building in climate"/>
+        </div>
+        {event.looking_for_tags && event.looking_for_tags.length>0 &&
+          <TagPicker label="What are you here for" options={event.looking_for_tags} value={lookingFor} onChange={setLookingFor}/>}
+        {event.offering_tags && event.offering_tags.length>0 &&
+          <TagPicker label="Who you are" options={event.offering_tags} value={offering} onChange={setOffering}/>}
+        <div>
+          <div className="lbl">How long are you around</div>
+          <div className="chipgrid">
+            {[5,15,30,60].map(m=>(
+              <button key={m} type="button" className={'chip'+(minutes===m?' on':'')} onClick={()=>setMinutes(m)}>
+                {m>=60 ? '60+' : m} min
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="card stack">
+        <div className="sub" style={{fontWeight:600,color:'var(--ink)'}}>How Mighty reaches you</div>
+        <p className="sub" style={{marginTop:-4}}>
+          Kept private. You choose exactly what to hand over, per person, only after you both say yes.
+        </p>
+        <div>
+          <div className="lbl">Email</div>
+          <input className="inp" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com"/>
+        </div>
+        <div>
+          <div className="lbl">LinkedIn (optional)</div>
+          <input className="inp" value={linkedin} onChange={e=>setLinkedin(e.target.value)} placeholder="linkedin.com/in/you"/>
+        </div>
+        <div>
+          <div className="lbl">Phone (optional)</div>
+          <input className="inp" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="(617) 555-0100"/>
+        </div>
+      </div>
+      {err && <div className="sub" style={{color:'var(--red)'}}>{err}</div>}
+      <button className="btn" disabled={busy} onClick={submit}>
+        {busy ? <span className="spin"/> : "I'm here"}
+      </button>
+    </div>
+  );
+}
+
+function ShareChooser({available, value, onChange}){
+  if(!available.length) return null;
+  return (
+    <div>
+      <div className="lbl">Share with them</div>
+      <div className="chipgrid">
+        {available.map(k=>(
+          <button key={k} type="button" className={'chip'+(value.includes(k)?' on':'')}
+            onClick={()=>onChange(value.includes(k) ? value.filter(x=>x!==k) : [...value, k])}>
+            {SHARE_LABELS[k]}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function IncomingRequest({req, myChannels, onRespond}){
+  const [share,setShare] = useState([]); const [busy,setBusy] = useState(null);
+  return (
+    <div className="card fade stack">
+      <div className="row" style={{justifyContent:'space-between'}}>
+        <div className="sub" style={{fontWeight:600,color:'var(--ink)'}}>Someone wants to meet</div>
+        <span className="meta">{new Date(req.created_at).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})}</span>
+      </div>
+      {req.reason && <div className="sub">"{req.reason}"</div>}
+      <ShareChooser available={myChannels} value={share} onChange={setShare}/>
+      <div className="row" style={{gap:8}}>
+        <button className="btn sm" style={{flex:1}} disabled={!!busy}
+          onClick={async()=>{ setBusy('accepted'); await onRespond(req.id, 'accepted', share); setBusy(null); }}>
+          {busy==='accepted' ? <span className="spin"/> : 'Say hi back'}
+        </button>
+        <button className="btn g sm" style={{flex:1}} disabled={!!busy}
+          onClick={async()=>{ setBusy('declined'); await onRespond(req.id, 'declined', []); setBusy(null); }}>
+          Not now
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MatchCard({match, onOpen}){
+  return (
+    <button className="card fade" style={{display:'flex',gap:13,alignItems:'center',width:'100%',textAlign:'left'}} onClick={onOpen}>
+      <Avatar label={(match.revealed && match.revealed.full_name) ? initialsOf(match.revealed.full_name) : '··'} revealed size={40}/>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontWeight:600,fontSize:14.5}}>{match.revealed ? match.revealed.full_name : 'Loading...'}</div>
+        {match.revealed && match.revealed.context_line &&
+          <div className="sub" style={{fontSize:13}}>{match.revealed.context_line}</div>}
+      </div>
+      <span className="meta">Open →</span>
+    </button>
+  );
+}
+
+function MatchDetail({match, revealed, event, me, onBack, onSaved, saved}){
+  const other = match.user_a===me ? match.user_b : match.user_a;
+  const [messages,setMessages] = useState([]);
+  const [text,setText] = useState(''); const [sending,setSending] = useState(false);
+
+  useEffect(()=>{
+    let alive = true;
+    sb.from('event_messages').select('*').eq('match_id', match.id).order('created_at')
+      .then(({data})=>{ if(alive) setMessages(data||[]); });
+    const ch = sb.channel('msgs-'+match.id)
+      .on('postgres_changes', {event:'INSERT', schema:'public', table:'event_messages', filter:'match_id=eq.'+match.id},
+        (payload)=> setMessages(m=> m.some(x=>x.id===payload.new.id) ? m : [...m, payload.new]))
+      .subscribe();
+    return ()=>{ alive=false; sb.removeChannel(ch); };
+  },[match.id]);
+
+  const send = async ()=>{
+    const t = clean(text); if(!t) return;
+    setSending(true); setText('');
+    const {error} = await sb.from('event_messages').insert({match_id: match.id, from_user_id: me, text: t});
+    if(error) setText(t);
+    setSending(false);
+  };
+
+  return (
+    <div className="stack fade">
+      <button className="btn q" onClick={onBack} style={{alignSelf:'flex-start'}}>← Back</button>
+      <div className="card stack">
+        <div className="row" style={{gap:13}}>
+          <Avatar label={initialsOf(revealed.full_name)} revealed size={46}/>
+          <div>
+            <div className="h3">{revealed.full_name}</div>
+            {revealed.context_line && <div className="sub">{revealed.context_line}</div>}
+          </div>
+        </div>
+        {(revealed.linkedin_url || revealed.phone || revealed.email) &&
+          <div className="stack" style={{gap:6,paddingTop:4,borderTop:'1px solid var(--line2)'}}>
+            {revealed.linkedin_url && <a className="sub" style={{color:'var(--brand-ink)'}} href={revealed.linkedin_url.startsWith('http')?revealed.linkedin_url:'https://'+revealed.linkedin_url} target="_blank" rel="noopener noreferrer">{revealed.linkedin_url}</a>}
+            {revealed.phone && <div className="sub">{revealed.phone}</div>}
+            {revealed.email && <div className="sub">{revealed.email}</div>}
+          </div>}
+        {!saved
+          ? <button className="btn sm" onClick={onSaved}>Save to Mighty</button>
+          : <div className="pill" style={{background:'var(--green-soft)',color:'var(--green)',width:'fit-content'}}>Saved</div>}
+      </div>
+      <div className="card stack" style={{padding:14}}>
+        <div className="lbl">Find each other</div>
+        <div className="stack" style={{gap:8,maxHeight:220,overflowY:'auto'}}>
+          {messages.length===0 && <div className="sub">Say where you are - "by the bar," "near the door."</div>}
+          {messages.map(m=>(
+            <div key={m.id} style={{alignSelf: m.from_user_id===me ? 'flex-end' : 'flex-start',
+              background: m.from_user_id===me ? 'var(--brand-soft2)' : 'var(--card2)',
+              color: m.from_user_id===me ? 'var(--brand-ink)' : 'var(--ink)',
+              padding:'8px 12px', borderRadius:12, fontSize:14, maxWidth:'80%'}}>
+              {m.text}
+            </div>
+          ))}
+        </div>
+        <div className="row" style={{gap:8}}>
+          <input className="inp" value={text} placeholder="I'm by the bar"
+            onChange={e=>setText(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') send(); }}/>
+          <button className="btn sm" disabled={sending || !clean(text)} onClick={send}>Send</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EventFloor({event, checkin, me, onLeave}){
+  const [visible,setVisible] = useState(checkin.visible);
+  const [directory,setDirectory] = useState([]);
+  const [outgoing,setOutgoing] = useState([]);
+  const [incoming,setIncoming] = useState([]);
+  const [matches,setMatches] = useState([]);
+  const [openMatchId,setOpenMatchId] = useState(null);
+  const [requestBusy,setRequestBusy] = useState(null);
+  const [myChannels,setMyChannels] = useState([]);
+  const [myEmail,setMyEmail] = useState(null);
+  const [toast,setToast] = useState(null);
+  const flash = (m)=>{ setToast(m); setTimeout(()=>setToast(null), 2400); };
+
+  useEffect(()=>{
+    // event_checkins deliberately has no contact columns (see the schema
+    // comment in supabase-setup.sql) - my own channels live in my own
+    // event_profiles row, which owner-only RLS lets me read directly.
+    sb.from('event_profiles').select('linkedin_url,phone,email').eq('checkin_id', checkin.id).maybeSingle()
+      .then(({data})=>{
+        if(!data) return;
+        const chans = [];
+        if(data.linkedin_url) chans.push('linkedin');
+        if(data.phone) chans.push('phone');
+        if(data.email) chans.push('email');
+        setMyChannels(chans);
+        setMyEmail(data.email || null);
+      });
+  },[checkin.id]);
+
+  const loadDirectory = useCallback(()=>{
+    sb.from('event_checkins').select('*').eq('event_id', event.id).eq('visible', true).neq('user_id', me)
+      .then(({data})=> setDirectory(data||[]));
+  },[event.id, me]);
+
+  const loadRequests = useCallback(()=>{
+    sb.from('event_requests').select('*').eq('event_id', event.id).eq('from_user_id', me).eq('status','pending')
+      .then(({data})=> setOutgoing(data||[]));
+    sb.from('event_requests').select('*').eq('event_id', event.id).eq('to_user_id', me).eq('status','pending')
+      .then(({data})=> setIncoming(data||[]));
+  },[event.id, me]);
+
+  const loadMatches = useCallback(()=>{
+    sb.from('event_matches').select('*').eq('event_id', event.id)
+      .then(({data})=>{
+        const mine = (data||[]).filter(m=> m.user_a===me || m.user_b===me);
+        setMatches(prev=> mine.map(m=> prev.find(p=>p.id===m.id) ? {...prev.find(p=>p.id===m.id), ...m} : m));
+      });
+  },[event.id, me]);
+
+  useEffect(()=>{ loadDirectory(); loadRequests(); loadMatches(); },[loadDirectory, loadRequests, loadMatches]);
+
+  useEffect(()=>{
+    const ch = sb.channel('event-'+event.id)
+      .on('postgres_changes', {event:'*', schema:'public', table:'event_checkins', filter:'event_id=eq.'+event.id}, loadDirectory)
+      .on('postgres_changes', {event:'*', schema:'public', table:'event_requests', filter:'event_id=eq.'+event.id}, (p)=>{
+        loadRequests();
+        if(p.eventType==='INSERT' && p.new.to_user_id===me) flash('Someone wants to say hi');
+      })
+      .on('postgres_changes', {event:'*', schema:'public', table:'event_matches', filter:'event_id=eq.'+event.id}, loadMatches)
+      .subscribe();
+    return ()=> sb.removeChannel(ch);
+  },[event.id, loadDirectory, loadRequests, loadMatches]);
+
+  // Fetch each match's revealed identity once, so cards can show a real
+  // name without re-fetching on every render.
+  useEffect(()=>{
+    matches.forEach(m=>{
+      if(m.revealed !== undefined) return;
+      sb.rpc('event_reveal', {p_match_id: m.id}).then(({data})=>{
+        const rev = Array.isArray(data) ? data[0] : data;
+        setMatches(prev=> prev.map(x=> x.id===m.id ? {...x, revealed: rev||null} : x));
+      });
+    });
+  },[matches]);
+
+  const toggleVisible = async ()=>{
+    const next = !visible; setVisible(next);
+    await sb.from('event_checkins').update({visible: next}).eq('id', checkin.id);
+  };
+
+  const sendRequest = async (toUserId)=>{
+    setRequestBusy(toUserId);
+    try{
+      const {error} = await sb.rpc('event_send_request', {p_event_id: event.id, p_to_user_id: toUserId, p_reason: null});
+      if(error) throw error;
+      loadRequests();
+      flash('Sent');
+    }catch(e){ flash(e.message || 'Could not send that request'); }
+    setRequestBusy(null);
+  };
+
+  const respond = async (requestId, decision, shareChannels)=>{
+    try{
+      await sb.rpc('event_respond_request', {p_request_id: requestId, p_decision: decision, p_share_channels: shareChannels});
+      loadRequests(); loadMatches();
+    }catch(e){ flash(e.message || 'Could not respond'); }
+  };
+
+  const openMatch = matches.find(m=>m.id===openMatchId);
+
+  /* The one place Mighty Events data crosses into the rest of the product
+     (spec Section 7). Two things happen, in order: the matched person
+     becomes a real saved person in Relationships under this same auth.uid()
+     - which already works even on an anonymous session, since RLS only
+     checks auth.uid()=user_id - and if this session is still anonymous,
+     it's upgraded in place to a permanent account via the email collected
+     at check-in. Supabase's anonymous-to-permanent linking keeps the same
+     user id, so everything just saved is already there the moment they
+     confirm the email; nothing needs to be copied or re-attached. */
+  const saveMatch = async (match, revealed)=>{
+    try{
+      const profileUrl = revealed.linkedin_url
+        ? (revealed.linkedin_url.startsWith('http') ? revealed.linkedin_url : 'https://'+revealed.linkedin_url)
+        : 'mighty-event:'+event.id+':'+(match.user_a===me ? match.user_b : match.user_a);
+      const {error: insErr} = await sb.from('outreach_log').upsert({
+        profile_url: profileUrl,
+        name: revealed.full_name,
+        title: revealed.context_line || null,
+        status: 'prospect',
+        shortlisted_at: new Date().toISOString(),
+        context: {
+          whySaved: 'Met at ' + event.name,
+          source: 'mighty_events',
+          eventName: event.name,
+          contextLine: revealed.context_line || null,
+          phone: revealed.phone || null,
+          email: revealed.email || null,
+        },
+      }, {onConflict: 'user_id,profile_url'});
+      if(insErr) throw insErr;
+
+      await sb.rpc('event_mark_saved', {p_match_id: match.id});
+
+      const {data:{session}} = await sb.auth.getSession();
+      if(session && session.user.is_anonymous && myEmail){
+        await sb.auth.updateUser({email: myEmail});
+        flash('Saved. Check ' + myEmail + ' to claim your Mighty account.');
+      } else {
+        flash('Saved to Mighty');
+      }
+      loadMatches();
+    }catch(e){ flash(e.message || 'Could not save that'); }
+  };
+
+  if(openMatch && openMatch.revealed){
+    return <MatchDetail match={openMatch} revealed={openMatch.revealed} event={event} me={me}
+      onBack={()=>setOpenMatchId(null)}
+      saved={!!(openMatch.saved_by_a && openMatch.user_a===me) || !!(openMatch.saved_by_b && openMatch.user_b===me)}
+      onSaved={()=>saveMatch(openMatch, openMatch.revealed)}/>;
+  }
+
+  return (
+    <div className="stack fade">
+      {toast && <div className="card" style={{position:'fixed',top:16,left:'50%',transform:'translateX(-50%)',zIndex:10,padding:'10px 18px',fontSize:14}}>{toast}</div>}
+
+      <div className="row" style={{justifyContent:'space-between'}}>
+        <div>
+          <div className="eyebrow">{event.name}</div>
+          <div className="sub" style={{marginTop:2}}>You're {checkin.initials} · {checkin.minutes_available} min</div>
+        </div>
+        <button className="row" style={{gap:9}} onClick={toggleVisible}>
+          <span className="sub" style={{fontSize:13}}>{visible ? 'Visible' : 'Off'}</span>
+          <span className={'toggle'+(visible?' on':'')}><i/></span>
+        </button>
+      </div>
+
+      {incoming.length>0 &&
+        <div className="stack">
+          <div className="lbl">Wants to meet you · {incoming.length}</div>
+          {incoming.map(r=> <IncomingRequest key={r.id} req={r} myChannels={myChannels} onRespond={respond}/>)}
+        </div>}
+
+      {matches.length>0 &&
+        <div className="stack">
+          <div className="lbl">Matched · {matches.length}</div>
+          {matches.map(m=> <MatchCard key={m.id} match={m} me={me} onOpen={()=>setOpenMatchId(m.id)}/>)}
+        </div>}
+
+      <div className="stack">
+        <div className="lbl">Here now · {directory.length}</div>
+        {!visible &&
+          <div className="sub">You're off, so nobody can see you - but you can still browse and say hi.</div>}
+        {directory.length===0 &&
+          <div className="sub">Nobody else has checked in yet. Be the first.</div>}
+        {directory.map(row=>(
+          <DirectoryCard key={row.id} row={row} busy={requestBusy===row.user_id}
+            alreadyRequested={outgoing.some(o=>o.to_user_id===row.user_id)}
+            onRequest={()=>sendRequest(row.user_id)}/>
+        ))}
+      </div>
+
+      <button className="btn q" onClick={onLeave} style={{alignSelf:'center'}}>I'm done for now</button>
+    </div>
+  );
+}
+
+function EndScreen({matches, me}){
+  const savedCount = matches.filter(m=> (m.user_a===me && m.saved_by_a) || (m.user_b===me && m.saved_by_b)).length;
+  return (
+    <div className="stack fade" style={{textAlign:'center',paddingTop:40}}>
+      <div className="h1">You met {matches.length} {matches.length===1?'person':'people'}.</div>
+      <p className="sub">{savedCount} saved to Mighty. Open the app to follow up while it's fresh.</p>
+      <a className="btn" href="../app/" style={{marginTop:8}}>Open Mighty</a>
+      <a className="btn q" href="./" style={{alignSelf:'center'}}>Back to this event</a>
+    </div>
+  );
+}
+
+function App(){
+  const [phase,setPhase] = useState('loading'); // loading | notfound | ended | checkin | floor | end
+  const [event,setEvent] = useState(null);
+  const [checkin,setCheckin] = useState(null);
+  const [me,setMe] = useState(null);
+  const [err,setErr] = useState(null);
+
+  const isPreview = qs.get('preview')==='1';
+
+  useEffect(()=>{
+    /* Visual-only preview: renders the real components with fake data and
+       never touches Supabase, so the design can be reviewed before
+       Anonymous Sign-ins is turned on in the dashboard. Nothing typed or
+       clicked here reaches the database - Say hi, accept, chat and save all
+       work against an in-memory fake event, not the real Mighty Events
+       schema. Strip this branch (and the isPreview banner below) once
+       there's no more reason to demo the flow without real backend access. */
+    if(isPreview){
+      setEvent({id:'preview', name:'MIT Sloan Alumni Mixer (preview)',
+        looking_for_tags:['Investors','Co-founders','Mentors','Customers','Hiring','New role','Just meeting people'],
+        offering_tags:['Founder','Investor','Alum','Student','Operator','Advisor'],
+        ends_at: new Date(Date.now()+6*3600e3).toISOString()});
+      setMe('preview-me');
+      setPhase('previewcheckin');
+      return;
+    }
+    (async ()=>{
+      const token = qs.get('e');
+      if(!token){ setPhase('notfound'); return; }
+      const {data: ev, error: evErr} = await sb.from('event_sessions').select('*').eq('qr_token', token).maybeSingle();
+      if(evErr || !ev){ setPhase('notfound'); return; }
+      if(new Date(ev.ends_at) < new Date()){ setEvent(ev); setPhase('ended'); return; }
+      setEvent(ev);
+
+      let {data:{session}} = await sb.auth.getSession();
+      if(!session){
+        const {data, error} = await sb.auth.signInAnonymously();
+        if(error){ setErr('Could not start a session: ' + error.message); setPhase('notfound'); return; }
+        session = data.session;
+      }
+      setMe(session.user.id);
+
+      const {data: existing} = await sb.from('event_checkins').select('*').eq('event_id', ev.id).eq('user_id', session.user.id).maybeSingle();
+      if(existing) setCheckin(existing);
+      setPhase(existing ? 'floor' : 'checkin');
+    })();
+  },[]);
+
+  if(phase==='loading') return <div className="wrap"><div className="sub" style={{paddingTop:60,textAlign:'center'}}><span className="spin"/> Loading event...</div></div>;
+  if(phase==='notfound') return <div className="wrap"><div className="stack" style={{paddingTop:60,textAlign:'center'}}>
+    <div className="h2">Event not found</div>
+    <p className="sub">{err || 'Check the link or QR code and try again.'}</p>
+  </div></div>;
+  if(phase==='ended') return <div className="wrap"><div className="stack" style={{paddingTop:60,textAlign:'center'}}>
+    <div className="h2">{event.name} has ended</div>
+    <p className="sub">This event's directory closed when it ended. Anyone you matched with is already in your Mighty account if you saved them.</p>
+    <a className="btn" href="../app/">Open Mighty</a>
+  </div></div>;
+
+  return (
+    <div className="wrap">
+      {isPreview &&
+        <div className="pill" style={{background:'var(--amber-soft)',color:'var(--amber)',marginBottom:16}}>
+          PREVIEW - not a real event, nothing here is saved
+        </div>}
+      {phase==='checkin' && <CheckIn event={event} onDone={async ()=>{
+        const {data} = await sb.from('event_checkins').select('*').eq('event_id', event.id).eq('user_id', me).maybeSingle();
+        setCheckin(data); setPhase('floor');
+      }}/>}
+      {phase==='previewcheckin' && <CheckIn event={event} isPreview onDone={(info)=>{ setCheckin(info); setPhase('previewfloor'); }}/>}
+      {phase==='previewfloor' && checkin && <PreviewFloor event={event} checkinInfo={checkin}/>}
+      {phase==='floor' && checkin && <EventFloor event={event} checkin={checkin} me={me} onLeave={()=>setPhase('end')}/>}
+      {phase==='end' && <EndScreenLoader event={event} me={me} onBack={()=>setPhase('floor')}/>}
+    </div>
+  );
+}
+
+/* Static stand-in for EventFloor used only by ?preview=1 - same
+   presentational pieces (DirectoryCard, IncomingRequest, MatchCard,
+   ShareChooser), but every callback updates local state instead of calling
+   Supabase, so this never touches the real event_checkins/event_requests/
+   event_matches tables. EventFloor itself is untouched by preview mode. */
+function PreviewFloor({event, checkinInfo}){
+  const [visible,setVisible] = useState(true);
+  const [directory] = useState([
+    {id:'p1', user_id:'p1', initials:'JR', looking_for:['Investors'], offering:['Founder'], minutes_available:15},
+    {id:'p2', user_id:'p2', initials:'SK', looking_for:['Co-founders','Mentors'], offering:['Operator'], minutes_available:30},
+    {id:'p3', user_id:'p3', initials:'MT', looking_for:['New role'], offering:['Alum'], minutes_available:5},
+  ]);
+  const [requested,setRequested] = useState([]);
+  const [incoming,setIncoming] = useState([{id:'r1', reason:'Saw you\'re looking for co-founders - I just left a Series A to build something new.', created_at:new Date().toISOString()}]);
+  const [matches,setMatches] = useState([]);
+  const [openMatch,setOpenMatch] = useState(null);
+  const [toast,setToast] = useState(null);
+  const flash = (m)=>{ setToast(m); setTimeout(()=>setToast(null), 2200); };
+
+  const respond = (id, decision)=>{
+    setIncoming(prev=> prev.filter(r=>r.id!==id));
+    if(decision==='accepted'){
+      setMatches(prev=> [...prev, {id:'m1', revealed:{full_name:'Alex Rivera', context_line:'Second-year MBA, ex-product at a Series B fintech', linkedin_url:'linkedin.com/in/alexrivera', phone:'(617) 555-0142', email:null}}]);
+      flash('Matched');
+    }
+  };
+
+  if(openMatch){
+    return <div className="stack fade">
+      <button className="btn q" onClick={()=>setOpenMatch(null)} style={{alignSelf:'flex-start'}}>← Back</button>
+      <div className="card stack">
+        <div className="row" style={{gap:13}}>
+          <Avatar label={initialsOf(openMatch.revealed.full_name)} revealed size={46}/>
+          <div><div className="h3">{openMatch.revealed.full_name}</div><div className="sub">{openMatch.revealed.context_line}</div></div>
+        </div>
+        <div className="stack" style={{gap:6,paddingTop:4,borderTop:'1px solid var(--line2)'}}>
+          <div className="sub" style={{color:'var(--brand-ink)'}}>{openMatch.revealed.linkedin_url}</div>
+          <div className="sub">{openMatch.revealed.phone}</div>
+        </div>
+        <button className="btn sm" onClick={()=>flash('Saved (preview - not real)')}>Save to Mighty</button>
+      </div>
+      <div className="card stack" style={{padding:14}}>
+        <div className="lbl">Find each other</div>
+        <div className="sub">Say where you are - "by the bar," "near the door."</div>
+        <div className="row" style={{gap:8}}><input className="inp" placeholder="I'm by the bar" readOnly/><button className="btn sm">Send</button></div>
+      </div>
+    </div>;
+  }
+
+  return (
+    <div className="stack fade">
+      {toast && <div className="card" style={{position:'fixed',top:16,left:'50%',transform:'translateX(-50%)',zIndex:10,padding:'10px 18px',fontSize:14}}>{toast}</div>}
+      <div className="row" style={{justifyContent:'space-between'}}>
+        <div><div className="eyebrow">{event.name}</div><div className="sub" style={{marginTop:2}}>You're {initialsOf(checkinInfo.name)} · 15 min</div></div>
+        <button className="row" style={{gap:9}} onClick={()=>setVisible(v=>!v)}>
+          <span className="sub" style={{fontSize:13}}>{visible?'Visible':'Off'}</span>
+          <span className={'toggle'+(visible?' on':'')}><i/></span>
+        </button>
+      </div>
+      {incoming.length>0 && <div className="stack">
+        <div className="lbl">Wants to meet you · {incoming.length}</div>
+        {incoming.map(r=><IncomingRequest key={r.id} req={r} myChannels={['linkedin','phone']} onRespond={async(id,d)=>respond(id,d)}/>)}
+      </div>}
+      {matches.length>0 && <div className="stack">
+        <div className="lbl">Matched · {matches.length}</div>
+        {matches.map(m=><MatchCard key={m.id} match={m} onOpen={()=>setOpenMatch(m)}/>)}
+      </div>}
+      <div className="stack">
+        <div className="lbl">Here now · {directory.length}</div>
+        {directory.map(row=>(
+          <DirectoryCard key={row.id} row={row} busy={false} alreadyRequested={requested.includes(row.id)}
+            onRequest={()=>{ setRequested(p=>[...p,row.id]); flash('Sent'); }}/>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EndScreenLoader({event, me, onBack}){
+  const [matches,setMatches] = useState(null);
+  useEffect(()=>{
+    sb.from('event_matches').select('*').eq('event_id', event.id).then(({data})=>{
+      setMatches((data||[]).filter(m=> m.user_a===me || m.user_b===me));
+    });
+  },[]);
+  if(matches===null) return <div className="sub" style={{textAlign:'center',paddingTop:60}}><span className="spin"/></div>;
+  return <div className="stack">
+    <EndScreen matches={matches} me={me}/>
+    <button className="btn q" onClick={onBack} style={{alignSelf:'center'}}>Keep going</button>
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

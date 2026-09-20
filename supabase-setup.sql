@@ -1300,9 +1300,399 @@ revoke execute on function public.claim_people_search(int) from public, anon, au
 grant execute on function public.claim_people_search(int) to service_role;
 
 -- ============================================================
+-- Mighty Events. See docs/MIGHTY-EVENTS-SPEC.md for the product spec this
+-- schema implements - read that first, this is just the mechanics.
+--
+-- The one design rule everything below follows: a person's identity (name,
+-- LinkedIn, phone, email) lives ONLY in event_profiles, which no RLS policy
+-- ever lets a second user SELECT directly. The only way identity crosses
+-- from one attendee to another is event_reveal(), a security-definer
+-- function that checks a real accepted match exists and returns only the
+-- fields that attendee's own share choice allows. This makes the "initials
+-- only until mutual accept" rule a property of the schema, not something
+-- client code has to get right every time.
+-- ============================================================
+
+-- Organizer allow-list. Deliberately hand-curated and permanent - unlike
+-- account creation below, event *creation* staying gated is what keeps this
+-- surface from filling with junk or impersonation events. Grant access with:
+--   insert into public.event_organizers(user_id) values ('<their auth uid>');
+create table if not exists public.event_organizers (
+  user_id    uuid primary key references auth.users(id) on delete cascade,
+  granted_at timestamptz not null default now()
+);
+alter table public.event_organizers enable row level security;
+-- No one can read or write this table through the API at all - not even its
+-- own row. It's an internal allow-list consulted by other policies below via
+-- a security-definer helper, never queried directly from the client.
+revoke all on public.event_organizers from anon, authenticated;
+
+create or replace function public.is_event_organizer(p_user_id uuid)
+returns boolean
+language sql
+security definer
+stable
+as $$
+  select exists(select 1 from public.event_organizers where user_id = p_user_id);
+$$;
+revoke execute on function public.is_event_organizer(uuid) from public, anon;
+grant execute on function public.is_event_organizer(uuid) to authenticated;
+
+-- One event. request_cap lives here (not hardcoded) so a specific event, or
+-- later a plan tier, can raise it without a schema change.
+create table if not exists public.event_sessions (
+  id             uuid primary key default gen_random_uuid(),
+  organizer_id   uuid not null references auth.users(id) on delete cascade,
+  name           text not null,
+  qr_token       text not null unique default encode(gen_random_bytes(9), 'base64'),
+  looking_for_tags text[] not null default '{}',
+  offering_tags     text[] not null default '{}',
+  request_cap    int not null default 10,
+  starts_at      timestamptz not null default now(),
+  ends_at        timestamptz not null,
+  created_at     timestamptz not null default now(),
+  constraint event_sessions_window check (ends_at > starts_at)
+);
+alter table public.event_sessions enable row level security;
+-- Event metadata is not sensitive (name, tags, time window) and the check-in
+-- page has to load it before anyone is authenticated, so select is wide open.
+drop policy if exists "es select any" on public.event_sessions;
+create policy "es select any" on public.event_sessions for select to anon, authenticated using (true);
+drop policy if exists "es insert organizer" on public.event_sessions;
+create policy "es insert organizer" on public.event_sessions for insert to authenticated
+  with check (auth.uid() = organizer_id and public.is_event_organizer(auth.uid()));
+drop policy if exists "es update organizer" on public.event_sessions;
+create policy "es update organizer" on public.event_sessions for update to authenticated
+  using (auth.uid() = organizer_id) with check (auth.uid() = organizer_id);
+
+-- Public-safe projection: everything any attendee of the same event may see
+-- about any other attendee before a match exists. No name, no contact info -
+-- those columns simply do not exist in this table.
+create table if not exists public.event_checkins (
+  id                uuid primary key default gen_random_uuid(),
+  event_id          uuid not null references public.event_sessions(id) on delete cascade,
+  user_id           uuid not null references auth.users(id) on delete cascade,
+  initials          text not null check (char_length(initials) between 1 and 3),
+  looking_for       text[] not null default '{}',
+  offering          text[] not null default '{}',
+  minutes_available int not null default 15 check (minutes_available > 0),
+  visible           boolean not null default true,
+  checked_in_at     timestamptz not null default now(),
+  unique (event_id, user_id)
+);
+alter table public.event_checkins enable row level security;
+-- You always see your own row (visible or not - toggling off doesn't hide
+-- you from yourself). Other attendees of the SAME event see each other only
+-- while visible=true - "checked in but toggled off" is invisible to everyone
+-- but its owner, matching the spec's "guilt-free off" rule exactly.
+drop policy if exists "ec select same event" on public.event_checkins;
+create policy "ec select same event" on public.event_checkins for select to authenticated
+  using (
+    auth.uid() = user_id
+    or (visible and exists(
+      select 1 from public.event_checkins mine
+      where mine.event_id = event_checkins.event_id and mine.user_id = auth.uid()
+    ))
+  );
+drop policy if exists "ec insert own" on public.event_checkins;
+create policy "ec insert own" on public.event_checkins for insert to authenticated
+  with check (auth.uid() = user_id and exists(
+    select 1 from public.event_sessions s where s.id = event_id and s.ends_at > now()
+  ));
+drop policy if exists "ec update own" on public.event_checkins;
+create policy "ec update own" on public.event_checkins for update to authenticated
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Private profile: the identity data event_checkins deliberately excludes.
+-- Owner-only, full stop - see the module comment at the top of this section.
+create table if not exists public.event_profiles (
+  checkin_id   uuid primary key references public.event_checkins(id) on delete cascade,
+  user_id      uuid not null references auth.users(id) on delete cascade,
+  full_name    text not null,
+  context_line text,
+  linkedin_url text,
+  phone        text,
+  email        text
+);
+alter table public.event_profiles enable row level security;
+drop policy if exists "ep owner only" on public.event_profiles;
+create policy "ep owner only" on public.event_profiles for all to authenticated
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+revoke all on public.event_profiles from anon;
+
+-- One call does both inserts atomically, so a client can never create a
+-- checkin without its profile (or vice versa) and there's one place - not
+-- two - that enforces "you can only check in to an event that's still open."
+create or replace function public.event_check_in(
+  p_event_id uuid, p_initials text, p_looking_for text[], p_offering text[],
+  p_minutes int, p_full_name text, p_context_line text,
+  p_linkedin text default null, p_phone text default null, p_email text default null
+) returns uuid
+language plpgsql
+security definer
+as $$
+declare v_checkin_id uuid;
+begin
+  if not exists(select 1 from public.event_sessions where id = p_event_id and ends_at > now()) then
+    raise exception 'This event has ended or does not exist.';
+  end if;
+  insert into public.event_checkins(event_id, user_id, initials, looking_for, offering, minutes_available)
+  values (p_event_id, auth.uid(), p_initials, coalesce(p_looking_for,'{}'), coalesce(p_offering,'{}'), coalesce(p_minutes,15))
+  on conflict (event_id, user_id) do update
+    set initials = excluded.initials, looking_for = excluded.looking_for,
+        offering = excluded.offering, minutes_available = excluded.minutes_available,
+        visible = true
+  returning id into v_checkin_id;
+  insert into public.event_profiles(checkin_id, user_id, full_name, context_line, linkedin_url, phone, email)
+  values (v_checkin_id, auth.uid(), p_full_name, p_context_line, p_linkedin, p_phone, p_email)
+  on conflict (checkin_id) do update
+    set full_name = excluded.full_name, context_line = excluded.context_line,
+        linkedin_url = excluded.linkedin_url, phone = excluded.phone, email = excluded.email;
+  return v_checkin_id;
+end;
+$$;
+revoke execute on function public.event_check_in(uuid,text,text[],text[],int,text,text,text,text,text) from public, anon;
+grant execute on function public.event_check_in(uuid,text,text[],text[],int,text,text,text,text,text) to authenticated;
+
+-- A request is visible only to its two parties - never broadcast to the
+-- whole event, so nobody sees who's requesting whom except themselves.
+create table if not exists public.event_requests (
+  id           uuid primary key default gen_random_uuid(),
+  event_id     uuid not null references public.event_sessions(id) on delete cascade,
+  from_user_id uuid not null references auth.users(id) on delete cascade,
+  to_user_id   uuid not null references auth.users(id) on delete cascade,
+  reason       text,
+  status       text not null default 'pending' check (status in ('pending','accepted','declined','expired')),
+  created_at   timestamptz not null default now(),
+  responded_at timestamptz,
+  constraint event_requests_not_self check (from_user_id <> to_user_id)
+);
+alter table public.event_requests enable row level security;
+drop policy if exists "er select party" on public.event_requests;
+create policy "er select party" on public.event_requests for select to authenticated
+  using (auth.uid() in (from_user_id, to_user_id));
+revoke all on public.event_requests from anon, authenticated;
+-- Insert and the accept/decline transition both go through functions below,
+-- not direct table access - the cap check (insert) and the atomic match
+-- creation (accept) each need to be one indivisible operation.
+grant select on public.event_requests to authenticated;
+
+create or replace function public.event_send_request(p_event_id uuid, p_to_user_id uuid, p_reason text)
+returns uuid
+language plpgsql
+security definer
+as $$
+declare v_cap int; v_pending int; v_id uuid;
+begin
+  if not exists(
+    select 1 from public.event_checkins where event_id = p_event_id and user_id = p_to_user_id and visible
+  ) then
+    raise exception 'That person is not visible in this event right now.';
+  end if;
+  select request_cap into v_cap from public.event_sessions where id = p_event_id and ends_at > now();
+  if v_cap is null then raise exception 'This event has ended or does not exist.'; end if;
+  select count(*) into v_pending from public.event_requests
+    where event_id = p_event_id and from_user_id = auth.uid() and status = 'pending';
+  if v_pending >= v_cap then
+    raise exception 'You have reached the request limit for this event (%).', v_cap;
+  end if;
+  insert into public.event_requests(event_id, from_user_id, to_user_id, reason)
+  values (p_event_id, auth.uid(), p_to_user_id, p_reason)
+  returning id into v_id;
+  return v_id;
+end;
+$$;
+revoke execute on function public.event_send_request(uuid,uuid,text) from public, anon;
+grant execute on function public.event_send_request(uuid,uuid,text) to authenticated;
+
+-- The record that survives the event. share_a/share_b are each that user's
+-- OWN choice of what to hand over - set independently, never symmetric, per
+-- the spec. user_a is always the lexicographically-smaller uuid so there is
+-- exactly one row per pair, never two.
+create table if not exists public.event_matches (
+  id         uuid primary key default gen_random_uuid(),
+  event_id   uuid not null references public.event_sessions(id) on delete cascade,
+  user_a     uuid not null references auth.users(id) on delete cascade,
+  user_b     uuid not null references auth.users(id) on delete cascade,
+  matched_at timestamptz not null default now(),
+  share_a    text[] not null default '{}',
+  share_b    text[] not null default '{}',
+  saved_by_a boolean not null default false,
+  saved_by_b boolean not null default false,
+  constraint event_matches_order check (user_a < user_b),
+  unique (event_id, user_a, user_b)
+);
+alter table public.event_matches enable row level security;
+drop policy if exists "em select party" on public.event_matches;
+create policy "em select party" on public.event_matches for select to authenticated
+  using (auth.uid() in (user_a, user_b));
+revoke all on public.event_matches from anon, authenticated;
+grant select on public.event_matches to authenticated;
+-- Written only by event_respond_request() below - never insertable directly,
+-- so a match can never exist without a real accepted request behind it.
+
+create or replace function public.event_respond_request(
+  p_request_id uuid, p_decision text, p_share_channels text[] default '{}'
+) returns uuid
+language plpgsql
+security definer
+as $$
+declare v_req record; v_lo uuid; v_hi uuid; v_match_id uuid;
+begin
+  if p_decision not in ('accepted','declined') then
+    raise exception 'p_decision must be accepted or declined';
+  end if;
+  select * into v_req from public.event_requests
+    where id = p_request_id and to_user_id = auth.uid() and status = 'pending'
+    for update;
+  if not found then raise exception 'No pending request found for you with that id.'; end if;
+  update public.event_requests set status = p_decision, responded_at = now() where id = p_request_id;
+  if p_decision = 'declined' then return null; end if;
+  v_lo := least(v_req.from_user_id, v_req.to_user_id);
+  v_hi := greatest(v_req.from_user_id, v_req.to_user_id);
+  -- Insert the row with empty shares if it doesn't exist yet (it can already
+  -- exist if this pair also had a request pending in the other direction and
+  -- that one was accepted first), then set ONLY this responder's own column.
+  -- Doing the share write as its own statement, unconditional on insert vs.
+  -- conflict, is what keeps a second accept from ever overwriting the first
+  -- person's already-recorded choice with an empty array.
+  insert into public.event_matches(event_id, user_a, user_b)
+    values (v_req.event_id, v_lo, v_hi)
+  on conflict (event_id, user_a, user_b) do nothing;
+  if v_lo = auth.uid() then
+    update public.event_matches set share_a = p_share_channels
+      where event_id = v_req.event_id and user_a = v_lo and user_b = v_hi
+      returning id into v_match_id;
+  else
+    update public.event_matches set share_b = p_share_channels
+      where event_id = v_req.event_id and user_a = v_lo and user_b = v_hi
+      returning id into v_match_id;
+  end if;
+  return v_match_id;
+end;
+$$;
+revoke execute on function public.event_respond_request(uuid,text,text[]) from public, anon;
+grant execute on function public.event_respond_request(uuid,text,text[]) to authenticated;
+
+-- Lets either side change their own share choice after the fact (e.g.
+-- decided mid-conversation to also hand over a phone number).
+create or replace function public.event_set_share(p_match_id uuid, p_channels text[])
+returns void
+language plpgsql
+security definer
+as $$
+declare v_lo uuid;
+begin
+  select user_a into v_lo from public.event_matches where id = p_match_id and auth.uid() in (user_a, user_b);
+  if not found then raise exception 'No such match for you.'; end if;
+  if v_lo = auth.uid() then
+    update public.event_matches set share_a = p_channels where id = p_match_id;
+  else
+    update public.event_matches set share_b = p_channels where id = p_match_id;
+  end if;
+end;
+$$;
+revoke execute on function public.event_set_share(uuid,text[]) from public, anon;
+grant execute on function public.event_set_share(uuid,text[]) to authenticated;
+
+-- Lets a matched party flip only their own saved_by_x flag - a function
+-- rather than a raw UPDATE grant on event_matches, which would also let a
+-- client touch share_a/share_b or the other side's flag.
+create or replace function public.event_mark_saved(p_match_id uuid)
+returns void
+language plpgsql
+security definer
+as $$
+declare v_lo uuid;
+begin
+  select user_a into v_lo from public.event_matches where id = p_match_id and auth.uid() in (user_a, user_b);
+  if not found then raise exception 'No such match for you.'; end if;
+  if v_lo = auth.uid() then
+    update public.event_matches set saved_by_a = true where id = p_match_id;
+  else
+    update public.event_matches set saved_by_b = true where id = p_match_id;
+  end if;
+end;
+$$;
+revoke execute on function public.event_mark_saved(uuid) from public, anon;
+grant execute on function public.event_mark_saved(uuid) to authenticated;
+
+-- The ONLY read path for another attendee's identity. Returns just the
+-- fields the OTHER party's own share choice allows - name and context line
+-- always (the spec reveals those unconditionally on accept), everything else
+-- gated on what they chose to hand over.
+create or replace function public.event_reveal(p_match_id uuid)
+returns table(full_name text, context_line text, linkedin_url text, phone text, email text)
+language plpgsql
+security definer
+as $$
+declare v_match record; v_other uuid; v_their_share text[];
+begin
+  select * into v_match from public.event_matches where id = p_match_id and auth.uid() in (user_a, user_b);
+  if not found then raise exception 'No such match for you.'; end if;
+  if v_match.user_a = auth.uid() then
+    v_other := v_match.user_b; v_their_share := v_match.share_b;
+  else
+    v_other := v_match.user_a; v_their_share := v_match.share_a;
+  end if;
+  return query
+    select p.full_name, p.context_line,
+      case when 'linkedin' = any(v_their_share) then p.linkedin_url end,
+      case when 'phone'    = any(v_their_share) then p.phone end,
+      case when 'email'    = any(v_their_share) then p.email end
+    from public.event_profiles p where p.user_id = v_other;
+end;
+$$;
+revoke execute on function public.event_reveal(uuid) from public, anon;
+grant execute on function public.event_reveal(uuid) to authenticated;
+
+-- Post-accept coordination chat. Scoped to one match, dies with the event -
+-- both policies check the parent event's ends_at, so messages simply become
+-- unreadable (not necessarily deleted) once the event closes.
+create table if not exists public.event_messages (
+  id           uuid primary key default gen_random_uuid(),
+  match_id     uuid not null references public.event_matches(id) on delete cascade,
+  from_user_id uuid not null references auth.users(id) on delete cascade,
+  text         text not null check (char_length(text) between 1 and 500),
+  created_at   timestamptz not null default now()
+);
+alter table public.event_messages enable row level security;
+drop policy if exists "em2 select party" on public.event_messages;
+create policy "em2 select party" on public.event_messages for select to authenticated
+  using (exists(
+    select 1 from public.event_matches m join public.event_sessions s on s.id = m.event_id
+    where m.id = match_id and auth.uid() in (m.user_a, m.user_b) and s.ends_at > now()
+  ));
+drop policy if exists "em2 insert party" on public.event_messages;
+create policy "em2 insert party" on public.event_messages for insert to authenticated
+  with check (
+    from_user_id = auth.uid() and exists(
+      select 1 from public.event_matches m join public.event_sessions s on s.id = m.event_id
+      where m.id = match_id and auth.uid() in (m.user_a, m.user_b) and s.ends_at > now()
+    )
+  );
+revoke all on public.event_messages from anon;
+
+-- Live directory + live requests/matches/messages. Postgres Changes over
+-- these four tables is what event_reveal()'s security keeps safe even
+-- though the payloads are pushed to every subscribed client - the checkins
+-- payload never contains a name, the requests/matches/messages payloads are
+-- only ever delivered to rows RLS already says that client may select.
+alter publication supabase_realtime add table public.event_checkins;
+alter publication supabase_realtime add table public.event_requests;
+alter publication supabase_realtime add table public.event_matches;
+alter publication supabase_realtime add table public.event_messages;
+
+-- ============================================================
 -- Also in the dashboard (not SQL):
 -- • Authentication → Providers → Email: ENABLED, "Confirm email" ON
 -- (so only someone who controls the inbox can activate an account).
+-- • Authentication → Sign In / Providers → Anonymous Sign-ins: ENABLED.
+-- (Mighty Events check-in runs on an anonymous session until someone
+-- chooses to save their matches - see docs/MIGHTY-EVENTS-SPEC.md Section 7.
+-- Without this toggle, event_check_in() has no auth.uid() to attach to for
+-- a first-time attendee and check-in will fail for anyone not already
+-- logged in.)
 -- • Authentication → URL Configuration → Site URL: your GitHub Pages URL
 -- (so confirmation / password-reset links point back to the app).
 -- • Edge Functions → sheets-sync → Secrets: set GOOGLE_SERVICE_ACCOUNT_JSON
@@ -1311,4 +1701,6 @@ grant execute on function public.claim_people_search(int) to service_role;
 -- No secrets needed - it only reads SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY,
 -- both injected automatically.
 -- Then copy Project URL + anon public key into MIghTy → Settings → Supabase backend config.
+-- To grant someone organizer access for Mighty Events, run by hand:
+--   insert into public.event_organizers(user_id) values ('<their auth uid>');
 -- ============================================================
