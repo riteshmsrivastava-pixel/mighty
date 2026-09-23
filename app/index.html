@@ -248,6 +248,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.4/babel.min.js"></script>
 <script>
   // Classic JSX runtime - the automatic runtime emits an ES import that fails without a bundler.
@@ -1698,7 +1699,123 @@ function KbDetails({kb}){
   );
 }
 
-function KnowledgeBase({settings, onEdit, go}){
+/* Bring-your-own-contact-list: paste rows or drop a CSV/Excel file, preview
+   what got recognized, then save. Shared by the Relationships toolbar and
+   the sources list in Setup - same modal shell as ClearSpaceModal above. */
+function ImportPeoplePanel({onSave, people, onClose}){
+  const fileRef = useRef(null);
+  const [pasted, setPasted] = useState('');
+  const [rows, setRows] = useState(null);
+  const [err, setErr] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [savedCount, setSavedCount] = useState(0);
+  const [done, setDone] = useState(false);
+
+  const existingUrls = useMemo(()=> new Set(
+    people.map(p=>(p.profile_url||'').toLowerCase()).filter(Boolean)), [people]);
+  const existingNames = useMemo(()=> new Set(
+    people.map(p=>(p.name||'').toLowerCase().trim()).filter(Boolean)), [people]);
+  const slug = (s)=> String(s||'person').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') || 'person';
+
+  function preview(parsed){
+    if(!parsed.length){
+      setErr('No names found. Needs a Name column (or First name / Last name), or plain "Name, Title, Company" rows.');
+      setRows(null); return;
+    }
+    setErr(null);
+    setRows(parsed.map(r=>({...r,
+      dupe: r.profileUrl ? existingUrls.has(r.profileUrl.toLowerCase()) : existingNames.has(r.name.toLowerCase().trim())})));
+  }
+
+  async function onFile(file){
+    if(!file) return;
+    setBusy(true); setErr(null);
+    try{ preview(await rowsFromFile(file)); }
+    catch(e){ setErr(e.message||'Could not read that file.'); }
+    setBusy(false);
+    if(fileRef.current) fileRef.current.value = '';
+  }
+
+  const freshCount = rows ? rows.filter(r=>!r.dupe).length : 0;
+
+  async function commit(){
+    if(!rows || !freshCount || busy) return;
+    setBusy(true); setSavedCount(0);
+    for(const r of rows.filter(r=>!r.dupe)){
+      const profileUrl = r.profileUrl || ('contact-import:'+slug(r.name)+'-'+Math.random().toString(36).slice(2,7));
+      await onSave({profileUrl, name:r.name, title:r.title, company:r.company, email:r.email||undefined,
+        location:r.location||undefined}, 'Imported list', 'contact_import');
+      setSavedCount(n=>n+1);
+    }
+    setBusy(false); setDone(true);
+  }
+
+  return (
+    <div style={{position:'fixed',inset:0,zIndex:400,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+      <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(29,27,38,.5)'}}/>
+      <div className="card" style={{position:'relative',maxWidth:620,width:'100%',maxHeight:'85vh',overflowY:'auto',padding:'26px 28px'}}>
+        <div className="row" style={{justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+          <div>
+            <div className="h3">Add people from a list</div>
+            <div className="sub" style={{marginTop:4}}>CSV, Excel, or paste rows straight from a spreadsheet or a table. A Name column is all it needs; Title, Company, LinkedIn URL, Email and Location are used when present.</div>
+          </div>
+          <button onClick={onClose} aria-label="Close" style={{background:'none',border:'none',cursor:'pointer',fontSize:20,lineHeight:1,color:'var(--sub)',padding:4,flex:'none'}}>&times;</button>
+        </div>
+
+        {done ? (
+          <div className="banner" style={{marginTop:18,borderColor:'var(--green)',color:'var(--green)'}}>
+            Saved {savedCount} {savedCount===1?'person':'people'} to Relationships.
+          </div>
+        ) : !rows ? (
+          <F>
+            <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" style={{display:'none'}}
+              onChange={e=>onFile(e.target.files && e.target.files[0])}/>
+            <div onClick={()=>fileRef.current && fileRef.current.click()}
+              style={{marginTop:18,border:'1.5px dashed var(--line)',borderRadius:16,padding:'22px 20px',
+                cursor:'pointer',background:'var(--card2)',textAlign:'center'}}>
+              <div className="eyebrow">{busy ? 'Reading…' : 'Drop a CSV or Excel file here, or click to browse'}</div>
+            </div>
+            <div style={{marginTop:18}}>
+              <div className="lbl">Or paste rows</div>
+              <textarea className="inp" style={{minHeight:110}} value={pasted} onChange={e=>setPasted(e.target.value)}
+                placeholder={"Name\tTitle\tCompany\nJordan Lee\tPartner\tEarly-stage Capital"}/>
+              <button className="btn g sm" style={{marginTop:10}} disabled={!clean(pasted)}
+                onClick={()=>preview(rowsFromPastedText(pasted))}>Preview</button>
+            </div>
+            {err && <div className="banner warn" style={{marginTop:16}}>{err}</div>}
+          </F>
+        ) : (
+          <F>
+            <div className="sub" style={{marginTop:16}}>
+              {rows.length} found{rows.length-freshCount>0 ? ', '+(rows.length-freshCount)+' already saved' : ''}.
+              {freshCount>0 ? ' '+freshCount+' new.' : ' Nothing new to add.'}
+            </div>
+            <div className="stack" style={{gap:0,marginTop:12,border:'1px solid var(--line2)',borderRadius:'var(--rsm)',overflow:'hidden',maxHeight:280,overflowY:'auto'}}>
+              {rows.map((r,i)=>(
+                <div key={i} className="row" style={{gap:12,padding:'10px 14px',borderTop:i===0?'none':'1px solid var(--line2)',opacity:r.dupe?.5:1}}>
+                  <Avatar name={r.name} size={26}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:13.5,fontWeight:700}}>{r.name}</div>
+                    <div className="meta" style={{marginTop:1}}>{[r.title,r.company].filter(Boolean).join(' · ')||'—'}</div>
+                  </div>
+                  {r.dupe && <span className="meta">Already saved</span>}
+                </div>))}
+            </div>
+            <div className="row" style={{justifyContent:'flex-end',gap:10,marginTop:20}}>
+              <button className="btn g" onClick={()=>{ setRows(null); setPasted(''); }} disabled={busy}>Start over</button>
+              <button className="btn" onClick={commit} disabled={busy || !freshCount}>
+                {busy ? <span><span className="spin"/> Saving</span> : 'Save '+freshCount+' '+(freshCount===1?'person':'people')}
+              </button>
+            </div>
+          </F>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function KnowledgeBase({settings, onEdit, go, onSave, people}){
+  const [importing, setImporting] = useState(false);
   const kb = settings.knowledge || {};
   const has = !!(kb.positions||[]).length || !!(kb.education||[]).length || !!kb.resumeText;
   const msg = kb.messages || null;
@@ -1729,10 +1846,19 @@ function KnowledgeBase({settings, onEdit, go}){
     {label:'Goal', done:hasGoal,
       status: hasGoal ? goalLine(settings).slice(0,64) : 'Not set yet',
       cta: hasGoal?'Update':'Set', onClick:()=>go && go({screen:'you', tab:'goal'})},
+    /* Not a source about the user like the three above - a list of other
+       people, which is why it saves straight into Relationships instead of
+       settings.knowledge. Kept in this list anyway because "add a CSV or
+       paste some rows" is exactly the kind of one-off input someone looks
+       for here first, next to the other "Add" buttons. */
+    {label:'Contact list', done:false, status:'CSV, Excel, or paste rows',
+      cta:'Add', onClick:()=>setImporting(true)},
   ];
 
   return (
     <div className="fade">
+      {importing &&
+        <ImportPeoplePanel onSave={onSave} people={people||[]} onClose={()=>setImporting(false)}/>}
       <div className="card" style={{marginTop:26,padding:'22px 26px'}}>
         <div className="stack" style={{gap:0}}>
           {sources.map((s,i)=>(
@@ -2374,6 +2500,7 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
      while the list re-renders on every keystroke of the search box above. */
   const [selected,setSelected] = useState(()=>new Set());
   const toggleSelect = (id)=>setSelected(s=>{ const n=new Set(s); if(n.has(id)) n.delete(id); else n.add(id); return n; });
+  const [importing,setImporting] = useState(false);
 
   /* ---- the search box: filters who is saved, and finds who is not ---- */
   const [q,setQ]           = useState('');
@@ -3011,26 +3138,31 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
 
   const pipelineList = (
     <div className="fade" style={{marginTop:22}}>
-      {selectableIds.length>0 &&
-        <div className="row" style={{justifyContent:'space-between',alignItems:'center',gap:14,marginBottom:16,flexWrap:'wrap'}}>
+      {importing &&
+        <ImportPeoplePanel onSave={onSave} people={people} onClose={()=>setImporting(false)}/>}
+      <div className="row" style={{justifyContent:'space-between',alignItems:'center',gap:14,marginBottom:16,flexWrap:'wrap'}}>
+        {selectableIds.length>0 ? (
           <label className="row" style={{gap:9,alignItems:'center',cursor:'pointer'}}>
             <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} style={{width:16,height:16,cursor:'pointer'}}/>
             <span className="sub" style={{fontSize:13}}>Select all ({selectableIds.length})</span>
           </label>
-          {selected.size>0 &&
-            <div className="row" style={{gap:10,alignItems:'center'}}>
-              <span style={{fontSize:13.5,fontWeight:600,color:'var(--brand-ink)'}}>{selected.size} selected</span>
-              <button className="btn q" style={{fontSize:13}} onClick={()=>setSelected(new Set())}>Clear</button>
-              <button className="btn sm" style={{background:'var(--red)',color:'#450A05'}}
-                onClick={async()=>{
-                  const n = selected.size;
-                  if(!window.confirm('Permanently remove '+n+' '+(n===1?'person':'people')
-                    +' from Mighty? Their notes, drafts and timeline go with them. This cannot be undone.')) return;
-                  await onDelete([...selected]);
-                  setSelected(new Set());
-                }}>Delete</button>
-            </div>}
-        </div>}
+        ) : <span/>}
+        <div className="row" style={{gap:10,alignItems:'center'}}>
+          {selected.size>0 && <F>
+            <span style={{fontSize:13.5,fontWeight:600,color:'var(--brand-ink)'}}>{selected.size} selected</span>
+            <button className="btn q" style={{fontSize:13}} onClick={()=>setSelected(new Set())}>Clear</button>
+            <button className="btn sm" style={{background:'var(--red)',color:'#450A05'}}
+              onClick={async()=>{
+                const n = selected.size;
+                if(!window.confirm('Permanently remove '+n+' '+(n===1?'person':'people')
+                  +' from Mighty? Their notes, drafts and timeline go with them. This cannot be undone.')) return;
+                await onDelete([...selected]);
+                setSelected(new Set());
+              }}>Delete</button>
+          </F>}
+          <button className="btn g sm" onClick={()=>setImporting(true)}>Add people</button>
+        </div>
+      </div>
       {topPick &&
         <div style={{marginBottom:22}}>
           <div className="eyebrow b" style={{marginBottom:8}}>Top recommendation</div>
@@ -6462,7 +6594,7 @@ function You({sb, email, settings, people, events, tasks, appEvents, tab, setTab
               onSaveSettings={onSaveSettings} onSave={onSave} onOpen={onOpen} onEdit={onReimport} onRebuild={onRebuildDecoded} go={go}/>
             <div style={{marginTop:36}}>
               <div className="eyebrow b">Your sources</div>
-              <KnowledgeBase settings={settings} onEdit={onReimport} go={go}/>
+              <KnowledgeBase settings={settings} onEdit={onReimport} go={go} onSave={onSave} people={people}/>
             </div>
           </div>}
         {tab==='goal' && !editGoal &&
@@ -6826,6 +6958,59 @@ function csvObjects(text, mustHave){
     const o = {}; hdr.forEach((k, i) => o[k] = stripControl((r[i] || '').trim())); return o;
   });
 }
+
+/* Bring-your-own-contact-list import (CSV, Excel, or pasted rows), shared
+   between the Relationships toolbar and the sources list in Setup. Same
+   alias map OrganiserHub uses for event attendee files - kept as its own
+   copy there rather than refactored to share this one, so a change here
+   can't move Rooms' import out from under it. */
+const PEOPLE_COLMAP = {
+  name: ['name','full name','fullname','contact','contact name'],
+  first: ['first name','firstname','given name'],
+  last: ['last name','lastname','surname','family name'],
+  title: ['title','role','job title','position','headline'],
+  company: ['company','organization','organisation','employer','company name'],
+  profileUrl: ['linkedin','linkedin url','profile','profile url','linkedin profile','url'],
+  email: ['email','email address','e-mail'],
+  location: ['location','city','geography'],
+};
+function mapPeopleRow(row){
+  const keys = Object.keys(row);
+  const find = (aliases)=>{ const k = keys.find(k=>aliases.includes(k.trim().toLowerCase())); return k?clean(row[k]):''; };
+  let nm = find(PEOPLE_COLMAP.name);
+  if(!nm) nm = [find(PEOPLE_COLMAP.first), find(PEOPLE_COLMAP.last)].filter(Boolean).join(' ');
+  return {name:nm, title:find(PEOPLE_COLMAP.title)||null, company:find(PEOPLE_COLMAP.company)||null,
+    profileUrl:find(PEOPLE_COLMAP.profileUrl)||null, email:find(PEOPLE_COLMAP.email)||null,
+    location:find(PEOPLE_COLMAP.location)||null};
+}
+/* A pasted block has no filename to go by, so the delimiter is guessed from
+   the text itself: copying rows out of Excel/Sheets/a Word table puts tabs
+   between cells, not commas, and parseCsv only understands commas. Falling
+   back to comma-splitting a tab-free paste is what makes a plain
+   comma-separated paste (no spreadsheet involved) work the same way. */
+function rowsFromPastedText(text){
+  const t = String(text||'');
+  const delim = t.includes('\t') ? '\t' : ',';
+  const csvText = delim === '\t' ? t.split('\n').map(l=>l.split('\t').map(c=>'"'+c.replace(/"/g,'""')+'"').join(',')).join('\n') : t;
+  return csvObjects(csvText).map(mapPeopleRow).filter(r=>r.name);
+}
+async function rowsFromFile(file){
+  const isXlsx = /\.xlsx?$/i.test(file.name);
+  const isCsv  = /\.csv$/i.test(file.name);
+  if(!isXlsx && !isCsv){
+    throw new Error('CSV or Excel (.xlsx) only for now. For anything else, open it and paste the rows in below.');
+  }
+  if(isCsv){
+    const text = await file.text();
+    return csvObjects(text).map(mapPeopleRow).filter(r=>r.name);
+  }
+  const buf = await file.arrayBuffer();
+  const wb = window.XLSX.read(buf, {type:'array'});
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const text = window.XLSX.utils.sheet_to_csv(sheet);
+  return csvObjects(text).map(mapPeopleRow).filter(r=>r.name);
+}
+
 /* LinkedIn's export writes message dates as "2020-04-11 14:22:07 UTC" -
    parseable directly by Date in every real browser, but wrapped so a change
    in export format degrades to "unknown date" instead of a thrown error. */
@@ -9021,7 +9206,7 @@ function App(){
     const src = source || 'search';
     const ctx = {source:src, savedFrom:query||'', whySaved:p.why||'', common:p.common||[]};
     if(p.verdict) ctx.verdictLabel = (VERDICT[p.verdict]||VERDICT.potential).label;
-    ['location','education','experience','followers','connections','snippet'].forEach(k=>{ if(p[k]) ctx[k]=p[k]; });
+    ['location','education','experience','followers','connections','snippet','email'].forEach(k=>{ if(p[k]) ctx[k]=p[k]; });
     try{
       const {data:row} = await sb.from('outreach_log').upsert({user_id:auth.user.id, profile_url:p.profileUrl,
         name:p.name||null, title:p.title||null, company:p.company||null, context:ctx,
