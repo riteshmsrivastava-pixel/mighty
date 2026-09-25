@@ -2493,6 +2493,12 @@ const STAGE_WHY = {
 function Relationships({sb, settings, people, events, tasks, view, setView, plan, onSave, onOpen, onStage, onDelete, onUpdate, go, onOpenCapacity}){
   const boardOK = canSee('board', people, events);
   const timeOK  = canSee('timeline', people, events);
+  /* Activity used to be its own top-level tab (Timeline). Folded into the
+     bottom of Board instead - same feed, but as an expandable strip you open
+     when you want it rather than a whole destination to navigate to. Starts
+     collapsed every visit; nothing about "collapsed" is itself worth
+     persisting. */
+  const [activityOpen,setActivityOpen] = useState(false);
   const [dragId,setDrag] = useState(null);
   const [overCol,setOver] = useState(null);
   /* List's select/delete - a Set so toggling one row's checkbox never has to
@@ -3505,14 +3511,14 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
             <div className="hint">{UNLOCKS.board.hint}</div>
             {pipelineList}
           </F>}
-          {boardOK &&
-            /* Six columns, only 3-4 fit before scrolling on a laptop-width
+          {boardOK && <F>
+            {/* Six columns, only 3-4 fit before scrolling on a laptop-width
                screen. An opaque overlay used to hint at the rest, but it drew
                a hard rectangle over whatever card sat at the edge, so a
                rounded card looked sliced in half instead of hinted-at. A mask
                on the scroll container itself fades the card's actual pixels
                - corners, shadow and all - so a partial card tapers away
-               instead of getting cut off. */
+               instead of getting cut off. */}
             <div style={{display:'flex',gap:14,overflowX:'auto',paddingBottom:12,paddingRight:28,
               WebkitMaskImage:'linear-gradient(90deg,#000 calc(100% - 28px),transparent 100%)',
               maskImage:'linear-gradient(90deg,#000 calc(100% - 28px),transparent 100%)'}}>
@@ -3559,73 +3565,86 @@ function Relationships({sb, settings, people, events, tasks, view, setView, plan
                     </div>
                   </div>);
                 })}
-              </div>}
-        </div>
-      ) : view==='timeline' ? (
-        <div className="fade" style={{marginTop:20}}>
-          {!timeOK && <F>
-            <div className="hint">{UNLOCKS.timeline.hint}</div>
-            {pipelineList}
-          </F>}
-          {timeOK && <F>
-            <div className="seg" style={{width:'fit-content'}}>
-              {TIME_CATS.map(c=>(
-                <button key={c.key} className={feedCat===c.key?'on':''} onClick={()=>setFeedCat(c.key)}>
-                  {c.label} · {rawFeed.filter(c.test).length}
-                </button>))}
-            </div>
+              </div>
 
-            {feedGroups.length===0 &&
-              <div className="meta" style={{marginTop:20}}>Nothing in this filter yet.</div>}
+            {/* Was its own top-level "Timeline" tab - folded down here as an
+               expandable strip instead, since it answers a different, lower-
+               frequency question (what happened recently, across everyone)
+               than the board above it (where does each person stand right
+               now). Collapsed by default so it costs nothing when unused. */}
+            <div style={{marginTop:28,borderTop:'1px solid var(--line3)',paddingTop:16}}>
+              <button onClick={()=>setActivityOpen(o=>!o)}
+                style={{display:'flex',alignItems:'center',gap:8,background:'none',border:'none',cursor:'pointer',padding:'4px 2px'}}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  style={{color:'var(--mute)',transform:activityOpen?'rotate(90deg)':'none',transition:'transform .15s'}}><path d="m9 18 6-6-6-6"/></svg>
+                <span style={{fontSize:13.5,fontWeight:700,color:'var(--mute)'}}>Activity</span>
+                <span className="meta">{rawFeed.length}</span>
+              </button>
 
-            <div style={{marginTop:24,maxWidth:760}}>
-              {feedGroups.map((g,gi)=>(
-                <div key={g.label} style={{marginBottom:28}}>
-                  <div className="eyebrow" style={{marginBottom:12}}>{g.label}</div>
-                  <div>
-                    {g.items.map((item,i)=>{
-                      const entry = feedEntry(item);
-                      const dot = ({reply:'var(--green)', stage_change:'var(--brand)', note:'var(--amber)',
-                        saved:'var(--mute)', first_message:'var(--brand)'})[item.kind] || 'var(--mute)';
-                      /* Rows used to sit inside one bordered, shadowed card per day -
-                         tidy, but it boxed in what is meant to read as a single
-                         continuous line of things happening, not a table. Open rows
-                         on the page background, with the connector line and dots
-                         doing the organizing, reads more like an actual timeline. */
-                      const person = item.kind==='saved'
-                        ? (item.people.length===1 ? item.people[0] : null)
-                        : personOf(item.personId);
-                      const avatarName = person ? person.name : nameOf(item.personId);
-                      const multiSaved = item.kind==='saved' && item.people.length>1;
-                      return (
-                        <div key={item.id} className="row" style={{gap:14,padding:'14px 4px',alignItems:'stretch',
-                          borderBottom:i===g.items.length-1?'none':'1px solid var(--line3)'}}>
-                          <div style={{fontSize:12.5,color:'var(--mute)',flex:'none',width:56,paddingTop:22}}>
-                            {timeOfDay(item.occurred_at)}
-                          </div>
-                          <div style={{flex:'none',width:16,position:'relative',display:'flex',justifyContent:'center'}}>
-                            {i>0 &&
-                              <span style={{position:'absolute',top:0,height:'calc(50% + 4px)',width:2,background:'var(--line2)'}}/>}
-                            {i<g.items.length-1 &&
-                              <span style={{position:'absolute',bottom:0,height:'calc(50% + 4px)',width:2,background:'var(--line2)'}}/>}
-                            <span style={{position:'relative',zIndex:1,width:9,height:9,marginTop:26,flex:'none',
-                              borderRadius:'50%',background:dot,boxShadow:'0 0 0 3px var(--paper)'}}/>
-                          </div>
-                          <div style={{flex:'none',paddingTop:16}}>
-                            {multiSaved
-                              ? <div className="av" style={{width:30,height:30,fontSize:11}}>{'+'+item.people.length}</div>
-                              : <Avatar name={avatarName} size={30} src={person&&person.avatar_url} hover={person}/>}
-                          </div>
-                          <div style={{flex:1,minWidth:0,paddingTop:16}}>
-                            <div style={{fontSize:15,fontWeight:700,letterSpacing:'-.01em'}}>{entry.title}</div>
-                            {entry.sub && <div className="sub" style={{fontSize:13.5,marginTop:2,textWrap:'pretty'}}>{entry.sub}</div>}
-                          </div>
-                          {entry.cta &&
-                            <button className="btn g sm" style={{flex:'none',alignSelf:'center'}} onClick={entry.onCta}>{entry.cta}</button>}
-                        </div>);
-                    })}
+              {activityOpen && <F>
+                {!timeOK && <div className="hint" style={{marginTop:14}}>{UNLOCKS.timeline.hint}</div>}
+                {timeOK && <F>
+                  <div className="seg" style={{width:'fit-content',marginTop:14}}>
+                    {TIME_CATS.map(c=>(
+                      <button key={c.key} className={feedCat===c.key?'on':''} onClick={()=>setFeedCat(c.key)}>
+                        {c.label} · {rawFeed.filter(c.test).length}
+                      </button>))}
                   </div>
-                </div>))}
+
+                  {feedGroups.length===0 &&
+                    <div className="meta" style={{marginTop:20}}>Nothing in this filter yet.</div>}
+
+                  <div style={{marginTop:24,maxWidth:760}}>
+                    {feedGroups.map((g,gi)=>(
+                      <div key={g.label} style={{marginBottom:28}}>
+                        <div className="eyebrow" style={{marginBottom:12}}>{g.label}</div>
+                        <div>
+                          {g.items.map((item,i)=>{
+                            const entry = feedEntry(item);
+                            const dot = ({reply:'var(--green)', stage_change:'var(--brand)', note:'var(--amber)',
+                              saved:'var(--mute)', first_message:'var(--brand)'})[item.kind] || 'var(--mute)';
+                            /* Rows used to sit inside one bordered, shadowed card per day -
+                               tidy, but it boxed in what is meant to read as a single
+                               continuous line of things happening, not a table. Open rows
+                               on the page background, with the connector line and dots
+                               doing the organizing, reads more like an actual timeline. */
+                            const person = item.kind==='saved'
+                              ? (item.people.length===1 ? item.people[0] : null)
+                              : personOf(item.personId);
+                            const avatarName = person ? person.name : nameOf(item.personId);
+                            const multiSaved = item.kind==='saved' && item.people.length>1;
+                            return (
+                              <div key={item.id} className="row" style={{gap:14,padding:'14px 4px',alignItems:'stretch',
+                                borderBottom:i===g.items.length-1?'none':'1px solid var(--line3)'}}>
+                                <div style={{fontSize:12.5,color:'var(--mute)',flex:'none',width:56,paddingTop:22}}>
+                                  {timeOfDay(item.occurred_at)}
+                                </div>
+                                <div style={{flex:'none',width:16,position:'relative',display:'flex',justifyContent:'center'}}>
+                                  {i>0 &&
+                                    <span style={{position:'absolute',top:0,height:'calc(50% + 4px)',width:2,background:'var(--line2)'}}/>}
+                                  {i<g.items.length-1 &&
+                                    <span style={{position:'absolute',bottom:0,height:'calc(50% + 4px)',width:2,background:'var(--line2)'}}/>}
+                                  <span style={{position:'relative',zIndex:1,width:9,height:9,marginTop:26,flex:'none',
+                                    borderRadius:'50%',background:dot,boxShadow:'0 0 0 3px var(--paper)'}}/>
+                                </div>
+                                <div style={{flex:'none',paddingTop:16}}>
+                                  {multiSaved
+                                    ? <div className="av" style={{width:30,height:30,fontSize:11}}>{'+'+item.people.length}</div>
+                                    : <Avatar name={avatarName} size={30} src={person&&person.avatar_url} hover={person}/>}
+                                </div>
+                                <div style={{flex:1,minWidth:0,paddingTop:16}}>
+                                  <div style={{fontSize:15,fontWeight:700,letterSpacing:'-.01em'}}>{entry.title}</div>
+                                  {entry.sub && <div className="sub" style={{fontSize:13.5,marginTop:2,textWrap:'pretty'}}>{entry.sub}</div>}
+                                </div>
+                                {entry.cta &&
+                                  <button className="btn g sm" style={{flex:'none',alignSelf:'center'}} onClick={entry.onCta}>{entry.cta}</button>}
+                              </div>);
+                          })}
+                        </div>
+                      </div>))}
+                  </div>
+                </F>}
+              </F>}
             </div>
           </F>}
         </div>
@@ -6801,7 +6820,6 @@ const NAV = [
     children:[
       {key:'list', label:'List', view:'list'},
       {key:'board', label:'Board', view:'board', lock:'board'},
-      {key:'timeline', label:'Timeline', view:'timeline', lock:'timeline'},
     ]},
   /* Explore answers a different question than List/Board/Timeline - not
      "where is this relationship in my pipeline" but "who should be in it at
