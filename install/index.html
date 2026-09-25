@@ -15,8 +15,16 @@
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{margin:0;font:1rem/1.6 Schibsted,Arial,sans-serif;background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased}
-.wrap{width:min(720px,calc(100% - 48px));margin-inline:auto}
+.wrap{width:min(720px,calc(100% - 48px));margin-inline:auto;position:relative;z-index:1}
 a{color:inherit}
+/* Same soft ambient glow the homepage uses behind its hero and closing
+   sections, so this page doesn't read as a flat utility page bolted onto a
+   much more illustrated site. */
+body{position:relative;overflow-x:hidden}
+body:before{content:'';position:fixed;top:-260px;right:-220px;width:620px;height:620px;border-radius:50%;
+  background:radial-gradient(circle,#4A3FD12E,transparent 70%);pointer-events:none;z-index:0}
+body:after{content:'';position:fixed;bottom:-260px;left:-220px;width:560px;height:560px;border-radius:50%;
+  background:radial-gradient(circle,#E87A5618,transparent 70%);pointer-events:none;z-index:0}
 header{height:88px;display:flex;align-items:center;justify-content:space-between;gap:20px;border-bottom:1px solid var(--line)}
 header .brand{display:flex;align-items:center;gap:9px;text-decoration:none}
 header .brand span{font-weight:600;letter-spacing:-.02em;font-size:1.0625rem}
