@@ -6885,14 +6885,29 @@ function Shell({screen, relView, youTab, boardOK, timelineOK, go, savedCount, em
           {/* Only shown once the proxy has actually told us a number. Guessing
               at an allowance is worse than saying nothing about it. */}
           {aiMeta && aiMeta.assistsLeftMonth!=null &&
-            <span className="pill" title={'Plan: '+(aiMeta.plan||'unknown')}
-              style={{background:aiMeta.assistsLeftMonth===0?'var(--red-soft)':'var(--brand-soft2)',
-                      color:aiMeta.assistsLeftMonth===0?'#8E4238':'var(--brand-ink)',
-                      padding:'5px 12px',fontSize:12.5,fontWeight:700,whiteSpace:'nowrap'}}>
-              {aiMeta.assistsLeftMonth===0
-                ? 'No Assists left this month. Everything free still works: briefs, search, notes, Ask Mighty. Top up or move up a plan to keep writing.'
-                : aiMeta.assistsLeftMonth+' assist'+(aiMeta.assistsLeftMonth===1?'':'s')+' left'}
-            </span>}
+            (aiMeta.assistsLeftMonth===0 ? (
+              /* Used to be one un-clickable sentence ending in "top up or move
+                 up a plan" with no way to do either from here. Same info, now
+                 split into a status pill plus an actual button - same
+                 go({screen:'you', tab:'settings'}) target the account button
+                 in the sidebar already uses, so this isn't a new destination,
+                 just a second door to it. */
+              <span className="row" style={{gap:8,flexWrap:'wrap'}}>
+                <span className="pill" title={'Plan: '+(aiMeta.plan||'unknown')}
+                  style={{background:'var(--red-soft)',color:'#8E4238',
+                          padding:'5px 12px',fontSize:12.5,fontWeight:700,whiteSpace:'nowrap'}}>
+                  No Assists left this month. Everything free still works: briefs, search, notes, Ask Mighty.
+                </span>
+                <button className="btn q" style={{fontSize:12.5,padding:'5px 4px'}}
+                  onClick={()=>go({screen:'you', tab:'settings'})}>View plan options</button>
+              </span>
+            ) : (
+              <span className="pill" title={'Plan: '+(aiMeta.plan||'unknown')}
+                style={{background:'var(--brand-soft2)',color:'var(--brand-ink)',
+                        padding:'5px 12px',fontSize:12.5,fontWeight:700,whiteSpace:'nowrap'}}>
+                {aiMeta.assistsLeftMonth+' assist'+(aiMeta.assistsLeftMonth===1?'':'s')+' left'}
+              </span>
+            ))}
           <div className="mobnav" style={{gap:7,overflowX:'auto'}}>
             {nav.map(n=>(
               <button key={n.key} className={'chip'+(parentOn(n.key)?' on':'')}
