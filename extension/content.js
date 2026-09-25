@@ -632,6 +632,23 @@ function fitFromStrategy(p, r, goalOverride) {
   }
   const role = find(go.targetRoles || prof.targetRoles);
   if (role) { score += 25; push(`A role you are targeting: ${role}`); }
+  /* For a fundraising goal, "on your target list" - this model's single
+     biggest signal, worth 65 above - almost never fires: nobody raising
+     money has pre-named every VC firm that might write a check, the way a
+     job seeker names every employer they'd take an offer from. Confirmed
+     live: a firm's own Partner, with "Startup investor" in their About text,
+     scored as only a Potential match because their (correct, real) employer
+     just wasn't on a pre-typed list. Investor-sounding titles are a closed,
+     recognisable set regardless of which fund someone is at, so they get
+     their own signal here rather than needing the firm named in advance. */
+  const types = go.types || r.goalTypes || [];
+  if (types.includes('raise_funding')) {
+    const titleHay = String(p.title || '').toLowerCase();
+    const investorRole = /\b(investor|venture partner|general partner|managing partner|vc|angel investor)\b/i.test(titleHay);
+    const partnerWithContext = /\bpartner\b/i.test(titleHay)
+      && /\b(venture capital|invest(?:s|ing|or)?|portfolio compan|early[- ]stage|seed|pre[- ]seed)\b/i.test(hay);
+    if (investorRole || partnerWithContext) { score += 50; push('Their role looks like an investing one'); }
+  }
   // Schools and skills describe the student, not any one goal - shared across
   // every goal the same way the web app's "more" section is account-level.
   const school = findIn(prof.schools, eduHay);
@@ -672,7 +689,7 @@ function scoreAllGoals(p, r) {
   const candidates = [
     { fit: fitFromStrategy(p, r), label: goalTypeLabel(r.goalTypes) || 'Primary goal' },
     ...secondary.map(g => ({
-      fit: fitFromStrategy(p, r, { goal: g.goal, targetCompanies: g.targetCompanies, targetRoles: g.targetRoles, targetLocations: g.targetLocations }),
+      fit: fitFromStrategy(p, r, { goal: g.goal, targetCompanies: g.targetCompanies, targetRoles: g.targetRoles, targetLocations: g.targetLocations, types: g.types }),
       label: goalTypeLabel(g.types) || 'Untitled goal',
     })),
   ];
