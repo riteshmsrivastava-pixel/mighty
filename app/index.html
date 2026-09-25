@@ -509,7 +509,7 @@ function personPreview(p){
   return {
     name, title: p.title || p.position || '', company: p.company || '',
     location: ctx.location || p.location || '', education: ctx.education || p.education || '',
-    why, common, summary: (p.briefing && clean(p.briefing.careerSummary)) || '', status: p.status,
+    why, common, summary: (p.briefing && p.briefing.insights && p.briefing.insights.length) ? p.briefing.insights.join('. ') : '', status: p.status,
   };
 }
 /* Module-level, not component state - every Avatar on screen for the same
@@ -1971,7 +1971,7 @@ function buildPlan(people, events, tasks){
         cta:'Follow up', go:{screen:'profile', id:r.id, tab:'draft'}});
   });
 
-  people.filter(r=>r.status==='prospect' && !(r.briefing&&r.briefing.careerSummary)).slice(0,2).forEach(r=>{
+  people.filter(r=>r.status==='prospect' && !(r.briefing&&r.briefing.insights&&r.briefing.insights.length)).slice(0,2).forEach(r=>{
     out.push({id:'brief-'+r.id, tone:'purple', title:'Prepare for '+(r.name||'them'),
       sub:(r.context&&r.context.whySaved) ? r.context.whySaved.slice(0,90) : 'Saved '+(ago(r.shortlisted_at)||'recently')+'. No brief yet.',
       cta:'Prepare', go:{screen:'profile', id:r.id, tab:'brief'}});
@@ -2433,7 +2433,7 @@ async function matchConnections(sb, terms, ownCos, limit){
 
 function nextAction(r){
   switch(r.status){
-    case 'prospect':         return (r.briefing&&r.briefing.careerSummary) ? 'Draft a message' : 'Prepare';
+    case 'prospect':         return (r.briefing&&r.briefing.insights&&r.briefing.insights.length) ? 'Draft a message' : 'Prepare';
     case 'ready_to_contact': return r.ai_draft ? 'Review draft' : 'Draft a message';
     case 'contacted':        return days(r.contacted_at)>=10 ? 'Follow up' : 'Waiting on them';
     case 'replied':          return 'Reply';
@@ -3695,15 +3695,18 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
   const profileRead = !!(clean(ctx.aboutText) || clean(ctx.education) || clean(ctx.location)
     || clean(ctx.skillsText) || (Array.isArray(ctx.timingSignals) && ctx.timingSignals.length));
   /* Older briefs (built before profile_briefing's prompt told the model to
-     return an empty string instead) can still have a "no headline or
+     return an empty array instead, and before careerSummary/whyMatters were
+     replaced by the insights bullet list) can still carry a "no headline or
      background information is provided, so there is nothing to assess"
-     sentence saved as careerSummary/whyMatters - a failed assessment, not
-     real content. Strip those on read so a stale one never renders as if it
-     were a brief. */
+     sentence - a failed assessment, not real content. Strip it on read so a
+     stale one never renders as if it were a brief, whichever old or new
+     field it landed in. A brief saved in the old shape (real content, but no
+     insights array) just falls back to the empty state - regenerating is one
+     free click, not worth carrying the old fields forward for. */
   const isMissingDataExcuse = (s)=> /\b(no|not|nothing)\b[\s\S]{0,40}\b(headline|background information|profile (text|information)|to assess)\b/i.test(s||'');
   const rawBr = row.briefing||{};
-  const br = (isMissingDataExcuse(rawBr.careerSummary) || isMissingDataExcuse(rawBr.whyMatters))
-    ? {...rawBr, careerSummary:'', whyMatters:''} : rawBr;
+  const rawInsightText = (rawBr.insights||[]).join(' ') || rawBr.careerSummary || rawBr.whyMatters || '';
+  const br = isMissingDataExcuse(rawInsightText) ? {...rawBr, insights:[], careerSummary:'', whyMatters:''} : rawBr;
   const st  = stageOf(row);
   const [busy,setBusy]   = useState(null);
   const [toast,setToast] = useState(null);
@@ -3824,20 +3827,28 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
     setBusy('brief'); setErr(null);
     try{
       const out = await llmJSON(sb, 'profile_briefing',
-        'You prepare someone for a first conversation. Use ONLY the facts given - never invent employers, dates, achievements or posts. If you do not know something, leave that field out. If the headline, company and captured profile text are all unknown, return an empty string for careerSummary and whyMatters instead of writing a sentence that explains there is nothing to assess - an empty field is the honest answer, not a sentence about the absence. Plain language, no scores, no flattery. Address the reader directly as "you" and "your" throughout every field - never write "the user" or "the user\'s goal" in third person. Never use em dashes; write a spaced hyphen instead.',
-        `About the person doing the outreach (this is you, the reader):\n${strategyBrief(settings)}\n\nThe person they want to understand:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nLocation: ${ctx.location||'unknown'}\nEducation: ${ctx.education||'unknown'}\nProfile text captured: ${clean(ctx.aboutText||ctx.snippet||'').slice(0,900)}\n${captured||''}\nWhy they were saved: ${ctx.whySaved||'unknown'}\nShared ground noted at save time: ${(ctx.common||[]).join('; ')||'none noted'}\n\nReturn JSON {"careerSummary":"2-3 sentences","whyMatters":"1-2 sentences on why this person matters to your goal, written directly to you as 'you'","shared":["real overlap - literal (same company, school, city) AND domain-level (both have worked in the same or a comparable industry, e.g. fintech, healthcare/pharma, deep tech - reason this out from each person's actual career history above, do not just restate their titles)"],"starters":["specific opening, grounded in the facts above"],"avoid":"one thing not to lead with, or omit"}`,
-        /* 1000 was not enough headroom once the sender preamble grew: five
-           JSON fields, two of them arrays of full sentences, on a person with
-           a rich profile ran past it and came back truncated mid-string, which
-           surfaces to the user as "did not come back in the right shape". The
-           preamble is capped now too, but the ceiling should not be the thing
-           that decides whether a brief parses. */
+        /* Used to ask for careerSummary/whyMatters as prose paragraphs. Real
+           feedback: too much text to actually decide anything from - a brief
+           should let someone tell in a few seconds whether reaching out is
+           worth it, not be read start to finish like a bio. insights
+           replaces both fields: short, specific, individually true bullets,
+           the single most decision-relevant one first, same discipline as
+           shared/starters already had. */
+        'You prepare someone for a first conversation, to help them decide quickly whether it is worth reaching out. Use ONLY the facts given - never invent employers, dates, achievements or posts. If you do not know something, leave it out rather than guessing. Write 3 to 4 short, specific, scannable insights, never a paragraph - each one is a single concrete fact or reason on its own, ordered with the single most decision-relevant one first. If the headline, company and captured profile text are all unknown, return an empty insights array instead of a sentence explaining there is nothing to assess - an empty field is the honest answer, not a sentence about the absence. Plain language, no scores, no flattery. Address the reader directly as "you" and "your" throughout every field - never write "the user" or "the user\'s goal" in third person. Never use em dashes; write a spaced hyphen instead.',
+        `About the person doing the outreach (this is you, the reader):\n${strategyBrief(settings)}\n\nThe person they want to understand:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nLocation: ${ctx.location||'unknown'}\nEducation: ${ctx.education||'unknown'}\nProfile text captured: ${clean(ctx.aboutText||ctx.snippet||'').slice(0,900)}\n${captured||''}\nWhy they were saved: ${ctx.whySaved||'unknown'}\nShared ground noted at save time: ${(ctx.common||[]).join('; ')||'none noted'}\n\nReturn JSON {"insights":["most decision-relevant fact or reason first - short, specific, scannable, why this person matters to your goal or what stands out about them, written directly to you as 'you'"],"shared":["real overlap - literal (same company, school, city) AND domain-level (both have worked in the same or a comparable industry, e.g. fintech, healthcare/pharma, deep tech - reason this out from each person's actual career history above, do not just restate their titles)"],"starters":["specific opening, grounded in the facts above"],"avoid":"one thing not to lead with, or omit"}`,
+        /* 1000 was not enough headroom once the sender preamble grew: four
+           JSON fields, several of them arrays of full sentences, on a person
+           with a rich profile ran past it and came back truncated mid-string,
+           which surfaces to the user as "did not come back in the right
+           shape". The preamble is capped now too, but the ceiling should not
+           be the thing that decides whether a brief parses. */
         1600, exchangeKey);
-      const briefing = {...br, careerSummary:clean(out.careerSummary), whyMatters:clean(out.whyMatters),
+      const briefing = {...br, insights:Array.isArray(out.insights)?out.insights.map(clean).filter(Boolean):[],
+        careerSummary:'', whyMatters:'',
         shared:Array.isArray(out.shared)?out.shared:[], conversationStarters:Array.isArray(out.starters)?out.starters:[],
         avoid:clean(out.avoid), builtAt:new Date().toISOString()};
       await onUpdate(row, {briefing});
-      track('brief_built', {shared:(briefing.shared||[]).length, starters:(briefing.conversationStarters||[]).length});
+      track('brief_built', {insights:(briefing.insights||[]).length, shared:(briefing.shared||[]).length, starters:(briefing.conversationStarters||[]).length});
       flash('Brief ready');
     }catch(e){ setErr(e.message||String(e)); }
     setBusy(null);
@@ -3863,7 +3874,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
 
   const DRAFT_SYSTEM_ONE = "You write a real first outreach message for a professional. Ground it ONLY in the given context - never invent shared history, mutual friends, articles or events. Sound like a person, not a template. No flattery, no buzzwords, no 'I hope this finds you well', no generic greeting line before the real content ('Greeting for the day', 'Hope you're doing well', or similar - go straight from the salutation into the actual reason for writing). Under 110 words. Ask for one specific, easy thing. Never use em dashes; write a spaced hyphen instead.";
   const draftContext = ()=>
-    `The sender:\n${strategyBrief(settings)}\n\nThe recipient:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nWhy the sender saved them: ${ctx.whySaved||'unknown'}\nShared ground: ${((br.shared&&br.shared.length?br.shared:ctx.common)||[]).join('; ')||'none confirmed'}\nBrief: ${br.careerSummary||'none'}\nThings the sender has learned about them: ${memories.map(m=>m.value).join('; ')||'nothing captured yet'}\n${captured||''}${voice.length ? '\n\nHOW THIS SENDER ACTUALLY WRITES.'
+    `The sender:\n${strategyBrief(settings)}\n\nThe recipient:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nWhy the sender saved them: ${ctx.whySaved||'unknown'}\nShared ground: ${((br.shared&&br.shared.length?br.shared:ctx.common)||[]).join('; ')||'none confirmed'}\nBrief: ${(br.insights&&br.insights.length)?br.insights.join('. '):'none'}\nThings the sender has learned about them: ${memories.map(m=>m.value).join('; ')||'nothing captured yet'}\n${captured||''}${voice.length ? '\n\nHOW THIS SENDER ACTUALLY WRITES.'
       + (fp ? ' Measured across all '+fp.sampleCount+' of their sent messages on file, they '+styleFingerprintLine(fp)+'.' : '')
       + ' Below are verbatim messages they have sent before. Match their rhythm, sentence length, level of formality and habits of greeting and sign-off. Do not copy phrases from them and do not reuse their content:\n' + voice.map((v,i)=>(i+1)+'. '+v).join('\n') : ''}`;
 
@@ -4120,7 +4131,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
 
       {tab==='brief' &&
         <div className="stack fade" style={{gap:16,marginTop:24}}>
-          {!br.careerSummary && !profileRead &&
+          {!(br.insights&&br.insights.length) && !profileRead &&
             <div className="card" style={{padding:'26px 26px 24px',position:'relative',overflow:'hidden'}}>
               <div aria-hidden="true" style={{position:'absolute',top:-140,left:-70,width:380,height:300,
                 borderRadius:'50%',background:'radial-gradient(circle,rgba(160,120,255,.14),transparent 70%)',
@@ -4144,7 +4155,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
               </div>
             </div>}
 
-          {!br.careerSummary && profileRead &&
+          {!(br.insights&&br.insights.length) && profileRead &&
             <div className="card" style={{padding:'28px 30px',position:'relative',overflow:'hidden'}}>
               <div aria-hidden="true" style={{position:'absolute',top:-140,left:-70,width:380,height:300,
                 borderRadius:'50%',background:'radial-gradient(circle,rgba(160,120,255,.14),transparent 70%)',
@@ -4165,12 +4176,17 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
               </div>
             </div>}
 
-          {/* One panel, one story - Why matters/Professional overview/Conversation
-             starters/Don't lead with/Shared context used to be five separate cards
-             with no shared frame, the one thing this tab most needed to stop doing.
-             Matches Draft's glow-card language (Mighty Prism.dc.html's own Brief
-             card does the same: one card, sub-labelled sections, not a stack). */}
-          {br.careerSummary &&
+          {/* One panel, one story - Insights/Conversation starters/Don't lead
+             with/Shared context used to be five separate cards with no shared
+             frame. Insights used to be two prose fields (whyMatters, a
+             career-summary paragraph) - real feedback was that it read as a
+             biography to get through, not something to decide from, so both
+             became one bulleted list: the single most decision-relevant fact
+             first (styled a touch larger, the one thing worth reading even at
+             a glance), the rest plain bullets underneath. Matches Draft's
+             glow-card language (Mighty Prism.dc.html's own Brief card does
+             the same: one card, sub-labelled sections, not a stack). */}
+          {br.insights && br.insights.length>0 &&
             <div className="card" style={{padding:'28px 30px',position:'relative',overflow:'hidden'}}>
               <div aria-hidden="true" style={{position:'absolute',top:-140,left:-70,width:380,height:300,
                 borderRadius:'50%',background:'radial-gradient(circle,rgba(160,120,255,.14),transparent 70%)',
@@ -4180,16 +4196,18 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                 <span style={{fontFamily:'var(--f-head)',fontSize:22,fontWeight:700,letterSpacing:'-.02em'}}>Brief</span>
               </div>
 
-              {br.whyMatters &&
-                <div style={{position:'relative',fontSize:17,lineHeight:1.6,color:'var(--ink2)',marginTop:18,fontWeight:500,textWrap:'pretty'}}>
-                  {br.whyMatters}
-                </div>}
-
-              {br.careerSummary &&
-                <F>
-                  <div className="eyebrow" style={{position:'relative',marginTop:22}}>Professional overview</div>
-                  <div style={{position:'relative',fontSize:15,lineHeight:1.6,color:'var(--body)',marginTop:8,textWrap:'pretty'}}>{br.careerSummary}</div>
-                </F>}
+              <div className="stack" style={{position:'relative',gap:12,marginTop:18}}>
+                {br.insights.map((s,i)=>(
+                  i===0 ? (
+                    <div key={i} style={{fontSize:17,lineHeight:1.5,color:'var(--ink2)',fontWeight:600,textWrap:'pretty'}}>{s}</div>
+                  ) : (
+                    <div key={i} className="row" style={{gap:10,alignItems:'flex-start'}}>
+                      <span className="dot" style={{background:'var(--brand-ink)',marginTop:7}}/>
+                      <span style={{fontSize:15,color:'var(--body)',lineHeight:1.5}}>{s}</span>
+                    </div>
+                  )
+                ))}
+              </div>
 
               {((br.shared&&br.shared.length) || (ctx.common&&ctx.common.length)) &&
                 <F>
@@ -9292,7 +9310,11 @@ function App(){
   }
 
   /* The extension deep-links here as /app/?open=<log id>. Honour it once the
-     people are loaded, then clear the query so a refresh doesn't re-trigger. */
+     people are loaded, then clear the query so a refresh doesn't re-trigger.
+     Lands on brief, matching go()'s own default two functions up - this used
+     to hardcode 'draft', which meant the one add-a-person flow most people
+     actually use (the extension, while browsing LinkedIn) was the one place
+     that still put the paid drafting step before the free reading step. */
   const deepLinked = useRef(false);
   useEffect(()=>{
     if(deepLinked.current || !people.length) return;
@@ -9301,7 +9323,7 @@ function App(){
     const hit = people.find(r=>String(r.id)===String(want));
     deepLinked.current = true;
     if(hit){
-      setPersonId(hit.id); setTab('draft'); setScreen('profile');
+      setPersonId(hit.id); setTab('brief'); setScreen('profile');
       window.history.replaceState({}, '', window.location.pathname);
     }
   },[people]);
