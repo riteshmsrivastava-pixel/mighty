@@ -234,26 +234,17 @@ const contexts = {
 let profileIndex=0, goal='funding', draftPerson=examples[0], draftGoal='funding', snapshotId=null, approach='warm', workspaceView='list', progress='prepared', entry='network';
 const saved = new Map(), drafts = new Map();
 function text(id,value){$(id).textContent=value;}
-/* Illustrated, not a photo - Jordan/Evelyn/Sam are example people for this
-   demo, not real ones, so a stock or AI "photo" would misrepresent an
-   invented person as real. DiceBear's own SVGs give each a distinct,
-   personal-feeling portrait from their name alone - a name-seeded generator,
-   not a real likeness. Initials render immediately as a loading state, same
-   as always; the portrait only replaces them once the image has actually
-   finished loading (confirmed via a real Image().onload, not just "the URL
-   was set") - never layered on top of the text, which is what made the
-   first version look broken rather than personal. Falls back to exactly
-   today's initials-only look if DiceBear is ever unreachable. */
+/* A plain person silhouette, not a photo and not an illustrated character -
+   Jordan/Evelyn/Sam are example people for this demo, not real ones, so a
+   stock or AI "photo" would misrepresent an invented person as real, and a
+   generated character face read as broken rather than personal at avatar
+   size. This reads as unmistakably human at a glance, inline (no network
+   request, nothing that can fail to load), in each person's own color. */
+const PERSON_GLYPH = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:62%;height:62%"><path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.4c-3.3 0-9.8 1.6-9.8 4.9v2.5h19.6v-2.5c0-3.3-6.5-4.9-9.8-4.9z"/></svg>';
 function paintAvatar(node,person){
-  node.textContent=person.initials;node.style.backgroundColor=person.color;node.style.color=person.ink;
-  const url = `https://api.dicebear.com/9.x/notionists-neutral/svg?seed=${encodeURIComponent(person.name)}`;
-  const img = new Image();
-  img.onload = ()=>{
-    node.style.backgroundImage=`url(${url})`;
-    node.style.backgroundSize='cover';node.style.backgroundPosition='center';
-    node.textContent='';
-  };
-  img.src = url;
+  node.textContent='';node.style.backgroundColor=person.color;node.style.color=person.ink;
+  node.style.display='flex';node.style.alignItems='center';node.style.justifyContent='center';
+  node.innerHTML=PERSON_GLYPH;
 }
 function makeNode(tag,cls,value){const node=document.createElement(tag);if(cls)node.className=cls;if(value)node.textContent=value;return node;}
 function renderProfile(animate=false){
