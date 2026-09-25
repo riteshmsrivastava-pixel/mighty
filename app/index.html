@@ -3648,6 +3648,10 @@ const APPROACHES = [
   {id:'value',     label:'Value first',       brief:'offers something useful before asking'},
   {id:'coffee',    label:'Coffee chat',       brief:'a short, concrete request to talk'},
 ];
+/* Not one of the five - excluded from makeDrafts' batch prompt on purpose,
+   since there is nothing to write until the user types their own brief.
+   Only reachable by clicking the chip, which reveals that input. */
+const CUSTOM_APPROACH = {id:'custom', label:'Custom'};
 function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, onStage, onEvent, onTask, tab, setTab, go}){
   const ctx = row.context||{};
   /* Do I already know someone at their company? A real, specific opening -
@@ -3731,6 +3735,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
      for: attributing a reply to what was sent (see markReplied). */
   const initialApproach = 'warm';
   const [approach,setApproach] = useState(initialApproach);
+  const [customBrief,setCustomBrief] = useState('');
   const [drafts,setDrafts] = useState(()=> row.ai_draft
     ? {[initialApproach]: {message:row.ai_draft, original:row.ai_draft, subject:''}} : {});
   const [noteS,setNoteS] = useState(''); const [noteC,setNoteC] = useState(''); const [noteP,setNoteP] = useState('');
@@ -3872,7 +3877,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
   const fp = styleFingerprint(allSamples);
 
 
-  const DRAFT_SYSTEM_ONE = "You write a real first outreach message for a professional. Ground it ONLY in the given context - never invent shared history, mutual friends, articles or events. Sound like a person, not a template. No flattery, no buzzwords, no 'I hope this finds you well', no generic greeting line before the real content ('Greeting for the day', 'Hope you're doing well', or similar - go straight from the salutation into the actual reason for writing). Under 110 words. Ask for one specific, easy thing. Never use em dashes; write a spaced hyphen instead.";
+  const DRAFT_SYSTEM_ONE = "You write a real first outreach message for a professional. Ground it ONLY in the given context - never invent shared history, mutual friends, articles or events. Sound like a person, not a template. Start with a short salutation line by itself, like 'Hi Name,' - then a blank line - then the body. No flattery, no buzzwords, no 'I hope this finds you well', no generic filler greeting sentence before the real content ('Greeting for the day', 'Hope you're doing well', or similar - after the salutation line, go straight into the actual reason for writing, no throat-clearing sentence first). Under 110 words. Ask for one specific, easy thing. Never use em dashes; write a spaced hyphen instead.";
   const draftContext = ()=>
     `The sender:\n${strategyBrief(settings)}\n\nThe recipient:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nWhy the sender saved them: ${ctx.whySaved||'unknown'}\nShared ground: ${((br.shared&&br.shared.length?br.shared:ctx.common)||[]).join('; ')||'none confirmed'}\nBrief: ${(br.insights&&br.insights.length)?br.insights.join('. '):'none'}\nThings the sender has learned about them: ${memories.map(m=>m.value).join('; ')||'nothing captured yet'}\n${captured||''}${voice.length ? '\n\nHOW THIS SENDER ACTUALLY WRITES.'
       + (fp ? ' Measured across all '+fp.sampleCount+' of their sent messages on file, they '+styleFingerprintLine(fp)+'.' : '')
@@ -3922,8 +3927,12 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
       setErr('Ten takes is the limit on one Assist. Send one, or edit the last one yourself.');
       return;
     }
+    if(approach==='custom' && !clean(customBrief)) return;
     setBusy('draft'); setErr(null);
-    const a = APPROACHES.find(x=>x.id===approach)||APPROACHES[1];
+    /* Custom has no fixed brief - what the user typed IS the brief, same
+       "Approach: {label} - {description}" shape the other five already use,
+       so no separate prompt path is needed for it. */
+    const a = approach==='custom' ? {label:'Custom', brief:clean(customBrief)} : (APPROACHES.find(x=>x.id===approach)||APPROACHES[1]);
     try{
       const out = await llmJSON(sb, 'draft_message', DRAFT_SYSTEM_ONE,
         `${draftContext()}\n\nApproach: ${a.label} - ${a.brief}.\n\nReturn JSON {"subject":"short subject line for email use","message":"the message body"}`,
@@ -4309,11 +4318,18 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
       {tab==='draft' &&
         <div className="fade" style={{marginTop:24}}>
           <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
-            {APPROACHES.map(a=>(
+            {[...APPROACHES, CUSTOM_APPROACH].map(a=>(
               <button key={a.id} className={'chip'+(approach===a.id?' on':'')} onClick={()=>selectApproach(a.id)}>
                 {a.label}{drafts[a.id] && <span style={{marginLeft:6,opacity:.6}}>&middot;</span>}
               </button>))}
           </div>
+          {approach==='custom' &&
+            <div style={{marginTop:14}}>
+              <div className="lbl">Your instructions</div>
+              <textarea className="inp" style={{minHeight:64}} value={customBrief}
+                onChange={e=>setCustomBrief(e.target.value)}
+                placeholder="e.g. Keep it very short, mention their talk at the conference, ask for 15 minutes not a coffee chat"/>
+            </div>}
           {/* Same "Light Leaks" treatment Pulse's hero and Bridge's overlap card
              already use - a soft radial wash in the corner of an otherwise
              standard .card, rather than a one-off bespoke panel style. */}
@@ -4341,7 +4357,15 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
               </span>
             </div>
 
-            {Object.keys(drafts).length===0 &&
+            {approach==='custom' && !drafts.custom &&
+              <div className="stack" style={{position:'relative',gap:14,marginTop:20}}>
+                <div className="sub" style={{fontSize:14.5}}>Write your instructions above, then generate.</div>
+                <button className="btn g sm" style={{alignSelf:'flex-start'}} onClick={regenerateOne}
+                  disabled={(!!busy && busy!=='draft')||takesLeft<=0||!clean(customBrief)}>
+                  {busy==='draft'?<span><span className="spin"/> Writing</span>: takesLeft<=0?'No takes left':'Generate this angle'}
+                </button>
+              </div>}
+            {approach!=='custom' && Object.keys(drafts).length===0 &&
               <div className="stack" style={{position:'relative',gap:14,marginTop:20}}>
                 <div className="sub" style={{fontSize:14.5,lineHeight:1.55,textWrap:'pretty'}}>
                   Choose a draft, edit it, then send it on LinkedIn.
@@ -4358,7 +4382,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                   {' '}<a href="/pricing/#assist" target="_blank" rel="noopener noreferrer" style={{fontWeight:600}}>What is an Assist?</a>
                 </div>
               </div>}
-            {Object.keys(drafts).length>0 && !drafts[approach] &&
+            {approach!=='custom' && Object.keys(drafts).length>0 && !drafts[approach] &&
               <div className="stack" style={{position:'relative',gap:14,marginTop:20}}>
                 <div className="sub" style={{fontSize:14.5}}>This angle has not been generated yet.</div>
                 <button className="btn g sm" style={{alignSelf:'flex-start'}} onClick={regenerateOne}
