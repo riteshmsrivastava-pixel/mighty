@@ -55,7 +55,23 @@ function companyFromTitle(t: string): string {
   if (atSign) return atSign[1].trim();
   return "";
 }
-// Google result title → { name, headline, company }
+// Google's own result thumbnail for the page - LinkedIn sets og:image on
+// public profile pages for its own link-preview cards, and the Custom
+// Search API surfaces that (plus its own crawled cse_image) in pagemap
+// without an extra fetch. Three fallbacks, best first: a full-size crawled
+// image, the page's own og:image meta tag, then the lower-res thumbnail
+// Google generates - never nothing just because the first shape is missing.
+function parseImage(it: any): string {
+  const pm = it.pagemap || {};
+  const cseImage = pm.cse_image?.[0]?.src;
+  if (cseImage) return cseImage;
+  const ogImage = pm.metatags?.[0]?.["og:image"];
+  if (ogImage) return ogImage;
+  const thumb = pm.cse_thumbnail?.[0]?.src;
+  if (thumb) return thumb;
+  return "";
+}
+// Google result title → { name, headline, company, avatarUrl }
 function parseItem(it: any) {
   const link = it.link || "";
   if (!/linkedin\.com\/in\//i.test(link)) return null;
@@ -64,7 +80,7 @@ function parseItem(it: any) {
   const name = (parts[0] || "").trim();
   if (!name || name.length > 60) return null;
   const headline = parts.slice(1).join(" - ").trim();
-  return { profileUrl: normUrl(link), name, title: headline, company: companyFromTitle(headline) };
+  return { profileUrl: normUrl(link), name, title: headline, company: companyFromTitle(headline), avatarUrl: parseImage(it) };
 }
 
 Deno.serve(async (req) => {

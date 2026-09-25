@@ -117,7 +117,7 @@ html.motion-paused .world-map *,html.motion-paused .world-map::after{animation-p
       <div class="context-chip chip-two"><span class="source-icon coral">✳</span><div><small>YOUR PERSPECTIVE</small><b>Builder at heart</b></div></div>
       <div class="context-chip chip-three"><span class="source-icon plain">↗</span><div><small>YOUR NEXT CHAPTER</small><b>Something bigger</b></div></div>
       <div class="you-core"><div class="core-ring" aria-hidden="true"></div><span>You.</span><small>Always at the centre.</small></div>
-      <div class="hero-person"><div class="avatar avatar-coral">JL</div><div><span class="tiny-label">A REASON TO CONNECT</span><b>Jordan Lee</b><span>Early-stage investor · AI</span></div><span class="fit-spark" aria-hidden="true">✦</span></div>
+      <div class="hero-person"><div class="avatar avatar-coral" id="hero-person-avatar">JL</div><div><span class="tiny-label">A REASON TO CONNECT</span><b>Jordan Lee</b><span>Early-stage investor · AI</span></div><span class="fit-spark" aria-hidden="true">✦</span></div>
       <div class="universe-caption"><button type="button" class="scene-motion" data-motion-toggle aria-label="Pause animation" aria-pressed="false">Motion on</button></div>
     </div>
     <div class="hero-foot"><a href="#your-world">Start with you <span aria-hidden="true">↓</span></a><span class="example-label">Illustrative product story</span></div>
@@ -234,7 +234,18 @@ const contexts = {
 let profileIndex=0, goal='funding', draftPerson=examples[0], draftGoal='funding', snapshotId=null, approach='warm', workspaceView='list', progress='prepared', entry='network';
 const saved = new Map(), drafts = new Map();
 function text(id,value){$(id).textContent=value;}
-function paintAvatar(node,person){node.textContent=person.initials;node.style.backgroundColor=person.color;node.style.color=person.ink;}
+/* Illustrated, not a photo - Jordan/Evelyn/Sam are example people for this
+   demo, not real ones, so a stock or AI "photo" would misrepresent an
+   invented person as real. DiceBear's own SVGs give each a distinct,
+   personal-feeling portrait from their name alone - a name-seeded generator,
+   not a real likeness. Set as a background-image rather than an inserted
+   <img>, so if it's ever unreachable (offline, DiceBear down) the initials
+   underneath still show through exactly as before, no broken-image icon. */
+function paintAvatar(node,person){
+  node.textContent=person.initials;node.style.backgroundColor=person.color;node.style.color=person.ink;
+  node.style.backgroundImage=`url(https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(person.name)})`;
+  node.style.backgroundSize='cover';node.style.backgroundPosition='center';
+}
 function makeNode(tag,cls,value){const node=document.createElement(tag);if(cls)node.className=cls;if(value)node.textContent=value;return node;}
 function renderProfile(animate=false){
   const p=examples[profileIndex], fit=p[goal];
@@ -409,6 +420,10 @@ if('IntersectionObserver' in window){
   document.querySelectorAll('.reveal').forEach(node=>reveal.observe(node));
 }
 applyMotion();renderProfile();seedExampleWorkspace();renderMemory();renderPulse();
+// The hero's own Jordan Lee card is static, not tied to profileIndex
+// rotation the way the browsing demo below is - painted once, here, rather
+// than added to renderProfile()'s per-rotation work.
+paintAvatar($('hero-person-avatar'), examples[0]);
 
 </script>
 </body></html>

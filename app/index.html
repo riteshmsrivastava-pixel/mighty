@@ -474,6 +474,10 @@ const canSee = (k,p,e)=>{ try{ return !!UNLOCKS[k].test(p,e); }catch(err){ retur
 
 /* ===================== helpers ===================== */
 const clean = (s)=>String(s==null?'':s).trim();
+// The model isn't told to capitalize its own reasoning, and doesn't
+// reliably do it on its own - applied once here rather than depended on
+// from every prompt that asks for a sentence of prose.
+const sentenceCase = (s)=>{ s=clean(s); return s ? s.charAt(0).toUpperCase()+s.slice(1) : s; };
 const initials = (n)=>clean(n).split(/\s+/).filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase() || '?';
 const firstName = (n)=>clean(n).split(/\s+/)[0] || '';
 /* LinkedIn names sometimes carry self-appended credentials after a comma
@@ -1189,7 +1193,7 @@ async function evaluate(sb, people, st){
     const m = byN[i+1]||{};
     const raw = String(m.verdict||'').toLowerCase();
     const v = VERDICT_KEYS.indexOf(raw)>=0 ? raw : 'potential';
-    return {...p, verdict:v, why:clean(m.why), common:Array.isArray(m.common)?m.common.filter(Boolean).slice(0,4):[], warmIntro:overlaps[i]};
+    return {...p, verdict:v, why:sentenceCase(m.why), common:Array.isArray(m.common)?m.common.filter(Boolean).slice(0,4):[], warmIntro:overlaps[i]};
   });
 }
 /* Same shape and the same honesty rules as evaluate() above, but scored
@@ -1218,7 +1222,7 @@ async function evaluateAttendees(sb, people, st, eventGoal, tags){
     const m = byN[i+1]||{};
     const raw = String(m.verdict||'').toLowerCase();
     const v = VERDICT_KEYS.indexOf(raw)>=0 ? raw : 'potential';
-    return {...p, verdict:v, why:clean(m.why), common:Array.isArray(m.common)?m.common.filter(Boolean).slice(0,4):[], warmIntro:overlaps[i]};
+    return {...p, verdict:v, why:sentenceCase(m.why), common:Array.isArray(m.common)?m.common.filter(Boolean).slice(0,4):[], warmIntro:overlaps[i]};
   });
 }
 
