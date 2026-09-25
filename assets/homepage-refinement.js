@@ -53,7 +53,7 @@
     let playRequested=!storyMotion.matches,storyVisible=false,storyBeat=0,storyTimer=null;
     const storyScenes=[
       {labels:['State your goal','Find familiar people','Explore beyond'],steps:[
-        '.mock-search-field,.search-browser-tabs,.difference-query',
+        '.mock-search-field,.difference-query',
         '.search-result-example,.difference-search-group:nth-of-type(3)',
         '.manual-search-task,.difference-search-group:nth-of-type(4)'
       ]},
