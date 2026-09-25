@@ -1,4 +1,58 @@
 /* A shorter reading path, with the full interactive examples one click away. */
+.context-difference{padding-block:78px 84px;border-top:1px solid var(--line)}
+.difference-heading{margin-bottom:34px}
+.difference-heading h2{margin:18px 0}
+.difference-heading>p:last-child{color:var(--muted);font-size:1rem}
+.difference-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.difference-card{border:1px solid #493C53;border-radius:20px;padding:30px;display:flex;flex-direction:column;min-width:0;background:#1B1721}
+.difference-card.with-mighty{border-color:#9474CA;background:radial-gradient(ellipse at 90% 0,#72519E36,transparent 70%),#241B31;box-shadow:0 16px 55px #0002}
+.difference-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:32px;margin-bottom:28px}
+.difference-card-head h3{font-size:1.05rem;font-weight:500;color:#C7BBCF}
+.difference-card-head h3 img{display:block;width:124px;height:auto}
+.difference-card-head>.tiny-label{font-size:.625rem;letter-spacing:.1em;color:#B7A5C6}
+.difference-person{display:flex;align-items:center;gap:14px}
+.difference-person .avatar{width:50px;height:50px;flex-shrink:0}
+.difference-person strong,.difference-person div>span{display:block}
+.difference-person strong{font-size:1rem;font-weight:550}
+.difference-person div>span{font-size:.8125rem;color:#BCADC9;margin-top:4px;line-height:1.5}
+.difference-profile-summary{color:#BCAECA;font-size:.9375rem;line-height:1.8;margin:24px 0 30px}
+.difference-evidence{display:grid;gap:14px;margin:24px 0 28px}
+.difference-evidence>div{display:grid;grid-template-columns:104px 1fr;gap:12px}
+.difference-evidence dt{font-size:.75rem;color:#C3ADE2;padding-top:2px}
+.difference-evidence dd{margin:0;font-size:.875rem;color:#E0D5EA;line-height:1.55}
+.difference-outcome{margin-top:auto;padding-top:22px;border-top:1px solid #54435F}
+.difference-outcome .tiny-label{font-size:.625rem;letter-spacing:.11em;color:#B6A3C8}
+.difference-outcome p{margin:10px 0 0;font-size:1.125rem;line-height:1.55;letter-spacing:-.015em;color:#C8BCD4}
+.with-mighty .difference-outcome p{color:#F2EAFE}
+.with-mighty .difference-outcome .tiny-label{color:#D3B5FF}
+.difference-foot{display:flex;justify-content:space-between;align-items:center;gap:30px;margin-top:25px}
+.difference-foot>p{max-width:640px;font-size:.875rem;line-height:1.7;color:#C4B7D1}
+.difference-foot>a{white-space:nowrap;font-size:.875rem}
+.difference-disclosure{font-size:.6875rem;color:#AA9AB9;margin-top:18px;line-height:1.6}
+.goal-options button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border-radius:16px;min-height:65px}
+.goal-options button small{font-size:.6875rem;line-height:1.35;font-weight:400;color:#BFAED0}
+.goal-options button[aria-pressed=true] small{color:#DBC5FF}
+.entry-event-context{margin-top:22px;padding-bottom:20px;border-bottom:1px solid #5A426B}
+.entry-event-context>.tiny-label{font-size:.625rem;letter-spacing:.09em;color:#CFB7ED}
+.entry-event-context h3{font-size:1.6rem;letter-spacing:-.025em;margin:9px 0}
+.entry-event-context p{font-size:.875rem;line-height:1.65;color:#CBBFD6}
+.event-attendance{border-left:2px solid #AB8CE0;padding-left:14px;margin-top:18px}
+.event-attendance strong{display:block;font-size:.8125rem;margin-bottom:5px;color:#EADDF8}
+.entry-goal-comparison{display:grid;gap:12px;margin-top:20px}
+.entry-goal-fit{padding:16px;border:1px solid #594368;border-radius:12px;background:#231B2D}
+.entry-goal-fit>.tiny-label{display:block;font-size:.625rem;letter-spacing:.09em;color:#B9A2D0}
+.entry-goal-fit strong{display:block;margin:7px 0;font-weight:500;color:#D4B8FC}
+.entry-goal-fit p{font-size:.8125rem;line-height:1.65;color:#CBBFD6}
+@media(max-width:700px){
+ .context-difference{padding-block:48px}
+ .difference-grid{grid-template-columns:1fr}
+ .difference-card{padding:24px}
+ .difference-card-head{margin-bottom:24px}
+ .difference-evidence>div{grid-template-columns:1fr;gap:3px}
+ .difference-foot{align-items:flex-start;flex-direction:column;gap:16px}
+ .difference-card-head>.tiny-label{font-size:.5625rem}
+ .difference-outcome p{font-size:1rem}
+}
 .hero h1{font-size:clamp(2.8rem,4.7vw,4.7rem);line-height:1.04;max-width:650px}
 .hero h1 span{white-space:normal}
 .hero-copy{min-width:0}

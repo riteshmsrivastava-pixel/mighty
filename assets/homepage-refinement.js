@@ -30,6 +30,11 @@
   }
   document.querySelectorAll('[data-audience]').forEach(button=>button.addEventListener('click',()=>showAudience(button.dataset.audience)));
   showAudience('career');
+  const comparisonPerson=examples.find(person=>person.id==='priya');
+  ['difference-profile-avatar','difference-mighty-avatar'].forEach(id=>{
+    const avatar=document.getElementById(id);
+    if(avatar)paintAvatar(avatar,comparisonPerson);
+  });
   const tabs=[...document.querySelectorAll('.workflow-tabs [role="tab"]')];
   const panels=tabs.map(tab=>document.getElementById(tab.getAttribute('aria-controls')));
   function showPanel(id,{focus=false}={}){
@@ -81,7 +86,7 @@
   }
   document.getElementById('review-entry').addEventListener('click',()=>reviewPerson(discoveryPeople[entry]));
   document.getElementById('review-beyond').addEventListener('click',()=>reviewPerson('jordan'));
-  // No-JS browsers retain all four examples; hide inactive panels only now.
+  // No-JS browsers retain every example; hide inactive panels only now.
   showPanel('discovery');
   revealAnchor(location.hash);
 })();
