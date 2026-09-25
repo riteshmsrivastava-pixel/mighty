@@ -415,19 +415,24 @@ function captureProfileContext(force) {
    lighter "save?" panel appears. */
 /* Design tokens - kept identical to the web app so the panel reads as one
    product. See app/index.html :root. */
-const ACCENT = '#5B4FE9';
-const ACCENT_DEEP = '#4A3FD1';
+/* Dark, matching yourmighty.com's own extension mockup (same colors, pulled
+   straight from its live CSS) rather than the page's usual white card - a
+   LinkedIn profile is a white page, and a white panel on it used to
+   disappear into the chrome. Dark is also just what the product already
+   promises this panel looks like, on the marketing site. */
+const ACCENT = '#6747D9';
+const ACCENT_DEEP = '#DACFFF';
 const PEACH = '#E87A56';
-const TINT = '#EFEDFD';
-const INK = '#1D1B26';
-const SUB = '#8A8896';
-const MUTE = '#B4B1BC';
-const LINE = '#F1EFE9';
+const TINT = '#2E2736';
+const INK = '#F5F1FB';
+const SUB = '#B3ADBF';
+const MUTE = '#847D8D';
+const LINE = '#38313F';
 const FONT = "'Schibsted Grotesk',-apple-system,system-ui,sans-serif";
 // The one match ladder, same words as the app. Keep in sync with
 // mightyMatchLabel() in scoring.js and VERDICT in app/index.html.
-const FIT_DOT = {'Excellent match':'#5B4FE9','Strong match':'#2E8B5F','Potential match':'#E3A23C',
-  'Outside your goal':'#B4B1BC'};
+const FIT_DOT = {'Excellent match':'#8A7AF0','Strong match':'#4FBE84','Potential match':'#E3A23C',
+  'Outside your goal':'#6F6878'};
 // Two-overlapping-circles brand mark, inline so it needs no web-accessible asset.
 const MARK_SVG = '<svg width="20" height="20" viewBox="0 0 26 26" fill="none" style="display:block;flex:none"><circle cx="9.5" cy="13" r="7.5" fill="#5B4FE9"></circle><circle cx="16.5" cy="13" r="7.5" fill="#E87A56" fill-opacity="0.85"></circle></svg>';
 let sidebarEl = null;
@@ -452,7 +457,7 @@ function ensureSidebar() {
   sidebarEl = document.createElement('div');
   sidebarEl.id = 'mighty-sidebar';
   sidebarEl.style.cssText = 'position:fixed;top:70px;right:16px;width:336px;max-height:86vh;overflow:auto;z-index:99998;'
-    + 'background:#fff;border:1px solid #EAE6E0;border-radius:16px;box-shadow:0 18px 44px rgba(26,25,23,.16);'
+    + 'background:#201B27;border:1px solid #44384F;border-radius:16px;box-shadow:0 18px 44px rgba(0,0,0,.4);'
     + `font:14px ${FONT};color:${INK};padding:20px 20px 18px;box-sizing:border-box;`;
   document.body.appendChild(sidebarEl);
   return sidebarEl;
@@ -646,16 +651,15 @@ function goalTypeLabel(types) {
   return (types || []).map(t => GOAL_TYPE_LABEL[t]).filter(Boolean).join(' and ');
 }
 /* Scores a person against every goal the student has (primary plus any
-   secondary ones from the Goal tab's "Also tracking" list) and returns the
-   best match. An account with only one goal - still the overwhelming
-   majority - takes the exact same single fitFromStrategy() call as before,
-   with no goalLabel on the result at all, so the panel renders identically
-   to how it always has. goalLabel only appears once there is a real second
-   goal to distinguish from the first, so it can be shown to say which one
-   this person actually matched. */
-function bestFitFromGoals(p, r) {
+   secondary ones from the Goal tab's "Also tracking" list), best match
+   first. An account with only one goal - still the overwhelming majority -
+   gets back a single-item array carrying no label at all, so bestFitFromGoals
+   below still degrades to the exact same fitFromStrategy() call as before
+   this existed. label only appears once there is a real second goal to
+   distinguish from the first. */
+function scoreAllGoals(p, r) {
   const secondary = r.secondaryGoals || [];
-  if (!secondary.length) return fitFromStrategy(p, r);
+  if (!secondary.length) return [{ fit: fitFromStrategy(p, r), label: null }];
   const candidates = [
     { fit: fitFromStrategy(p, r), label: goalTypeLabel(r.goalTypes) || 'Primary goal' },
     ...secondary.map(g => ({
@@ -664,15 +668,57 @@ function bestFitFromGoals(p, r) {
     })),
   ];
   candidates.sort((a, b) => b.fit.score - a.fit.score);
-  const best = candidates[0];
-  return { ...best.fit, goalLabel: best.label };
+  return candidates;
 }
-// Empty string when there is only one goal (fit.goalLabel is never set in
-// that case) - so this is inert, not just small, for every account that
-// hasn't added a second goal.
-function fitGoalChip(fit) {
-  if (!fit.goalLabel) return '';
-  return `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:${TINT};color:${ACCENT_DEEP};">${esc(fit.goalLabel)}</span>`;
+function bestFitFromGoals(p, r) {
+  const best = scoreAllGoals(p, r)[0];
+  return best.label ? { ...best.fit, goalLabel: best.label } : best.fit;
+}
+// Selected/unselected pill, same two states as yourmighty.com's own
+// goal-options toggle (same colors, lifted from its live CSS).
+function fitPillStyle(active) {
+  return `font-size:12.5px;font-weight:${active ? 700 : 600};background:${active ? '#3A2B5C' : '#25202E'};`
+    + `color:${active ? '#DACFFF' : '#C6BDCF'};border:1px solid ${active ? '#9C82D7' : '#4D405D'};border-radius:22px;`
+    + 'padding:9px 6px;line-height:1.25;cursor:pointer;transition:background .2s,border-color .2s;';
+}
+/* Builds the "Relationship fit" block. With one goal (the overwhelming
+   majority of accounts) this is just the dot + label line, exactly as
+   before - all() has one entry and no pills render. With a second goal, it
+   renders both as side-by-side pills (yourmighty.com's own two-goal mockup,
+   same layout), the better match pre-selected, and clicking the other pill
+   swaps the fit line and the recommendation text to that goal's own score -
+   no re-fetch, both were already computed. subLineHtml is the saved-row's
+   extra "In conversation - 2 interactions" line, which sits under the fit
+   line either way and never changes with the pill. */
+function buildFitUI(person, r, subLineHtml) {
+  const all = scoreAllGoals(person, r);
+  const fitLine = (f) => `<div data-fit-line style="display:flex;align-items:center;gap:9px;${all.length > 1 ? 'margin-top:12px;' : 'margin-top:7px;'}flex-wrap:wrap;">
+       <span style="width:8px;height:8px;border-radius:50%;flex:none;background:${FIT_DOT[f.label] || MUTE};"></span>
+       <span style="font-size:17px;font-weight:700;letter-spacing:-.015em;color:${FIT_DOT[f.label] || INK};">${esc(f.label)}</span>
+     </div>`;
+  const pills = all.length > 1
+    ? `<div data-fit-pills style="display:grid;grid-template-columns:repeat(${all.length},minmax(0,1fr));gap:7px;margin-top:8px;">
+        ${all.map((c, i) => `<button type="button" data-fit-pill="${i}" style="${fitPillStyle(i === 0)}">${esc(c.label)}</button>`).join('')}
+      </div>`
+    : '';
+  const html = pills + fitLine(all[0].fit) + (subLineHtml || '');
+  const recHtml = `<div data-fit-rec style="font-size:14.5px;line-height:1.5;color:#C7BECF;margin-top:7px;">${esc(fitRecommendation(all[0].fit, r))}</div>`;
+  function attach(el) {
+    if (all.length <= 1) return;
+    const pillsWrap = el.querySelector('[data-fit-pills]');
+    if (!pillsWrap) return;
+    pillsWrap.querySelectorAll('[data-fit-pill]').forEach(btn => {
+      btn.onclick = () => {
+        const idx = Number(btn.dataset.fitPill);
+        pillsWrap.querySelectorAll('[data-fit-pill]').forEach((b2, i2) => { b2.style.cssText = fitPillStyle(i2 === idx); });
+        const lineEl = el.querySelector('[data-fit-line]');
+        if (lineEl) lineEl.outerHTML = fitLine(all[idx].fit);
+        const recEl = el.querySelector('[data-fit-rec]');
+        if (recEl) recEl.textContent = fitRecommendation(all[idx].fit, r);
+      };
+    });
+  }
+  return { html, recHtml, attach };
 }
 // What to do about it, in one sentence, honest about a weak fit.
 function fitRecommendation(fit, r) {
@@ -694,7 +740,7 @@ function panelSection(label, inner, first) {
 }
 function panelLines(list) {
   return `<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
-    ${list.map(x => `<div style="font-size:14px;color:#2A2724;line-height:1.45;">${esc(x)}</div>`).join('')}</div>`;
+    ${list.map(x => `<div style="font-size:14px;color:#C7BECF;line-height:1.45;">${esc(x)}</div>`).join('')}</div>`;
 }
 // LinkedIn headlines usually already contain the company (and often the city),
 // so joining them again reads as a stutter: "Partner at Antler · Antler".
@@ -719,8 +765,8 @@ function panelPerson(photo, name, sub) {
 function pbtn(text, kind) {
   const base = 'border:none;border-radius:999px;padding:11px 16px;font-weight:700;font-size:14.5px;cursor:pointer;'
     + `flex:1;font-family:${FONT};line-height:1.2;`;
-  if (kind === 'ghost') return base + 'background:#F4F2EE;color:#5B554D;font-weight:600;';
-  if (kind === 'outline') return base + `background:#fff;color:${INK};border:1px solid #E2DDD6;font-weight:600;`;
+  if (kind === 'ghost') return base + 'background:#25202E;color:#C6BDCF;font-weight:600;';
+  if (kind === 'outline') return base + `background:transparent;color:${INK};border:1px solid #4D405D;font-weight:600;`;
   return base + `background:${ACCENT};color:#fff;`;
 }
 
@@ -793,11 +839,11 @@ function renderNearby(el, r, selfUrl) {
           <span style="width:7px;height:7px;border-radius:50%;flex:none;background:${FIT_DOT[p.fit.label] || MUTE};"></span>
           <span style="font-size:12.5px;font-weight:700;">${esc(p.fit.label)}</span>
         </div>
-        ${p.fit.why.length ? `<div style="font-size:12.5px;color:#5B554D;margin-top:4px;line-height:1.4;">${esc(p.fit.why[0])}</div>` : ''}
+        ${p.fit.why.length ? `<div style="font-size:12.5px;color:${SUB};margin-top:4px;line-height:1.4;">${esc(p.fit.why[0])}</div>` : ''}
       </div>`;
     const btn = document.createElement('button');
     btn.textContent = 'Save';
-    btn.style.cssText = `flex:none;background:#fff;border:1px solid #E2DDD6;border-radius:999px;padding:7px 15px;`
+    btn.style.cssText = `flex:none;background:transparent;border:1px solid #4D405D;border-radius:999px;padding:7px 15px;`
       + `font-weight:600;font-size:13px;cursor:pointer;font-family:${FONT};color:${INK};`;
     btn.onclick = async () => {
       btn.textContent = 'Saving…'; btn.disabled = true;
@@ -862,22 +908,17 @@ async function renderProfileSidebar() {
     const person = { name: liveName, title: liveHeadline, company: liveCompany,
       text: [sec.about, sec.experience, sec.education, sec.skills].filter(Boolean).join('\n') || profileMainText(),
       sections: sec };
-    const fit = bestFitFromGoals(person, r);
+    const fitUI = buildFitUI(person, r);
     const shared = sharedGround(r, liveCompany, sec, mutualText(), liveLocation);
     const kw = kbKeywordMatches(r.profile || {}, liveCompany, sec);
 
     el.innerHTML = mightyBrandHead('')
       + panelPerson(livePhoto, liveName, personSub(liveHeadline, liveCompany))
-      + panelSection('Relationship fit',
-          `<div style="display:flex;align-items:center;gap:9px;margin-top:7px;flex-wrap:wrap;">
-             <span style="width:8px;height:8px;border-radius:50%;flex:none;background:${FIT_DOT[fit.label] || MUTE};"></span>
-             <span style="font-size:17px;font-weight:700;letter-spacing:-.015em;">${esc(fit.label)}</span>
-             ${fitGoalChip(fit)}
-           </div>`, true)
+      + panelSection('Relationship fit', fitUI.html, true)
       + (kw.length ? panelSection('From your knowledge base', panelChips(kw)) : '')
       + (shared.length ? panelSection('What you share', panelLines(shared)) : '')
-      + panelSection('Recommendation',
-          `<div style="font-size:14.5px;line-height:1.5;color:#2A2724;margin-top:7px;">${esc(fitRecommendation(fit, r))}</div>`);
+      + panelSection('Recommendation', fitUI.recHtml);
+    fitUI.attach(el);
 
     const actions = document.createElement('div');
     actions.style.cssText = 'display:flex;gap:9px;margin-top:20px;';
@@ -952,22 +993,17 @@ async function renderProfileSidebar() {
   const person = { name, title: headline, company,
     text: [sec.about, sec.experience, sec.education, sec.skills].filter(Boolean).join('\n') || profileMainText(),
     sections: sec };
-  const fit = bestFitFromGoals(person, r);
+  const fitUI = buildFitUI(person, r,
+    `<div style="font-size:13px;color:${SUB};margin-top:4px;">${esc(rel.label)} · ${esc(rel.sub)}</div>`);
   const savedMutRaw = (row.context || {}).mutualConnectionsRaw || mutualText();
   const savedLocation = (row.context || {}).location || liveLocation;
   const shared = sharedGround(r, company, sec, savedMutRaw, savedLocation);
   const kw = kbKeywordMatches(r.profile || {}, company, sec);
 
   el.innerHTML =
-    mightyBrandHead(`<span style="font-size:11.5px;font-weight:700;color:#2E8B5F;background:#E6F4EC;padding:4px 11px;border-radius:999px;">Saved</span>`)
+    mightyBrandHead(`<span style="font-size:11.5px;font-weight:700;color:#6FE3A0;background:#173423;padding:4px 11px;border-radius:999px;">Saved</span>`)
     + panelPerson(photo, name, personSub(headline, company))
-    + panelSection('Relationship fit',
-        `<div style="display:flex;align-items:center;gap:9px;margin-top:7px;flex-wrap:wrap;">
-           <span style="width:8px;height:8px;border-radius:50%;flex:none;background:${FIT_DOT[fit.label] || MUTE};"></span>
-           <span style="font-size:17px;font-weight:700;letter-spacing:-.015em;">${esc(fit.label)}</span>
-           ${fitGoalChip(fit)}
-         </div>
-         <div style="font-size:13px;color:${SUB};margin-top:4px;">${esc(rel.label)} · ${esc(rel.sub)}</div>`, true)
+    + panelSection('Relationship fit', fitUI.html, true)
     + (kw.length ? panelSection('From your knowledge base', panelChips(kw)) : '')
     + (shared.length ? panelSection('What you share', panelLines(shared)) : '')
     + panelSection('Where you are',
@@ -975,6 +1011,7 @@ async function renderProfileSidebar() {
            <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:${SUB};">Stage</span><span style="font-weight:700;">${esc(statusLabel)}</span></div>
            <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:${SUB};">Last interaction</span><span style="font-weight:700;">${esc(lastInteractionLabel(row, rowEvents))}</span></div>
          </div>`);
+  fitUI.attach(el);
 
   // Writing and sending happen in the web app, deliberately - the panel's only
   // job is the decision. This button carries the relationship there.
@@ -1238,7 +1275,9 @@ async function renderGoogleImportPanel() {
     const info = document.createElement('div'); info.style.cssText = 'min-width:0;flex:1;';
     info.innerHTML = `<div style="font-weight:700;font-size:12.5px;">${esc(p.name)}</div>`
       + `<div style="font-size:11px;color:#605d5d;line-height:1.3;max-height:28px;overflow:hidden;">${esc(p.title || p.company)}</div>`
-      + (already ? `<div style="font-size:11px;color:${ACCENT_DEEP};font-weight:500;margin-top:2px;">Already in Mighty</div>` : '');
+      // Hardcoded, not ACCENT_DEEP - this panel is still light-themed (only
+      // the profile sidebar went dark), and that constant is dark-mode now.
+      + (already ? `<div style="font-size:11px;color:#4A3FD1;font-weight:500;margin-top:2px;">Already in Mighty</div>` : '');
     row.append(cb, info); list.appendChild(row);
   });
   gPanel.appendChild(list);
