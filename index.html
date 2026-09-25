@@ -238,13 +238,22 @@ function text(id,value){$(id).textContent=value;}
    demo, not real ones, so a stock or AI "photo" would misrepresent an
    invented person as real. DiceBear's own SVGs give each a distinct,
    personal-feeling portrait from their name alone - a name-seeded generator,
-   not a real likeness. Set as a background-image rather than an inserted
-   <img>, so if it's ever unreachable (offline, DiceBear down) the initials
-   underneath still show through exactly as before, no broken-image icon. */
+   not a real likeness. Initials render immediately as a loading state, same
+   as always; the portrait only replaces them once the image has actually
+   finished loading (confirmed via a real Image().onload, not just "the URL
+   was set") - never layered on top of the text, which is what made the
+   first version look broken rather than personal. Falls back to exactly
+   today's initials-only look if DiceBear is ever unreachable. */
 function paintAvatar(node,person){
   node.textContent=person.initials;node.style.backgroundColor=person.color;node.style.color=person.ink;
-  node.style.backgroundImage=`url(https://api.dicebear.com/9.x/notionists-neutral/svg?seed=${encodeURIComponent(person.name)})`;
-  node.style.backgroundSize='cover';node.style.backgroundPosition='center';
+  const url = `https://api.dicebear.com/9.x/notionists-neutral/svg?seed=${encodeURIComponent(person.name)}`;
+  const img = new Image();
+  img.onload = ()=>{
+    node.style.backgroundImage=`url(${url})`;
+    node.style.backgroundSize='cover';node.style.backgroundPosition='center';
+    node.textContent='';
+  };
+  img.src = url;
 }
 function makeNode(tag,cls,value){const node=document.createElement(tag);if(cls)node.className=cls;if(value)node.textContent=value;return node;}
 function renderProfile(animate=false){
