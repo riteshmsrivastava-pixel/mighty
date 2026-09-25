@@ -464,13 +464,22 @@ function ensureSidebar() {
 }
 function esc(s) { return (s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
+// LinkedIn's tab title briefly becomes literally "0 notifications" (or "3
+// notifications") when the notifications panel has focus - profileName()
+// above already dodges this on the live scrape, but a few rows saved before
+// that guard existed still carry it as their stored name/company/title.
+// Filtered again here at display time, so an already-corrupted row stops
+// showing it instead of needing a one-off data fix.
+const JUNK_TEXT = /^\d+\s+notifications?$/i;
+const clean = (s) => (JUNK_TEXT.test(String(s || '').trim()) ? '' : s);
+
 // People already in your network at the same company - the thing LinkedIn never
 // surfaces in the context of your own relationships. Pure local lookup.
 function networkOverlap(log, company) {
   const c = String(company || '').trim().toLowerCase();
   if (!c || c.length < 2) return { count: 0, names: [] };
   const hits = (log || []).filter(r => String(r.company || '').trim().toLowerCase() === c);
-  return { count: hits.length, names: hits.slice(0, 3).map(r => r.name || '').filter(Boolean) };
+  return { count: hits.length, names: hits.slice(0, 3).map(r => clean(r.name) || '').filter(Boolean) };
 }
 /* Real overlap using everything Mighty already knows about the account
    holder, not just what happens to already be in outreach_log. Every line
@@ -745,12 +754,13 @@ function panelLines(list) {
 // LinkedIn headlines usually already contain the company (and often the city),
 // so joining them again reads as a stutter: "Partner at Antler · Antler".
 function personSub(headline, company) {
-  const h = String(headline || '').trim(), c = String(company || '').trim();
+  const h = String(clean(headline) || '').trim(), c = String(clean(company) || '').trim();
   if (!h) return c;
   if (!c || h.toLowerCase().includes(c.toLowerCase())) return h;
   return `${h} · ${c}`;
 }
 function panelPerson(photo, name, sub) {
+  name = clean(name);
   const initials = String(name || '?').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
   return `<div style="display:flex;align-items:center;gap:12px;margin-top:18px;">
       ${photo
@@ -958,9 +968,9 @@ async function renderProfileSidebar() {
   const rowEvents = r.events.filter(e => e.log_id === row.id);
   const next = mightySuggestedNext(row);
   const rel = relationshipWords(row, rowEvents);
-  const name = row.name || liveName;
-  const headline = row.title || liveHeadline;
-  const company = row.company || liveCompany;
+  const name = clean(row.name) || liveName;
+  const headline = clean(row.title) || liveHeadline;
+  const company = clean(row.company) || liveCompany;
   const photo = row.avatar_url || livePhoto;
   const statusLabel = row.status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
