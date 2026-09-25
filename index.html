@@ -243,7 +243,7 @@ function text(id,value){$(id).textContent=value;}
    underneath still show through exactly as before, no broken-image icon. */
 function paintAvatar(node,person){
   node.textContent=person.initials;node.style.backgroundColor=person.color;node.style.color=person.ink;
-  node.style.backgroundImage=`url(https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(person.name)})`;
+  node.style.backgroundImage=`url(https://api.dicebear.com/9.x/notionists-neutral/svg?seed=${encodeURIComponent(person.name)})`;
   node.style.backgroundSize='cover';node.style.backgroundPosition='center';
 }
 function makeNode(tag,cls,value){const node=document.createElement(tag);if(cls)node.className=cls;if(value)node.textContent=value;return node;}
