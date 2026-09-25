@@ -591,6 +591,37 @@ function lastInteractionLabel(row, rowEvents) {
   if (row.contacted_at) return 'Message sent';
   return 'Saved';
 }
+/* Per-goal-type vocabulary: firms and domain language strongly associated
+   with a goal, independent of anything the student typed themselves. Only
+   raise_funding has one today - it's the goal where "name every relevant
+   company in advance" breaks down hardest, since a fundraising target list
+   is really "any investor who'd plausibly write a check," not a short,
+   enumerable set the way employers are for a job search. Extend this object
+   (not fitFromStrategy's logic below) to give another goal type the same
+   treatment later. */
+const GOAL_VOCAB = {
+  raise_funding: {
+    // Well-known venture and growth investors - global names plus an
+    // India-heavy set, matching where this account's own network sits.
+    // Matched against the person's company field the same normalised way
+    // a hand-typed target company is (mightySameCompany), so "Accel"
+    // matches "Accel Partners" or "Accel India" just as a typed target would.
+    firms: ['Accel', 'Sequoia Capital', 'Peak XV Partners', 'Lightspeed', 'Elevation Capital',
+      'Blume Ventures', 'Kalaari Capital', 'Matrix Partners', 'Nexus Venture Partners',
+      'Chiratae Ventures', '3one4 Capital', 'Fireside Ventures', 'Stellaris Venture Partners',
+      'Prime Venture Partners', 'Orios Venture Partners', 'Bessemer Venture Partners',
+      'Tiger Global', 'SoftBank', 'Y Combinator', 'Andreessen Horowitz', 'General Catalyst',
+      'Insight Partners', 'Index Ventures', 'Khosla Ventures', 'Founders Fund', 'Greylock',
+      'Benchmark', 'First Round Capital', 'Redpoint Ventures', 'GV', 'Coatue', 'Thrive Capital'],
+    // Falls back to domain language when the firm itself isn't one we
+    // recognise by name - a smaller or newer fund, a solo angel, a family
+    // office - but the page's own words are still unmistakably investing.
+    terms: ['venture capital', 'venture partner', 'general partner', 'managing partner',
+      'principal', 'angel investor', 'fund manager', 'limited partner', 'vc firm',
+      'portfolio compan', 'early-stage investor', 'early stage investor', 'seed fund',
+      'pre-seed', 'series a', 'series b', 'investment director', 'growth equity', 'private equity'],
+  },
+};
 /* ---------- relationship fit against the student's own strategy ----------
    Local, instant, and never invented: every line traces back to something the
    student told Mighty (goal, target companies, roles, schools, places) matched
@@ -632,22 +663,32 @@ function fitFromStrategy(p, r, goalOverride) {
   }
   const role = find(go.targetRoles || prof.targetRoles);
   if (role) { score += 25; push(`A role you are targeting: ${role}`); }
-  /* For a fundraising goal, "on your target list" - this model's single
-     biggest signal, worth 65 above - almost never fires: nobody raising
-     money has pre-named every VC firm that might write a check, the way a
-     job seeker names every employer they'd take an offer from. Confirmed
-     live: a firm's own Partner, with "Startup investor" in their About text,
-     scored as only a Potential match because their (correct, real) employer
-     just wasn't on a pre-typed list. Investor-sounding titles are a closed,
-     recognisable set regardless of which fund someone is at, so they get
-     their own signal here rather than needing the firm named in advance. */
+  /* "On your target list" - this model's single biggest signal, worth 65
+     above - assumes the student can name every company relevant to the
+     goal in advance, which fits job search (name every employer you'd take
+     an offer from) but not fundraising (nobody pre-names every VC that
+     might write a check). GOAL_VOCAB is the stand-in for that missing list:
+     a curated set of well-known firms and domain language per goal type,
+     independent of anything the student typed. Confirmed live: a Partner
+     at Accel, "Startup investor" in his own About text, scored only a
+     Potential match because Accel just wasn't on a hand-typed list -
+     GOAL_VOCAB.raise_funding.firms recognises the firm by name the same
+     way a typed target would. Keyed by goal type so another goal (sales,
+     mentors) gets its own vocabulary later without touching this logic. */
   const types = go.types || r.goalTypes || [];
-  if (types.includes('raise_funding')) {
+  const vocab = types.map(t => GOAL_VOCAB[t]).find(Boolean);
+  if (vocab) {
     const titleHay = String(p.title || '').toLowerCase();
-    const investorRole = /\b(investor|venture partner|general partner|managing partner|vc|angel investor)\b/i.test(titleHay);
-    const partnerWithContext = /\bpartner\b/i.test(titleHay)
-      && /\b(venture capital|invest(?:s|ing|or)?|portfolio compan|early[- ]stage|seed|pre[- ]seed)\b/i.test(hay);
-    if (investorRole || partnerWithContext) { score += 50; push('Their role looks like an investing one'); }
+    const firmHit = co && vocab.firms.find(f => mightySameCompany(f, co));
+    const termHit = vocab.terms.find(t => hay.includes(t));
+    if (firmHit) {
+      score += 65; push(`${firmHit} is a known name in this space`);
+    } else if (/\b(investor|venture partner|general partner|managing partner|vc|angel investor)\b/.test(titleHay)
+      || (/\bpartner\b/.test(titleHay) && termHit)) {
+      score += 50; push('Their role looks like an investing one');
+    } else if (termHit) {
+      score += 20; push(`Matches the language of your goal: ${termHit}`);
+    }
   }
   // Schools and skills describe the student, not any one goal - shared across
   // every goal the same way the web app's "more" section is account-level.
