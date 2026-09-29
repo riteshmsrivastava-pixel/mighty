@@ -470,12 +470,24 @@ function removeSidebar() {
   sidebarMinimized = false;
 }
 (() => {
-  let lastY = window.scrollY, ticking = false;
-  window.addEventListener('scroll', () => {
+  // LinkedIn's profile page scrolls an inner container, not window/document -
+  // confirmed live: a plain window scroll listener never fired at all, the
+  // panel never budged regardless of scroll direction. 'scroll' does not
+  // bubble, so a bubble-phase listener on window only ever catches the
+  // window's own scroll. Capture phase is different: it fires on the way
+  // down to whatever actually scrolled, window or any inner element, so one
+  // listener on document (capture:true) catches it either way.
+  let lastY = null, ticking = false;
+  const scrollTopOf = (target) => (target === document || target === window)
+    ? (window.scrollY || document.documentElement.scrollTop || 0)
+    : (target.scrollTop || 0);
+  document.addEventListener('scroll', (e) => {
     if (ticking) return;
     ticking = true;
     requestAnimationFrame(() => {
-      const y = window.scrollY, delta = y - lastY;
+      const y = scrollTopOf(e.target);
+      if (lastY === null) lastY = y;
+      const delta = y - lastY;
       // A small dead zone so an inertial wobble at rest doesn't flicker the
       // panel open and shut - only a real, deliberate scroll toggles it.
       if (Math.abs(delta) > 8) {
@@ -485,7 +497,7 @@ function removeSidebar() {
       }
       ticking = false;
     });
-  }, { passive: true });
+  }, { passive: true, capture: true });
 })();
 // Profiles the student skipped - the panel stays out of the way until reload.
 const skippedThisSession = new Set();
