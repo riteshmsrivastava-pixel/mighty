@@ -3931,7 +3931,14 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
         DRAFT_SYSTEM_ONE + " You are asked for several messages at once, one per approach listed below, each using the exact approach id given. Make the messages genuinely distinct in angle and opening line, not five versions of the same message with different greetings."
         + (NEEDS_NOTE ? DRAFT_NOTE_ASK : ''),
         `${draftContext()}\n\nWrite one message for EACH of these approaches, using its exact id:\n${APPROACHES.map(a=>'- '+a.id+': '+a.label+' - '+a.brief).join('\n')}\n\nReturn JSON {"drafts":[{"approach":"(one of the ids above)","subject":"short subject line for email use","message":"the message body"${NEEDS_NOTE?',"note":"the connection request note"':''}}, ... one entry per approach listed, same order]}`,
-        3000, exchangeKey);
+        /* NEEDS_NOTE asks for a note alongside every one of the five
+           messages, not just the messages alone - confirmed live: this
+           started truncating mid-object ("did not come back in the right
+           shape") once that extra content was added on top of the original
+           budget. The server allows up to 4096; raising the ceiling costs
+           nothing when the model finishes early, so there's no reason to
+           run this close to the edge. */
+        NEEDS_NOTE ? 3900 : 3000, exchangeKey);
       const next = {};
       (Array.isArray(out.drafts)?out.drafts:[]).forEach(d=>{
         const id = d && APPROACHES.some(a=>a.id===d.approach) ? d.approach : null;
@@ -3970,7 +3977,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
     try{
       const out = await llmJSON(sb, 'draft_message', DRAFT_SYSTEM_ONE + (NEEDS_NOTE ? DRAFT_NOTE_ASK : ''),
         `${draftContext()}\n\nApproach: ${a.label} - ${a.brief}.\n\nReturn JSON {"subject":"short subject line for email use","message":"the message body"${NEEDS_NOTE?',"note":"the connection request note"':''}}`,
-        800, exchangeKey);
+        NEEDS_NOTE ? 1100 : 800, exchangeKey);
       setDrafts(d=>({...d, [approach]: {message:clean(out.message), original:clean(out.message), subject:clean(out.subject||''), note:NEEDS_NOTE?clean(out.note).slice(0,290):''}}));
       await onUpdate(row, {ai_draft:clean(out.message),
         status: row.status==='prospect'?'ready_to_contact':row.status,
