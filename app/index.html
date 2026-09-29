@@ -3760,7 +3760,8 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
   const [approach,setApproach] = useState(initialApproach);
   const [customBrief,setCustomBrief] = useState('');
   const [drafts,setDrafts] = useState(()=> row.ai_draft
-    ? {[initialApproach]: {message:row.ai_draft, original:row.ai_draft, subject:''}} : {});
+    ? {[initialApproach]: {message:row.ai_draft, original:row.ai_draft, subject:'',
+        note:(ctx.draftNotes&&ctx.draftNotes[initialApproach])||''}} : {});
   const [noteS,setNoteS] = useState(''); const [noteC,setNoteC] = useState(''); const [noteP,setNoteP] = useState('');
   const [justReplied,setJustReplied] = useState(false);
   /* A reply's own event and the stage_change it automatically triggers land
@@ -3942,7 +3943,8 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
       if(first!==approach) setApproach(first);
       await onUpdate(row, {ai_draft: next[first].message,
         status: row.status==='prospect'?'ready_to_contact':row.status,
-        context: {...ctx, exchange: exchangeNo, takes: takes + 1, lastApproach: first, draftExchange: exchangeNo}});
+        context: {...ctx, exchange: exchangeNo, takes: takes + 1, lastApproach: first, draftExchange: exchangeNo,
+          draftNotes: NEEDS_NOTE ? {...(ctx.draftNotes||{}), ...Object.fromEntries(Object.entries(next).map(([id,d])=>[id,d.note||'']))} : ctx.draftNotes}});
       track('drafts_generated', {count: Object.keys(next).length, take: takes + 1, exchange: exchangeNo});
       flash(takes === 0 ? 'Five drafts ready. One Assist covers all ten takes.'
                         : 'Take ' + (takes+1) + ' of ' + TAKE_LIMIT + '. Same Assist.');
@@ -3972,7 +3974,8 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
       setDrafts(d=>({...d, [approach]: {message:clean(out.message), original:clean(out.message), subject:clean(out.subject||''), note:NEEDS_NOTE?clean(out.note):''}}));
       await onUpdate(row, {ai_draft:clean(out.message),
         status: row.status==='prospect'?'ready_to_contact':row.status,
-        context: {...ctx, exchange: exchangeNo, takes: takes + 1, lastApproach: approach, draftExchange: exchangeNo}});
+        context: {...ctx, exchange: exchangeNo, takes: takes + 1, lastApproach: approach, draftExchange: exchangeNo,
+          draftNotes: NEEDS_NOTE ? {...(ctx.draftNotes||{}), [approach]: clean(out.note)} : ctx.draftNotes}});
       track('draft_rewritten', {approach, take: takes + 1, exchange: exchangeNo});
       flash('Take ' + (takes+1) + ' of ' + TAKE_LIMIT + '. Same Assist.');
     }catch(e){ setErr(e.message||String(e)); }
