@@ -50,10 +50,7 @@ h2{font-size:clamp(2.4rem,4.15vw,3.8rem);font-weight:500;letter-spacing:-.055em;
 
 </style>
 <style>
-/* The supplied sheet stays intact. Each example uses a fixed portrait-only
-   crop, with no captions or demographic labels carried into the website. */
-.website-portrait{background-repeat:no-repeat;background-origin:padding-box;background-clip:padding-box}
-.portraits-ready .website-portrait{background-image:url('assets/illustrative-portraits.png');color:transparent!important}
+
 </style>
 
 <style id="mirror-panel">
@@ -422,38 +419,21 @@ function text(id,value){$(id).textContent=value;}
    These are not contact photos, employees, or customer endorsements.
    Keep the supplied sheet unchanged and label the examples visibly above.
    The real app/extension/events avatar components are deliberately untouched. */
-const EXAMPLE_PORTRAITS = Object.freeze({
-  jordan:{x:955,y:192,w:306,h:306},
-  evelyn:{x:1547,y:1010,w:306,h:306},
-  sam:{x:2125,y:600,w:306,h:306},
-  david:{x:2125,y:192,w:306,h:306},
-  priya:{x:377,y:1010,w:306,h:306},
-  fatima:{x:377,y:600,w:306,h:306},
-  aishah:{x:377,y:192,w:306,h:306},
-  daniel:{x:955,y:600,w:306,h:306},
-  thomas:{x:955,y:1010,w:306,h:306},
-  carlos:{x:2125,y:1010,w:306,h:306},
-  sarah:{x:1547,y:192,w:306,h:306},
-  emily:{x:1547,y:600,w:306,h:306},
-});
-const PORTRAIT_SHEET = {width:2816,height:1536,url:'assets/illustrative-portraits.png'};
-const portraitImage = new Image();
-portraitImage.onload=()=>document.documentElement.classList.add('portraits-ready');
-portraitImage.onerror=()=>document.documentElement.classList.remove('portraits-ready');
-portraitImage.src=PORTRAIT_SHEET.url;
+/* A plain person silhouette, not a photo - Jordan/Evelyn/Sam are example
+   people for this demo, not real ones, so a photorealistic image (AI-
+   generated or otherwise) would misrepresent an invented person as real,
+   no matter how clearly it's labelled elsewhere on the page - a realistic
+   face next to a name and role does that work on sight, before anyone
+   reads a caption. Inline SVG, no network request, in each person's own
+   color; unmistakably human, unmistakably not a photo. */
+const PERSON_GLYPH = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:62%;height:62%"><path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.4c-3.3 0-9.8 1.6-9.8 4.9v2.5h19.6v-2.5c0-3.3-6.5-4.9-9.8-4.9z"/></svg>';
 function paintAvatar(node,person){
-  // Initials remain a legible fallback until the local image loads successfully.
-  node.textContent=person.initials;node.style.backgroundColor=person.color;node.style.color=person.ink;
+  node.textContent='';node.style.backgroundColor=person.color;node.style.color=person.ink;
   node.style.display='flex';node.style.alignItems='center';node.style.justifyContent='center';
-  const crop=EXAMPLE_PORTRAITS[person.id];
-  node.classList.toggle('website-portrait',!!crop);
+  node.innerHTML=PERSON_GLYPH;
   node.setAttribute('role','img');
-  node.setAttribute('aria-label',person.name+' — fictional example'+(crop?', AI-generated illustrative portrait':''));
-  node.title=person.name+' · Fictional profile'+(crop?' · AI-generated portrait':'');
-  if(!crop){node.removeAttribute('data-portrait');node.style.backgroundSize='';node.style.backgroundPosition='';return;}
-  node.dataset.portrait=person.id;
-  node.style.backgroundSize=(PORTRAIT_SHEET.width/crop.w*100)+'% '+(PORTRAIT_SHEET.height/crop.h*100)+'%';
-  node.style.backgroundPosition=(crop.x/(PORTRAIT_SHEET.width-crop.w)*100)+'% '+(crop.y/(PORTRAIT_SHEET.height-crop.h)*100)+'%';
+  node.setAttribute('aria-label',person.name+' — fictional example');
+  node.title=person.name+' · Fictional profile';
 }
 function makeNode(tag,cls,value){const node=document.createElement(tag);if(cls)node.className=cls;if(value)node.textContent=value;return node;}
 function renderProfile(animate=false){
