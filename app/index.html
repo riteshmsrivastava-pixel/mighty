@@ -3909,7 +3909,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
   const NEEDS_NOTE = row.status==='prospect' || row.status==='ready_to_contact';
 
   const DRAFT_SYSTEM_ONE = "You write a real first outreach message for a professional. Ground it ONLY in the given context - never invent shared history, mutual friends, articles or events. Sound like a person, not a template. Start with a short salutation line by itself, like 'Hi Name,' - then a blank line - then the body. No flattery, no buzzwords, no 'I hope this finds you well', no generic filler greeting sentence before the real content ('Greeting for the day', 'Hope you're doing well', or similar - after the salutation line, go straight into the actual reason for writing, no throat-clearing sentence first). Under 110 words. Ask for one specific, easy thing. Never use em dashes; write a spaced hyphen instead.";
-  const DRAFT_NOTE_ASK = " Also write a separate LinkedIn CONNECTION REQUEST NOTE for the same approach - this rides along with the Connect button, before they've accepted, so it is not the message itself. LinkedIn's limit is 300 characters - use nearly all of it, aim for 270 to 295 characters including the greeting, not a terse one-liner. This has to actually earn a reply, so build it in this order: (1) 'Hi Name,' (2) a real credibility signal - who you are and why this is a genuine ask, not a pitch; (3) the specific topic in concrete terms, never a vague buzzword phrase; (4) one sentence tying it to something specific about THEM - their actual role or work, not generic flattery; (5) close on one small, concrete, low-friction ask with a specific unit (a 15-minute call, a short chat) - never a vague 'open to connecting?' that gives them nothing to say yes to. No sign-off, no throat-clearing, never pad with filler just to hit the count - every sentence earns its place, there should be real content, not just a longer version of a one-liner.";
+  const DRAFT_NOTE_ASK = " Also write a separate LinkedIn CONNECTION REQUEST NOTE for the same approach - this rides along with the Connect button, before they've accepted, so it is not the message itself. Stay under 290 characters total including the greeting (LinkedIn's own limit is 300; this app enforces 290), but use nearly all of that room - aim for 260 to 285 characters, not a terse one-liner. This has to actually earn a reply, so build it in this order: (1) 'Hi Name,' (2) a real credibility signal - who you are and why this is a genuine ask, not a pitch; (3) the specific topic in concrete terms, never a vague buzzword phrase; (4) one sentence tying it to something specific about THEM - their actual role or work, not generic flattery; (5) close on one small, concrete, low-friction ask with a specific unit (a 15-minute call, a short chat) - never a vague 'open to connecting?' that gives them nothing to say yes to. No sign-off, no throat-clearing, never pad with filler just to hit the count - every sentence earns its place, there should be real content, not just a longer version of a one-liner.";
   const draftContext = ()=>
     `The sender:\n${strategyBrief(settings)}\n\nThe recipient:\nName: ${row.name||''}\nHeadline: ${row.title||''}\nCompany: ${row.company||''}\nWhy the sender saved them: ${ctx.whySaved||'unknown'}\nShared ground: ${((br.shared&&br.shared.length?br.shared:ctx.common)||[]).join('; ')||'none confirmed'}\nBrief: ${(br.insights&&br.insights.length)?br.insights.join('. '):'none'}\nThings the sender has learned about them: ${memories.map(m=>m.value).join('; ')||'nothing captured yet'}\n${captured||''}${voice.length ? '\n\nHOW THIS SENDER ACTUALLY WRITES.'
       + (fp ? ' Measured across all '+fp.sampleCount+' of their sent messages on file, they '+styleFingerprintLine(fp)+'.' : '')
@@ -3935,7 +3935,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
       const next = {};
       (Array.isArray(out.drafts)?out.drafts:[]).forEach(d=>{
         const id = d && APPROACHES.some(a=>a.id===d.approach) ? d.approach : null;
-        if(id && clean(d.message)) next[id] = {message:clean(d.message), original:clean(d.message), subject:clean(d.subject||''), note:NEEDS_NOTE?clean(d.note).slice(0,300):''};
+        if(id && clean(d.message)) next[id] = {message:clean(d.message), original:clean(d.message), subject:clean(d.subject||''), note:NEEDS_NOTE?clean(d.note).slice(0,290):''};
       });
       if(!Object.keys(next).length) throw new Error('That did not come back in the right shape - try again.');
       setDrafts(next);
@@ -3971,7 +3971,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
       const out = await llmJSON(sb, 'draft_message', DRAFT_SYSTEM_ONE + (NEEDS_NOTE ? DRAFT_NOTE_ASK : ''),
         `${draftContext()}\n\nApproach: ${a.label} - ${a.brief}.\n\nReturn JSON {"subject":"short subject line for email use","message":"the message body"${NEEDS_NOTE?',"note":"the connection request note"':''}}`,
         800, exchangeKey);
-      setDrafts(d=>({...d, [approach]: {message:clean(out.message), original:clean(out.message), subject:clean(out.subject||''), note:NEEDS_NOTE?clean(out.note).slice(0,300):''}}));
+      setDrafts(d=>({...d, [approach]: {message:clean(out.message), original:clean(out.message), subject:clean(out.subject||''), note:NEEDS_NOTE?clean(out.note).slice(0,290):''}}));
       await onUpdate(row, {ai_draft:clean(out.message),
         status: row.status==='prospect'?'ready_to_contact':row.status,
         context: {...ctx, exchange: exchangeNo, takes: takes + 1, lastApproach: approach, draftExchange: exchangeNo,
@@ -4445,11 +4445,11 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                   <div style={{position:'relative',marginTop:20}}>
                     <div className="row" style={{justifyContent:'space-between',alignItems:'baseline'}}>
                       <div className="lbl">Connection request note</div>
-                      <div className="meta">{drafts[approach].note.length}/300</div>
+                      <div className="meta">{drafts[approach].note.length}/290</div>
                     </div>
                     <textarea className="inp" style={{minHeight:80,fontSize:15,lineHeight:1.6,
                       padding:'14px 16px',background:'var(--paper)',marginTop:6}}
-                      value={drafts[approach].note} maxLength={300}
+                      value={drafts[approach].note} maxLength={290}
                       onChange={e=>{ const v=e.target.value; setDrafts(d=>({...d, [approach]: {...d[approach], note:v}})); }}/>
                     <div className="row" style={{gap:12,marginTop:10}}>
                       <button className="btn sm" onClick={()=>copyAndOpen('note')}>Copy &amp; open LinkedIn</button>
