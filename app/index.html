@@ -3982,14 +3982,21 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
     setBusy(null);
   }
 
-  async function copyAndOpen(){
+  /* kind='note' copies the short connect-request note; kind='message' (the
+     default, matching every call site before this existed) copies the full
+     message. Whichever one is actually sent first - the note, when there is
+     one, since that's what goes out before they've even accepted - is what
+     should flip status to contacted, not the message specifically. */
+  async function copyAndOpen(kind){
     const cur = drafts[approach] || {};
-    const text = cur.message || '';
+    const text = kind==='note' ? (cur.note||'') : (cur.message||'');
     /* Whether this was sent unedited or heavily rewritten is exactly the
        signal the behavioral graph needs - not to judge the message, but so a
        later reply (markReplied) can be attributed to what was actually sent,
-       edited or not, rather than to whatever the model first proposed. */
-    const edited = !!cur.original && text.trim() !== cur.original.trim();
+       edited or not, rather than to whatever the model first proposed. Not
+       tracked for the note - there is no separate "original note" to diff
+       against, and it is not what markReplied attributes a reply to. */
+    const edited = kind==='note' ? false : (!!cur.original && text.trim() !== cur.original.trim());
     try{ await navigator.clipboard.writeText(text); }catch(e){}
     window.open(row.profile_url, '_blank', 'noopener');
     /* Only the very first outreach auto-transitions the stage. But every send
@@ -4004,8 +4011,9 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
       await onEvent(row, 'note', 'Sent: '+text.slice(0,380));
     }
     await onUpdate(row, {context:{...ctx, lastApproach:approach, lastEdited:edited}});
-    track('draft_copied', {stage: row.status, approach, edited});
-    flash('Copied. Paste it, read it once more, then click Send yourself.');
+    track('draft_copied', {stage: row.status, approach, edited, kind});
+    flash(kind==='note' ? 'Note copied. Paste it into the Connect request, then send.'
+                        : 'Copied. Paste it, read it once more, then click Send yourself.');
   }
 
   async function saveCapture(){
@@ -4444,8 +4452,9 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                       value={drafts[approach].note} maxLength={300}
                       onChange={e=>{ const v=e.target.value; setDrafts(d=>({...d, [approach]: {...d[approach], note:v}})); }}/>
                     <div className="row" style={{gap:12,marginTop:10}}>
+                      <button className="btn sm" onClick={()=>copyAndOpen('note')}>Copy &amp; open LinkedIn</button>
                       <button className="btn g sm" onClick={()=>{ navigator.clipboard.writeText(drafts[approach].note).catch(()=>{}); flash('Note copied'); }}>
-                        Copy note
+                        Copy note only
                       </button>
                     </div>
                     <div className="hint" style={{marginTop:8}}>
@@ -4461,7 +4470,7 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                   value={drafts[approach].message}
                   onChange={e=>{ const v=e.target.value; setDrafts(d=>({...d, [approach]: {...d[approach], message:v}})); }}/>
                 <div className="row" style={{position:'relative',gap:12,marginTop:16,flexWrap:'wrap',alignItems:'center'}}>
-                  <button className="btn" onClick={copyAndOpen}>Copy &amp; open LinkedIn</button>
+                  <button className="btn" onClick={()=>copyAndOpen('message')}>Copy &amp; open LinkedIn</button>
                   <button className="btn g" onClick={regenerateOne}
                     disabled={(!!busy && busy!=='draft')||takesLeft<=0}>
                     {busy==='draft'?<span><span className="spin"/> Writing</span>
