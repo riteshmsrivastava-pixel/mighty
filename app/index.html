@@ -4393,10 +4393,10 @@ function Profile({sb, row, events, tasks, settings, people, onBack, onUpdate, on
                  so it reads as "Saved draft" rather than guessing one. */}
               <span className="meta" style={{marginLeft:'auto'}}>
                 {!drafts[approach]
-                  ? 'Context: ' + (exchangeNo>1 ? 'their reply' : 'first outreach') + ' · 1 Assist'
+                  ? 'Context: ' + (exchangeNo>1 ? 'their reply' : 'before their reply') + ' · 1 Assist'
                   : ctx.draftExchange==null ? 'Saved draft'
                   : ctx.draftExchange>1 ? 'Reply draft'
-                  : 'Saved draft · First outreach'}
+                  : 'Pre-reply draft'}
               </span>
             </div>
 
