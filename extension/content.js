@@ -470,7 +470,10 @@ function removeSidebar() {
   sidebarMinimized = false;
 }
 (() => {
-  console.log('[MIGHTY DEBUG] scroll-minimize IIFE running');
+  // TEMPORARY: console.log from this isolated-world content script isn't
+  // reaching page-console readers, so state is written into document.body's
+  // dataset instead - readable from the page's own JS context for debugging.
+  document.body.dataset.mightyDebugIife = 'ran-' + Date.now();
   // LinkedIn's profile page scrolls an inner container, not window/document -
   // confirmed live: a plain window scroll listener never fired at all, the
   // panel never budged regardless of scroll direction. 'scroll' does not
@@ -483,14 +486,16 @@ function removeSidebar() {
     ? (window.scrollY || document.documentElement.scrollTop || 0)
     : (target.scrollTop || 0);
   document.addEventListener('scroll', (e) => {
-    console.log('[MIGHTY DEBUG] scroll event', e.target && (e.target.id || e.target.tagName));
+    document.body.dataset.mightyDebugScrollCount = String((Number(document.body.dataset.mightyDebugScrollCount) || 0) + 1);
+    document.body.dataset.mightyDebugTarget = (e.target && (e.target.id || e.target.tagName)) || 'unknown';
     if (ticking) return;
     ticking = true;
     requestAnimationFrame(() => {
       const y = scrollTopOf(e.target);
       if (lastY === null) lastY = y;
       const delta = y - lastY;
-      console.log('[MIGHTY DEBUG] delta', delta, 'minimized', sidebarMinimized);
+      document.body.dataset.mightyDebugDelta = String(delta);
+      document.body.dataset.mightyDebugMinimized = String(sidebarMinimized);
       // A small dead zone so an inertial wobble at rest doesn't flicker the
       // panel open and shut - only a real, deliberate scroll toggles it.
       if (Math.abs(delta) > 8) {
