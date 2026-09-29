@@ -436,6 +436,57 @@ const FIT_DOT = {'Excellent match':'#8A7AF0','Strong match':'#4FBE84','Potential
 // Two-overlapping-circles brand mark, inline so it needs no web-accessible asset.
 const MARK_SVG = '<svg width="20" height="20" viewBox="0 0 26 26" fill="none" style="display:block;flex:none"><circle cx="9.5" cy="13" r="7.5" fill="#5B4FE9"></circle><circle cx="16.5" cy="13" r="7.5" fill="#E87A56" fill-opacity="0.85"></circle></svg>';
 let sidebarEl = null;
+// A floating panel over the profile you're reading blocks real content once
+// you scroll down to actually read it - shrinks to a small tap-to-reopen
+// bubble on scroll-down, and reopens itself on scroll-up (the direction that
+// means "I'm heading back to the top, probably want the panel again"), so it
+// costs no clicks in the common case either way.
+let sidebarMinimized = false;
+let minimizedBubble = null;
+function ensureMinimizedBubble() {
+  if (minimizedBubble && document.body.contains(minimizedBubble)) return minimizedBubble;
+  minimizedBubble = document.createElement('div');
+  minimizedBubble.id = 'mighty-minimized-bubble';
+  minimizedBubble.title = 'Mighty - click to expand';
+  minimizedBubble.style.cssText = 'position:fixed;top:70px;right:16px;width:48px;height:48px;border-radius:50%;'
+    + 'display:none;align-items:center;justify-content:center;cursor:pointer;z-index:99998;'
+    + 'background:#201B27;border:1px solid #44384F;box-shadow:0 8px 24px rgba(0,0,0,.4);';
+  minimizedBubble.innerHTML = MARK_SVG;
+  minimizedBubble.onclick = () => setSidebarMinimized(false);
+  document.body.appendChild(minimizedBubble);
+  return minimizedBubble;
+}
+// No-op with no panel currently on screen (search pages, a skipped profile) -
+// scrolling there has nothing to shrink or reopen.
+function setSidebarMinimized(min) {
+  if (!sidebarEl || !document.body.contains(sidebarEl)) return;
+  sidebarMinimized = min;
+  sidebarEl.style.display = min ? 'none' : 'block';
+  ensureMinimizedBubble().style.display = min ? 'flex' : 'none';
+}
+function removeSidebar() {
+  if (sidebarEl) { sidebarEl.remove(); sidebarEl = null; }
+  if (minimizedBubble) { minimizedBubble.remove(); minimizedBubble = null; }
+  sidebarMinimized = false;
+}
+(() => {
+  let lastY = window.scrollY, ticking = false;
+  window.addEventListener('scroll', () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      const y = window.scrollY, delta = y - lastY;
+      // A small dead zone so an inertial wobble at rest doesn't flicker the
+      // panel open and shut - only a real, deliberate scroll toggles it.
+      if (Math.abs(delta) > 8) {
+        if (delta > 0 && !sidebarMinimized) setSidebarMinimized(true);
+        else if (delta < 0 && sidebarMinimized) setSidebarMinimized(false);
+        lastY = y;
+      }
+      ticking = false;
+    });
+  }, { passive: true });
+})();
 // Profiles the student skipped - the panel stays out of the way until reload.
 const skippedThisSession = new Set();
 // Profiles we've already auto-enriched this browsing session, so viewing the
@@ -928,10 +979,10 @@ function renderNearby(el, r, selfUrl) {
 }
 
 async function renderProfileSidebar() {
-  if (!PROFILE_PAGE_RE.test(location.pathname)) { if (sidebarEl) { sidebarEl.remove(); sidebarEl = null; } return; }
+  if (!PROFILE_PAGE_RE.test(location.pathname)) { removeSidebar(); return; }
   const profileUrl = normProfileUrl(location.href);
   const gen = navGen; // this render belongs to whichever navigation is current right now
-  if (skippedThisSession.has(profileUrl)) { if (sidebarEl) { sidebarEl.remove(); sidebarEl = null; } return; }
+  if (skippedThisSession.has(profileUrl)) { removeSidebar(); return; }
   const r = await fetchLogCached();
   if (navStale(gen, profileUrl)) return; // student already moved to a different profile
   if (!r || !r.ok) return;
@@ -952,7 +1003,7 @@ async function renderProfileSidebar() {
   const isSelfByUrl = r.selfProfileUrl && profileUrl === normProfileUrl(r.selfProfileUrl);
   const isSelfByName = r.selfName && profileName().trim().toLowerCase() === r.selfName.trim().toLowerCase();
   if (isSelfByUrl || isSelfByName) {
-    if (sidebarEl) { sidebarEl.remove(); sidebarEl = null; }
+    removeSidebar();
     if (!r.hasSelfAvatar && !selfPhotoSentThisSession) {
       selfPhotoSentThisSession = true;
       const avatarData = await profilePhotoDataUrl();
@@ -993,7 +1044,7 @@ async function renderProfileSidebar() {
     const skip = document.createElement('button');
     skip.textContent = 'Skip';
     skip.style.cssText = pbtn('', 'ghost');
-    skip.onclick = () => { skippedThisSession.add(profileUrl); el.remove(); sidebarEl = null; };
+    skip.onclick = () => { skippedThisSession.add(profileUrl); removeSidebar(); };
     const save = document.createElement('button');
     save.textContent = 'Save';
     save.style.cssText = pbtn('', 'primary');
