@@ -470,6 +470,7 @@ function removeSidebar() {
   sidebarMinimized = false;
 }
 (() => {
+  console.log('[MIGHTY DEBUG] scroll-minimize IIFE running');
   // LinkedIn's profile page scrolls an inner container, not window/document -
   // confirmed live: a plain window scroll listener never fired at all, the
   // panel never budged regardless of scroll direction. 'scroll' does not
@@ -482,12 +483,14 @@ function removeSidebar() {
     ? (window.scrollY || document.documentElement.scrollTop || 0)
     : (target.scrollTop || 0);
   document.addEventListener('scroll', (e) => {
+    console.log('[MIGHTY DEBUG] scroll event', e.target && (e.target.id || e.target.tagName));
     if (ticking) return;
     ticking = true;
     requestAnimationFrame(() => {
       const y = scrollTopOf(e.target);
       if (lastY === null) lastY = y;
       const delta = y - lastY;
+      console.log('[MIGHTY DEBUG] delta', delta, 'minimized', sidebarMinimized);
       // A small dead zone so an inertial wobble at rest doesn't flicker the
       // panel open and shut - only a real, deliberate scroll toggles it.
       if (Math.abs(delta) > 8) {
